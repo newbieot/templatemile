@@ -176,19 +176,15 @@
             <div class="card">
                 <div class="card-header">🏢 Data Kontrak Pengirim</div>
                 <div class="grid-2">
-                    <div class="form-group">
+                    <div class="form-group full-width">
                         <label>ID Pelanggan (Account No):</label>
                         <input type="text" id="customerId" value="FINTOYOTA02294A">
                     </div>
-                    <div class="form-group" id="wrapSenderName">
+                    <div class="form-group full-width" id="wrapSenderName">
                         <label>Nama Pengirim:</label>
                         <input type="text" id="senderName" value="TOYOTA BATAM">
                     </div>
-                    <div class="form-group full-width" id="wrapSenderAddress">
-                        <label>Alamat Lengkap Pengirim:</label>
-                        <input type="text" id="senderAddress" value="RUKO KEPRI MALL NO 47">
                     </div>
-                </div>
             </div>
 
             <div class="card">
@@ -228,7 +224,7 @@
 
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
-                *Klik pada teks di dalam tabel untuk memperbaiki data (jika ada *typo* dari AI).
+                *Klik pada teks di dalam tabel untuk memperbaiki data (jika ada *typo*). Data bebas spesial karakter.
             </div>
             <div class="table-container">
                 <table id="resultTable">
@@ -245,28 +241,22 @@
     <script>
         let uploadedFilesManager = [];
 
-        // Inisiasi awal
         document.addEventListener("DOMContentLoaded", () => {
             updateTableHeaders();
             updateInterface();
         });
 
-        // HANDLE MODE CHANGE
         function handleModeChange() {
             const mode = document.getElementById('clientMode').value;
             const sNameWrap = document.getElementById('wrapSenderName');
-            const sAddrWrap = document.getElementById('wrapSenderAddress');
 
             if (mode === 'PN_BATAM') {
-                sNameWrap.style.display = 'none'; // Pengirim akan otomatis pakai No Surat
-                sAddrWrap.style.display = 'none'; // Alamat pengirim diabaikan
+                sNameWrap.style.display = 'none'; // Pengirim pakai No Surat
                 document.getElementById('itemType').value = 'DOKUMEN';
             } else {
                 sNameWrap.style.display = 'block';
-                sAddrWrap.style.display = 'block';
             }
 
-            // Bersihkan antrean jika ganti mode
             uploadedFilesManager = [];
             updateTableHeaders();
             updateInterface();
@@ -292,7 +282,7 @@
             }
         }
 
-        // DRAG & DROP SETUP
+        // DRAG & DROP
         const dropzone = document.getElementById('dropzone');
         ['dragenter', 'dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.add('dragover'); }));
         ['dragleave', 'drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
@@ -305,16 +295,18 @@
             document.getElementById('excelInput').value = "";
         }
 
-        // FUNGSI PEMBERSIH TEKS
+        // FUNGSI PEMBERSIH TEKS MUTLAK
         function cleanArtifacts(text) {
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
+            // Mutlak hanya huruf, angka, dan spasi (Tidak ada spesial karakter)
             return str.replace(/[^A-Za-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
-        function cleanReference(text) { // Khusus No Surat (mempertahankan / dan -)
+        function cleanReference(text) { 
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
+            // Ref No diizinkan karakter khusus agar nomor surat tidak rusak
             return str.replace(/[^A-Za-z0-9\s/\-.,]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
@@ -336,12 +328,11 @@
                 let extractedRows = [];
 
                 if (jsonData.length > 0) {
-                    for (let i = 1; i < jsonData.length; i++) { // Skip header index 0
+                    for (let i = 1; i < jsonData.length; i++) { 
                         let row = jsonData[i];
                         if (!row || row.length === 0) continue;
 
                         if (isPN) {
-                            // Asumsi format CSV PN Batam: [0] No Surat, [1] Nama, [2] Alamat
                             let cleanSurat = cleanReference(row[0] || "");
                             let cleanName = cleanArtifacts(row[1] || "");
                             let cleanAddress = cleanArtifacts(row[2] || "");
@@ -349,12 +340,10 @@
                             if (!cleanName && !cleanAddress && !cleanSurat) continue;
                             extractedRows.push({ noSurat: cleanSurat, name: cleanName, address: cleanAddress });
                         } else {
-                            // Asumsi Standar 3 Kolom atau Deteksi Manual
                             let cleanName = cleanArtifacts(row[0] || "");
                             let cleanAddress = cleanArtifacts(row[1] || "");
                             let cleanPhone = cleanPhoneNumber("0");
 
-                            // Fallback jika file punya format spesifik (bisa disesuaikan lebih jauh)
                             if(row.length >= 3 && isNaN(parseInt(row[0]))) {
                                 cleanName = cleanArtifacts(row[0]);
                                 cleanAddress = cleanArtifacts(row[2] || row[1]); 
@@ -427,7 +416,7 @@
             }
         }
 
-        // EXPORT FINAL (BACA DARI TABEL UI AGAR PERUBAHAN TERSIMPAN)
+        // EXPORT FINAL
         function downloadFinalExcel() {
             const rows = document.querySelectorAll('#resultTable tbody tr');
             if (rows.length === 0 || rows[0].querySelector('input') === null) {
@@ -435,37 +424,51 @@
             }
 
             const isPN = document.getElementById('clientMode').value === 'PN_BATAM';
-            const customerId = document.getElementById('customerId').value.toUpperCase().trim();
+            const customerId = cleanArtifacts(document.getElementById('customerId').value);
             const serviceCode = document.getElementById('serviceCode').value.toUpperCase();
             const tariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
             const itemType = document.getElementById('itemType').value.toUpperCase();
             
-            const sNameRaw = document.getElementById('senderName').value.toUpperCase();
-            const sAddrRaw = document.getElementById('senderAddress').value.toUpperCase();
-
+            // Logika Pintar untuk Nama dan Alamat Pengirim
+            let baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
+            
             let finalExportRows = [];
 
             rows.forEach((tr, index) => {
                 let inputs = tr.querySelectorAll('input.table-input');
                 let dName, dAddress, dPhone, dNoSurat;
-
+                
+                // Ambil Data Editable Setelah User Mengubahnya di UI
                 if (isPN) {
-                    dNoSurat = inputs[0].value.toUpperCase();
-                    dName = inputs[1].value.toUpperCase();
-                    dAddress = inputs[2].value.toUpperCase();
+                    dNoSurat = cleanReference(inputs[0].value);
+                    dName = cleanArtifacts(inputs[1].value);
+                    dAddress = cleanArtifacts(inputs[2].value);
                     dPhone = "0";
                 } else {
                     dNoSurat = "";
-                    dName = inputs[0].value.toUpperCase();
-                    dPhone = inputs[1].value.toUpperCase();
-                    dAddress = inputs[2].value.toUpperCase();
+                    dName = cleanArtifacts(inputs[0].value);
+                    dPhone = cleanPhoneNumber(inputs[1].value);
+                    dAddress = cleanArtifacts(inputs[2].value);
                 }
 
-                // Logika Penimpaan untuk Mode PN Batam
-                let senderNameFinal = isPN ? dNoSurat : sNameRaw;
-                let senderAddrFinal = isPN ? "" : sAddrRaw;
-                let refNoFinal = isPN ? dNoSurat : "";
-                let koliDescFinal = isPN ? dNoSurat : itemType;
+                // Kalkulasi Dinamis Pengirim Sesuai Aturan: Nama + BATAM (Hindari Redundan)
+                let senderNameFinal, senderAddrFinal, refNoFinal, koliDescFinal;
+
+                if (isPN) {
+                    // Untuk PN BATAM: Nama Pengirim pakai No Surat bersih (tanpa spesial karakter)
+                    senderNameFinal = cleanArtifacts(dNoSurat); 
+                    senderAddrFinal = "PENGADILAN NEGERI BATAM";
+                    refNoFinal = dNoSurat; // RefNo tetap simpan karakter spesial untuk tracking
+                    koliDescFinal = dNoSurat;
+                } else {
+                    senderNameFinal = baseSenderName;
+                    senderAddrFinal = baseSenderName;
+                    if (!senderAddrFinal.endsWith("BATAM")) {
+                        senderAddrFinal += " BATAM";
+                    }
+                    refNoFinal = "";
+                    koliDescFinal = itemType;
+                }
 
                 finalExportRows.push({
                     "connote_code": index + 1,
@@ -493,7 +496,7 @@
                     "ref_no": refNoFinal,
                     "Jenis_Barang": itemType, 
                     "statusRetur": "Kembali ke pengirim",
-                    "INS": "" 
+                    "INS": "" // Sengaja di set string kosong mutlak
                 });
             });
 
@@ -501,7 +504,7 @@
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             
-            // Penguncian Format Kolom HP agar tidak kehilangan angka 0
+            // Set Nomor Telepon Ke String Murni agar '0' di depan tidak hilang
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             for (let R = range.s.r + 1; R <= range.e.r; ++R) {
                 let cell_sender_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 3})];
