@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Converter Excel - PosIND Korporat</title>
+    <title>Converter Excel - PosIND Korporat Dashboard</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -11,7 +11,8 @@
             --pos-dark: #1a1a1a;
             --pos-light-grey: #f8f9fa;
             --pos-border: #dcdcdc;
-            --pos-success: #2e7d32;
+            --pos-danger: #dc3545;
+            --pos-danger-hover: #bd2130;
         }
 
         * {
@@ -30,7 +31,7 @@
             overflow: hidden;
         }
 
-        /* HEADER DENGAN DUAL LOGO SESUAI PEDOMAN */
+        /* DUAL LOGO HEADER SESUAI PEDOMAN POSIND */
         header {
             background-color: white;
             border-bottom: 3px solid var(--pos-orange);
@@ -73,7 +74,7 @@
             object-fit: contain;
         }
 
-        /* LAYOUT DASHBOARD: ANTI-SCROLL */
+        /* CONTAINER UTAMA DASHBOARD ANTI-SCROLL */
         .dashboard-container {
             display: flex;
             flex: 1;
@@ -82,18 +83,18 @@
             gap: 15px;
         }
 
-        /* PANEL KIRI: INPUT & SETUP */
+        /* LEFT WORKSPACE PANEL */
         .panel-left {
-            width: 38%;
+            width: 40%;
             display: flex;
             flex-direction: column;
             gap: 12px;
             overflow-y: auto;
         }
 
-        /* PANEL KANAN: WORKSPACE & PREVIEW */
+        /* RIGHT WORKSPACE PANEL */
         .panel-right {
-            width: 62%;
+            width: 60%;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -109,7 +110,7 @@
         }
 
         .card-header {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: var(--pos-dark);
             border-left: 4px solid var(--pos-orange);
@@ -125,7 +126,7 @@
         }
 
         .form-group {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .form-group.full-width {
@@ -134,13 +135,13 @@
 
         label {
             display: block;
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             font-weight: 700;
             color: #555;
             margin-bottom: 4px;
         }
 
-        input[type="text"], select, input[type="file"] {
+        input[type="text"], select {
             width: 100%;
             padding: 8px 10px;
             border: 1px solid var(--pos-border);
@@ -161,43 +162,103 @@
             text-transform: uppercase;
         }
 
-        /* BUTTONS */
-        button {
+        /* DRAG AND DROP CONTAINER STYLING */
+        .dropzone-area {
+            border: 2px dashed var(--pos-orange);
+            background-color: rgba(242, 101, 34, 0.02);
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .dropzone-area.dragover {
+            background-color: rgba(242, 101, 34, 0.08);
+            border-color: var(--pos-dark);
+        }
+
+        .dropzone-area p {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #444;
+        }
+
+        .dropzone-area span {
+            font-size: 0.75rem;
+            color: #777;
+            display: block;
+            margin-top: 4px;
+        }
+
+        /* MANAGED FILE LIST QUEUE UI */
+        .file-queue-container {
+            margin-top: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+            border: 1px solid var(--pos-border);
+            border-radius: 4px;
+            background-color: var(--pos-light-grey);
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.78rem;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--pos-dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 75%;
+        }
+
+        .btn-delete-file {
+            background-color: var(--pos-danger);
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .btn-delete-file:hover {
+            background-color: var(--pos-danger-hover);
+        }
+
+        /* EXPORT CONTROL ACTION BUTTONS */
+        .btn-accent {
             width: 100%;
-            padding: 10px;
+            background-color: var(--pos-orange);
+            color: white;
+            padding: 12px;
             border: none;
             border-radius: 5px;
             font-size: 0.9rem;
             font-weight: 700;
             cursor: pointer;
             transition: background 0.2s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background-color: var(--pos-dark);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #333;
-        }
-
-        .btn-accent {
-            background-color: var(--pos-orange);
-            color: white;
-            margin-top: auto;
-            padding: 12px;
+            box-shadow: 0 2px 4px rgba(242, 101, 34, 0.2);
+            flex-shrink: 0;
         }
 
         .btn-accent:hover {
             background-color: #d1551c;
         }
 
-        /* TABLE PREVIEW CONTAINER */
+        /* DATA PREVIEW TABLE ARCHITECTURE */
         .table-container {
             flex: 1;
             overflow-y: auto;
@@ -228,7 +289,7 @@
 
         th {
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             letter-spacing: 0.3px;
         }
 
@@ -301,12 +362,21 @@
                 </div>
             </div>
 
-            <div class="card" style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                <div class="card-header" style="margin-bottom: 8px;">📂 Input Data Mentah</div>
-                <div class="form-group">
-                    <input type="file" id="excelInput" accept=".xlsx, .xls, .csv">
+            <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+                <div class="card-header">📂 Input Berkas Mentah (Multi-File Drop)</div>
+                
+                <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
+                    <p>Seret & Jatuhkan File Excel/CSV di Sini</p>
+                    <span>atau klik untuk memilih berkas dari komputer</span>
+                    <input type="file" id="excelInput" accept=".xlsx, .xls, .csv" multiple style="display: none;" onchange="handleFileSelection(this.files)">
                 </div>
-                <button class="btn-primary" onclick="processRawExcel()" style="margin-top: 10px;">⚙️ BERSIHKAN & VALIDASI DATA</button>
+
+                <label style="margin-top: 12px;">Antrean Berkas Terupload:</label>
+                <div class="file-queue-container" id="fileQueue">
+                    <div style="text-align: center; color: #888; font-size: 0.75rem; padding: 15px; font-style: italic;">
+                        Belum ada berkas dalam antrean.
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -315,15 +385,16 @@
                 <table id="resultTable">
                     <thead>
                         <tr>
-                            <th style="width: 8%; text-align: center;">NO</th>
-                            <th style="width: 32%;">NAMA PENERIMA</th>
-                            <th style="width: 60%;">ALAMAT PENERIMA MASUK SISTEM</th>
+                            <th style="width: 6%; text-align: center;">NO</th>
+                            <th style="width: 28%;">NAMA PENERIMA</th>
+                            <th style="width: 18%;">NO HP PENERIMA</th>
+                            <th style="width: 48%;">ALAMAT PENERIMA MASUK SISTEM</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="3" style="text-align: center; color: #888; padding: 40px; font-style: italic;">
-                                Belum ada file yang diupload. Silakan pilih berkas di panel kiri.
+                            <td colspan="4" style="text-align: center; color: #888; padding: 40px; font-style: italic;">
+                                Belum ada data berkas yang diproses. Tarik file Excel ke panel kiri untuk memulai.
                             </td>
                         </tr>
                     </tbody>
@@ -331,37 +402,84 @@
             </div>
             
             <button class="btn-accent" onclick="downloadFinalExcel()">
-                📥 EXPORT KE TEMPLATE EXCEL MILE APP (.XLSX)
+                📥 MERGE & EXPORT KE TEMPLATE EXCEL MILE APP (.XLSX)
             </button>
         </div>
 
     </div>
 
     <script>
-        let finalCleanData = [];
+        // Array Global Penyimpan Kumpulan Berkas Masuk
+        let uploadedFilesManager = [];
 
-        // Fungsi Cuci Data Radikal Tanpa Kompromi Artefak PDF
+        // Konfigurasi Input Drag & Drop DOM Events
+        const dropzone = document.getElementById('dropzone');
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFileSelection(files);
+        }, false);
+
+        // Menangani File yang Masuk Baik Melalui Drop Maupun Klik Manual
+        function handleFileSelection(files) {
+            if (files.length === 0) return;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                // Hindari duplikasi file dengan nama yang persis sama dalam antrean
+                if (uploadedFilesManager.some(f => f.name === file.name)) {
+                    alert(`Berkas "${file.name}" sudah ada dalam antrean.`);
+                    continue;
+                }
+
+                parseSingleFile(file);
+            }
+            document.getElementById('excelInput').value = ""; // Reset input picker
+        }
+
+        // Fungsi Cuci Data String Sesuai Standar Karakter Alamat Mile App
         function cleanArtifacts(text) {
             if (!text) return "";
             let str = String(text);
-            
-            // Pembersihan komprehensif tulisan pdf, pdf +1, pdf+2, pdf 3, dll
-            str = str.replace(/pdf\s*\+?\s*\d*/gi, '');
-            // Mengganti karakter khusus menjadi spasi agar sistem kurir aman membaca alamat
-            str = str.replace(/[^A-Za-z0-9\s]/g, ' ');
-            // Membersihkan tumpukan spasi ganda
+            str = str.replace(/pdf\s*\+?\s*\d*/gi, ''); // Hapus artefak "pdf +1" dsb
+            str = str.replace(/[^A-Za-z0-9\s]/g, ' ');   // Hilangkan semua simbol khusus
             return str.replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
-        function processRawExcel() {
-            const fileInput = document.getElementById('excelInput');
-            const file = fileInput.files[0];
+        // Fungsi Pembersihan Nomor HP Penerima Dinamis
+        function cleanPhoneNumber(phone) {
+            if (!phone) return "0";
+            let str = String(phone).replace(/[^0-9]/g, ''); // Ambil angka saja
+            if (!str) return "0";
             
-            if (!file) { 
-                alert("Mohon pilih file hasil ekspor Gemini Web terlebih dahulu!"); 
-                return; 
+            // Konversi format internasional 62 ke 0 standar kurir domestik
+            if (str.startsWith('62')) {
+                str = '0' + str.slice(2);
             }
+            if (!str.startsWith('0')) {
+                str = '0' + str;
+            }
+            return str;
+        }
 
+        // Fungsi Parsing Berkas Menggunakan Engine SheetJS
+        function parseSingleFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
@@ -370,60 +488,157 @@
                 const worksheet = workbook.Sheets[firstSheetName];
                 
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-                
-                const tbody = document.querySelector('#resultTable tbody');
-                tbody.innerHTML = '';
-                finalCleanData = [];
+                let extractedRows = [];
 
-                for (let i = 0; i < jsonData.length; i++) {
-                    let row = jsonData[i];
-                    if (row.length === 0) continue;
+                if (jsonData.length > 0) {
+                    let headerIndexName = -1;
+                    let headerIndexAddress = -1;
+                    let headerIndexPhone = -1;
 
-                    let rawName = "";
-                    let rawAddress = "";
-
-                    const rowString = row.join(" ").toUpperCase();
-                    if (rowString.includes("NAMA") || rowString.includes("ALAMAT")) continue;
-
-                    // Fleksibilitas membaca grid tabel Gemini
-                    if (row.length >= 3 && !isNaN(parseInt(row[0]))) {
-                        rawName = row[1] || "";
-                        rawAddress = row[2] || "";
-                    } else if (row.length >= 2) {
-                        rawName = row[0] || "";
-                        rawAddress = row[1] || "";
-                    } else {
-                        rawAddress = row[0] || "";
+                    // Langkah 1: Deteksi nama kolom (Header Mapping) secara cerdas
+                    for (let r = 0; r < Math.min(jsonData.length, 5); r++) {
+                        let row = jsonData[r];
+                        if (!row || row.length === 0) continue;
+                        
+                        let hasHeaderMatch = false;
+                        for (let c = 0; c < row.length; c++) {
+                            let cellVal = String(row[c] || "").toUpperCase().trim();
+                            
+                            if (cellVal.includes("NAMA") || cellVal.includes("RECIPIENT") || cellVal.includes("PENERIMA")) {
+                                headerIndexName = c;
+                                hasHeaderMatch = true;
+                            }
+                            if (cellVal.includes("ALAMAT") || cellVal.includes("ADDRESS") || cellVal.includes("TUKAN")) {
+                                headerIndexAddress = c;
+                                hasHeaderMatch = true;
+                            }
+                            if (cellVal.includes("HP") || cellVal.includes("TELP") || cellVal.includes("PHONE") || cellVal.includes("MOBILE")) {
+                                headerIndexPhone = c;
+                                hasHeaderMatch = true;
+                            }
+                        }
+                        if (hasHeaderMatch) break; // Keluar jika baris header terkonfirmasi
                     }
 
-                    let cleanName = cleanArtifacts(rawName);
-                    let cleanAddress = cleanArtifacts(rawAddress);
+                    // Langkah 2: Ekstraksi Data per Baris
+                    for (let i = 0; i < jsonData.length; i++) {
+                        let row = jsonData[i];
+                        if (!row || row.length === 0) continue;
 
-                    if (!cleanName && !cleanAddress) continue;
+                        const rowString = row.join(" ").toUpperCase();
+                        if (rowString.includes("NAMA") || rowString.includes("ALAMAT")) continue; // Lewati header
 
-                    finalCleanData.push({ name: cleanName, address: cleanAddress });
+                        let rawName = "";
+                        let rawAddress = "";
+                        let rawPhone = "0";
 
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td class="text-center" style="font-weight:bold; color:var(--pos-orange);">${finalCleanData.length}</td>
-                        <td style="font-weight:600;">${cleanName}</td>
-                        <td>${cleanAddress}</td>
-                    `;
-                    tbody.appendChild(tr);
+                        // Jika indeks kolom terdeteksi dari langkah 1
+                        if (headerIndexName !== -1 || headerIndexAddress !== -1) {
+                            rawName = headerIndexName !== -1 ? row[headerIndexName] : "";
+                            rawAddress = headerIndexAddress !== -1 ? row[headerIndexAddress] : "";
+                            rawPhone = headerIndexPhone !== -1 ? row[headerIndexPhone] : "0";
+                        } else {
+                            // Aturan fallback berbasis posisi kolom jika file tidak punya nama kolom resmi
+                            if (row.length >= 3) {
+                                if (!isNaN(parseInt(row[0]))) { // Jika kolom pertama urutan angka
+                                    rawName = row[1] || "";
+                                    rawAddress = row[2] || "";
+                                    rawPhone = row[3] || "0";
+                                } else {
+                                    rawName = row[0] || "";
+                                    rawAddress = row[1] || "";
+                                    rawPhone = row[2] || "0";
+                                }
+                            } else if (row.length === 2) {
+                                rawName = row[0] || "";
+                                rawAddress = row[1] || "";
+                            } else {
+                                rawAddress = row[0] || "";
+                            }
+                        }
+
+                        let cleanName = cleanArtifacts(rawName);
+                        let cleanAddress = cleanArtifacts(rawAddress);
+                        let cleanPhone = cleanPhoneNumber(rawPhone);
+
+                        if (!cleanName && !cleanAddress) continue; // Lewati baris sampah
+
+                        extractedRows.push({ name: cleanName, address: cleanAddress, phone: cleanPhone });
+                    }
                 }
 
-                if(finalCleanData.length > 0) {
-                    alert("Data Berhasil Dicuci! Ditemukan " + finalCleanData.length + " entri penerima siap pakai.");
-                } else {
-                    alert("Sistem gagal menemukan data Nama & Alamat di berkas tersebut.");
-                }
+                // Tambahkan berkas dan hasil ekstraknya ke manager antrean
+                uploadedFilesManager.push({
+                    id: Date.now() + Math.random(),
+                    name: file.name,
+                    rows: extractedRows
+                });
+
+                updateInterface();
             };
             reader.readAsArrayBuffer(file);
         }
 
+        // Menghapus File Tertentu Dari Antrean
+        function deleteFileFromQueue(id) {
+            uploadedFilesManager = uploadedFilesManager.filter(f => f.id !== id);
+            updateInterface();
+        }
+
+        // Refresh Seluruh Antrean File dan Render Gabungan Preview Tabel (Kanan)
+        function updateInterface() {
+            // Render UI List Antrean File (Kiri)
+            const fileQueueDiv = document.getElementById('fileQueue');
+            if (uploadedFilesManager.length === 0) {
+                fileQueueDiv.innerHTML = `<div style="text-align: center; color: #888; font-size: 0.75rem; padding: 15px; font-style: italic;">Belum ada berkas dalam antrean.</div>`;
+            } else {
+                fileQueueDiv.innerHTML = "";
+                uploadedFilesManager.forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = 'file-item';
+                    item.innerHTML = `
+                        <div class="file-name" title="${file.name}">📄 ${file.name} (${file.rows.length} Baris)</div>
+                        <button class="btn-delete-file" onclick="deleteFileFromQueue(${file.id})">Hapus</button>
+                    `;
+                    fileQueueDiv.appendChild(item);
+                });
+            }
+
+            // Gabungkan dan Render Data Master ke Tabel Preview UI (Kanan)
+            const tbody = document.querySelector('#resultTable tbody');
+            tbody.innerHTML = '';
+            
+            let masterCounter = 0;
+
+            uploadedFilesManager.forEach(file => {
+                file.rows.forEach(item => {
+                    masterCounter++;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="text-center" style="font-weight:bold; color:var(--pos-orange);">${masterCounter}</td>
+                        <td style="font-weight:600;">${item.name}</td>
+                        <td>${item.phone}</td>
+                        <td>${item.address}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+
+            if (masterCounter === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Belum ada data berkas yang diproses. Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
+            }
+        }
+
+        // Kompilasi Penggabungan Data & Download Excel Sesuai Struktur Aturan Validasi Mile App
         function downloadFinalExcel() {
-            if(finalCleanData.length === 0) {
-                alert("Tidak ada data untuk diekspor. Silakan proses berkas Excel mentah terlebih dahulu.");
+            // Flatten semua data baris dari manager berkas
+            let totalRecords = [];
+            uploadedFilesManager.forEach(file => {
+                totalRecords = totalRecords.concat(file.rows);
+            });
+
+            if (totalRecords.length === 0) {
+                alert("Tidak ada data dalam antrean yang bisa diekspor. Silakan upload berkas mentah terlebih dahulu.");
                 return;
             }
 
@@ -435,27 +650,27 @@
             const tariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
             const itemType = document.getElementById('itemType').value.toUpperCase();
 
-            let exportData = [];
+            let finalExportRows = [];
 
-            finalCleanData.forEach((item, index) => {
-                exportData.push({
+            totalRecords.forEach((item, index) => {
+                finalExportRows.push({
                     "connote_code": index + 1,
                     "customer_code": customerId,
                     "origin_data_customer_name": sName,
                     "origin_data_customer_phone": "0", 
                     "origin_data_customer_address": sAddress,
-                    "origin_data_customer_zip_code": "29411", // Terkunci sesuai parameter
+                    "origin_data_customer_zip_code": "29411", // Terkunci sesuai parameter baru
                     "origin_data_zone_code": "29400",
                     "destination_data_customer_name": item.name,
-                    "destination_data_customer_phone": "0", 
+                    "destination_data_customer_phone": item.phone, // Otomatis terisi nomor HP valid atau "0"
                     "destination_data_customer_address": item.address,
-                    "destination_data_customer_zip_code": "29411", // Terkunci sesuai parameter
-                    "destination_data_zone_code": "29400",        // Terkunci sesuai parameter
+                    "destination_data_customer_zip_code": "29411", // Terkunci sesuai parameter baru
+                    "destination_data_zone_code": "29400",        // Terkunci sesuai parameter baru
                     "service_code": serviceCode,
                     "connote_sub_service_code": tariffCode, 
                     "koli_data_koli_description": itemType,
                     "koli_data_koli_weight": 1,
-                    "koli_data_koli_width": 10,  // Dimensi 10x10x10
+                    "koli_data_koli_width": 10,  // Dimensi terkunci 10x10x10
                     "koli_data_koli_height": 10, 
                     "koli_data_koli_length": 10, 
                     "transaction_payment_type_name": "INVOICE",
@@ -464,15 +679,28 @@
                     "ref_no": "",
                     "Jenis_Barang": itemType, 
                     "statusRetur": "Kembali ke pengirim",
-                    "INS": "" // Mutlak dikosongkan tanpa string karon
+                    "INS": "" // Jaminan kosong mutlak untuk meloloskan validasi manifest
                 });
             });
 
-            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            // Pembuatan Workbook Excel dengan Engine SheetJS
+            const worksheet = XLSX.utils.json_to_sheet(finalExportRows);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             
-            XLSX.writeFile(workbook, `Upload_MileApp_${customerId}.xlsx`);
+            // Konforce agar tipe data telepon ter-render sebagai string teks agar tidak membuang angka 0 di depan
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+                // Kolom nomor HP pengirim (indeks 3 / D) dan HP penerima (indeks 8 / I) diatur paksa ke format teks
+                let cell_sender_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 3})];
+                if (cell_sender_phone) cell_sender_phone.z = '@';
+                
+                let cell_dest_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 8})];
+                if (cell_dest_phone) cell_dest_phone.z = '@';
+            }
+
+            // Unduh file hasil kompilasi gabungan
+            XLSX.writeFile(workbook, `Upload_MileApp_Merged_${customerId}.xlsx`);
         }
     </script>
 </body>
