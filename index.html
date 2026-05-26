@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Converter Excel - PosIND Korporat</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --pos-orange: #f26522;
+            --pos-dark: #1a1a1a;
+            --pos-light-grey: #f8f9fa;
+            --pos-border: #dcdcdc;
+            --pos-success: #2e7d32;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--pos-light-grey);
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* HEADER DENGAN DUAL LOGO SESUAI PEDOMAN */
+        header {
+            background-color: white;
+            border-bottom: 3px solid var(--pos-orange);
+            padding: 10px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 75px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .logo-left img {
+            height: 45px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .header-title {
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            color: var(--pos-dark);
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .header-title p {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .logo-right img {
+            height: 40px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        /* LAYOUT DASHBOARD: ANTI-SCROLL */
+        .dashboard-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 15px;
+            gap: 15px;
+        }
+
+        /* PANEL KIRI: INPUT & SETUP */
+        .panel-left {
+            width: 38%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        /* PANEL KANAN: WORKSPACE & PREVIEW */
+        .panel-right {
+            width: 62%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--pos-border);
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .card-header {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--pos-dark);
+            border-left: 4px solid var(--pos-orange);
+            padding-left: 8px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 8px;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #555;
+            margin-bottom: 4px;
+        }
+
+        input[type="text"], select, input[type="file"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--pos-border);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--pos-dark);
+            background-color: white;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: var(--pos-orange);
+            box-shadow: 0 0 0 2px rgba(242, 101, 34, 0.15);
+        }
+
+        input[type="text"] {
+            text-transform: uppercase;
+        }
+
+        /* BUTTONS */
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--pos-dark);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #333;
+        }
+
+        .btn-accent {
+            background-color: var(--pos-orange);
+            color: white;
+            margin-top: auto;
+            padding: 12px;
+        }
+
+        .btn-accent:hover {
+            background-color: #d1551c;
+        }
+
+        /* TABLE PREVIEW CONTAINER */
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid var(--pos-border);
+            border-radius: 6px;
+            background: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background-color: var(--pos-dark);
+            color: white;
+            z-index: 10;
+        }
+
+        th, td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--pos-border);
+            text-align: left;
+        }
+
+        th {
+            font-weight: 600;
+            font-size: 0.8rem;
+            letter-spacing: 0.3px;
+        }
+
+        tbody tr:hover {
+            background-color: #f1f3f5;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-left">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Danantara_Indonesia.svg/1280px-Danantara_Indonesia.svg.png" alt="Logo Danantara">
+        </div>
+        <div class="header-title">
+            <h1>CONVERTER DATA ENTRI SURAT KORPORAT</h1>
+            <p>PosIND Together to Accelerate | Integrasi Validasi Data Template Mile App</p>
+        </div>
+        <div class="logo-right">
+            <img src="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" alt="Logo PosIND">
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        
+        <div class="panel-left">
+            <div class="card">
+                <div class="card-header">🏢 Data Kontrak Pengirim</div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>ID Pelanggan (Account No):</label>
+                        <input type="text" id="customerId" value="FINTOYOTA02294A">
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Pengirim:</label>
+                        <input type="text" id="senderName" value="TOYOTA BATAM">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Alamat Lengkap Pengirim:</label>
+                        <input type="text" id="senderAddress" value="RUKO KEPRI MALL NO 47">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📦 Atribut Layanan & Koli</div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Kode Layanan:</label>
+                        <select id="serviceCode">
+                            <option value="PKH">PKH (PAKET KILAT KHUSUS)</option>
+                            <option value="PE">PE (POS EXPRESS)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Tarif (Sub Service):</label>
+                        <input type="text" id="tariffCode" placeholder="KOSONGKAN JIKA PUBLISH">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Jenis Kiriman (Isi Barang):</label>
+                        <select id="itemType">
+                            <option value="PAKET">PAKET</option>
+                            <option value="DOKUMEN">DOKUMEN</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                <div class="card-header" style="margin-bottom: 8px;">📂 Input Data Mentah</div>
+                <div class="form-group">
+                    <input type="file" id="excelInput" accept=".xlsx, .xls, .csv">
+                </div>
+                <button class="btn-primary" onclick="processRawExcel()" style="margin-top: 10px;">⚙️ BERSIHKAN & VALIDASI DATA</button>
+            </div>
+        </div>
+
+        <div class="panel-right">
+            <div class="table-container">
+                <table id="resultTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%; text-align: center;">NO</th>
+                            <th style="width: 32%;">NAMA PENERIMA</th>
+                            <th style="width: 60%;">ALAMAT PENERIMA MASUK SISTEM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: #888; padding: 40px; font-style: italic;">
+                                Belum ada file yang diupload. Silakan pilih berkas di panel kiri.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <button class="btn-accent" onclick="downloadFinalExcel()">
+                📥 EXPORT KE TEMPLATE EXCEL MILE APP (.XLSX)
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        let finalCleanData = [];
+
+        // Fungsi Cuci Data Radikal Tanpa Kompromi Artefak PDF
+        function cleanArtifacts(text) {
+            if (!text) return "";
+            let str = String(text);
+            
+            // Pembersihan komprehensif tulisan pdf, pdf +1, pdf+2, pdf 3, dll
+            str = str.replace(/pdf\s*\+?\s*\d*/gi, '');
+            // Mengganti karakter khusus menjadi spasi agar sistem kurir aman membaca alamat
+            str = str.replace(/[^A-Za-z0-9\s]/g, ' ');
+            // Membersihkan tumpukan spasi ganda
+            return str.replace(/\s+/g, ' ').trim().toUpperCase();
+        }
+
+        function processRawExcel() {
+            const fileInput = document.getElementById('excelInput');
+            const file = fileInput.files[0];
+            
+            if (!file) { 
+                alert("Mohon pilih file hasil ekspor Gemini Web terlebih dahulu!"); 
+                return; 
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                
+                const tbody = document.querySelector('#resultTable tbody');
+                tbody.innerHTML = '';
+                finalCleanData = [];
+
+                for (let i = 0; i < jsonData.length; i++) {
+                    let row = jsonData[i];
+                    if (row.length === 0) continue;
+
+                    let rawName = "";
+                    let rawAddress = "";
+
+                    const rowString = row.join(" ").toUpperCase();
+                    if (rowString.includes("NAMA") || rowString.includes("ALAMAT")) continue;
+
+                    // Fleksibilitas membaca grid tabel Gemini
+                    if (row.length >= 3 && !isNaN(parseInt(row[0]))) {
+                        rawName = row[1] || "";
+                        rawAddress = row[2] || "";
+                    } else if (row.length >= 2) {
+                        rawName = row[0] || "";
+                        rawAddress = row[1] || "";
+                    } else {
+                        rawAddress = row[0] || "";
+                    }
+
+                    let cleanName = cleanArtifacts(rawName);
+                    let cleanAddress = cleanArtifacts(rawAddress);
+
+                    if (!cleanName && !cleanAddress) continue;
+
+                    finalCleanData.push({ name: cleanName, address: cleanAddress });
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="text-center" style="font-weight:bold; color:var(--pos-orange);">${finalCleanData.length}</td>
+                        <td style="font-weight:600;">${cleanName}</td>
+                        <td>${cleanAddress}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+
+                if(finalCleanData.length > 0) {
+                    alert("Data Berhasil Dicuci! Ditemukan " + finalCleanData.length + " entri penerima siap pakai.");
+                } else {
+                    alert("Sistem gagal menemukan data Nama & Alamat di berkas tersebut.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function downloadFinalExcel() {
+            if(finalCleanData.length === 0) {
+                alert("Tidak ada data untuk diekspor. Silakan proses berkas Excel mentah terlebih dahulu.");
+                return;
+            }
+
+            const customerId = cleanArtifacts(document.getElementById('customerId').value);
+            const sName = cleanArtifacts(document.getElementById('senderName').value);
+            const sAddress = cleanArtifacts(document.getElementById('senderAddress').value);
+
+            const serviceCode = document.getElementById('serviceCode').value.toUpperCase();
+            const tariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
+            const itemType = document.getElementById('itemType').value.toUpperCase();
+
+            let exportData = [];
+
+            finalCleanData.forEach((item, index) => {
+                exportData.push({
+                    "connote_code": index + 1,
+                    "customer_code": customerId,
+                    "origin_data_customer_name": sName,
+                    "origin_data_customer_phone": "0", 
+                    "origin_data_customer_address": sAddress,
+                    "origin_data_customer_zip_code": "29411", // Terkunci sesuai parameter
+                    "origin_data_zone_code": "29400",
+                    "destination_data_customer_name": item.name,
+                    "destination_data_customer_phone": "0", 
+                    "destination_data_customer_address": item.address,
+                    "destination_data_customer_zip_code": "29411", // Terkunci sesuai parameter
+                    "destination_data_zone_code": "29400",        // Terkunci sesuai parameter
+                    "service_code": serviceCode,
+                    "connote_sub_service_code": tariffCode, 
+                    "koli_data_koli_description": itemType,
+                    "koli_data_koli_weight": 1,
+                    "koli_data_koli_width": 10,  // Dimensi 10x10x10
+                    "koli_data_koli_height": 10, 
+                    "koli_data_koli_length": 10, 
+                    "transaction_payment_type_name": "INVOICE",
+                    "instruksi_pengiriman": "Tolong diantar dengan baik",
+                    "harga_barang": 0,
+                    "ref_no": "",
+                    "Jenis_Barang": itemType, 
+                    "statusRetur": "Kembali ke pengirim",
+                    "INS": "" // Mutlak dikosongkan tanpa string karon
+                });
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+            
+            XLSX.writeFile(workbook, `Upload_MileApp_${customerId}.xlsx`);
+        }
+    </script>
+</body>
+</html>
