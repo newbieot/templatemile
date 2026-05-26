@@ -12,6 +12,8 @@
             --pos-light-grey: #f8f9fa;
             --pos-border: #dcdcdc;
             --pos-danger: #dc3545;
+            --pos-info: #e3f2fd;
+            --pos-info-text: #0277bd;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -55,7 +57,7 @@
             gap: 15px;
         }
 
-        .panel-left { width: 38%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+        .panel-left { width: 38%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 5px; }
         .panel-right { width: 62%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
 
         .card {
@@ -64,7 +66,33 @@
             border: 1px solid var(--pos-border);
             padding: 15px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            flex-shrink: 0;
         }
+
+        /* PANDUAN PENGGUNAAN CARD */
+        .guide-card {
+            background-color: var(--pos-info);
+            border-left: 4px solid var(--pos-info-text);
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #333;
+            line-height: 1.4;
+        }
+        .guide-card h3 {
+            color: var(--pos-info-text);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .guide-list {
+            padding-left: 20px;
+            margin-bottom: 8px;
+        }
+        .guide-list li { margin-bottom: 4px; }
+        .guide-highlight { font-weight: 700; color: var(--pos-danger); }
 
         .card-header {
             font-size: 0.9rem;
@@ -115,8 +143,9 @@
         .btn-accent {
             width: 100%; background-color: var(--pos-orange); color: white; padding: 12px;
             border: none; border-radius: 5px; font-size: 0.9rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
+            box-shadow: 0 4px 6px rgba(242, 101, 34, 0.2); transition: 0.2s;
         }
-        .btn-accent:hover { background-color: #d1551c; }
+        .btn-accent:hover { background-color: #d1551c; transform: translateY(-1px); }
 
         /* TABLE (EDITABLE) */
         .table-container { flex: 1; overflow-y: auto; border: 1px solid var(--pos-border); border-radius: 6px; background: white; }
@@ -143,6 +172,17 @@
             box-shadow: 0 0 4px rgba(242,101,34,0.2);
             outline: none;
         }
+
+        /* CREDITS */
+        .credits {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #888;
+            font-weight: 700;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body>
@@ -163,6 +203,18 @@
     <div class="dashboard-container">
         <div class="panel-left">
             
+            <div class="guide-card">
+                <h3>📌 PANDUAN PENGGUNAAN (SOP)</h3>
+                <ol class="guide-list">
+                    <li><b>Capture & Convert:</b> Foto seluruh kiriman/paket, lalu jadikan 1 file PDF (Bisa gunakan aplikasi CamScanner di Android/iOS).</li>
+                    <li><b>Ekstrak Data (AI):</b> Buka web <b>gemini.google.com</b> (gunakan akun Gemini Pro), upload PDF tersebut, lalu berikan perintah: <i>"Buatkan tabel nama penerima, alamat penerima, dan no hp penerima (jika ada), lalu convert ke .xlsx"</i>.</li>
+                    <li><b>Upload Mentahan:</b> Drag & Drop file hasil <b>.xlsx</b> dari Gemini ke area <i>Upload Berkas Mentah</i> di bawah.</li>
+                    <li><b>Lengkapi Data:</b> Isi ID Pelanggan, Kode Layanan, dan detail formulir lainnya di bawah.</li>
+                    <li><b>Review & Edit:</b> Cek tabel di sebelah kanan. Jika ada typo dari AI, <b>klik teksnya langsung untuk mengedit/memperbaiki</b>.</li>
+                    <li><b>Selesai:</b> Klik tombol Export. File siap di-upload ke Mile App tanpa perlu entri manual satu-satu! <span class="guide-highlight">Lebih cepat, efisien, dan presisi.</span></li>
+                </ol>
+            </div>
+
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="form-group full-width">
                     <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE / SOP KLIEN:</label>
@@ -178,13 +230,13 @@
                 <div class="grid-2">
                     <div class="form-group full-width">
                         <label>ID Pelanggan (Account No):</label>
-                        <input type="text" id="customerId" value="FINTOYOTA02294A">
+                        <input type="text" id="customerId" value="FINTOYOTA02294A" placeholder="Contoh: FINTOYOTA02294A">
                     </div>
                     <div class="form-group full-width" id="wrapSenderName">
                         <label>Nama Pengirim:</label>
-                        <input type="text" id="senderName" value="TOYOTA BATAM">
+                        <input type="text" id="senderName" value="TOYOTA BATAM" placeholder="Contoh: TOYOTA BATAM">
                     </div>
-                    </div>
+                </div>
             </div>
 
             <div class="card">
@@ -211,14 +263,18 @@
                 </div>
             </div>
 
-            <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="card">
                 <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
                     <p>Seret & Jatuhkan File Excel/CSV di Sini</p>
-                    <span>otomatis gabung banyak file (Bulk Upload)</span>
+                    <span>Otomatis menggabungkan banyak file sekaligus</span>
                     <input type="file" id="excelInput" accept=".xlsx, .xls, .csv" multiple style="display: none;" onchange="handleFileSelection(this.files)">
                 </div>
                 <div class="file-queue-container" id="fileQueue"></div>
+            </div>
+
+            <div class="credits">
+                Created by : newbieot
             </div>
         </div>
 
@@ -307,7 +363,7 @@
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
             // Ref No diizinkan karakter khusus agar nomor surat tidak rusak
-            return str.replace(/[^A-Za-z0-9\s/\-.,]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+            return str.replace(/[^A-Za-z0-9\s/\-.,_]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
         function cleanPhoneNumber(phone) {
@@ -429,7 +485,6 @@
             const tariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
             const itemType = document.getElementById('itemType').value.toUpperCase();
             
-            // Logika Pintar untuk Nama dan Alamat Pengirim
             let baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
             
             let finalExportRows = [];
@@ -438,7 +493,6 @@
                 let inputs = tr.querySelectorAll('input.table-input');
                 let dName, dAddress, dPhone, dNoSurat;
                 
-                // Ambil Data Editable Setelah User Mengubahnya di UI
                 if (isPN) {
                     dNoSurat = cleanReference(inputs[0].value);
                     dName = cleanArtifacts(inputs[1].value);
@@ -451,14 +505,12 @@
                     dAddress = cleanArtifacts(inputs[2].value);
                 }
 
-                // Kalkulasi Dinamis Pengirim Sesuai Aturan: Nama + BATAM (Hindari Redundan)
                 let senderNameFinal, senderAddrFinal, refNoFinal, koliDescFinal;
 
                 if (isPN) {
-                    // Untuk PN BATAM: Nama Pengirim pakai No Surat bersih (tanpa spesial karakter)
                     senderNameFinal = cleanArtifacts(dNoSurat); 
                     senderAddrFinal = "PENGADILAN NEGERI BATAM";
-                    refNoFinal = dNoSurat; // RefNo tetap simpan karakter spesial untuk tracking
+                    refNoFinal = dNoSurat; 
                     koliDescFinal = dNoSurat;
                 } else {
                     senderNameFinal = baseSenderName;
@@ -504,7 +556,6 @@
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             
-            // Set Nomor Telepon Ke String Murni agar '0' di depan tidak hilang
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             for (let R = range.s.r + 1; R <= range.e.r; ++R) {
                 let cell_sender_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 3})];
