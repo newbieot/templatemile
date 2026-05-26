@@ -12,14 +12,9 @@
             --pos-light-grey: #f8f9fa;
             --pos-border: #dcdcdc;
             --pos-danger: #dc3545;
-            --pos-danger-hover: #bd2130;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -31,7 +26,7 @@
             overflow: hidden;
         }
 
-        /* DUAL LOGO HEADER SESUAI PEDOMAN POSIND */
+        /* HEADER */
         header {
             background-color: white;
             border-bottom: 3px solid var(--pos-orange);
@@ -44,37 +39,14 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
 
-        .logo-left img {
-            height: 45px;
-            width: auto;
-            object-fit: contain;
-        }
+        .logo-left img { height: 45px; object-fit: contain; }
+        .logo-right img { height: 40px; object-fit: contain; }
+        
+        .header-title { text-align: center; flex-grow: 1; }
+        .header-title h1 { font-size: 1.25rem; color: var(--pos-dark); font-weight: 800; }
+        .header-title p { font-size: 0.8rem; color: #666; margin-top: 2px; }
 
-        .header-title {
-            text-align: center;
-            flex-grow: 1;
-        }
-
-        .header-title h1 {
-            font-size: 1.25rem;
-            color: var(--pos-dark);
-            font-weight: 800;
-            letter-spacing: 0.5px;
-        }
-
-        .header-title p {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 2px;
-        }
-
-        .logo-right img {
-            height: 40px;
-            width: auto;
-            object-fit: contain;
-        }
-
-        /* CONTAINER UTAMA DASHBOARD ANTI-SCROLL */
+        /* DASHBOARD LAYOUT */
         .dashboard-container {
             display: flex;
             flex: 1;
@@ -83,29 +55,14 @@
             gap: 15px;
         }
 
-        /* LEFT WORKSPACE PANEL */
-        .panel-left {
-            width: 40%;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            overflow-y: auto;
-        }
-
-        /* RIGHT WORKSPACE PANEL */
-        .panel-right {
-            width: 60%;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            overflow: hidden;
-        }
+        .panel-left { width: 38%; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+        .panel-right { width: 62%; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
 
         .card {
             background: white;
             border-radius: 8px;
             border: 1px solid var(--pos-border);
-            padding: 16px;
+            padding: 15px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
@@ -115,190 +72,76 @@
             color: var(--pos-dark);
             border-left: 4px solid var(--pos-orange);
             padding-left: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             text-transform: uppercase;
         }
 
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .form-group {
-            margin-bottom: 4px;
-        }
-
-        .form-group.full-width {
-            grid-column: span 2;
-        }
-
-        label {
-            display: block;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #555;
-            margin-bottom: 4px;
-        }
-
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group { margin-bottom: 4px; }
+        .form-group.full-width { grid-column: span 2; }
+        
+        label { display: block; font-size: 0.75rem; font-weight: 700; color: #555; margin-bottom: 4px; }
+        
         input[type="text"], select {
+            width: 100%; padding: 8px; border: 1px solid var(--pos-border);
+            border-radius: 4px; font-size: 0.85rem; background-color: white; font-family: inherit;
+        }
+        input[type="text"]:focus, select:focus { outline: none; border-color: var(--pos-orange); }
+        input[type="text"] { text-transform: uppercase; }
+
+        /* DRAG & DROP */
+        .dropzone-area {
+            border: 2px dashed var(--pos-orange); background-color: rgba(242, 101, 34, 0.02);
+            border-radius: 6px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s;
+        }
+        .dropzone-area.dragover { background-color: rgba(242, 101, 34, 0.08); border-color: var(--pos-dark); }
+        .dropzone-area p { font-size: 0.85rem; font-weight: 600; color: #444; }
+        .dropzone-area span { font-size: 0.75rem; color: #777; display: block; margin-top: 4px; }
+
+        .file-queue-container {
+            margin-top: 8px; max-height: 100px; overflow-y: auto;
+            border: 1px solid var(--pos-border); border-radius: 4px; background-color: var(--pos-light-grey);
+        }
+        .file-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 10px; border-bottom: 1px solid #e9ecef; font-size: 0.75rem;
+        }
+        .btn-delete-file {
+            background-color: var(--pos-danger); color: white; border: none; padding: 3px 8px;
+            border-radius: 3px; cursor: pointer; font-size: 0.7rem; font-weight: 700;
+        }
+
+        /* BUTTONS */
+        .btn-accent {
+            width: 100%; background-color: var(--pos-orange); color: white; padding: 12px;
+            border: none; border-radius: 5px; font-size: 0.9rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
+        }
+        .btn-accent:hover { background-color: #d1551c; }
+
+        /* TABLE (EDITABLE) */
+        .table-container { flex: 1; overflow-y: auto; border: 1px solid var(--pos-border); border-radius: 6px; background: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        thead { position: sticky; top: 0; background-color: var(--pos-dark); color: white; z-index: 10; }
+        th, td { padding: 4px 8px; border-bottom: 1px solid var(--pos-border); text-align: left; }
+        th { padding: 8px; font-weight: 600; font-size: 0.78rem; }
+        tbody tr:hover { background-color: #f1f3f5; }
+        
+        .table-input {
             width: 100%;
-            padding: 8px 10px;
-            border: 1px solid var(--pos-border);
-            border-radius: 4px;
-            font-size: 0.85rem;
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 6px;
+            font-size: 0.8rem;
             color: var(--pos-dark);
-            background-color: white;
+            border-radius: 4px;
+            text-transform: uppercase;
             font-family: inherit;
         }
-
-        input[type="text"]:focus, select:focus {
-            outline: none;
+        .table-input:focus {
             border-color: var(--pos-orange);
-            box-shadow: 0 0 0 2px rgba(242, 101, 34, 0.15);
-        }
-
-        input[type="text"] {
-            text-transform: uppercase;
-        }
-
-        /* DRAG AND DROP CONTAINER STYLING */
-        .dropzone-area {
-            border: 2px dashed var(--pos-orange);
-            background-color: rgba(242, 101, 34, 0.02);
-            border-radius: 6px;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: background 0.2s, border-color 0.2s;
-        }
-
-        .dropzone-area.dragover {
-            background-color: rgba(242, 101, 34, 0.08);
-            border-color: var(--pos-dark);
-        }
-
-        .dropzone-area p {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #444;
-        }
-
-        .dropzone-area span {
-            font-size: 0.75rem;
-            color: #777;
-            display: block;
-            margin-top: 4px;
-        }
-
-        /* MANAGED FILE LIST QUEUE UI */
-        .file-queue-container {
-            margin-top: 10px;
-            max-height: 120px;
-            overflow-y: auto;
-            border: 1px solid var(--pos-border);
-            border-radius: 4px;
-            background-color: var(--pos-light-grey);
-        }
-
-        .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 12px;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 0.78rem;
-        }
-
-        .file-item:last-child {
-            border-bottom: none;
-        }
-
-        .file-name {
-            font-weight: 600;
-            color: var(--pos-dark);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            width: 75%;
-        }
-
-        .btn-delete-file {
-            background-color: var(--pos-danger);
-            color: white;
-            border: none;
-            padding: 3px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            font-weight: 700;
-        }
-
-        .btn-delete-file:hover {
-            background-color: var(--pos-danger-hover);
-        }
-
-        /* EXPORT CONTROL ACTION BUTTONS */
-        .btn-accent {
-            width: 100%;
-            background-color: var(--pos-orange);
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 5px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background 0.2s;
-            box-shadow: 0 2px 4px rgba(242, 101, 34, 0.2);
-            flex-shrink: 0;
-        }
-
-        .btn-accent:hover {
-            background-color: #d1551c;
-        }
-
-        /* DATA PREVIEW TABLE ARCHITECTURE */
-        .table-container {
-            flex: 1;
-            overflow-y: auto;
-            border: 1px solid var(--pos-border);
-            border-radius: 6px;
-            background: white;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.82rem;
-        }
-
-        thead {
-            position: sticky;
-            top: 0;
-            background-color: var(--pos-dark);
-            color: white;
-            z-index: 10;
-        }
-
-        th, td {
-            padding: 8px 12px;
-            border-bottom: 1px solid var(--pos-border);
-            text-align: left;
-        }
-
-        th {
-            font-weight: 600;
-            font-size: 0.78rem;
-            letter-spacing: 0.3px;
-        }
-
-        tbody tr:hover {
-            background-color: #f1f3f5;
-        }
-
-        .text-center {
-            text-align: center;
+            background: #fff;
+            box-shadow: 0 0 4px rgba(242,101,34,0.2);
+            outline: none;
         }
     </style>
 </head>
@@ -306,20 +149,30 @@
 
     <header>
         <div class="logo-left">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Danantara_Indonesia.svg/1280px-Danantara_Indonesia.svg.png" alt="Logo Danantara">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Danantara_Indonesia.svg/1280px-Danantara_Indonesia.svg.png" alt="Danantara">
         </div>
         <div class="header-title">
             <h1>CONVERTER DATA ENTRI SURAT KORPORAT</h1>
             <p>PosIND Together to Accelerate | Integrasi Validasi Data Template Mile App</p>
         </div>
         <div class="logo-right">
-            <img src="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" alt="Logo PosIND">
+            <img src="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" alt="PosIND">
         </div>
     </header>
 
     <div class="dashboard-container">
-        
         <div class="panel-left">
+            
+            <div class="card" style="border-left-color: var(--pos-dark);">
+                <div class="form-group full-width">
+                    <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE / SOP KLIEN:</label>
+                    <select id="clientMode" onchange="handleModeChange()" style="border-color: var(--pos-orange); font-weight: bold;">
+                        <option value="STANDARD">KORPORAT STANDAR (Toyota, Polres, dll)</option>
+                        <option value="PN_BATAM">KHUSUS PENGADILAN NEGERI BATAM</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header">🏢 Data Kontrak Pengirim</div>
                 <div class="grid-2">
@@ -327,11 +180,11 @@
                         <label>ID Pelanggan (Account No):</label>
                         <input type="text" id="customerId" value="FINTOYOTA02294A">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="wrapSenderName">
                         <label>Nama Pengirim:</label>
                         <input type="text" id="senderName" value="TOYOTA BATAM">
                     </div>
-                    <div class="form-group full-width">
+                    <div class="form-group full-width" id="wrapSenderAddress">
                         <label>Alamat Lengkap Pengirim:</label>
                         <input type="text" id="senderAddress" value="RUKO KEPRI MALL NO 47">
                     </div>
@@ -344,8 +197,8 @@
                     <div class="form-group">
                         <label>Kode Layanan:</label>
                         <select id="serviceCode">
-                            <option value="PKH">PKH (PAKET KILAT KHUSUS)</option>
-                            <option value="PE">PE (POS EXPRESS)</option>
+                            <option value="PKH">PKH</option>
+                            <option value="PE">PE</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -363,344 +216,301 @@
             </div>
 
             <div class="card" style="flex: 1; display: flex; flex-direction: column;">
-                <div class="card-header">📂 Input Berkas Mentah (Multi-File Drop)</div>
-                
+                <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
                     <p>Seret & Jatuhkan File Excel/CSV di Sini</p>
-                    <span>atau klik untuk memilih berkas dari komputer</span>
+                    <span>otomatis gabung banyak file (Bulk Upload)</span>
                     <input type="file" id="excelInput" accept=".xlsx, .xls, .csv" multiple style="display: none;" onchange="handleFileSelection(this.files)">
                 </div>
-
-                <label style="margin-top: 12px;">Antrean Berkas Terupload:</label>
-                <div class="file-queue-container" id="fileQueue">
-                    <div style="text-align: center; color: #888; font-size: 0.75rem; padding: 15px; font-style: italic;">
-                        Belum ada berkas dalam antrean.
-                    </div>
-                </div>
+                <div class="file-queue-container" id="fileQueue"></div>
             </div>
         </div>
 
         <div class="panel-right">
+            <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
+                *Klik pada teks di dalam tabel untuk memperbaiki data (jika ada *typo* dari AI).
+            </div>
             <div class="table-container">
                 <table id="resultTable">
                     <thead>
-                        <tr>
-                            <th style="width: 6%; text-align: center;">NO</th>
-                            <th style="width: 28%;">NAMA PENERIMA</th>
-                            <th style="width: 18%;">NO HP PENERIMA</th>
-                            <th style="width: 48%;">ALAMAT PENERIMA MASUK SISTEM</th>
-                        </tr>
-                    </thead>
+                        </thead>
                     <tbody>
-                        <tr>
-                            <td colspan="4" style="text-align: center; color: #888; padding: 40px; font-style: italic;">
-                                Belum ada data berkas yang diproses. Tarik file Excel ke panel kiri untuk memulai.
-                            </td>
-                        </tr>
                     </tbody>
                 </table>
             </div>
-            
-            <button class="btn-accent" onclick="downloadFinalExcel()">
-                📥 MERGE & EXPORT KE TEMPLATE EXCEL MILE APP (.XLSX)
-            </button>
+            <button class="btn-accent" onclick="downloadFinalExcel()">📥 EXPORT DATA (SIMPAN PERUBAHAN) KE EXCEL MILE APP</button>
         </div>
-
     </div>
 
     <script>
-        // Array Global Penyimpan Kumpulan Berkas Masuk
         let uploadedFilesManager = [];
 
-        // Konfigurasi Input Drag & Drop DOM Events
-        const dropzone = document.getElementById('dropzone');
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropzone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                dropzone.classList.add('dragover');
-            }, false);
+        // Inisiasi awal
+        document.addEventListener("DOMContentLoaded", () => {
+            updateTableHeaders();
+            updateInterface();
         });
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                dropzone.classList.remove('dragover');
-            }, false);
-        });
+        // HANDLE MODE CHANGE
+        function handleModeChange() {
+            const mode = document.getElementById('clientMode').value;
+            const sNameWrap = document.getElementById('wrapSenderName');
+            const sAddrWrap = document.getElementById('wrapSenderAddress');
 
-        dropzone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFileSelection(files);
-        }, false);
-
-        // Menangani File yang Masuk Baik Melalui Drop Maupun Klik Manual
-        function handleFileSelection(files) {
-            if (files.length === 0) return;
-            
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                
-                // Hindari duplikasi file dengan nama yang persis sama dalam antrean
-                if (uploadedFilesManager.some(f => f.name === file.name)) {
-                    alert(`Berkas "${file.name}" sudah ada dalam antrean.`);
-                    continue;
-                }
-
-                parseSingleFile(file);
+            if (mode === 'PN_BATAM') {
+                sNameWrap.style.display = 'none'; // Pengirim akan otomatis pakai No Surat
+                sAddrWrap.style.display = 'none'; // Alamat pengirim diabaikan
+                document.getElementById('itemType').value = 'DOKUMEN';
+            } else {
+                sNameWrap.style.display = 'block';
+                sAddrWrap.style.display = 'block';
             }
-            document.getElementById('excelInput').value = ""; // Reset input picker
+
+            // Bersihkan antrean jika ganti mode
+            uploadedFilesManager = [];
+            updateTableHeaders();
+            updateInterface();
         }
 
-        // Fungsi Cuci Data String Sesuai Standar Karakter Alamat Mile App
+        function updateTableHeaders() {
+            const isPN = document.getElementById('clientMode').value === 'PN_BATAM';
+            const thead = document.querySelector('#resultTable thead');
+            if (isPN) {
+                thead.innerHTML = `<tr>
+                    <th style="width: 5%; text-align: center;">NO</th>
+                    <th style="width: 25%;">NO SURAT / REF</th>
+                    <th style="width: 25%;">NAMA PENERIMA</th>
+                    <th style="width: 45%;">ALAMAT PENERIMA</th>
+                </tr>`;
+            } else {
+                thead.innerHTML = `<tr>
+                    <th style="width: 5%; text-align: center;">NO</th>
+                    <th style="width: 25%;">NAMA PENERIMA</th>
+                    <th style="width: 15%;">NO HP</th>
+                    <th style="width: 55%;">ALAMAT PENERIMA</th>
+                </tr>`;
+            }
+        }
+
+        // DRAG & DROP SETUP
+        const dropzone = document.getElementById('dropzone');
+        ['dragenter', 'dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.add('dragover'); }));
+        ['dragleave', 'drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
+        dropzone.addEventListener('drop', e => handleFileSelection(e.dataTransfer.files));
+
+        function handleFileSelection(files) {
+            for (let file of files) {
+                if (!uploadedFilesManager.some(f => f.name === file.name)) parseSingleFile(file);
+            }
+            document.getElementById('excelInput').value = "";
+        }
+
+        // FUNGSI PEMBERSIH TEKS
         function cleanArtifacts(text) {
             if (!text) return "";
-            let str = String(text);
-            str = str.replace(/pdf\s*\+?\s*\d*/gi, ''); // Hapus artefak "pdf +1" dsb
-            str = str.replace(/[^A-Za-z0-9\s]/g, ' ');   // Hilangkan semua simbol khusus
-            return str.replace(/\s+/g, ' ').trim().toUpperCase();
+            let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
+            return str.replace(/[^A-Za-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
-        // Fungsi Pembersihan Nomor HP Penerima Dinamis
+        function cleanReference(text) { // Khusus No Surat (mempertahankan / dan -)
+            if (!text) return "";
+            let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
+            return str.replace(/[^A-Za-z0-9\s/\-.,]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+        }
+
         function cleanPhoneNumber(phone) {
             if (!phone) return "0";
-            let str = String(phone).replace(/[^0-9]/g, ''); // Ambil angka saja
+            let str = String(phone).replace(/[^0-9]/g, '');
             if (!str) return "0";
-            
-            // Konversi format internasional 62 ke 0 standar kurir domestik
-            if (str.startsWith('62')) {
-                str = '0' + str.slice(2);
-            }
-            if (!str.startsWith('0')) {
-                str = '0' + str;
-            }
+            if (str.startsWith('62')) str = '0' + str.slice(2);
+            if (!str.startsWith('0')) str = '0' + str;
             return str;
         }
 
-        // Fungsi Parsing Berkas Menggunakan Engine SheetJS
         function parseSingleFile(file) {
+            const isPN = document.getElementById('clientMode').value === 'PN_BATAM';
             const reader = new FileReader();
             reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
                 let extractedRows = [];
 
                 if (jsonData.length > 0) {
-                    let headerIndexName = -1;
-                    let headerIndexAddress = -1;
-                    let headerIndexPhone = -1;
-
-                    // Langkah 1: Deteksi nama kolom (Header Mapping) secara cerdas
-                    for (let r = 0; r < Math.min(jsonData.length, 5); r++) {
-                        let row = jsonData[r];
-                        if (!row || row.length === 0) continue;
-                        
-                        let hasHeaderMatch = false;
-                        for (let c = 0; c < row.length; c++) {
-                            let cellVal = String(row[c] || "").toUpperCase().trim();
-                            
-                            if (cellVal.includes("NAMA") || cellVal.includes("RECIPIENT") || cellVal.includes("PENERIMA")) {
-                                headerIndexName = c;
-                                hasHeaderMatch = true;
-                            }
-                            if (cellVal.includes("ALAMAT") || cellVal.includes("ADDRESS") || cellVal.includes("TUKAN")) {
-                                headerIndexAddress = c;
-                                hasHeaderMatch = true;
-                            }
-                            if (cellVal.includes("HP") || cellVal.includes("TELP") || cellVal.includes("PHONE") || cellVal.includes("MOBILE")) {
-                                headerIndexPhone = c;
-                                hasHeaderMatch = true;
-                            }
-                        }
-                        if (hasHeaderMatch) break; // Keluar jika baris header terkonfirmasi
-                    }
-
-                    // Langkah 2: Ekstraksi Data per Baris
-                    for (let i = 0; i < jsonData.length; i++) {
+                    for (let i = 1; i < jsonData.length; i++) { // Skip header index 0
                         let row = jsonData[i];
                         if (!row || row.length === 0) continue;
 
-                        const rowString = row.join(" ").toUpperCase();
-                        if (rowString.includes("NAMA") || rowString.includes("ALAMAT")) continue; // Lewati header
+                        if (isPN) {
+                            // Asumsi format CSV PN Batam: [0] No Surat, [1] Nama, [2] Alamat
+                            let cleanSurat = cleanReference(row[0] || "");
+                            let cleanName = cleanArtifacts(row[1] || "");
+                            let cleanAddress = cleanArtifacts(row[2] || "");
 
-                        let rawName = "";
-                        let rawAddress = "";
-                        let rawPhone = "0";
-
-                        // Jika indeks kolom terdeteksi dari langkah 1
-                        if (headerIndexName !== -1 || headerIndexAddress !== -1) {
-                            rawName = headerIndexName !== -1 ? row[headerIndexName] : "";
-                            rawAddress = headerIndexAddress !== -1 ? row[headerIndexAddress] : "";
-                            rawPhone = headerIndexPhone !== -1 ? row[headerIndexPhone] : "0";
+                            if (!cleanName && !cleanAddress && !cleanSurat) continue;
+                            extractedRows.push({ noSurat: cleanSurat, name: cleanName, address: cleanAddress });
                         } else {
-                            // Aturan fallback berbasis posisi kolom jika file tidak punya nama kolom resmi
-                            if (row.length >= 3) {
-                                if (!isNaN(parseInt(row[0]))) { // Jika kolom pertama urutan angka
-                                    rawName = row[1] || "";
-                                    rawAddress = row[2] || "";
-                                    rawPhone = row[3] || "0";
-                                } else {
-                                    rawName = row[0] || "";
-                                    rawAddress = row[1] || "";
-                                    rawPhone = row[2] || "0";
-                                }
-                            } else if (row.length === 2) {
-                                rawName = row[0] || "";
-                                rawAddress = row[1] || "";
-                            } else {
-                                rawAddress = row[0] || "";
+                            // Asumsi Standar 3 Kolom atau Deteksi Manual
+                            let cleanName = cleanArtifacts(row[0] || "");
+                            let cleanAddress = cleanArtifacts(row[1] || "");
+                            let cleanPhone = cleanPhoneNumber("0");
+
+                            // Fallback jika file punya format spesifik (bisa disesuaikan lebih jauh)
+                            if(row.length >= 3 && isNaN(parseInt(row[0]))) {
+                                cleanName = cleanArtifacts(row[0]);
+                                cleanAddress = cleanArtifacts(row[2] || row[1]); 
                             }
+                            
+                            if (!cleanName && !cleanAddress) continue;
+                            extractedRows.push({ name: cleanName, address: cleanAddress, phone: cleanPhone });
                         }
-
-                        let cleanName = cleanArtifacts(rawName);
-                        let cleanAddress = cleanArtifacts(rawAddress);
-                        let cleanPhone = cleanPhoneNumber(rawPhone);
-
-                        if (!cleanName && !cleanAddress) continue; // Lewati baris sampah
-
-                        extractedRows.push({ name: cleanName, address: cleanAddress, phone: cleanPhone });
                     }
                 }
-
-                // Tambahkan berkas dan hasil ekstraknya ke manager antrean
-                uploadedFilesManager.push({
-                    id: Date.now() + Math.random(),
-                    name: file.name,
-                    rows: extractedRows
-                });
-
+                
+                uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: extractedRows });
                 updateInterface();
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // Menghapus File Tertentu Dari Antrean
         function deleteFileFromQueue(id) {
             uploadedFilesManager = uploadedFilesManager.filter(f => f.id !== id);
             updateInterface();
         }
 
-        // Refresh Seluruh Antrean File dan Render Gabungan Preview Tabel (Kanan)
         function updateInterface() {
-            // Render UI List Antrean File (Kiri)
+            const isPN = document.getElementById('clientMode').value === 'PN_BATAM';
             const fileQueueDiv = document.getElementById('fileQueue');
+            
             if (uploadedFilesManager.length === 0) {
-                fileQueueDiv.innerHTML = `<div style="text-align: center; color: #888; font-size: 0.75rem; padding: 15px; font-style: italic;">Belum ada berkas dalam antrean.</div>`;
+                fileQueueDiv.innerHTML = `<div style="text-align: center; color: #888; font-size: 0.75rem; padding: 15px; font-style: italic;">Antrean kosong.</div>`;
             } else {
                 fileQueueDiv.innerHTML = "";
                 uploadedFilesManager.forEach(file => {
-                    const item = document.createElement('div');
-                    item.className = 'file-item';
-                    item.innerHTML = `
-                        <div class="file-name" title="${file.name}">📄 ${file.name} (${file.rows.length} Baris)</div>
-                        <button class="btn-delete-file" onclick="deleteFileFromQueue(${file.id})">Hapus</button>
-                    `;
-                    fileQueueDiv.appendChild(item);
+                    fileQueueDiv.innerHTML += `
+                        <div class="file-item">
+                            <span style="font-weight:600;">📄 ${file.name} (${file.rows.length} Baris)</span>
+                            <button class="btn-delete-file" onclick="deleteFileFromQueue(${file.id})">Hapus</button>
+                        </div>`;
                 });
             }
 
-            // Gabungkan dan Render Data Master ke Tabel Preview UI (Kanan)
             const tbody = document.querySelector('#resultTable tbody');
             tbody.innerHTML = '';
-            
-            let masterCounter = 0;
+            let counter = 0;
 
             uploadedFilesManager.forEach(file => {
                 file.rows.forEach(item => {
-                    masterCounter++;
+                    counter++;
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td class="text-center" style="font-weight:bold; color:var(--pos-orange);">${masterCounter}</td>
-                        <td style="font-weight:600;">${item.name}</td>
-                        <td>${item.phone}</td>
-                        <td>${item.address}</td>
-                    `;
+                    
+                    if (isPN) {
+                        tr.innerHTML = `
+                            <td style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
+                            <td><input type="text" class="table-input" value="${item.noSurat}"></td>
+                            <td><input type="text" class="table-input" value="${item.name}"></td>
+                            <td><input type="text" class="table-input" value="${item.address}"></td>
+                        `;
+                    } else {
+                        tr.innerHTML = `
+                            <td style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
+                            <td><input type="text" class="table-input" value="${item.name}"></td>
+                            <td><input type="text" class="table-input" value="${item.phone}"></td>
+                            <td><input type="text" class="table-input" value="${item.address}"></td>
+                        `;
+                    }
                     tbody.appendChild(tr);
                 });
             });
 
-            if (masterCounter === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Belum ada data berkas yang diproses. Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
+            if (counter === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
             }
         }
 
-        // Kompilasi Penggabungan Data & Download Excel Sesuai Struktur Aturan Validasi Mile App
+        // EXPORT FINAL (BACA DARI TABEL UI AGAR PERUBAHAN TERSIMPAN)
         function downloadFinalExcel() {
-            // Flatten semua data baris dari manager berkas
-            let totalRecords = [];
-            uploadedFilesManager.forEach(file => {
-                totalRecords = totalRecords.concat(file.rows);
-            });
-
-            if (totalRecords.length === 0) {
-                alert("Tidak ada data dalam antrean yang bisa diekspor. Silakan upload berkas mentah terlebih dahulu.");
-                return;
+            const rows = document.querySelectorAll('#resultTable tbody tr');
+            if (rows.length === 0 || rows[0].querySelector('input') === null) {
+                alert("Tidak ada data untuk diekspor."); return;
             }
 
-            const customerId = cleanArtifacts(document.getElementById('customerId').value);
-            const sName = cleanArtifacts(document.getElementById('senderName').value);
-            const sAddress = cleanArtifacts(document.getElementById('senderAddress').value);
-
+            const isPN = document.getElementById('clientMode').value === 'PN_BATAM';
+            const customerId = document.getElementById('customerId').value.toUpperCase().trim();
             const serviceCode = document.getElementById('serviceCode').value.toUpperCase();
             const tariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
             const itemType = document.getElementById('itemType').value.toUpperCase();
+            
+            const sNameRaw = document.getElementById('senderName').value.toUpperCase();
+            const sAddrRaw = document.getElementById('senderAddress').value.toUpperCase();
 
             let finalExportRows = [];
 
-            totalRecords.forEach((item, index) => {
+            rows.forEach((tr, index) => {
+                let inputs = tr.querySelectorAll('input.table-input');
+                let dName, dAddress, dPhone, dNoSurat;
+
+                if (isPN) {
+                    dNoSurat = inputs[0].value.toUpperCase();
+                    dName = inputs[1].value.toUpperCase();
+                    dAddress = inputs[2].value.toUpperCase();
+                    dPhone = "0";
+                } else {
+                    dNoSurat = "";
+                    dName = inputs[0].value.toUpperCase();
+                    dPhone = inputs[1].value.toUpperCase();
+                    dAddress = inputs[2].value.toUpperCase();
+                }
+
+                // Logika Penimpaan untuk Mode PN Batam
+                let senderNameFinal = isPN ? dNoSurat : sNameRaw;
+                let senderAddrFinal = isPN ? "" : sAddrRaw;
+                let refNoFinal = isPN ? dNoSurat : "";
+                let koliDescFinal = isPN ? dNoSurat : itemType;
+
                 finalExportRows.push({
                     "connote_code": index + 1,
                     "customer_code": customerId,
-                    "origin_data_customer_name": sName,
+                    "origin_data_customer_name": senderNameFinal,
                     "origin_data_customer_phone": "0", 
-                    "origin_data_customer_address": sAddress,
-                    "origin_data_customer_zip_code": "29411", // Terkunci sesuai parameter baru
+                    "origin_data_customer_address": senderAddrFinal,
+                    "origin_data_customer_zip_code": "29411", 
                     "origin_data_zone_code": "29400",
-                    "destination_data_customer_name": item.name,
-                    "destination_data_customer_phone": item.phone, // Otomatis terisi nomor HP valid atau "0"
-                    "destination_data_customer_address": item.address,
-                    "destination_data_customer_zip_code": "29411", // Terkunci sesuai parameter baru
-                    "destination_data_zone_code": "29400",        // Terkunci sesuai parameter baru
+                    "destination_data_customer_name": dName,
+                    "destination_data_customer_phone": dPhone,
+                    "destination_data_customer_address": dAddress,
+                    "destination_data_customer_zip_code": "29411", 
+                    "destination_data_zone_code": "29400",        
                     "service_code": serviceCode,
                     "connote_sub_service_code": tariffCode, 
-                    "koli_data_koli_description": itemType,
+                    "koli_data_koli_description": koliDescFinal,
                     "koli_data_koli_weight": 1,
-                    "koli_data_koli_width": 10,  // Dimensi terkunci 10x10x10
+                    "koli_data_koli_width": 10,
                     "koli_data_koli_height": 10, 
                     "koli_data_koli_length": 10, 
                     "transaction_payment_type_name": "INVOICE",
                     "instruksi_pengiriman": "Tolong diantar dengan baik",
                     "harga_barang": 0,
-                    "ref_no": "",
+                    "ref_no": refNoFinal,
                     "Jenis_Barang": itemType, 
                     "statusRetur": "Kembali ke pengirim",
-                    "INS": "" // Jaminan kosong mutlak untuk meloloskan validasi manifest
+                    "INS": "" 
                 });
             });
 
-            // Pembuatan Workbook Excel dengan Engine SheetJS
             const worksheet = XLSX.utils.json_to_sheet(finalExportRows);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             
-            // Konforce agar tipe data telepon ter-render sebagai string teks agar tidak membuang angka 0 di depan
+            // Penguncian Format Kolom HP agar tidak kehilangan angka 0
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-                // Kolom nomor HP pengirim (indeks 3 / D) dan HP penerima (indeks 8 / I) diatur paksa ke format teks
                 let cell_sender_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 3})];
                 if (cell_sender_phone) cell_sender_phone.z = '@';
-                
                 let cell_dest_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 8})];
                 if (cell_dest_phone) cell_dest_phone.z = '@';
             }
 
-            // Unduh file hasil kompilasi gabungan
-            XLSX.writeFile(workbook, `Upload_MileApp_Merged_${customerId}.xlsx`);
+            XLSX.writeFile(workbook, `Upload_MileApp_${customerId}.xlsx`);
         }
     </script>
 </body>
