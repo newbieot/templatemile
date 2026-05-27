@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Converter Excel - PosIND Korporat Dashboard</title>
+    <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
+    
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -25,7 +27,6 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
         }
 
         /* HEADER */
@@ -44,7 +45,7 @@
         .logo-left img { height: 45px; object-fit: contain; }
         .logo-right img { height: 40px; object-fit: contain; }
         
-        .header-title { text-align: center; flex-grow: 1; }
+        .header-title { text-align: center; flex-grow: 1; padding: 0 10px;}
         .header-title h1 { font-size: 1.25rem; color: var(--pos-dark); font-weight: 800; }
         .header-title p { font-size: 0.8rem; color: #666; margin-top: 2px; }
 
@@ -87,10 +88,7 @@
             align-items: center;
             gap: 5px;
         }
-        .guide-list {
-            padding-left: 20px;
-            margin-bottom: 8px;
-        }
+        .guide-list { padding-left: 20px; margin-bottom: 8px; }
         .guide-list li { margin-bottom: 4px; }
         .guide-highlight { font-weight: 700; color: var(--pos-danger); }
 
@@ -116,6 +114,7 @@
         }
         input[type="text"]:focus, select:focus { outline: none; border-color: var(--pos-orange); }
         input[type="text"] { text-transform: uppercase; }
+        input[readonly] { background-color: #e9ecef; cursor: not-allowed; color: #666; }
 
         /* DRAG & DROP */
         .dropzone-area {
@@ -183,6 +182,16 @@
             margin-bottom: 5px;
             letter-spacing: 0.5px;
         }
+
+        /* RESPONSIVE DESIGN UNTUK MOBILE */
+        @media (max-width: 850px) {
+            body { height: auto; overflow: visible; }
+            .dashboard-container { flex-direction: column; overflow: visible; }
+            .panel-left { width: 100%; overflow: visible; padding-right: 0; }
+            .panel-right { width: 100%; overflow: visible; min-height: 400px; }
+            header { flex-direction: column; height: auto; padding: 15px; gap: 10px; }
+            .logo-left img, .logo-right img { height: 35px; }
+        }
     </style>
 </head>
 <body>
@@ -206,12 +215,12 @@
             <div class="guide-card">
                 <h3>📌 PANDUAN PENGGUNAAN (SOP)</h3>
                 <ol class="guide-list">
-                    <li><b>Capture & Convert:</b> Foto seluruh kiriman/paket, lalu jadikan 1 file PDF (Bisa gunakan aplikasi CamScanner di Android/iOS).</li>
-                    <li><b>Ekstrak Data (AI):</b> Buka web <b>gemini.google.com</b> (gunakan akun Gemini Pro), upload PDF tersebut, lalu berikan perintah: <i>"Buatkan tabel nama penerima, alamat penerima, dan no hp penerima (jika ada), lalu convert ke .xlsx"</i>.</li>
+                    <li><b>Capture & Convert:</b> Foto seluruh kiriman, jadikan 1 file PDF (Gunakan CamScanner di HP).</li>
+                    <li><b>Ekstrak Data:</b> Buka <b>gemini.google.com</b> (akun Gemini Pro), upload PDF, dan ketik: <i>"Buatkan tabel nama penerima, alamat penerima, dan no hp penerima, lalu convert ke .xlsx"</i>.</li>
                     <li><b>Upload Mentahan:</b> Drag & Drop file hasil <b>.xlsx</b> dari Gemini ke area <i>Upload Berkas Mentah</i> di bawah.</li>
-                    <li><b>Lengkapi Data:</b> Isi ID Pelanggan, Kode Layanan, dan detail formulir lainnya di bawah.</li>
-                    <li><b>Review & Edit:</b> Cek tabel di sebelah kanan. Jika ada typo dari AI, <b>klik teksnya langsung untuk mengedit/memperbaiki</b>.</li>
-                    <li><b>Selesai:</b> Klik tombol Export. File siap di-upload ke Mile App tanpa perlu entri manual satu-satu! <span class="guide-highlight">Lebih cepat, efisien, dan presisi.</span></li>
+                    <li><b>Lengkapi Data:</b> Isi ID Pelanggan, Kode Layanan, dll. <i>(Subservice PN Batam & Kodepos otomatis diisi AI)</i>.</li>
+                    <li><b>Review & Edit:</b> Cek tabel di kanan. Jika ada *typo*, <b>klik teks langsung untuk edit</b>.</li>
+                    <li><b>Selesai:</b> Klik tombol Export. File Excel valid siap di-upload ke Mile App.</li>
                 </ol>
             </div>
 
@@ -273,9 +282,7 @@
                 <div class="file-queue-container" id="fileQueue"></div>
             </div>
 
-            <div class="credits">
-                Created by : newbieot
-            </div>
+            <div class="credits">Created by : newbieot</div>
         </div>
 
         <div class="panel-right">
@@ -284,10 +291,8 @@
             </div>
             <div class="table-container">
                 <table id="resultTable">
-                    <thead>
-                        </thead>
-                    <tbody>
-                    </tbody>
+                    <thead></thead>
+                    <tbody></tbody>
                 </table>
             </div>
             <button class="btn-accent" onclick="downloadFinalExcel()">📥 EXPORT DATA (SIMPAN PERUBAHAN) KE EXCEL MILE APP</button>
@@ -297,6 +302,69 @@
     <script>
         let uploadedFilesManager = [];
 
+        // DATABASE CERDAS KODEPOS BATAM (Disusun berdasarkan panjang teks untuk presisi pencarian)
+        const postalCodeMapping = [
+            { keyword: 'TANJUNG SENGKUANG', code: '29421' },
+            { keyword: 'SUNGAI PELUNGGUT', code: '29456' },
+            { keyword: 'LUBUK BAJA KOTA', code: '29441' },
+            { keyword: 'TANJUNG BUNTUNG', code: '29452' },
+            { keyword: 'TANJUNG PINGGIR', code: '29462' },
+            { keyword: 'KAMPUNG SERAYA', code: '29424' },
+            { keyword: 'TANJUNG UNCANG', code: '29431' },
+            { keyword: 'BUKIT TEMPAYAN', code: '29434' },
+            { keyword: 'KAMPUNG PELITA', code: '29444' },
+            { keyword: 'BENGKONG INDAH', code: '29453' },
+            { keyword: 'SUNGAI HARAPAN', code: '29459' },
+            { keyword: 'SUNGAI LANGKAI', code: '29455' },
+            { keyword: 'BULANG LINTANG', code: '29471' },
+            { keyword: 'BENGKONG LAUT', code: '29454' },
+            { keyword: 'PATAM LESTARI', code: '29458' },
+            { keyword: 'TANJUNG PIAYU', code: '29464' },
+            { keyword: 'PULAU SETOKOK', code: '29476' },
+            { keyword: 'TELUK TERING', code: '29411' },
+            { keyword: 'SUNGAI PANAS', code: '29412' },
+            { keyword: 'BALOI PERMAI', code: '29413' },
+            { keyword: 'SUNGAI JODOH', code: '29423' },
+            { keyword: 'BATU SELICIN', code: '29443' },
+            { keyword: 'TANJUNG RIAU', code: '29461' },
+            { keyword: 'SUNGAI BINTI', code: '29453' },
+            { keyword: 'SUNGAI LEKOP', code: '29454' },
+            { keyword: 'PANTAI GELAM', code: '29473' },
+            { keyword: 'TAMAN BALOI', code: '29413' },
+            { keyword: 'BALOI INDAH', code: '29442' },
+            { keyword: 'TANJUNG UMA', code: '29445' },
+            { keyword: 'TIBAN INDAH', code: '29455' },
+            { keyword: 'DURIANGKANG', code: '29461' },
+            { keyword: 'MUKA KUNING', code: '29463' },
+            { keyword: 'PULAU BULUH', code: '29472' },
+            { keyword: 'BATU LEGONG', code: '29474' },
+            { keyword: 'BATU BESAR', code: '29416' },
+            { keyword: 'BATU MERAH', code: '29422' },
+            { keyword: 'TIBAN BARU', code: '29456' },
+            { keyword: 'TIBAN LAMA', code: '29457' },
+            { keyword: 'BATAM KOTA', code: '29411' },
+            { keyword: 'BATU AMPAR', code: '29421' },
+            { keyword: 'LUBUK BAJA', code: '29441' },
+            { keyword: 'SEI BEDUK', code: '29461' },
+            { keyword: 'SUKAJADI', code: '29415' },
+            { keyword: 'BATU AJI', code: '29433' },
+            { keyword: 'MANGSANG', code: '29462' },
+            { keyword: 'TEMOYONG', code: '29475' },
+            { keyword: 'BENGKONG', code: '29451' },
+            { keyword: 'SEKUPANG', code: '29455' },
+            { keyword: 'SAGULUNG', code: '29452' },
+            { keyword: 'NGENANG', code: '29416' },
+            { keyword: 'BULIANG', code: '29432' },
+            { keyword: 'TEMBESI', code: '29452' },
+            { keyword: 'BELIAN', code: '29414' },
+            { keyword: 'SAMBAU', code: '29419' },
+            { keyword: 'KIBING', code: '29433' },
+            { keyword: 'NONGSA', code: '29416' },
+            { keyword: 'BULANG', code: '29471' },
+            { keyword: 'KABIL', code: '29417' },
+            { keyword: 'SADAI', code: '29451' }
+        ];
+
         document.addEventListener("DOMContentLoaded", () => {
             updateTableHeaders();
             updateInterface();
@@ -305,12 +373,19 @@
         function handleModeChange() {
             const mode = document.getElementById('clientMode').value;
             const sNameWrap = document.getElementById('wrapSenderName');
+            const tariffCodeInput = document.getElementById('tariffCode');
 
             if (mode === 'PN_BATAM') {
-                sNameWrap.style.display = 'none'; // Pengirim pakai No Surat
+                sNameWrap.style.display = 'none'; 
                 document.getElementById('itemType').value = 'DOKUMEN';
+                // Kunci Tariff Code Pengadilan Negeri Batam
+                tariffCodeInput.value = "897924";
+                tariffCodeInput.readOnly = true;
             } else {
                 sNameWrap.style.display = 'block';
+                // Buka Kunci Tariff Code
+                tariffCodeInput.value = "";
+                tariffCodeInput.readOnly = false;
             }
 
             uploadedFilesManager = [];
@@ -338,7 +413,6 @@
             }
         }
 
-        // DRAG & DROP
         const dropzone = document.getElementById('dropzone');
         ['dragenter', 'dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.add('dragover'); }));
         ['dragleave', 'drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
@@ -351,18 +425,15 @@
             document.getElementById('excelInput').value = "";
         }
 
-        // FUNGSI PEMBERSIH TEKS MUTLAK
         function cleanArtifacts(text) {
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
-            // Mutlak hanya huruf, angka, dan spasi (Tidak ada spesial karakter)
             return str.replace(/[^A-Za-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
         function cleanReference(text) { 
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
-            // Ref No diizinkan karakter khusus agar nomor surat tidak rusak
             return str.replace(/[^A-Za-z0-9\s/\-.,_]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
@@ -373,6 +444,17 @@
             if (str.startsWith('62')) str = '0' + str.slice(2);
             if (!str.startsWith('0')) str = '0' + str;
             return str;
+        }
+
+        // FUNGSI PENCARIAN KODEPOS BERDASARKAN ALAMAT
+        function getZipCodeFromAddress(address) {
+            const addrUpper = String(address).toUpperCase();
+            for (let item of postalCodeMapping) {
+                if (addrUpper.includes(item.keyword)) {
+                    return item.code;
+                }
+            }
+            return "29411"; // Fallback default
         }
 
         function parseSingleFile(file) {
@@ -472,7 +554,6 @@
             }
         }
 
-        // EXPORT FINAL
         function downloadFinalExcel() {
             const rows = document.querySelectorAll('#resultTable tbody tr');
             if (rows.length === 0 || rows[0].querySelector('input') === null) {
@@ -522,6 +603,9 @@
                     koliDescFinal = itemType;
                 }
 
+                // Kalkulasi Cerdas Kodepos Menggunakan Database Batam
+                let targetZipCode = getZipCodeFromAddress(dAddress);
+
                 finalExportRows.push({
                     "connote_code": index + 1,
                     "customer_code": customerId,
@@ -533,7 +617,7 @@
                     "destination_data_customer_name": dName,
                     "destination_data_customer_phone": dPhone,
                     "destination_data_customer_address": dAddress,
-                    "destination_data_customer_zip_code": "29411", 
+                    "destination_data_customer_zip_code": targetZipCode, // Diisi otomatis dari fungsi AI Matching
                     "destination_data_zone_code": "29400",        
                     "service_code": serviceCode,
                     "connote_sub_service_code": tariffCode, 
@@ -548,7 +632,7 @@
                     "ref_no": refNoFinal,
                     "Jenis_Barang": itemType, 
                     "statusRetur": "Kembali ke pengirim",
-                    "INS": "" // Sengaja di set string kosong mutlak
+                    "INS": "" 
                 });
             });
 
@@ -562,6 +646,8 @@
                 if (cell_sender_phone) cell_sender_phone.z = '@';
                 let cell_dest_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 8})];
                 if (cell_dest_phone) cell_dest_phone.z = '@';
+                let cell_dest_zip = worksheet[XLSX.utils.encode_cell({r: R, c: 10})];
+                if (cell_dest_zip) cell_dest_zip.z = '@';
             }
 
             XLSX.writeFile(workbook, `Upload_MileApp_${customerId}.xlsx`);
