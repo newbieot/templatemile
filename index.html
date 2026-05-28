@@ -104,7 +104,7 @@
         }
         input[type="text"]:focus, select:focus { outline: none; border-color: var(--pos-orange); }
         input[type="text"] { text-transform: uppercase; }
-        input[readonly] { background-color: #e9ecef; cursor: not-allowed; color: #666; }
+        input[readonly] { background-color: #e9ecef; cursor: not-allowed; color: #666; font-weight: bold;}
 
         /* DRAG & DROP */
         .dropzone-area {
@@ -190,8 +190,8 @@
                     <li><b>Ekstrak Data:</b> Buka <b>gemini.google.com</b> (akun Gemini Pro), upload PDF, dan ketik: <i>"Buatkan tabel nama penerima, alamat penerima, no surat (jika ada), dan no hp penerima, lalu convert ke .xlsx"</i>.</li>
                     <li><b>Upload Mentahan:</b> Drag & Drop file hasil <b>.xlsx</b> (atau file klien) ke area <i>Upload Berkas</i> di bawah. Sistem pintar akan melacak data meskipun Sheetnya acak!</li>
                     <li><b>Lengkapi Data:</b> Isi ID Pelanggan, Kode Layanan, dll.</li>
-                    <li><b>Review & Edit:</b> Cek tabel di kanan. Jika ada typo, <b>klik teks langsung untuk edit</b>.</li>
-                    <li><b>Selesai:</b> Klik Export. File Excel valid siap di-upload ke Mile App tanpa entri manual.</li>
+                    <li><b>Review & Edit:</b> Cek tabel di kanan. Kodepos otomatis diisi AI, tapi <b>bisa diedit manual jika MileApp menolak</b>.</li>
+                    <li><b>Selesai:</b> Klik Export. File Excel valid siap di-upload ke Mile App tanpa entri manual. (Kolom INS sudah dihancurkan 100%).</li>
                 </ol>
             </div>
 
@@ -263,16 +263,17 @@
         <!-- PANEL KANAN (PREVIEW & EXPORT) -->
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
-                *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Data bebas spesial karakter.
+                *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Kodepos otomatis terisi sesuai CSV terbaru.
             </div>
             <div class="table-container">
                 <table id="resultTable">
                     <thead>
                         <tr>
                             <th style="width: 5%; text-align: center;">NO</th>
-                            <th style="width: 20%;">NO SURAT/REF</th>
-                            <th style="width: 25%;">NAMA PENERIMA</th>
+                            <th style="width: 15%;">NO SURAT/REF</th>
+                            <th style="width: 20%;">NAMA PENERIMA</th>
                             <th style="width: 15%;">NO HP</th>
+                            <th style="width: 10%;">KODEPOS</th>
                             <th style="width: 35%;">ALAMAT PENERIMA</th>
                         </tr>
                     </thead>
@@ -286,38 +287,84 @@
     <script>
         let uploadedFilesManager = [];
 
-        // DATABASE CERDAS KODEPOS BATAM
+        // DATABASE KODEPOS BATAM MUTAKHIR (Ekstraksi Langsung dari 'Kode Pos Batam.csv')
         const postalCodeMapping = [
-            { keyword: 'TANJUNG SENGKUANG', code: '29421' }, { keyword: 'SUNGAI PELUNGGUT', code: '29456' },
-            { keyword: 'LUBUK BAJA KOTA', code: '29441' }, { keyword: 'TANJUNG BUNTUNG', code: '29452' },
-            { keyword: 'TANJUNG PINGGIR', code: '29462' }, { keyword: 'KAMPUNG SERAYA', code: '29424' },
-            { keyword: 'TANJUNG UNCANG', code: '29431' }, { keyword: 'BUKIT TEMPAYAN', code: '29434' },
-            { keyword: 'KAMPUNG PELITA', code: '29444' }, { keyword: 'BENGKONG INDAH', code: '29453' },
-            { keyword: 'SUNGAI HARAPAN', code: '29459' }, { keyword: 'SUNGAI LANGKAI', code: '29455' },
-            { keyword: 'BULANG LINTANG', code: '29471' }, { keyword: 'BENGKONG LAUT', code: '29454' },
-            { keyword: 'PATAM LESTARI', code: '29458' }, { keyword: 'TANJUNG PIAYU', code: '29464' },
-            { keyword: 'PULAU SETOKOK', code: '29476' }, { keyword: 'TELUK TERING', code: '29411' },
-            { keyword: 'SUNGAI PANAS', code: '29412' }, { keyword: 'BALOI PERMAI', code: '29413' },
-            { keyword: 'SUNGAI JODOH', code: '29423' }, { keyword: 'BATU SELICIN', code: '29443' },
-            { keyword: 'TANJUNG RIAU', code: '29461' }, { keyword: 'SUNGAI BINTI', code: '29453' },
-            { keyword: 'SUNGAI LEKOP', code: '29454' }, { keyword: 'PANTAI GELAM', code: '29473' },
-            { keyword: 'TAMAN BALOI', code: '29413' }, { keyword: 'BALOI INDAH', code: '29442' },
-            { keyword: 'TANJUNG UMA', code: '29445' }, { keyword: 'TIBAN INDAH', code: '29455' },
-            { keyword: 'DURIANGKANG', code: '29461' }, { keyword: 'MUKA KUNING', code: '29463' },
-            { keyword: 'PULAU BULUH', code: '29472' }, { keyword: 'BATU LEGONG', code: '29474' },
-            { keyword: 'BATU BESAR', code: '29416' }, { keyword: 'BATU MERAH', code: '29422' },
-            { keyword: 'TIBAN BARU', code: '29456' }, { keyword: 'TIBAN LAMA', code: '29457' },
-            { keyword: 'BATAM KOTA', code: '29411' }, { keyword: 'BATU AMPAR', code: '29421' },
-            { keyword: 'LUBUK BAJA', code: '29441' }, { keyword: 'SEI BEDUK', code: '29461' },
-            { keyword: 'SUKAJADI', code: '29415' }, { keyword: 'BATU AJI', code: '29433' },
-            { keyword: 'MANGSANG', code: '29462' }, { keyword: 'TEMOYONG', code: '29475' },
-            { keyword: 'BENGKONG', code: '29451' }, { keyword: 'SEKUPANG', code: '29455' },
-            { keyword: 'SAGULUNG', code: '29452' }, { keyword: 'NGENANG', code: '29416' },
-            { keyword: 'BULIANG', code: '29432' }, { keyword: 'TEMBESI', code: '29452' },
-            { keyword: 'BELIAN', code: '29414' }, { keyword: 'SAMBAU', code: '29419' },
-            { keyword: 'KIBING', code: '29433' }, { keyword: 'NONGSA', code: '29416' },
-            { keyword: 'BULANG', code: '29471' }, { keyword: 'KABIL', code: '29417' },
-            { keyword: 'SADAI', code: '29451' }
+            { keyword: 'TANJUNG SENGKUANG', code: '29421' },
+            { keyword: 'SUNGAI PELUNGGUT', code: '29456' },
+            { keyword: 'TANJUNG BUNTUNG', code: '29429' },
+            { keyword: 'LUBUK BAJA KOTA', code: '29434' },
+            { keyword: 'TANJUNG PINGGIR', code: '29448' },
+            { keyword: 'BELAKANG PADANG', code: '29491' },
+            { keyword: 'KAMPUNG SERAYA', code: '29424' },
+            { keyword: 'BENGKONG INDAH', code: '29427' },
+            { keyword: 'KAMPUNG PELITA', code: '29433' },
+            { keyword: 'BUKIT TEMPAYAN', code: '29443' },
+            { keyword: 'TANJUNG UNCANG', code: '29444' },
+            { keyword: 'SUNGAI HARAPAN', code: '29448' },
+            { keyword: 'SUNGAI LANGKAI', code: '29455' },
+            { keyword: 'BULANG LINTANG', code: '29471' },
+            { keyword: 'BENGKONG LAUT', code: '29428' },
+            { keyword: 'PATAM LESTARI', code: '29447' },
+            { keyword: 'SAGULUNG KOTA', code: '29451' },
+            { keyword: 'TANJUNG PIAYU', code: '29464' },
+            { keyword: 'PULAU SETOKOK', code: '29476' },
+            { keyword: 'TELUK TERING', code: '29411' },
+            { keyword: 'SUNGAI PANAS', code: '29412' },
+            { keyword: 'BALOI PERMAI', code: '29413' },
+            { keyword: 'SUNGAI JODOH', code: '29423' },
+            { keyword: 'BATU SELICIN', code: '29431' },
+            { keyword: 'TANJUNG RIAU', code: '29445' },
+            { keyword: 'SUNGAI BINTI', code: '29453' },
+            { keyword: 'SUNGAI LEKOP', code: '29454' },
+            { keyword: 'PANTAI GELAM', code: '29473' },
+            { keyword: 'REMPANG CATE', code: '29482' },
+            { keyword: 'TANJUNG SARI', code: '29491' },
+            { keyword: 'SEKANAK RAYA', code: '29495' },
+            { keyword: 'PULAU TERUNG', code: '29496' },
+            { keyword: 'TAMAN BALOI', code: '29413' },
+            { keyword: 'TANJUNG UMA', code: '29435' },
+            { keyword: 'BALOI INDAH', code: '29436' },
+            { keyword: 'TIBAN INDAH', code: '29446' },
+            { keyword: 'DURIANGKANG', code: '29461' },
+            { keyword: 'MUKA KUNING', code: '29463' },
+            { keyword: 'PULAU BULUH', code: '29472' },
+            { keyword: 'BATU LEGONG', code: '29474' },
+            { keyword: 'GALANG BARU', code: '29484' },
+            { keyword: 'PULAU ABANG', code: '29487' },
+            { keyword: 'BATU BESAR', code: '29416' },
+            { keyword: 'BATU MERAH', code: '29422' },
+            { keyword: 'TIBAN LAMA', code: '29445' },
+            { keyword: 'TIBAN BARU', code: '29449' },
+            { keyword: 'SUBANG MAS', code: '29483' },
+            { keyword: 'BATAM KOTA', code: '29411' },
+            { keyword: 'BATU AMPAR', code: '29421' },
+            { keyword: 'LUBUK BAJA', code: '29431' },
+            { keyword: 'SEMBULANG', code: '29481' },
+            { keyword: 'SIJANTUNG', code: '29485' },
+            { keyword: 'SEI BEDUK', code: '29461' },
+            { keyword: 'SUKAJADI', code: '29415' },
+            { keyword: 'MANGSANG', code: '29462' },
+            { keyword: 'TEMOYONG', code: '29475' },
+            { keyword: 'AIR RAJA', code: '29483' },
+            { keyword: 'BENGKONG', code: '29426' },
+            { keyword: 'BATU AJI', code: '29441' },
+            { keyword: 'SEKUPANG', code: '29445' },
+            { keyword: 'SAGULUNG', code: '29451' },
+            { keyword: 'NGENANG', code: '29416' },
+            { keyword: 'BULIANG', code: '29441' },
+            { keyword: 'TEMBESI', code: '29452' },
+            { keyword: 'PEMPING', code: '29492' },
+            { keyword: 'BELIAN', code: '29414' },
+            { keyword: 'SAMBAU', code: '29419' },
+            { keyword: 'KIBING', code: '29442' },
+            { keyword: 'PECONG', code: '29494' },
+            { keyword: 'NONGSA', code: '29416' },
+            { keyword: 'BULANG', code: '29471' },
+            { keyword: 'GALANG', code: '29481' },
+            { keyword: 'KABIL', code: '29417' },
+            { keyword: 'SADAI', code: '29426' },
+            { keyword: 'KARAS', code: '29486' },
+            { keyword: 'KASU', code: '29493' }
         ];
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -377,10 +424,10 @@
             let str = String(phone).replace(/[^0-9]/g, ''); // Ambil angka murni
             if (!str) return "0";
             if (str.startsWith('62')) {
-                str = '0' + str.slice(2); // Ubah 62 jadi 0
+                str = '0' + str.slice(2); 
             }
             if (!str.startsWith('0')) {
-                str = '0' + str; // Tambah 0 jika awalnya tidak 0 (misal 812 jadi 0812)
+                str = '0' + str; 
             }
             return str;
         }
@@ -400,7 +447,6 @@
                 const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
                 let extractedRows = [];
 
-                // Looping Ke Semua Sheet di Dalam Excel
                 workbook.SheetNames.forEach(sheetName => {
                     const worksheet = workbook.Sheets[sheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
@@ -409,32 +455,27 @@
                         let hIdxSurat = -1, hIdxName = -1, hIdxPhone = -1, hIdxAddress = -1;
                         let headerFound = false;
 
-                        // SMART DYNAMIC PARSING: Cari Posisi Header Kolom
                         for (let r = 0; r < Math.min(jsonData.length, 10); r++) {
                             let row = jsonData[r];
                             if (!row || row.length === 0) continue;
                             
                             for (let c = 0; c < row.length; c++) {
                                 let cellVal = String(row[c] || "").toUpperCase().trim();
-                                // Deteksi berbagai variasi nama kolom
                                 if (cellVal.includes("SURAT") || cellVal.includes("REF") || cellVal.includes("AWB") || cellVal.includes("DESKRIPSI")) hIdxSurat = c;
                                 if (cellVal.includes("NAMA") || cellVal.includes("PENERIMA") || cellVal.includes("RECIPIENT")) hIdxName = c;
                                 if (cellVal.includes("ALAMAT") || cellVal.includes("ADDRESS")) hIdxAddress = c;
                                 if (cellVal.includes("HP") || cellVal.includes("TELP") || cellVal.includes("PHONE") || cellVal.includes("HANDPHONE") || cellVal.includes("TELEPON")) hIdxPhone = c;
                             }
-                            // Header valid jika menemukan Kolom Nama atau Alamat
                             if (hIdxName !== -1 || hIdxAddress !== -1) {
                                 headerFound = true; break;
                             }
                         }
 
-                        // Ekstrak Baris Data
                         for (let i = 0; i < jsonData.length; i++) { 
                             let row = jsonData[i];
                             if (!row || row.length === 0) continue;
 
                             const rowStr = row.join(" ").toUpperCase();
-                            // Skip header row saat import
                             if (rowStr.includes("NAMA") || rowStr.includes("ALAMAT") || rowStr.includes("PENERIMA") || rowStr.includes("NO HP")) continue;
 
                             let rawSurat = "", rawName = "", rawPhone = "0", rawAddress = "";
@@ -445,7 +486,6 @@
                                 rawPhone = hIdxPhone !== -1 ? row[hIdxPhone] : "0";
                                 rawAddress = hIdxAddress !== -1 ? row[hIdxAddress] : "";
                             } else {
-                                // Fallback jika tidak ada header jelas
                                 if (row.length >= 4) {
                                     rawSurat = row[0] || ""; rawName = row[1] || ""; rawPhone = row[2] || "0"; rawAddress = row[3] || "";
                                 } else if (row.length === 3) {
@@ -465,19 +505,18 @@
                             let cleanName = cleanArtifacts(rawName);
                             let cleanPhone = cleanPhoneNumber(rawPhone);
                             let cleanAddr = cleanArtifacts(rawAddress);
+                            let targetZipCode = getZipCodeFromAddress(cleanAddr);
 
-                            // Lewati baris kosong
                             if (!cleanName && !cleanAddr) continue;
-                            extractedRows.push({ noSurat: cleanSurat, name: cleanName, phone: cleanPhone, address: cleanAddr });
+                            extractedRows.push({ noSurat: cleanSurat, name: cleanName, phone: cleanPhone, zip: targetZipCode, address: cleanAddr });
                         }
                     }
                 });
                 
-                // Tambahkan data ke manager queue
                 if (extractedRows.length > 0) {
                     uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: extractedRows });
                 } else {
-                    alert(`Gagal menemukan data valid di dalam file "${file.name}". Pastikan file memiliki data pelanggan.`);
+                    alert(`Gagal menemukan data valid di dalam file "${file.name}".`);
                 }
                 updateInterface();
             };
@@ -514,12 +553,12 @@
                     counter++;
                     const tr = document.createElement('tr');
                     
-                    // Unifikasi Tabel: Selalu tampilkan 5 kolom
                     tr.innerHTML = `
                         <td style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
                         <td><input type="text" class="table-input" value="${item.noSurat}"></td>
                         <td><input type="text" class="table-input" value="${item.name}"></td>
                         <td><input type="text" class="table-input" value="${item.phone}"></td>
+                        <td><input type="text" class="table-input" style="font-weight:bold; color:#d32f2f;" value="${item.zip}"></td>
                         <td><input type="text" class="table-input" value="${item.address}"></td>
                     `;
                     tbody.appendChild(tr);
@@ -527,7 +566,7 @@
             });
 
             if (counter === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
             }
         }
 
@@ -550,15 +589,14 @@
             rows.forEach((tr, index) => {
                 let inputs = tr.querySelectorAll('input.table-input');
                 
-                // Ambil Data Setelah Diedit User di Tabel UI
                 let dNoSurat = cleanReference(inputs[0].value);
                 let dName = cleanArtifacts(inputs[1].value);
                 let dPhone = cleanPhoneNumber(inputs[2].value);
-                let dAddress = cleanArtifacts(inputs[3].value);
+                let dZip = cleanArtifacts(inputs[3].value); 
+                let dAddress = cleanArtifacts(inputs[4].value);
 
                 let senderNameFinal, senderAddrFinal;
 
-                // Logika Pengirim
                 if (isPN) {
                     senderNameFinal = cleanArtifacts(dNoSurat); 
                     senderAddrFinal = "PENGADILAN NEGERI BATAM";
@@ -570,9 +608,7 @@
                     }
                 }
 
-                // Kalkulasi Cerdas Kodepos Menggunakan Database
-                let targetZipCode = getZipCodeFromAddress(dAddress);
-
+                // PERHATIKAN: Objektif ini SAMA SEKALI TIDAK MEMILIKI KEY "INS"
                 finalExportRows.push({
                     "connote_code": index + 1,
                     "customer_code": customerId,
@@ -584,11 +620,11 @@
                     "destination_data_customer_name": dName,
                     "destination_data_customer_phone": dPhone,
                     "destination_data_customer_address": dAddress,
-                    "destination_data_customer_zip_code": targetZipCode, 
+                    "destination_data_customer_zip_code": dZip, 
                     "destination_data_zone_code": "29400",        
                     "service_code": serviceCode,
                     "connote_sub_service_code": tariffCode, 
-                    "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, // Injeksi No Surat
+                    "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, 
                     "koli_data_koli_weight": 1,
                     "koli_data_koli_width": 10,
                     "koli_data_koli_height": 10, 
@@ -596,18 +632,28 @@
                     "transaction_payment_type_name": "INVOICE",
                     "instruksi_pengiriman": "Tolong diantar dengan baik",
                     "harga_barang": 0,
-                    "ref_no": dNoSurat, // Injeksi No Surat
+                    "ref_no": dNoSurat, 
                     "Jenis_Barang": itemType, 
-                    "statusRetur": "Kembali ke pengirim",
-                    "INS": "" // INS Sengaja Blank agar tidak kena Asuransi Siluman
+                    "statusRetur": "Kembali ke pengirim"
                 });
             });
 
-            const worksheet = XLSX.utils.json_to_sheet(finalExportRows);
+            // PERHATIKAN: Array exportHeaders SUDAH SAYA HAPUS STRING "INS"-NYA
+            const exportHeaders = [
+                "connote_code", "customer_code", "origin_data_customer_name", "origin_data_customer_phone", 
+                "origin_data_customer_address", "origin_data_customer_zip_code", "origin_data_zone_code", 
+                "destination_data_customer_name", "destination_data_customer_phone", "destination_data_customer_address", 
+                "destination_data_customer_zip_code", "destination_data_zone_code", "service_code", 
+                "connote_sub_service_code", "koli_data_koli_description", "koli_data_koli_weight", 
+                "koli_data_koli_width", "koli_data_koli_height", "koli_data_koli_length", 
+                "transaction_payment_type_name", "instruksi_pengiriman", "harga_barang", 
+                "ref_no", "Jenis_Barang", "statusRetur"
+            ];
+
+            const worksheet = XLSX.utils.json_to_sheet(finalExportRows, { header: exportHeaders });
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             
-            // Format HP sebagai String Text agar tidak kehilangan angka 0
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             for (let R = range.s.r + 1; R <= range.e.r; ++R) {
                 let cell_sender_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 3})];
