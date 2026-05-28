@@ -187,7 +187,7 @@
                     <li><b>Ekstrak Data:</b> Buka <b>gemini.google.com</b> (akun Gemini Pro), upload PDF, dan ketik: <i>"Buatkan tabel nama penerima, alamat penerima, no surat (jika ada), dan no hp penerima, lalu convert ke .xlsx"</i>.</li>
                     <li><b>Upload Mentahan:</b> Drag & Drop file hasil <b>.xlsx</b> (atau file klien) ke area <i>Upload Berkas</i> di bawah. Sistem pintar akan melacak data meskipun Sheetnya acak!</li>
                     <li><b>Lengkapi Data:</b> Isi ID Pelanggan, Kode Layanan, dll.</li>
-                    <li><b>Review & Edit:</b> Cek tabel di kanan. Kodepos otomatis diisi AI dengan membaca kata paling belakang, tapi <b>bisa diedit manual</b>.</li>
+                    <li><b>Review & Edit:</b> Cek tabel di kanan. Kodepos otomatis diisi AI dengan mendeteksi Kelurahan ter-kanan. <b>Bisa diedit manual</b> jika perlu.</li>
                     <li><b>Selesai:</b> Klik Export. File Excel valid siap di-upload ke Mile App tanpa entri manual.</li>
                 </ol>
             </div>
@@ -255,7 +255,7 @@
 
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
-                *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Kodepos otomatis membaca kelurahan terdalam.
+                *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Data bebas spesial karakter.
             </div>
             <div class="table-container">
                 <table id="resultTable">
@@ -279,84 +279,53 @@
     <script>
         let uploadedFilesManager = [];
 
-        // DATABASE KODEPOS BATAM MUTAKHIR
-        const postalCodeMapping = [
-            { keyword: 'TANJUNG SENGKUANG', code: '29421' },
-            { keyword: 'SUNGAI PELUNGGUT', code: '29456' },
-            { keyword: 'TANJUNG BUNTUNG', code: '29429' },
-            { keyword: 'LUBUK BAJA KOTA', code: '29434' },
-            { keyword: 'TANJUNG PINGGIR', code: '29448' },
-            { keyword: 'BELAKANG PADANG', code: '29491' },
-            { keyword: 'KAMPUNG SERAYA', code: '29424' },
-            { keyword: 'BENGKONG INDAH', code: '29427' },
-            { keyword: 'KAMPUNG PELITA', code: '29433' },
-            { keyword: 'BUKIT TEMPAYAN', code: '29443' },
-            { keyword: 'TANJUNG UNCANG', code: '29444' }, 
-            { keyword: 'SUNGAI HARAPAN', code: '29448' },
-            { keyword: 'SUNGAI LANGKAI', code: '29455' },
-            { keyword: 'BULANG LINTANG', code: '29471' },
-            { keyword: 'BENGKONG LAUT', code: '29428' },
-            { keyword: 'PATAM LESTARI', code: '29447' },
-            { keyword: 'SAGULUNG KOTA', code: '29451' },
-            { keyword: 'TANJUNG PIAYU', code: '29464' },
-            { keyword: 'PULAU SETOKOK', code: '29476' },
-            { keyword: 'TELUK TERING', code: '29411' },
-            { keyword: 'SUNGAI PANAS', code: '29412' },
-            { keyword: 'BALOI PERMAI', code: '29413' },
-            { keyword: 'SUNGAI JODOH', code: '29423' },
-            { keyword: 'BATU SELICIN', code: '29431' },
-            { keyword: 'TANJUNG RIAU', code: '29445' },
-            { keyword: 'SUNGAI BINTI', code: '29453' },
-            { keyword: 'SUNGAI LEKOP', code: '29454' },
-            { keyword: 'PANTAI GELAM', code: '29473' },
-            { keyword: 'REMPANG CATE', code: '29482' },
-            { keyword: 'TANJUNG SARI', code: '29491' },
-            { keyword: 'SEKANAK RAYA', code: '29495' },
-            { keyword: 'PULAU TERUNG', code: '29496' },
-            { keyword: 'TAMAN BALOI', code: '29413' },
-            { keyword: 'TANJUNG UMA', code: '29435' },
-            { keyword: 'BALOI INDAH', code: '29436' },
-            { keyword: 'TIBAN INDAH', code: '29446' },
-            { keyword: 'DURIANGKANG', code: '29461' },
-            { keyword: 'MUKA KUNING', code: '29463' },
-            { keyword: 'PULAU BULUH', code: '29472' },
-            { keyword: 'BATU LEGONG', code: '29474' },
-            { keyword: 'GALANG BARU', code: '29484' },
-            { keyword: 'PULAU ABANG', code: '29487' },
-            { keyword: 'BATU BESAR', code: '29416' },
-            { keyword: 'BATU MERAH', code: '29422' },
-            { keyword: 'TIBAN LAMA', code: '29445' },
-            { keyword: 'TIBAN BARU', code: '29449' },
-            { keyword: 'SUBANG MAS', code: '29483' },
-            { keyword: 'BATAM KOTA', code: '29411' },
-            { keyword: 'BATU AMPAR', code: '29421' },
-            { keyword: 'LUBUK BAJA', code: '29431' },
-            { keyword: 'SEMBULANG', code: '29481' },
-            { keyword: 'SIJANTUNG', code: '29485' },
-            { keyword: 'SEI BEDUK', code: '29461' },
-            { keyword: 'SUKAJADI', code: '29415' },
-            { keyword: 'MANGSANG', code: '29462' },
-            { keyword: 'TEMOYONG', code: '29475' },
-            { keyword: 'AIR RAJA', code: '29483' },
-            { keyword: 'BENGKONG', code: '29426' },
-            { keyword: 'BATU AJI', code: '29441' },
-            { keyword: 'SEKUPANG', code: '29445' },
-            { keyword: 'SAGULUNG', code: '29451' },
-            { keyword: 'NGENANG', code: '29416' },
-            { keyword: 'BULIANG', code: '29441' },
-            { keyword: 'TEMBESI', code: '29452' },
-            { keyword: 'PEMPING', code: '29492' },
-            { keyword: 'BELIAN', code: '29414' },
-            { keyword: 'SAMBAU', code: '29419' },
-            { keyword: 'KIBING', code: '29442' },
-            { keyword: 'PECONG', code: '29494' },
-            { keyword: 'NONGSA', code: '29416' },
-            { keyword: 'BULANG', code: '29471' },
-            { keyword: 'GALANG', code: '29481' },
-            { keyword: 'KABIL', code: '29417' },
-            { keyword: 'SADAI', code: '29426' },
-            { keyword: 'KARAS', code: '29486' },
-            { keyword: 'KASU', code: '29493' }
+        // DATABASE HIERARKI KODEPOS BATAM (Berdasarkan CSV Resmi)
+        
+        // Tier 1: Daftar Kelurahan (Prioritas Utama)
+        const kelurahanMapping = [
+            { keyword: 'TELUK TERING', code: '29411' }, { keyword: 'SUNGAI PANAS', code: '29412' },
+            { keyword: 'BALOI PERMAI', code: '29413' }, { keyword: 'TAMAN BALOI', code: '29413' },
+            { keyword: 'BELIAN', code: '29414' }, { keyword: 'SUKAJADI', code: '29415' },
+            { keyword: 'BATU BESAR', code: '29416' }, { keyword: 'NGENANG', code: '29416' },
+            { keyword: 'KABIL', code: '29417' }, { keyword: 'SAMBAU', code: '29419' },
+            { keyword: 'TANJUNG SENGKUANG', code: '29421' }, { keyword: 'BATU MERAH', code: '29422' },
+            { keyword: 'SUNGAI JODOH', code: '29423' }, { keyword: 'KAMPUNG SERAYA', code: '29424' },
+            { keyword: 'SADAI', code: '29426' }, { keyword: 'BENGKONG INDAH', code: '29427' },
+            { keyword: 'BENGKONG LAUT', code: '29428' }, { keyword: 'TANJUNG BUNTUNG', code: '29429' },
+            { keyword: 'BATU SELICIN', code: '29431' }, { keyword: 'KAMPUNG PELITA', code: '29433' },
+            { keyword: 'LUBUK BAJA KOTA', code: '29434' }, { keyword: 'TANJUNG UMA', code: '29435' },
+            { keyword: 'BALOI INDAH', code: '29436' }, { keyword: 'BULIANG', code: '29441' },
+            { keyword: 'KIBING', code: '29442' }, { keyword: 'BUKIT TEMPAYAN', code: '29443' },
+            { keyword: 'TANJUNG UNCANG', code: '29444' }, { keyword: 'TANJUNG RIAU', code: '29445' },
+            { keyword: 'TIBAN LAMA', code: '29445' }, { keyword: 'TIBAN INDAH', code: '29446' },
+            { keyword: 'PATAM LESTARI', code: '29447' }, { keyword: 'TANJUNG PINGGIR', code: '29448' },
+            { keyword: 'SUNGAI HARAPAN', code: '29448' }, { keyword: 'TIBAN BARU', code: '29449' },
+            { keyword: 'SAGULUNG KOTA', code: '29451' }, { keyword: 'TEMBESI', code: '29452' },
+            { keyword: 'SUNGAI BINTI', code: '29453' }, { keyword: 'SUNGAI LEKOP', code: '29454' },
+            { keyword: 'SUNGAI LANGKAI', code: '29455' }, { keyword: 'SUNGAI PELUNGGUT', code: '29456' },
+            { keyword: 'DURIANGKANG', code: '29461' }, { keyword: 'MANGSANG', code: '29462' },
+            { keyword: 'MUKA KUNING', code: '29463' }, { keyword: 'TANJUNG PIAYU', code: '29464' },
+            { keyword: 'BULANG LINTANG', code: '29471' }, { keyword: 'PULAU BULUH', code: '29472' },
+            { keyword: 'PANTAI GELAM', code: '29473' }, { keyword: 'BATU LEGONG', code: '29474' },
+            { keyword: 'TEMOYONG', code: '29475' }, { keyword: 'PULAU SETOKOK', code: '29476' },
+            { keyword: 'SEMBULANG', code: '29481' }, { keyword: 'REMPANG CATE', code: '29482' },
+            { keyword: 'SUBANG MAS', code: '29483' }, { keyword: 'AIR RAJA', code: '29483' },
+            { keyword: 'GALANG BARU', code: '29484' }, { keyword: 'SIJANTUNG', code: '29485' },
+            { keyword: 'KARAS', code: '29486' }, { keyword: 'PULAU ABANG', code: '29487' },
+            { keyword: 'TANJUNG SARI', code: '29491' }, { keyword: 'PEMPING', code: '29492' },
+            { keyword: 'KASU', code: '29493' }, { keyword: 'PECONG', code: '29494' },
+            { keyword: 'SEKANAK RAYA', code: '29495' }, { keyword: 'PULAU TERUNG', code: '29496' }
+        ];
+
+        // Tier 2: Daftar Kecamatan (Fallback)
+        const kecamatanMapping = [
+            { keyword: 'BATAM KOTA', code: '29411' }, { keyword: 'NONGSA', code: '29416' },
+            { keyword: 'BATU AMPAR', code: '29421' }, { keyword: 'BENGKONG', code: '29426' },
+            { keyword: 'LUBUK BAJA', code: '29431' }, { keyword: 'BATU AJI', code: '29441' },
+            { keyword: 'BATUAJI', code: '29441' }, { keyword: 'SEKUPANG', code: '29445' },
+            { keyword: 'SAGULUNG', code: '29451' }, { keyword: 'SEI BEDUK', code: '29461' },
+            { keyword: 'BULANG', code: '29471' }, { keyword: 'GALANG', code: '29481' },
+            { keyword: 'BELAKANG PADANG', code: '29491' }
         ];
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -382,7 +351,6 @@
             updateInterface();
         }
 
-        // DRAG & DROP
         const dropzone = document.getElementById('dropzone');
         ['dragenter', 'dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.add('dragover'); }));
         ['dragleave', 'drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
@@ -399,18 +367,15 @@
         function cleanArtifacts(text) {
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
-            // Mutlak hanya huruf, angka, dan spasi (Tanpa spesial karakter)
             return str.replace(/[^A-Za-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
-        // FUNGSI KHUSUS NOMOR SURAT (MENGIZINKAN / dan -)
         function cleanReference(text) { 
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
             return str.replace(/[^A-Za-z0-9\s/\-.,_]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
-        // FUNGSI PINTAR DETEKSI FORMAT NO HP
         function cleanPhoneNumber(phone) {
             if (!phone) return "0";
             let str = String(phone).replace(/[^0-9]/g, ''); 
@@ -424,26 +389,41 @@
             return str;
         }
 
-        // ALGORITMA PENCARIAN KODEPOS: DARI BELAKANG KE DEPAN
+        // ALGORITMA PENCARIAN HIERARKI KODEPOS
         function getZipCodeFromAddress(address) {
             const addrUpper = String(address).toUpperCase();
-            let bestCode = "29411"; // Fallback default
-            let highestIndex = -1;
 
-            // Mencari keyword yang letaknya paling ujung di string alamat
-            for (let item of postalCodeMapping) {
+            // Tahap 1: Pindai Kelurahan (Ambil yang letaknya paling kanan/paling akhir di kalimat)
+            let bestKelurahanCode = null;
+            let highestKelIndex = -1;
+
+            for (let item of kelurahanMapping) {
                 let matchIndex = addrUpper.lastIndexOf(item.keyword);
-                if (matchIndex > -1) {
-                    if (matchIndex > highestIndex) {
-                        highestIndex = matchIndex;
-                        bestCode = item.code;
-                    }
+                if (matchIndex > -1 && matchIndex > highestKelIndex) {
+                    highestKelIndex = matchIndex;
+                    bestKelurahanCode = item.code;
                 }
             }
-            return bestCode;
+            // Jika ketemu kelurahan, langsung keluarkan kodeposnya
+            if (bestKelurahanCode) return bestKelurahanCode;
+
+            // Tahap 2: Jika Kelurahan tidak tertulis, pindai Kecamatannya
+            let bestKecamatanCode = null;
+            let highestKecIndex = -1;
+
+            for (let item of kecamatanMapping) {
+                let matchIndex = addrUpper.lastIndexOf(item.keyword);
+                if (matchIndex > -1 && matchIndex > highestKecIndex) {
+                    highestKecIndex = matchIndex;
+                    bestKecamatanCode = item.code;
+                }
+            }
+            if (bestKecamatanCode) return bestKecamatanCode;
+
+            // Tahap 3: Default jika murni tidak ada Kelurahan & Kecamatan
+            return "29411";
         }
 
-        // DYNAMIC SMART PARSER ENGINE
         function parseSingleFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
