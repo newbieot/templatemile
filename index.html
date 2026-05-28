@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Converter Excel - PosIND Korporat Dashboard</title>
-    <!-- Favicon PosIND -->
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
-    <!-- Library SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -180,7 +178,6 @@
     </header>
 
     <div class="dashboard-container">
-        <!-- PANEL KIRI (INPUT & SETUP) -->
         <div class="panel-left">
             
             <div class="guide-card">
@@ -190,12 +187,11 @@
                     <li><b>Ekstrak Data:</b> Buka <b>gemini.google.com</b> (akun Gemini Pro), upload PDF, dan ketik: <i>"Buatkan tabel nama penerima, alamat penerima, no surat (jika ada), dan no hp penerima, lalu convert ke .xlsx"</i>.</li>
                     <li><b>Upload Mentahan:</b> Drag & Drop file hasil <b>.xlsx</b> (atau file klien) ke area <i>Upload Berkas</i> di bawah. Sistem pintar akan melacak data meskipun Sheetnya acak!</li>
                     <li><b>Lengkapi Data:</b> Isi ID Pelanggan, Kode Layanan, dll.</li>
-                    <li><b>Review & Edit:</b> Cek tabel di kanan. Kodepos otomatis diisi AI, tapi <b>bisa diedit manual jika MileApp menolak</b>.</li>
-                    <li><b>Selesai:</b> Klik Export. File Excel valid siap di-upload ke Mile App tanpa entri manual. (Kolom INS sudah dihancurkan 100%).</li>
+                    <li><b>Review & Edit:</b> Cek tabel di kanan. Kodepos otomatis diisi AI dengan membaca kata paling belakang, tapi <b>bisa diedit manual</b>.</li>
+                    <li><b>Selesai:</b> Klik Export. File Excel valid siap di-upload ke Mile App tanpa entri manual.</li>
                 </ol>
             </div>
 
-            <!-- MODE KLIEN -->
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="form-group full-width">
                     <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE / SOP KLIEN:</label>
@@ -206,7 +202,6 @@
                 </div>
             </div>
 
-            <!-- FORMULIR KONTRAK -->
             <div class="card">
                 <div class="card-header">🏢 Data Kontrak Pengirim</div>
                 <div class="grid-2">
@@ -221,7 +216,6 @@
                 </div>
             </div>
 
-            <!-- FORMULIR LAYANAN -->
             <div class="card">
                 <div class="card-header">📦 Atribut Layanan & Koli</div>
                 <div class="grid-2">
@@ -246,7 +240,6 @@
                 </div>
             </div>
 
-            <!-- AREA UPLOAD DRAG & DROP -->
             <div class="card">
                 <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
@@ -260,10 +253,9 @@
             <div class="credits">Created by : newbieot</div>
         </div>
 
-        <!-- PANEL KANAN (PREVIEW & EXPORT) -->
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
-                *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Kodepos otomatis terisi sesuai CSV terbaru.
+                *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Kodepos otomatis membaca kelurahan terdalam.
             </div>
             <div class="table-container">
                 <table id="resultTable">
@@ -287,7 +279,7 @@
     <script>
         let uploadedFilesManager = [];
 
-        // DATABASE KODEPOS BATAM MUTAKHIR (Ekstraksi Langsung dari 'Kode Pos Batam.csv')
+        // DATABASE KODEPOS BATAM MUTAKHIR
         const postalCodeMapping = [
             { keyword: 'TANJUNG SENGKUANG', code: '29421' },
             { keyword: 'SUNGAI PELUNGGUT', code: '29456' },
@@ -299,7 +291,7 @@
             { keyword: 'BENGKONG INDAH', code: '29427' },
             { keyword: 'KAMPUNG PELITA', code: '29433' },
             { keyword: 'BUKIT TEMPAYAN', code: '29443' },
-            { keyword: 'TANJUNG UNCANG', code: '29444' },
+            { keyword: 'TANJUNG UNCANG', code: '29444' }, 
             { keyword: 'SUNGAI HARAPAN', code: '29448' },
             { keyword: 'SUNGAI LANGKAI', code: '29455' },
             { keyword: 'BULANG LINTANG', code: '29471' },
@@ -421,7 +413,7 @@
         // FUNGSI PINTAR DETEKSI FORMAT NO HP
         function cleanPhoneNumber(phone) {
             if (!phone) return "0";
-            let str = String(phone).replace(/[^0-9]/g, ''); // Ambil angka murni
+            let str = String(phone).replace(/[^0-9]/g, ''); 
             if (!str) return "0";
             if (str.startsWith('62')) {
                 str = '0' + str.slice(2); 
@@ -432,15 +424,26 @@
             return str;
         }
 
+        // ALGORITMA PENCARIAN KODEPOS: DARI BELAKANG KE DEPAN
         function getZipCodeFromAddress(address) {
             const addrUpper = String(address).toUpperCase();
+            let bestCode = "29411"; // Fallback default
+            let highestIndex = -1;
+
+            // Mencari keyword yang letaknya paling ujung di string alamat
             for (let item of postalCodeMapping) {
-                if (addrUpper.includes(item.keyword)) return item.code;
+                let matchIndex = addrUpper.lastIndexOf(item.keyword);
+                if (matchIndex > -1) {
+                    if (matchIndex > highestIndex) {
+                        highestIndex = matchIndex;
+                        bestCode = item.code;
+                    }
+                }
             }
-            return "29411"; // Fallback default
+            return bestCode;
         }
 
-        // DYNAMIC SMART PARSER ENGINE (MULTI-SHEET SUPPORT)
+        // DYNAMIC SMART PARSER ENGINE
         function parseSingleFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -608,7 +611,7 @@
                     }
                 }
 
-                // PERHATIKAN: Objektif ini SAMA SEKALI TIDAK MEMILIKI KEY "INS"
+                // OBJ INI SUDAH TIDAK MEMILIKI KEY "INS" SAMA SEKALI
                 finalExportRows.push({
                     "connote_code": index + 1,
                     "customer_code": customerId,
@@ -638,7 +641,7 @@
                 });
             });
 
-            // PERHATIKAN: Array exportHeaders SUDAH SAYA HAPUS STRING "INS"-NYA
+            // HEADER EXPORT SUDAH TIDAK MENYANTUMKAN KATA "INS" AGAR BENAR-BENAR BERSIH
             const exportHeaders = [
                 "connote_code", "customer_code", "origin_data_customer_name", "origin_data_customer_phone", 
                 "origin_data_customer_address", "origin_data_customer_zip_code", "origin_data_zone_code", 
