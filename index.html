@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Converter Excel - PosIND Korporat Dashboard</title>
+    <!-- Favicon PosIND -->
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
+    <!-- Library SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -178,6 +180,7 @@
     </header>
 
     <div class="dashboard-container">
+        <!-- PANEL KIRI (INPUT & SETUP) -->
         <div class="panel-left">
             
             <div class="guide-card">
@@ -185,13 +188,14 @@
                 <ol class="guide-list">
                     <li><b>Capture & Convert:</b> Foto seluruh kiriman (paket/dokumen), jadikan 1 file PDF (Gunakan CamScanner di HP).</li>
                     <li><b>Ekstrak Data:</b> Buka <b>gemini.google.com</b> (akun Gemini Pro), upload PDF, dan ketik: <i>"Buatkan tabel nama penerima, alamat penerima, no surat (jika ada), dan no hp penerima, lalu convert ke .xlsx"</i>.</li>
-                    <li><b>Upload Mentahan:</b> Drag & Drop file hasil <b>.xlsx</b> (atau file klien) ke area <i>Upload Berkas</i> di bawah. Sistem pintar melacak data secara otomatis.</li>
+                    <li><b>Upload Mentahan:</b> Drag & Drop file hasil <b>.xlsx</b> (atau file klien) ke area <i>Upload Berkas</i> di bawah. Sistem pintar akan melacak data meskipun Sheetnya acak!</li>
                     <li><b>Lengkapi Data:</b> Isi ID Pelanggan, Kode Layanan, dll.</li>
                     <li><b>Review & Edit:</b> Cek tabel di kanan. Jika ada typo, <b>klik teks langsung untuk edit</b>.</li>
                     <li><b>Selesai:</b> Klik Export. File Excel valid siap di-upload ke Mile App tanpa entri manual.</li>
                 </ol>
             </div>
 
+            <!-- MODE KLIEN -->
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="form-group full-width">
                     <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE / SOP KLIEN:</label>
@@ -202,6 +206,7 @@
                 </div>
             </div>
 
+            <!-- FORMULIR KONTRAK -->
             <div class="card">
                 <div class="card-header">🏢 Data Kontrak Pengirim</div>
                 <div class="grid-2">
@@ -216,6 +221,7 @@
                 </div>
             </div>
 
+            <!-- FORMULIR LAYANAN -->
             <div class="card">
                 <div class="card-header">📦 Atribut Layanan & Koli</div>
                 <div class="grid-2">
@@ -240,11 +246,12 @@
                 </div>
             </div>
 
+            <!-- AREA UPLOAD DRAG & DROP -->
             <div class="card">
                 <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
                     <p>Seret & Jatuhkan File Excel/CSV di Sini</p>
-                    <span>Otomatis menggabungkan banyak file sekaligus</span>
+                    <span>Sistem Multi-Sheet Auto Parse Aktif</span>
                     <input type="file" id="excelInput" accept=".xlsx, .xls, .csv" multiple style="display: none;" onchange="handleFileSelection(this.files)">
                 </div>
                 <div class="file-queue-container" id="fileQueue"></div>
@@ -253,6 +260,7 @@
             <div class="credits">Created by : newbieot</div>
         </div>
 
+        <!-- PANEL KANAN (PREVIEW & EXPORT) -->
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
                 *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Data bebas spesial karakter.
@@ -372,7 +380,7 @@
                 str = '0' + str.slice(2); // Ubah 62 jadi 0
             }
             if (!str.startsWith('0')) {
-                str = '0' + str; // Tambah 0 jika awalnya 8xxx
+                str = '0' + str; // Tambah 0 jika awalnya tidak 0 (misal 812 jadi 0812)
             }
             return str;
         }
@@ -385,77 +393,92 @@
             return "29411"; // Fallback default
         }
 
+        // DYNAMIC SMART PARSER ENGINE (MULTI-SHEET SUPPORT)
         function parseSingleFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
-                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
                 let extractedRows = [];
 
-                if (jsonData.length > 0) {
-                    let hIdxSurat = -1, hIdxName = -1, hIdxPhone = -1, hIdxAddress = -1;
-                    let headerFound = false;
+                // Looping Ke Semua Sheet di Dalam Excel
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
-                    // SMART DYNAMIC PARSING: Cari Posisi Header Kolom
-                    for (let r = 0; r < Math.min(jsonData.length, 5); r++) {
-                        let row = jsonData[r];
-                        if (!row || row.length === 0) continue;
-                        
-                        for (let c = 0; c < row.length; c++) {
-                            let cellVal = String(row[c] || "").toUpperCase().trim();
-                            if (cellVal.includes("SURAT") || cellVal.includes("REF") || cellVal.includes("AWB")) hIdxSurat = c;
-                            if (cellVal.includes("NAMA") || cellVal.includes("PENERIMA") || cellVal.includes("RECIPIENT")) hIdxName = c;
-                            if (cellVal.includes("ALAMAT") || cellVal.includes("ADDRESS") || cellVal.includes("TUKAN")) hIdxAddress = c;
-                            if (cellVal.includes("HP") || cellVal.includes("TELP") || cellVal.includes("PHONE") || cellVal.includes("HANDPHONE") || cellVal.includes("TELEPON")) hIdxPhone = c;
-                        }
-                        if (hIdxName !== -1 || hIdxAddress !== -1) {
-                            headerFound = true; break;
-                        }
-                    }
+                    if (jsonData.length > 0) {
+                        let hIdxSurat = -1, hIdxName = -1, hIdxPhone = -1, hIdxAddress = -1;
+                        let headerFound = false;
 
-                    for (let i = 0; i < jsonData.length; i++) { 
-                        let row = jsonData[i];
-                        if (!row || row.length === 0) continue;
-
-                        const rowStr = row.join(" ").toUpperCase();
-                        if (rowStr.includes("NAMA") || rowStr.includes("ALAMAT") || rowStr.includes("SURAT")) continue;
-
-                        let rawSurat = "", rawName = "", rawPhone = "0", rawAddress = "";
-
-                        if (headerFound) {
-                            // Ambil sesuai deteksi header
-                            rawSurat = hIdxSurat !== -1 ? row[hIdxSurat] : "";
-                            rawName = hIdxName !== -1 ? row[hIdxName] : "";
-                            rawPhone = hIdxPhone !== -1 ? row[hIdxPhone] : "0";
-                            rawAddress = hIdxAddress !== -1 ? row[hIdxAddress] : "";
-                        } else {
-                            // Fallback jika tidak ada header
-                            if (row.length >= 4) {
-                                rawSurat = row[0] || ""; rawName = row[1] || ""; rawPhone = row[2] || "0"; rawAddress = row[3] || "";
-                            } else if (row.length === 3) {
-                                if (!isNaN(parseInt(row[0]))) { 
-                                    rawName = row[1] || ""; rawAddress = row[2] || ""; 
-                                } else { 
-                                    rawSurat = row[0] || ""; rawName = row[1] || ""; rawAddress = row[2] || ""; 
-                                }
-                            } else if (row.length === 2) {
-                                rawName = row[0] || ""; rawAddress = row[1] || "";
-                            } else {
-                                rawAddress = row[0] || "";
+                        // SMART DYNAMIC PARSING: Cari Posisi Header Kolom
+                        for (let r = 0; r < Math.min(jsonData.length, 10); r++) {
+                            let row = jsonData[r];
+                            if (!row || row.length === 0) continue;
+                            
+                            for (let c = 0; c < row.length; c++) {
+                                let cellVal = String(row[c] || "").toUpperCase().trim();
+                                // Deteksi berbagai variasi nama kolom
+                                if (cellVal.includes("SURAT") || cellVal.includes("REF") || cellVal.includes("AWB") || cellVal.includes("DESKRIPSI")) hIdxSurat = c;
+                                if (cellVal.includes("NAMA") || cellVal.includes("PENERIMA") || cellVal.includes("RECIPIENT")) hIdxName = c;
+                                if (cellVal.includes("ALAMAT") || cellVal.includes("ADDRESS")) hIdxAddress = c;
+                                if (cellVal.includes("HP") || cellVal.includes("TELP") || cellVal.includes("PHONE") || cellVal.includes("HANDPHONE") || cellVal.includes("TELEPON")) hIdxPhone = c;
+                            }
+                            // Header valid jika menemukan Kolom Nama atau Alamat
+                            if (hIdxName !== -1 || hIdxAddress !== -1) {
+                                headerFound = true; break;
                             }
                         }
 
-                        let cleanSurat = cleanReference(rawSurat);
-                        let cleanName = cleanArtifacts(rawName);
-                        let cleanPhone = cleanPhoneNumber(rawPhone);
-                        let cleanAddr = cleanArtifacts(rawAddress);
+                        // Ekstrak Baris Data
+                        for (let i = 0; i < jsonData.length; i++) { 
+                            let row = jsonData[i];
+                            if (!row || row.length === 0) continue;
 
-                        if (!cleanName && !cleanAddr) continue;
-                        extractedRows.push({ noSurat: cleanSurat, name: cleanName, phone: cleanPhone, address: cleanAddr });
+                            const rowStr = row.join(" ").toUpperCase();
+                            // Skip header row saat import
+                            if (rowStr.includes("NAMA") || rowStr.includes("ALAMAT") || rowStr.includes("PENERIMA") || rowStr.includes("NO HP")) continue;
+
+                            let rawSurat = "", rawName = "", rawPhone = "0", rawAddress = "";
+
+                            if (headerFound) {
+                                rawSurat = hIdxSurat !== -1 ? row[hIdxSurat] : "";
+                                rawName = hIdxName !== -1 ? row[hIdxName] : "";
+                                rawPhone = hIdxPhone !== -1 ? row[hIdxPhone] : "0";
+                                rawAddress = hIdxAddress !== -1 ? row[hIdxAddress] : "";
+                            } else {
+                                // Fallback jika tidak ada header jelas
+                                if (row.length >= 4) {
+                                    rawSurat = row[0] || ""; rawName = row[1] || ""; rawPhone = row[2] || "0"; rawAddress = row[3] || "";
+                                } else if (row.length === 3) {
+                                    if (!isNaN(parseInt(row[0]))) { 
+                                        rawName = row[1] || ""; rawAddress = row[2] || ""; 
+                                    } else { 
+                                        rawSurat = row[0] || ""; rawName = row[1] || ""; rawAddress = row[2] || ""; 
+                                    }
+                                } else if (row.length === 2) {
+                                    rawName = row[0] || ""; rawAddress = row[1] || "";
+                                } else {
+                                    rawAddress = row[0] || "";
+                                }
+                            }
+
+                            let cleanSurat = cleanReference(rawSurat);
+                            let cleanName = cleanArtifacts(rawName);
+                            let cleanPhone = cleanPhoneNumber(rawPhone);
+                            let cleanAddr = cleanArtifacts(rawAddress);
+
+                            // Lewati baris kosong
+                            if (!cleanName && !cleanAddr) continue;
+                            extractedRows.push({ noSurat: cleanSurat, name: cleanName, phone: cleanPhone, address: cleanAddr });
+                        }
                     }
-                }
+                });
                 
-                uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: extractedRows });
+                // Tambahkan data ke manager queue
+                if (extractedRows.length > 0) {
+                    uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: extractedRows });
+                } else {
+                    alert(`Gagal menemukan data valid di dalam file "${file.name}". Pastikan file memiliki data pelanggan.`);
+                }
                 updateInterface();
             };
             reader.readAsArrayBuffer(file);
@@ -527,7 +550,7 @@
             rows.forEach((tr, index) => {
                 let inputs = tr.querySelectorAll('input.table-input');
                 
-                // Ambil Data Setelah Diedit User
+                // Ambil Data Setelah Diedit User di Tabel UI
                 let dNoSurat = cleanReference(inputs[0].value);
                 let dName = cleanArtifacts(inputs[1].value);
                 let dPhone = cleanPhoneNumber(inputs[2].value);
@@ -565,7 +588,7 @@
                     "destination_data_zone_code": "29400",        
                     "service_code": serviceCode,
                     "connote_sub_service_code": tariffCode, 
-                    "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, // Injeksi No Surat Universal
+                    "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, // Injeksi No Surat
                     "koli_data_koli_weight": 1,
                     "koli_data_koli_width": 10,
                     "koli_data_koli_height": 10, 
@@ -573,7 +596,7 @@
                     "transaction_payment_type_name": "INVOICE",
                     "instruksi_pengiriman": "Tolong diantar dengan baik",
                     "harga_barang": 0,
-                    "ref_no": dNoSurat, // Injeksi No Surat Universal
+                    "ref_no": dNoSurat, // Injeksi No Surat
                     "Jenis_Barang": itemType, 
                     "statusRetur": "Kembali ke pengirim",
                     "INS": "" // INS Sengaja Blank agar tidak kena Asuransi Siluman
@@ -584,7 +607,7 @@
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             
-            // Format HP sebagai String
+            // Format HP sebagai String Text agar tidak kehilangan angka 0
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             for (let R = range.s.r + 1; R <= range.e.r; ++R) {
                 let cell_sender_phone = worksheet[XLSX.utils.encode_cell({r: R, c: 3})];
