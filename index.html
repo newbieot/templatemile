@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Converter Excel - PosIND Dashboard</title>
+    <!-- Favicon PosIND -->
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
+    <!-- Library SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -178,6 +180,7 @@
     </header>
 
     <div class="dashboard-container">
+        <!-- PANEL KIRI (INPUT & SETUP) -->
         <div class="panel-left">
             
             <div class="guide-card">
@@ -191,6 +194,7 @@
                 </ol>
             </div>
 
+            <!-- MODE KLIEN (DENGAN TAMBAHAN RITEL) -->
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="form-group full-width">
                     <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE KIRIMAN:</label>
@@ -202,6 +206,7 @@
                 </div>
             </div>
 
+            <!-- FORMULIR PENGIRIM (DYNAMIC) -->
             <div class="card">
                 <div class="card-header">🏢 Data Pengirim</div>
                 <div class="grid-2">
@@ -213,10 +218,12 @@
                         <label>Nama Pengirim:</label>
                         <input type="text" id="senderName" value="TOYOTA BATAM" placeholder="Contoh: TOYOTA BATAM">
                     </div>
+                    <!-- Muncul Khusus Ritel -->
                     <div class="form-group full-width" id="wrapSenderPhone" style="display: none;">
                         <label>No HP Pengirim:</label>
                         <input type="text" id="senderPhone" placeholder="Contoh: 08123456789">
                     </div>
+                    <!-- Muncul Khusus Ritel -->
                     <div class="form-group full-width" id="wrapSenderAddress" style="display: none;">
                         <label>Alamat Lengkap Pengirim:</label>
                         <input type="text" id="senderAddress" placeholder="Contoh: JL. SUDIRMAN NO 1, BATAM">
@@ -224,6 +231,7 @@
                 </div>
             </div>
 
+            <!-- FORMULIR LAYANAN -->
             <div class="card">
                 <div class="card-header">📦 Atribut Layanan & Koli</div>
                 <div class="grid-2">
@@ -248,6 +256,7 @@
                 </div>
             </div>
 
+            <!-- AREA UPLOAD DRAG & DROP -->
             <div class="card">
                 <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
@@ -261,6 +270,7 @@
             <div class="credits">Created by : newbieot</div>
         </div>
 
+        <!-- PANEL KANAN (PREVIEW & EXPORT) -->
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
                 *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Kodepos membaca posisi ter-kanan (*Two-Tier*).
@@ -380,7 +390,7 @@
                 wrapSName.style.display = 'block';
                 wrapSPhone.style.display = 'block';
                 wrapSAddr.style.display = 'block';
-                wrapTariff.style.display = 'none'; // Ritel tidak perlu kode tarif
+                wrapTariff.style.display = 'none'; 
 
                 // Atur layout agar rapi
                 wrapItemType.classList.remove('full-width');
@@ -436,7 +446,6 @@
         function getZipCodeFromAddress(address) {
             const addrUpper = String(address).toUpperCase();
 
-            // Tahap 1: Pindai Kelurahan (Ambil yang letaknya paling kanan/akhir di kalimat)
             let bestKelurahanCode = null;
             let highestKelIndex = -1;
 
@@ -447,10 +456,8 @@
                     bestKelurahanCode = item.code;
                 }
             }
-            // Jika ketemu kelurahan, langsung keluarkan kodeposnya
             if (bestKelurahanCode) return bestKelurahanCode;
 
-            // Tahap 2: Jika Kelurahan tidak tertulis, pindai Kecamatannya
             let bestKecamatanCode = null;
             let highestKecIndex = -1;
 
@@ -463,7 +470,6 @@
             }
             if (bestKecamatanCode) return bestKecamatanCode;
 
-            // Tahap 3: Default jika murni tidak ada Kelurahan & Kecamatan
             return "29411";
         }
 
@@ -602,10 +608,8 @@
                 alert("Tidak ada data untuk diekspor."); return;
             }
 
-            // Ambil Status Mode Klien
             const mode = document.getElementById('clientMode').value;
             
-            // Variabel Ekstraksi Base UI
             let finalCustomerId = "";
             let finalTariffCode = "";
             let baseSenderName = "";
@@ -614,9 +618,11 @@
             const serviceCode = document.getElementById('serviceCode').value.toUpperCase();
             const itemType = document.getElementById('itemType').value.toUpperCase();
             
+            // Penentuan Tipe Pembayaran Berdasarkan Mode
+            const paymentType = mode === 'RITEL' ? "CASH" : "INVOICE";
+            
             let finalExportRows = [];
 
-            // Ekstraksi Logika Kondisional Pengirim
             if (mode === 'PN_BATAM') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
@@ -625,8 +631,8 @@
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
                 baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
             } else if (mode === 'RITEL') {
-                finalCustomerId = ""; // Ritel tidak ada ID Pelanggan
-                finalTariffCode = ""; // Ritel pakai publish/kosong
+                finalCustomerId = ""; 
+                finalTariffCode = ""; 
                 baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
                 baseSenderPhone = cleanPhoneNumber(document.getElementById('senderPhone').value);
                 baseSenderAddress = cleanArtifacts(document.getElementById('senderAddress').value);
@@ -635,7 +641,6 @@
             rows.forEach((tr, index) => {
                 let inputs = tr.querySelectorAll('input.table-input');
                 
-                // Ambil Data Penerima (Editable UI)
                 let dNoSurat = cleanReference(inputs[0].value);
                 let dName = cleanArtifacts(inputs[1].value);
                 let dPhone = cleanPhoneNumber(inputs[2].value);
@@ -644,7 +649,6 @@
 
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
-                // Logika Pembentukan String Pengirim
                 if (mode === 'PN_BATAM') {
                     senderNameFinal = cleanArtifacts(dNoSurat); 
                     senderAddrFinal = "PENGADILAN NEGERI BATAM";
@@ -660,7 +664,6 @@
                     senderPhoneFinal = baseSenderPhone;
                 }
 
-                // OBJ INI SUDAH SAMA SEKALI TIDAK MEMILIKI KEY "INS"
                 finalExportRows.push({
                     "connote_code": index + 1,
                     "customer_code": finalCustomerId,
@@ -681,7 +684,7 @@
                     "koli_data_koli_width": 10,
                     "koli_data_koli_height": 10, 
                     "koli_data_koli_length": 10, 
-                    "transaction_payment_type_name": "INVOICE",
+                    "transaction_payment_type_name": paymentType, // INVOICE untuk korporat, CASH untuk Ritel
                     "instruksi_pengiriman": "Tolong diantar dengan baik",
                     "harga_barang": 0,
                     "ref_no": dNoSurat, 
@@ -690,7 +693,6 @@
                 });
             });
 
-            // HEADER EXPORT SAMA SEKALI TIDAK MEMILIKI STRING "INS"
             const exportHeaders = [
                 "connote_code", "customer_code", "origin_data_customer_name", "origin_data_customer_phone", 
                 "origin_data_customer_address", "origin_data_customer_zip_code", "origin_data_zone_code", 
@@ -716,7 +718,6 @@
                 if (cell_dest_zip) cell_dest_zip.z = '@';
             }
 
-            // Nama file dinamis sesuai Mode
             let fileSuffix = mode === 'RITEL' ? "Ritel" : (finalCustomerId || "Corporate");
             XLSX.writeFile(workbook, `Upload_MileApp_${fileSuffix}.xlsx`);
         }
