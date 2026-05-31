@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Converter Excel - PosIND Dashboard</title>
+    <title>Mile App Bulk Converter by Ikhsan Radiansyah | PosNew Hub</title>
     <!-- Favicon PosIND -->
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
@@ -150,10 +150,36 @@
         }
         .table-input:focus { border-color: var(--pos-orange); background: #fff; box-shadow: 0 0 4px rgba(242,101,34,0.2); outline: none; }
 
-        /* CREDITS */
-        .credits { text-align: center; font-size: 0.75rem; color: #888; font-weight: 700; margin-top: 10px; margin-bottom: 5px; letter-spacing: 0.5px; }
+        /* Modern SaaS Footer (COMPACT DASHBOARD VERSION) */
+        .dashboard-footer {
+            width: 100%;
+            background-color: #0f172a;
+            border-top: 3px solid var(--pos-orange);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 24px;
+            flex-shrink: 0;
+            z-index: 20;
+        }
+        .footer-brand {
+            display: flex; align-items: center; gap: 8px;
+            color: #f8fafc; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.5px;
+        }
+        .footer-desc { color: #94a3b8; font-size: 0.8rem; margin: 0; display: none; }
+        .footer-creator-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(242, 101, 34, 0.1); border: 1px solid rgba(242, 101, 34, 0.2);
+            padding: 4px 12px; border-radius: 20px; color: #e2e8f0; font-size: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        .footer-creator-badge:hover { background: rgba(242, 101, 34, 0.2); border-color: rgba(242, 101, 34, 0.5); }
+        .footer-creator-badge strong { color: var(--pos-orange); font-weight: 600; }
 
         /* RESPONSIVE DESIGN UNTUK MOBILE */
+        @media (min-width: 851px) {
+            .footer-desc { display: block; }
+        }
         @media (max-width: 850px) {
             body { height: auto; overflow: visible; }
             .dashboard-container { flex-direction: column; overflow: visible; }
@@ -161,6 +187,7 @@
             .panel-right { width: 100%; overflow: visible; min-height: 400px; }
             header { flex-direction: column; height: auto; padding: 15px; gap: 10px; }
             .logo-left img, .logo-right img { height: 35px; }
+            .dashboard-footer { flex-direction: column; gap: 8px; text-align: center; }
         }
     </style>
 </head>
@@ -184,7 +211,7 @@
         <div class="panel-left">
             
             <div class="guide-card">
-                <h3>📌 PANDUAN PENGGUNAAN (SOP)</h3>
+                <h3><i data-lucide="book-open" style="width: 16px; height: 16px;"></i> PANDUAN PENGGUNAAN (SOP)</h3>
                 <ol class="guide-list">
                     <li><b>Capture & Convert:</b> Foto seluruh resi/alamat, jadikan 1 file PDF (via CamScanner di HP).</li>
                     <li><b>Ekstrak Data:</b> Buka <b>gemini.google.com</b>, upload PDF, dan ketik: <i>"Buatkan tabel nama penerima, alamat penerima, no surat (jika ada), dan no hp penerima, lalu convert ke .xlsx"</i>.</li>
@@ -197,7 +224,7 @@
             <!-- MODE KLIEN (DENGAN TAMBAHAN RITEL) -->
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="form-group full-width">
-                    <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE KIRIMAN:</label>
+                    <label style="color: var(--pos-orange); font-size: 0.85rem;">MODE KIRIMAN:</label>
                     <select id="clientMode" onchange="handleModeChange()" style="border-color: var(--pos-orange); font-weight: bold;">
                         <option value="STANDARD">KORPORAT STANDAR (Ada ID Pelanggan)</option>
                         <option value="PN_BATAM">KORPORAT KHUSUS (Pengadilan Negeri Batam)</option>
@@ -208,7 +235,7 @@
 
             <!-- FORMULIR PENGIRIM (DYNAMIC) -->
             <div class="card">
-                <div class="card-header">🏢 Data Pengirim</div>
+                <div class="card-header">Data Pengirim</div>
                 <div class="grid-2">
                     <div class="form-group full-width" id="wrapCustomerId">
                         <label>ID Pelanggan (Account No):</label>
@@ -233,7 +260,7 @@
 
             <!-- FORMULIR LAYANAN -->
             <div class="card">
-                <div class="card-header">📦 Atribut Layanan & Koli</div>
+                <div class="card-header">Atribut Layanan & Koli</div>
                 <div class="grid-2">
                     <div class="form-group">
                         <label>Kode Layanan:</label>
@@ -258,7 +285,7 @@
 
             <!-- AREA UPLOAD DRAG & DROP -->
             <div class="card">
-                <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
+                <div class="card-header">Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
                     <p>Seret & Jatuhkan File Excel/CSV di Sini</p>
                     <span>Sistem Multi-Sheet Auto Parse Aktif</span>
@@ -266,8 +293,6 @@
                 </div>
                 <div class="file-queue-container" id="fileQueue"></div>
             </div>
-
-            <div class="credits">Created by : newbieot</div>
         </div>
 
         <!-- PANEL KANAN (PREVIEW & EXPORT) -->
@@ -290,9 +315,25 @@
                     <tbody></tbody>
                 </table>
             </div>
-            <button class="btn-accent" onclick="downloadFinalExcel()">📥 EXPORT DATA (SIMPAN PERUBAHAN) KE EXCEL MILE APP</button>
+            <button class="btn-accent" onclick="downloadFinalExcel()">
+                <i data-lucide="download" style="width: 18px; height: 18px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i> 
+                EXPORT DATA (SIMPAN PERUBAHAN) KE EXCEL MILE APP
+            </button>
         </div>
     </div>
+
+    <!-- COMPACT DASHBOARD FOOTER -->
+    <footer class="dashboard-footer">
+        <div class="footer-brand">
+            <i data-lucide="layers" style="color: #f26522; width: 18px; height: 18px;"></i>
+            PosNew Hub
+        </div>
+        <p class="footer-desc">Sistem utilitas ini dikembangkan secara independen untuk optimalisasi efisiensi layanan logistik B2B dan Ritel.</p>
+        <div class="footer-creator-badge">
+            <i data-lucide="code-2" style="color: #f26522; width: 14px; height: 14px;"></i>
+            Inovasi oleh <strong>Ikhsan Radiansyah</strong> &copy; 2026
+        </div>
+    </footer>
 
     <script>
         let uploadedFilesManager = [];
@@ -721,6 +762,12 @@
             let fileSuffix = mode === 'RITEL' ? "Ritel" : (finalCustomerId || "Corporate");
             XLSX.writeFile(workbook, `Upload_MileApp_${fileSuffix}.xlsx`);
         }
+    </script>
+    
+    <!-- Script Lucide Icons untuk render ikon di footer & tombol -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        lucide.createIcons();
     </script>
 </body>
 </html>
