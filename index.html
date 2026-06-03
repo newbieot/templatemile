@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Optimasi SEO: Title Tag By Ikhsan Radiansyah -->
     <title>Mile App Bulk Converter by Ikhsan Radiansyah | PosNew Hub</title>
-    <!-- Favicon PosIND -->
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
-    <!-- Library SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -99,11 +96,11 @@
         
         label { display: block; font-size: 0.75rem; font-weight: 700; color: #555; margin-bottom: 4px; }
         
-        input[type="text"], select {
+        input[type="text"], input[type="number"], select {
             width: 100%; padding: 8px; border: 1px solid var(--pos-border);
             border-radius: 4px; font-size: 0.85rem; background-color: white; font-family: inherit;
         }
-        input[type="text"]:focus, select:focus { outline: none; border-color: var(--pos-orange); }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: var(--pos-orange); }
         input[type="text"] { text-transform: uppercase; }
         input[readonly] { background-color: #e9ecef; cursor: not-allowed; color: #666; font-weight: bold;}
 
@@ -141,8 +138,8 @@
         .table-container { flex: 1; overflow-y: auto; border: 1px solid var(--pos-border); border-radius: 6px; background: white; }
         table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
         thead { position: sticky; top: 0; background-color: var(--pos-dark); color: white; z-index: 10; }
-        th, td { padding: 4px 8px; border-bottom: 1px solid var(--pos-border); text-align: left; }
-        th { padding: 8px; font-weight: 600; font-size: 0.75rem; }
+        th, td { padding: 4px 6px; border-bottom: 1px solid var(--pos-border); text-align: left; }
+        th { padding: 8px 6px; font-weight: 600; font-size: 0.72rem; }
         tbody tr:hover { background-color: #f1f3f5; }
         
         .table-input {
@@ -151,7 +148,7 @@
         }
         .table-input:focus { border-color: var(--pos-orange); background: #fff; box-shadow: 0 0 4px rgba(242,101,34,0.2); outline: none; }
 
-        /* MODAL MAPPING UI */
+        /* MODAL UI */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); z-index: 9999;
@@ -160,7 +157,7 @@
         .modal-box {
             background: white; width: 500px; border-radius: 10px; padding: 25px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3); border-top: 5px solid var(--pos-orange);
-            max-height: 90vh; overflow-y: auto;
+            max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column;
         }
         .modal-box h3 { color: var(--pos-dark); margin-bottom: 5px; font-size: 1.1rem;}
         .modal-box p { font-size: 0.8rem; color: #666; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
@@ -171,6 +168,14 @@
         .btn-cancel:hover { background: #5a6268; }
         .btn-save { background: var(--pos-orange); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;}
         .btn-save:hover { background: #d1551c; }
+
+        /* LIST BERAT PAKET */
+        .weight-list-container { flex: 1; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; padding: 10px; border-radius: 5px; }
+        .weight-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+        .weight-info { flex: 1; font-size: 0.8rem; padding-right: 10px; }
+        .weight-info strong { color: var(--pos-dark); }
+        .weight-info span { color: #666; font-size: 0.75rem; }
+        .weight-input-wrap { width: 90px; }
 
         /* Modern SaaS Footer */
         .dashboard-footer {
@@ -217,20 +222,19 @@
     </header>
 
     <div class="dashboard-container">
-        <!-- PANEL KIRI -->
         <div class="panel-left">
             
             <div class="guide-card">
                 <h3><i data-lucide="book-open" style="width: 16px; height: 16px;"></i> PANDUAN PENGGUNAAN (SOP)</h3>
                 <ol class="guide-list">
                     <li><b>Upload Mentahan:</b> Drag & Drop file <b>.xlsx / .csv</b> ke area <i>Upload Berkas</i> di bawah. (Mendukung data Gemini, Samsat, TNKB, dll).</li>
-                    <li><b>Pemetaan Cerdas:</b> Pilih kolom mana yang ingin dimasukkan ke Nama, Alamat, dan Deskripsi (Otomatis dideteksi AI). Jika butuh Nomor Surat sebagai Pengirim, pilih di opsi "Nama Pengirim".</li>
-                    <li><b>Lengkapi Data:</b> Pilih mode (Korporat/Ritel) dan isi form.</li>
-                    <li><b>Selesai:</b> Cek preview tabel dan Klik Export. File siap di-upload ke Mile App tanpa entri manual.</li>
+                    <li><b>Pemetaan Cerdas:</b> Pilih kolom mana yang ingin dimasukkan ke Nama, Alamat, dan Deskripsi.</li>
+                    <li><b>Lengkapi Data:</b> Pilih mode (Korporat/Ritel) dan jenis kiriman (Dokumen 0.1 Kg / Paket).</li>
+                    <li><b>Input Berat (Khusus Paket):</b> Jika memilih Paket, masukkan berat per pelanggan (Misal: 0.5 Kg).</li>
+                    <li><b>Selesai:</b> Cek tabel dan Klik Export. File siap di-upload ke Mile App tanpa entri manual.</li>
                 </ol>
             </div>
 
-            <!-- MODE KLIEN -->
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="form-group full-width">
                     <label style="color: var(--pos-orange); font-size: 0.85rem;">MODE KIRIMAN:</label>
@@ -242,7 +246,6 @@
                 </div>
             </div>
 
-            <!-- FORMULIR PENGIRIM -->
             <div class="card">
                 <div class="card-header">Data Pengirim Default</div>
                 <div class="grid-2">
@@ -254,12 +257,10 @@
                         <label>Nama Pengirim:</label>
                         <input type="text" id="senderName" value="TOYOTA BATAM" placeholder="Contoh: TOYOTA BATAM">
                     </div>
-                    <!-- Muncul Khusus Ritel -->
                     <div class="form-group full-width" id="wrapSenderPhone" style="display: none;">
                         <label>No HP Pengirim:</label>
                         <input type="text" id="senderPhone" placeholder="Contoh: 08123456789">
                     </div>
-                    <!-- Muncul Khusus Ritel -->
                     <div class="form-group full-width" id="wrapSenderAddress" style="display: none;">
                         <label>Alamat Lengkap Pengirim:</label>
                         <input type="text" id="senderAddress" placeholder="Contoh: JL. SUDIRMAN NO 1, BATAM">
@@ -267,7 +268,6 @@
                 </div>
             </div>
 
-            <!-- FORMULIR LAYANAN -->
             <div class="card">
                 <div class="card-header">Atribut Layanan & Koli</div>
                 <div class="grid-2">
@@ -285,14 +285,13 @@
                     <div class="form-group full-width" id="wrapItemType">
                         <label>Jenis Kiriman (Isi Barang):</label>
                         <select id="itemType">
-                            <option value="PAKET">PAKET</option>
-                            <option value="DOKUMEN">DOKUMEN</option>
+                            <option value="DOKUMEN" selected>DOKUMEN (Default 0.1 Kg)</option>
+                            <option value="PAKET">PAKET (Input Berat Manual)</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            <!-- AREA UPLOAD DRAG & DROP -->
             <div class="card">
                 <div class="card-header">Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
@@ -304,7 +303,6 @@
             </div>
         </div>
 
-        <!-- PANEL KANAN (PREVIEW & EXPORT) -->
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
                 *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Kodepos membaca posisi ter-kanan (*Two-Tier*).
@@ -313,13 +311,14 @@
                 <table id="resultTable">
                     <thead>
                         <tr>
-                            <th style="width: 5%; text-align: center;">NO</th>
-                            <th style="width: 15%;">NAMA PENGIRIM</th>
-                            <th style="width: 15%;">NO SURAT/REF</th>
-                            <th style="width: 18%;">NAMA PENERIMA</th>
-                            <th style="width: 12%;">NO HP</th>
+                            <th style="width: 4%; text-align: center;">NO</th>
+                            <th style="width: 14%;">PENGIRIM</th>
+                            <th style="width: 14%;">NO SURAT/REF</th>
+                            <th style="width: 17%;">PENERIMA</th>
+                            <th style="width: 11%;">NO HP</th>
                             <th style="width: 8%;">KODEPOS</th>
-                            <th style="width: 27%;">ALAMAT PENERIMA</th>
+                            <th style="width: 8%;">BERAT(KG)</th>
+                            <th style="width: 24%;">ALAMAT</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -332,7 +331,6 @@
         </div>
     </div>
 
-    <!-- MODAL MAPPING KOLOM DINAMIS -->
     <div id="mappingModal" class="modal-overlay">
         <div class="modal-box">
             <h3>⚙️ Konfigurasi Kolom Data</h3>
@@ -355,12 +353,26 @@
 
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="skipCurrentMapping()">Batalkan Berkas</button>
-                <button class="btn-save" onclick="applyMappingAndProcess()">Simpan & Proses</button>
+                <button class="btn-save" onclick="applyMappingAndProcess()">Lanjut & Proses</button>
             </div>
         </div>
     </div>
 
-    <!-- COMPACT DASHBOARD FOOTER (SEO IKHSAN RADIANSYAH) -->
+    <div id="weightModal" class="modal-overlay">
+        <div class="modal-box" style="width: 600px;">
+            <h3>⚖️ Input Berat Kiriman Paket</h3>
+            <p>Masukkan berat (dalam KG) untuk masing-masing penerima. Gunakan koma atau titik untuk desimal (Contoh: 0.5)</p>
+            
+            <div id="weightListContainer" class="weight-list-container">
+                </div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="cancelWeightInput()">Batalkan Berkas</button>
+                <button class="btn-save" onclick="saveWeightsAndProcess()">Simpan Berat & Proses</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="dashboard-footer">
         <div class="footer-brand">
             <i data-lucide="layers" style="color: #f26522; width: 18px; height: 18px;"></i>
@@ -376,10 +388,12 @@
     <script>
         let uploadedFilesManager = [];
         
+        // Variabel Sistem Antrean
         let fileProcessQueue = [];
         let currentWorkbook = null;
         let currentFileName = "";
         let currentHeaders = [];
+        let tempExtractedRows = []; // Penyimpan sementara sebelum input berat
 
         // HIERARKI KODEPOS TIER 1: KELURAHAN
         const kelurahanMapping = [
@@ -441,6 +455,7 @@
             const wrapTariff = document.getElementById('wrapTariffCode');
             const wrapItemType = document.getElementById('wrapItemType');
             const tariffInput = document.getElementById('tariffCode');
+            const itemInput = document.getElementById('itemType');
 
             if (mode === 'PN_BATAM') {
                 wrapCustId.style.display = 'block';
@@ -449,7 +464,7 @@
                 wrapSAddr.style.display = 'none';
                 wrapTariff.style.display = 'block';
 
-                document.getElementById('itemType').value = 'DOKUMEN';
+                itemInput.value = 'DOKUMEN';
                 wrapItemType.classList.add('full-width');
                 
                 tariffInput.value = "897924";
@@ -527,7 +542,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // TAMPILKAN MODAL MAPPING
         function showMappingModal(headers) {
             document.getElementById('mappingFileName').innerText = "📍 File: " + currentFileName;
 
@@ -568,7 +582,7 @@
             processNextInQueue();
         }
 
-        // EKSEKUSI MAPPING DARI USER
+        // TAHAP 1: EKSEKUSI MAPPING DARI USER
         function applyMappingAndProcess() {
             document.getElementById('mappingModal').style.display = 'none';
 
@@ -576,7 +590,7 @@
             const idxAddr = parseInt(document.getElementById('mapAddress').value);
             const idxPhone = parseInt(document.getElementById('mapPhone').value);
             const idxRef = parseInt(document.getElementById('mapRef').value);
-            const idxSenderName = parseInt(document.getElementById('mapSenderName').value); // Opsi Override Pengirim
+            const idxSenderName = parseInt(document.getElementById('mapSenderName').value);
 
             let extractedRows = [];
 
@@ -607,7 +621,7 @@
                         let cleanAddr = cleanArtifacts(rawAddr);
                         let cleanPhone = cleanPhoneNumber(rawPhone);
                         let cleanRef = cleanReference(rawRef);
-                        let cleanSenderName = cleanReference(rawSenderName); // Izinkan / dan - untuk Nomor Surat
+                        let cleanSenderName = cleanReference(rawSenderName); 
                         let targetZipCode = getZipCodeFromAddress(cleanAddr);
 
                         if (!cleanName && !cleanAddr && !cleanRef && !cleanSenderName) continue;
@@ -624,17 +638,77 @@
                 }
             });
             
-            if (extractedRows.length > 0) {
-                uploadedFilesManager.push({ id: Date.now(), name: currentFileName, rows: extractedRows });
-            } else {
+            if (extractedRows.length === 0) {
                 alert(`Gagal menemukan data di file "${currentFileName}".`);
+                processNextInQueue();
+                return;
             }
+
+            // TAHAP 2: CEK JENIS KIRIMAN UNTUK POPUP BERAT
+            const itemType = document.getElementById('itemType').value;
             
-            updateInterface();
-            processNextInQueue(); 
+            if (itemType === 'PAKET') {
+                // Tahan dulu, munculkan Modal Berat
+                tempExtractedRows = extractedRows;
+                showWeightModal();
+            } else {
+                // Jika DOKUMEN, langsung set berat 0.1 dan bypass
+                extractedRows.forEach(row => row.weight = "0.1");
+                uploadedFilesManager.push({ id: Date.now(), name: currentFileName, rows: extractedRows });
+                updateInterface();
+                processNextInQueue(); 
+            }
         }
 
-        // FUNGSI PEMBERSIH TEKS MUTLAK
+        // TAMPILKAN MODAL INPUT BERAT PAKET
+        function showWeightModal() {
+            const container = document.getElementById('weightListContainer');
+            container.innerHTML = '';
+            
+            tempExtractedRows.forEach((row, index) => {
+                container.innerHTML += `
+                    <div class="weight-row">
+                        <div class="weight-info">
+                            <strong>${row.name}</strong><br>
+                            <span>${row.address}</span>
+                        </div>
+                        <div class="weight-input-wrap">
+                            <input type="number" step="0.1" min="0.1" class="weight-input" data-index="${index}" value="1" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; text-align: right;" />
+                        </div>
+                        <div style="width: 35px; text-align: right; font-size: 0.8rem; font-weight: bold; color: #555;">KG</div>
+                    </div>
+                `;
+            });
+            document.getElementById('weightModal').style.display = 'flex';
+        }
+
+        function cancelWeightInput() {
+            document.getElementById('weightModal').style.display = 'none';
+            tempExtractedRows = [];
+            processNextInQueue();
+        }
+
+        // SIMPAN BERAT PAKET KE ARRAY
+        function saveWeightsAndProcess() {
+            const inputs = document.querySelectorAll('.weight-input');
+            inputs.forEach(input => {
+                const idx = input.getAttribute('data-index');
+                let val = input.value;
+                if (!val || val <= 0) val = "0.1";
+                tempExtractedRows[idx].weight = val;
+            });
+
+            uploadedFilesManager.push({ id: Date.now(), name: currentFileName, rows: tempExtractedRows });
+            
+            // Reset & Tutup Modal
+            tempExtractedRows = [];
+            document.getElementById('weightModal').style.display = 'none';
+            
+            updateInterface();
+            processNextInQueue();
+        }
+
+        // FUNGSI PEMBERSIH TEKS
         function cleanArtifacts(text) {
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
@@ -715,6 +789,7 @@
                     counter++;
                     const tr = document.createElement('tr');
                     
+                    // Kolom Tabel Ditambah Kolom Berat
                     tr.innerHTML = `
                         <td style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
                         <td><input type="text" class="table-input" value="${item.senderName || ''}"></td>
@@ -722,6 +797,7 @@
                         <td><input type="text" class="table-input" value="${item.name || ''}"></td>
                         <td><input type="text" class="table-input" value="${item.phone || ''}"></td>
                         <td><input type="text" class="table-input" style="font-weight:bold; color:#d32f2f;" value="${item.zip || ''}"></td>
+                        <td><input type="text" class="table-input" style="font-weight:bold; color:#0277bd;" value="${item.weight || '0.1'}"></td>
                         <td><input type="text" class="table-input" value="${item.address || ''}"></td>
                     `;
                     tbody.appendChild(tr);
@@ -729,7 +805,7 @@
             });
 
             if (counter === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
             }
         }
 
@@ -776,11 +852,16 @@
                 let dName = cleanArtifacts(inputs[2].value);
                 let dPhone = cleanPhoneNumber(inputs[3].value);
                 let dZip = cleanArtifacts(inputs[4].value); 
-                let dAddress = cleanArtifacts(inputs[5].value);
+                
+                // Ambil Berat dari Kolom Tabel dan pastikan ke angka float
+                let dWeightStr = inputs[5].value.trim().replace(',', '.');
+                let dWeight = parseFloat(dWeightStr);
+                if(isNaN(dWeight) || dWeight <= 0) dWeight = 0.1;
+                
+                let dAddress = cleanArtifacts(inputs[6].value);
 
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
-                // Logika Dinamis Sender Name (Override)
                 if (mode === 'PN_BATAM') {
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
                     senderAddrFinal = "PENGADILAN NEGERI BATAM";
@@ -796,7 +877,7 @@
                     senderPhoneFinal = baseSenderPhone;
                 }
 
-                // OBJ BEBAS "INS"
+                // OBJ BEBAS "INS" + PENAMBAHAN KOLI WEIGHT SESUAI INPUT
                 finalExportRows.push({
                     "connote_code": index + 1,
                     "customer_code": finalCustomerId,
@@ -813,7 +894,7 @@
                     "service_code": serviceCode,
                     "connote_sub_service_code": finalTariffCode, 
                     "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, 
-                    "koli_data_koli_weight": 1,
+                    "koli_data_koli_weight": dWeight, // BERAT DIMASUKKAN KE SINI
                     "koli_data_koli_width": 10,
                     "koli_data_koli_height": 10, 
                     "koli_data_koli_length": 10, 
@@ -857,7 +938,6 @@
         }
     </script>
     
-    <!-- Script Lucide Icons untuk render ikon di footer & tombol -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         lucide.createIcons();
