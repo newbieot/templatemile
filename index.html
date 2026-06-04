@@ -70,7 +70,6 @@
             flex-shrink: 0;
         }
 
-        /* PANDUAN PENGGUNAAN CARD */
         .guide-card {
             background-color: var(--pos-info);
             border-left: 4px solid var(--pos-info-text);
@@ -103,7 +102,6 @@
         input[type="text"] { text-transform: uppercase; }
         input[readonly] { background-color: #e9ecef; cursor: not-allowed; color: #666; font-weight: bold;}
 
-        /* CHECKBOX CUSTOM */
         .checkbox-wrap { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 700; color: var(--pos-dark); padding: 5px 0;}
         .checkbox-wrap input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--pos-orange); }
 
@@ -129,7 +127,6 @@
             border-radius: 3px; cursor: pointer; font-size: 0.7rem; font-weight: 700;
         }
 
-        /* BUTTONS */
         .btn-accent {
             width: 100%; background-color: var(--pos-orange); color: white; padding: 12px;
             border: none; border-radius: 5px; font-size: 0.9rem; font-weight: 700; cursor: pointer; flex-shrink: 0;
@@ -240,25 +237,26 @@
             <div class="guide-card">
                 <h3><i data-lucide="book-open" style="width: 16px; height: 16px;"></i> PANDUAN PENGGUNAAN (SOP)</h3>
                 <ol class="guide-list">
-                    <li><b>Pemetaan Cerdas:</b> Upload Excel, lalu cocokkan kolomnya via Pop-up Mapping.</li>
-                    <li><b>Kalkulasi Paket:</b> Jika memilih "PAKET", Anda diwajibkan mengisi Dimensi & Berat. Sistem akan mengunci *Chargeable Weight* secara otomatis.</li>
+                    <li><b>Pemetaan Cerdas:</b> Upload Excel, lalu cocokkan kolomnya via Pop-up Mapping (Termasuk Dimensi PxLxT).</li>
+                    <li><b>Kalkulasi Paket:</b> Jika memilih "PAKET", sistem akan mengunci *Chargeable Weight* (Mengambil yang terberat antara Aktual vs Volumetrik).</li>
                     <li><b>Opsi Asuransi:</b> Centang *Gunakan Asuransi* jika ada asuransi, lalu isikan nominal barang pada tabel di sebelah kanan.</li>
                 </ol>
             </div>
 
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="form-group full-width">
-                    <label style="color: var(--pos-orange); font-size: 0.85rem;">MODE KIRIMAN:</label>
+                    <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE KIRIMAN:</label>
                     <select id="clientMode" onchange="handleModeChange()" style="border-color: var(--pos-orange); font-weight: bold;">
                         <option value="STANDARD">KORPORAT STANDAR (Ada ID Pelanggan)</option>
                         <option value="PN_BATAM">KORPORAT KHUSUS (Pengadilan Negeri Batam)</option>
+                        <option value="DAGMBS">KORPORAT DAGMBS01294A (Default Tarif: 914556)</option>
                         <option value="RITEL">KIRIMAN RITEL (Non-Korporat / Pribadi)</option>
                     </select>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-header">Data Pengirim Default</div>
+                <div class="card-header">🏢 Data Pengirim</div>
                 <div class="grid-2">
                     <div class="form-group full-width" id="wrapCustomerId">
                         <label>ID Pelanggan (Account No):</label>
@@ -280,7 +278,7 @@
             </div>
 
             <div class="card">
-                <div class="card-header">Atribut Layanan & Koli</div>
+                <div class="card-header">📦 Atribut Layanan & Koli</div>
                 <div class="grid-2">
                     <div class="form-group">
                         <label>Kode Layanan:</label>
@@ -311,7 +309,7 @@
             </div>
 
             <div class="card" style="margin-bottom: 5px;">
-                <div class="card-header">Area Drag & Drop Berkas Mentah</div>
+                <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
                     <p>Seret & Jatuhkan File Excel/CSV di Sini</p>
                     <span>Sistem Auto-Mapping & Kalkulasi Aktif</span>
@@ -358,6 +356,16 @@
 
             <label>Kolom "NAMA PENGIRIM" (Opsional - Menimpa nama pengirim *default*):</label>
             <select id="mapSenderName"></select>
+            
+            <div style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 15px; border: 1px solid #e2e8f0;">
+                <label style="margin-top: 0; color: var(--pos-orange);">📦 Opsional: Ekstrak Dimensi & Berat Excel (Khusus Paket)</label>
+                <div class="grid-2" style="margin-top: 5px;">
+                    <div><label style="font-size: 0.7rem;">Berat Aktual (Kg):</label><select id="mapWeight"></select></div>
+                    <div><label style="font-size: 0.7rem;">Panjang (P):</label><select id="mapP"></select></div>
+                    <div><label style="font-size: 0.7rem;">Lebar (L):</label><select id="mapL"></select></div>
+                    <div><label style="font-size: 0.7rem;">Tinggi (T):</label><select id="mapT"></select></div>
+                </div>
+            </div>
 
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="skipCurrentMapping()">Batalkan Berkas</button>
@@ -369,7 +377,7 @@
     <div id="weightModal" class="modal-overlay">
         <div class="modal-box large">
             <h3>⚖️ 2. Kalkulasi Dimensi & Berat Kiriman Paket</h3>
-            <p>Masukkan berat (Kg) dan dimensi (cm). Sistem otomatis memilih berat terbesar (<i>Chargeable Weight</i>).</p>
+            <p>Masukkan berat (Kg) dan dimensi (cm). Kosongkan/biarkan jika ingin menggunakan default.</p>
             
             <div id="weightListContainer" class="weight-list-container">
                 </div>
@@ -453,6 +461,7 @@
             updateInterface();
         });
 
+        // MANAJEMEN UI BERDASARKAN MODE
         function handleModeChange() {
             const mode = document.getElementById('clientMode').value;
             const wrapCustId = document.getElementById('wrapCustomerId');
@@ -463,6 +472,7 @@
             const wrapItemType = document.getElementById('wrapItemType');
             const tariffInput = document.getElementById('tariffCode');
             const itemInput = document.getElementById('itemType');
+            const custIdInput = document.getElementById('customerId');
 
             if (mode === 'PN_BATAM') {
                 wrapCustId.style.display = 'block'; wrapSName.style.display = 'none';
@@ -470,13 +480,28 @@
                 wrapTariff.style.display = 'block';
                 itemInput.value = 'DOKUMEN'; wrapItemType.classList.add('full-width');
                 tariffInput.value = "897924"; tariffInput.readOnly = true;
-            } else if (mode === 'STANDARD') {
+                custIdInput.readOnly = false;
+            } 
+            else if (mode === 'DAGMBS') {
+                wrapCustId.style.display = 'block'; wrapSName.style.display = 'block';
+                wrapSPhone.style.display = 'none'; wrapSAddr.style.display = 'none';
+                wrapTariff.style.display = 'block';
+                wrapItemType.classList.add('full-width');
+                
+                // Auto-fill DAGMBS specific
+                custIdInput.value = "DAGMBS01294A";
+                tariffInput.value = "914556";
+                tariffInput.readOnly = false;
+            }
+            else if (mode === 'STANDARD') {
                 wrapCustId.style.display = 'block'; wrapSName.style.display = 'block';
                 wrapSPhone.style.display = 'none'; wrapSAddr.style.display = 'none';
                 wrapTariff.style.display = 'block';
                 wrapItemType.classList.add('full-width');
                 tariffInput.value = ""; tariffInput.readOnly = false;
-            } else if (mode === 'RITEL') {
+                custIdInput.readOnly = false;
+            } 
+            else if (mode === 'RITEL') {
                 wrapCustId.style.display = 'none'; wrapSName.style.display = 'block';
                 wrapSPhone.style.display = 'block'; wrapSAddr.style.display = 'block';
                 wrapTariff.style.display = 'none'; 
@@ -530,11 +555,11 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // MODAL TAHAP 1: MAPPING
+        // MODAL TAHAP 1: MAPPING (Dengan Deteksi Dimensi/Berat Dinamis)
         function showMappingModal(headers) {
             document.getElementById('mappingFileName').innerText = "📍 File: " + currentFileName;
 
-            const selects = ['mapName', 'mapAddress', 'mapPhone', 'mapRef', 'mapSenderName'];
+            const selects = ['mapName', 'mapAddress', 'mapPhone', 'mapRef', 'mapSenderName', 'mapWeight', 'mapP', 'mapL', 'mapT'];
             selects.forEach(id => {
                 const el = document.getElementById(id);
                 el.innerHTML = '<option value="-1">-- KOSONG / ABAIKAN --</option>';
@@ -544,9 +569,10 @@
                 });
             });
 
+            // Auto-Select AI Logic
             headers.forEach((h, index) => {
                 if(!h) return;
-                let text = String(h).toUpperCase();
+                let text = String(h).toUpperCase().trim();
                 
                 if (text.includes('NAMA') || text.includes('PEMILIK') || text.includes('PENERIMA')) {
                     if(document.getElementById('mapName').value == "-1") document.getElementById('mapName').value = index;
@@ -559,6 +585,19 @@
                 }
                 if (text.includes('SURAT') || text.includes('REF') || text.includes('DESKRIPSI') || text.includes('TNKB') || text.includes('PLAT') || text.includes('AWB')) {
                     if(document.getElementById('mapRef').value == "-1") document.getElementById('mapRef').value = index;
+                }
+                // AI Deteksi Berat & Dimensi
+                if (text === 'BERAT' || text === 'KG' || text === 'WEIGHT' || text === 'BERAT AKTUAL' || text.includes('BERAT')) {
+                    if(document.getElementById('mapWeight').value == "-1") document.getElementById('mapWeight').value = index;
+                }
+                if (text === 'P' || text === 'PANJANG' || text === 'LENGTH') {
+                    if(document.getElementById('mapP').value == "-1") document.getElementById('mapP').value = index;
+                }
+                if (text === 'L' || text === 'LEBAR' || text === 'WIDTH') {
+                    if(document.getElementById('mapL').value == "-1") document.getElementById('mapL').value = index;
+                }
+                if (text === 'T' || text === 'TINGGI' || text === 'HEIGHT') {
+                    if(document.getElementById('mapT').value == "-1") document.getElementById('mapT').value = index;
                 }
             });
 
@@ -578,6 +617,12 @@
             const idxPhone = parseInt(document.getElementById('mapPhone').value);
             const idxRef = parseInt(document.getElementById('mapRef').value);
             const idxSenderName = parseInt(document.getElementById('mapSenderName').value);
+            
+            // Kolom Dimensi
+            const idxWeight = parseInt(document.getElementById('mapWeight').value);
+            const idxP = parseInt(document.getElementById('mapP').value);
+            const idxL = parseInt(document.getElementById('mapL').value);
+            const idxT = parseInt(document.getElementById('mapT').value);
 
             let extractedRows = [];
 
@@ -590,7 +635,7 @@
                         let row = jsonData[i];
                         if (!row || row.length === 0) continue;
 
-                        const rowStr = row.join(" ").toUpperCase();
+                        // Skip header matching
                         if (
                             (idxName !== -1 && String(row[idxName]).toUpperCase() === String(currentHeaders[idxName]).toUpperCase()) ||
                             (idxAddr !== -1 && String(row[idxAddr]).toUpperCase() === String(currentHeaders[idxAddr]).toUpperCase())
@@ -603,6 +648,12 @@
                         let rawPhone = idxPhone !== -1 ? row[idxPhone] : "0";
                         let rawRef = idxRef !== -1 ? row[idxRef] : "";
                         let rawSenderName = idxSenderName !== -1 ? row[idxSenderName] : "";
+                        
+                        // Ekstrak Data Dimensi
+                        let rawWeight = idxWeight !== -1 ? row[idxWeight] : "";
+                        let rawP = idxP !== -1 ? row[idxP] : "";
+                        let rawL = idxL !== -1 ? row[idxL] : "";
+                        let rawT = idxT !== -1 ? row[idxT] : "";
 
                         let cleanName = cleanArtifacts(rawName);
                         let cleanAddr = cleanArtifacts(rawAddr);
@@ -610,6 +661,12 @@
                         let cleanRef = cleanReference(rawRef);
                         let cleanSenderName = cleanReference(rawSenderName); 
                         let targetZipCode = getZipCodeFromAddress(cleanAddr);
+                        
+                        // Parse float (kosong jika invalid)
+                        let parsedW = parseFloat(String(rawWeight).replace(',', '.')) || "";
+                        let parsedP = parseFloat(String(rawP).replace(',', '.')) || "";
+                        let parsedL = parseFloat(String(rawL).replace(',', '.')) || "";
+                        let parsedT = parseFloat(String(rawT).replace(',', '.')) || "";
 
                         if (!cleanName && !cleanAddr && !cleanRef && !cleanSenderName) continue;
 
@@ -619,7 +676,8 @@
                             name: cleanName, 
                             phone: cleanPhone, 
                             zip: targetZipCode, 
-                            address: cleanAddr 
+                            address: cleanAddr,
+                            act: parsedW, p: parsedP, l: parsedL, t: parsedT
                         });
                     }
                 }
@@ -663,36 +721,42 @@
                         <div class="weight-calc-grid">
                             <div class="weight-input-group">
                                 <label>Actual (Kg)</label>
-                                <input type="number" step="0.1" min="0.1" class="w-act" data-index="${index}" value="1" oninput="calculateCW(${index})">
+                                <input type="number" step="0.1" min="0.1" class="w-act" data-index="${index}" value="${row.act || ''}" placeholder="1" oninput="calculateCW(${index})">
                             </div>
                             <div class="weight-input-group">
                                 <label>Panjang (cm)</label>
-                                <input type="number" class="w-p" data-index="${index}" value="10" oninput="calculateCW(${index})">
+                                <input type="number" class="w-p" data-index="${index}" value="${row.p || ''}" placeholder="10" oninput="calculateCW(${index})">
                             </div>
                             <div class="weight-input-group">
                                 <label>Lebar (cm)</label>
-                                <input type="number" class="w-l" data-index="${index}" value="10" oninput="calculateCW(${index})">
+                                <input type="number" class="w-l" data-index="${index}" value="${row.l || ''}" placeholder="10" oninput="calculateCW(${index})">
                             </div>
                             <div class="weight-input-group">
                                 <label>Tinggi (cm)</label>
-                                <input type="number" class="w-t" data-index="${index}" value="10" oninput="calculateCW(${index})">
+                                <input type="number" class="w-t" data-index="${index}" value="${row.t || ''}" placeholder="10" oninput="calculateCW(${index})">
                             </div>
                             <div class="cw-result">
                                 <span style="font-size:0.6rem; color:#0277bd; font-weight:bold;">CHARGEABLE WEIGHT</span><br>
-                                <span id="cw-text-${index}" style="font-size:1.1rem; font-weight:900; color:var(--pos-orange);">1.00 Kg</span>
+                                <span id="cw-text-${index}" style="font-size:1.1rem; font-weight:900; color:var(--pos-orange);">0.00 Kg</span>
                             </div>
                         </div>
                     </div>
                 `;
             });
+
             document.getElementById('weightModal').style.display = 'flex';
+
+            // Eksekusi kalkulasi langsung saat modal terbuka
+            setTimeout(() => {
+                tempExtractedRows.forEach((_, index) => calculateCW(index));
+            }, 50);
         }
 
         // Realtime Volumetric Formula: (P x L x T) / 6000
         function calculateCW(index) {
             const rowDiv = document.querySelector(`.w-act[data-index="${index}"]`).closest('.weight-row');
             const actStr = rowDiv.querySelector('.w-act').value.replace(',', '.');
-            const act = parseFloat(actStr) || 0;
+            const act = parseFloat(actStr) || 0; 
             const p = parseFloat(rowDiv.querySelector('.w-p').value) || 0;
             const l = parseFloat(rowDiv.querySelector('.w-l').value) || 0;
             const t = parseFloat(rowDiv.querySelector('.w-t').value) || 0;
@@ -715,6 +779,7 @@
                 const idx = input.getAttribute('data-index');
                 const rowDiv = input.closest('.weight-row');
                 
+                // Fallback default jika kosong
                 const act = parseFloat(input.value.replace(',', '.')) || 0.1;
                 const p = parseFloat(rowDiv.querySelector('.w-p').value) || 10;
                 const l = parseFloat(rowDiv.querySelector('.w-l').value) || 10;
@@ -742,7 +807,6 @@
         function cleanArtifacts(text) {
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
-            // Anti karakter spesial, izinkan titik/koma dasar
             return str.replace(/[^A-Za-z0-9\s.,]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
         }
 
@@ -755,8 +819,7 @@
         function cleanPhoneNumber(phone) {
             if (!phone) return "0";
             let str = String(phone).replace(/[^0-9]/g, ''); 
-            // Basmi Double Zero
-            str = str.replace(/^0+/, '0');
+            str = str.replace(/^0+/, '0'); // Basmi Double Zero '00'
             if (!str) return "0";
             if (str.startsWith('62')) { str = '0' + str.slice(2); }
             if (!str.startsWith('0')) { str = '0' + str; }
@@ -895,7 +958,7 @@
             if (mode === 'PN_BATAM') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
-            } else if (mode === 'STANDARD') {
+            } else if (mode === 'STANDARD' || mode === 'DAGMBS') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
                 baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
@@ -936,7 +999,7 @@
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
                     senderAddrFinal = "PENGADILAN NEGERI BATAM";
                     senderPhoneFinal = "0";
-                } else if (mode === 'STANDARD') {
+                } else if (mode === 'STANDARD' || mode === 'DAGMBS') {
                     senderNameFinal = dSenderName ? dSenderName : baseSenderName;
                     senderAddrFinal = baseSenderName;
                     if (!senderAddrFinal.endsWith("BATAM")) { senderAddrFinal += " BATAM"; }
@@ -947,7 +1010,6 @@
                     senderPhoneFinal = baseSenderPhone;
                 }
 
-                // OBJ PUSAT
                 let rowObject = {
                     "connote_code": index + 1,
                     "customer_code": finalCustomerId,
@@ -976,7 +1038,6 @@
                     "statusRetur": "Kembali ke pengirim"
                 };
 
-                // JIKA ASURANSI AKTIF, TAMBAHKAN KEY INS
                 if (useInsurance) {
                     rowObject["INS"] = "Y"; 
                 }
@@ -984,7 +1045,6 @@
                 finalExportRows.push(rowObject);
             });
 
-            // KONFIGURASI HEADER EXCEL (Hanya sertakan INS jika Asuransi diaktifkan)
             const exportHeaders = [
                 "connote_code", "customer_code", "origin_data_customer_name", "origin_data_customer_phone", 
                 "origin_data_customer_address", "origin_data_customer_zip_code", "origin_data_zone_code", 
