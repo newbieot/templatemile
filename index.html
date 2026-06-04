@@ -272,15 +272,17 @@
             <div class="card">
                 <div class="card-header">🏢 Data Pengirim</div>
                 <div class="grid-2">
-                    <div class="form-group full-width" id="wrapCustomerId">
-                        <label>ID Pelanggan (Account No):</label>
-                        <input type="text" id="customerId" value="" placeholder="Ketik ID Pelanggan...">
-                    </div>
-                    <!-- Form Sender Name ini dihide/dimunculkan oleh JS -->
+                    <!-- Form Sender Name dihide/dimunculkan oleh JS -->
                     <div class="form-group full-width" id="wrapSenderName" style="display: block;">
                         <label>Nama Pengirim:</label>
                         <input type="text" id="senderName" value="" placeholder="Ketik Nama Pengirim...">
                     </div>
+                    
+                    <div class="form-group full-width" id="wrapCustomerId">
+                        <label>ID Pelanggan (Account No):</label>
+                        <input type="text" id="customerId" value="" placeholder="Ketik ID Pelanggan...">
+                    </div>
+                    
                     <div class="form-group full-width" id="wrapSenderPhone" style="display: none;">
                         <label>No HP Pengirim:</label>
                         <input type="text" id="senderPhone" placeholder="Contoh: 08123456789">
@@ -353,7 +355,6 @@
         </div>
     </div>
 
-    <!-- MODAL 1: MAPPING KOLOM DINAMIS -->
     <div id="mappingModal" class="modal-overlay">
         <div class="modal-box">
             <h3>⚙️ 1. Konfigurasi Kolom Data</h3>
@@ -391,7 +392,6 @@
         </div>
     </div>
 
-    <!-- MODAL 2: INPUT BERAT PAKET (Chargeable Weight) -->
     <div id="weightModal" class="modal-overlay">
         <div class="modal-box large">
             <h3>⚖️ 2. Kalkulasi Dimensi & Berat Kiriman Paket</h3>
@@ -492,6 +492,7 @@
             const wrapItemType = document.getElementById('wrapItemType');
             const tariffInput = document.getElementById('tariffCode');
             const custIdInput = document.getElementById('customerId');
+            const template = document.getElementById('corporateTemplate').value;
 
             if (mode === 'KORPORAT') {
                 wrapTemplate.style.display = 'block';
@@ -506,7 +507,7 @@
             else if (mode === 'RITEL') {
                 wrapTemplate.style.display = 'none';
                 wrapCustId.style.display = 'none';
-                wrapSName.style.display = 'block';
+                wrapSName.style.display = 'block'; // Tampilkan saat Ritel
                 wrapSPhone.style.display = 'block';
                 wrapSAddr.style.display = 'block';
                 wrapTariff.style.display = 'none'; 
@@ -524,11 +525,15 @@
         // LOGIKA PENYEMBUNYIAN FORM PENGIRIM BERDASARKAN TEMPLATE
         function handleTemplateChange() {
             const template = document.getElementById('corporateTemplate').value;
+            const mode = document.getElementById('clientMode').value;
             const wrapSName = document.getElementById('wrapSenderName');
             const custIdInput = document.getElementById('customerId');
             const sNameInput = document.getElementById('senderName');
             const tariffInput = document.getElementById('tariffCode');
             const itemInput = document.getElementById('itemType');
+
+            // Cek jika mode Ritel, abaikan setting template
+            if (mode !== 'KORPORAT') return;
 
             // Set default reset
             custIdInput.readOnly = false;
@@ -536,29 +541,29 @@
             tariffInput.readOnly = false;
             
             if (template === 'PN_BATAM') {
-                wrapSName.style.display = 'none'; // Sembunyikan Nama Pengirim
+                wrapSName.style.display = 'none'; // Hide Form Sender Name
                 custIdInput.value = "LNMAPN01294A";
                 tariffInput.value = "897924";
                 tariffInput.readOnly = true;
                 itemInput.value = 'DOKUMEN'; 
             } else if (template === 'MENSA') {
-                wrapSName.style.display = 'none'; // Sembunyikan Nama Pengirim
+                wrapSName.style.display = 'none'; // Hide Form Sender Name
                 custIdInput.value = "DAGMBS01294A";
                 sNameInput.value = "MENSA BINA SUKSES BATAM";
                 tariffInput.value = "914556";
                 tariffInput.readOnly = true;
             } else if (template === 'TOYOTA') {
-                wrapSName.style.display = 'none'; // Sembunyikan Nama Pengirim
+                wrapSName.style.display = 'none'; // Hide Form Sender Name
                 custIdInput.value = "FINTOYOTA02294A";
                 sNameInput.value = "PT TOYOTA ASTRA FINANCE";
                 tariffInput.value = "";
             } else if (template === 'POLRES') {
-                wrapSName.style.display = 'none'; // Sembunyikan Nama Pengirim
+                wrapSName.style.display = 'none'; // Hide Form Sender Name
                 custIdInput.value = "LNPOLRES01294A";
                 sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
                 tariffInput.value = "";
             } else if (template === 'MANUAL') {
-                wrapSName.style.display = 'block'; // Tampilkan Nama Pengirim
+                wrapSName.style.display = 'block'; // Tampilkan Form Sender Name
                 custIdInput.value = "";
                 sNameInput.value = "";
                 tariffInput.value = "";
@@ -999,7 +1004,7 @@
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
                 
-                // Jika manual, kita ambil apa yang ada di input form Nama Pengirim
+                // Ekstrak nama sesuai template yang dipilih
                 if (template === 'MANUAL') {
                     baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
                 } else if (template === 'PN_BATAM') {
@@ -1041,6 +1046,7 @@
 
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
+                // Logika Pembentukan Pengirim Berdasarkan Override Tabel vs Base Template
                 if (mode === 'KORPORAT' && template === 'PN_BATAM') {
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
                     senderAddrFinal = baseSenderName;
@@ -1048,7 +1054,6 @@
                 } else if (mode === 'KORPORAT') {
                     senderNameFinal = dSenderName ? dSenderName : baseSenderName;
                     senderAddrFinal = baseSenderName;
-                    // Pastikan ada kata BATAM kecuali untuk nama institusi tertentu yg terlalu panjang
                     if (!senderAddrFinal.includes("BATAM") && template !== 'POLRES') { senderAddrFinal += " BATAM"; }
                     senderPhoneFinal = "0";
                 } else if (mode === 'RITEL') {
