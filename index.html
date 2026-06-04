@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Optimasi SEO: Title Tag By Ikhsan Radiansyah -->
     <title>Mile App Bulk Converter by Ikhsan Radiansyah | PosNew Hub</title>
-    <!-- Favicon PosIND -->
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
-    <!-- Library SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -240,9 +237,9 @@
             <div class="guide-card">
                 <h3><i data-lucide="book-open" style="width: 16px; height: 16px;"></i> PANDUAN PENGGUNAAN (SOP)</h3>
                 <ol class="guide-list">
-                    <li><b>Pemetaan Cerdas:</b> Upload Excel, lalu cocokkan kolomnya via Pop-up Mapping (Termasuk Dimensi PxLxT).</li>
-                    <li><b>Kalkulasi Paket:</b> Jika memilih "PAKET", sistem akan mengunci *Chargeable Weight* (Mengambil yang terberat antara Aktual vs Volumetrik).</li>
-                    <li><b>Opsi Asuransi:</b> Centang *Gunakan Asuransi* jika ada asuransi, lalu isikan nominal barang pada tabel di sebelah kanan.</li>
+                    <li><b>Pemetaan Cerdas:</b> Upload Excel, lalu cocokkan kolomnya via Pop-up Mapping. Mendukung Multi-City (Batam & Tanjung Pinang).</li>
+                    <li><b>Kalkulasi Paket:</b> Otomatis mengunci <i>Chargeable Weight</i> (Aktual vs Volumetrik).</li>
+                    <li><b>Opsi Asuransi:</b> Centang <i>Gunakan Asuransi</i> jika perlu, lalu isi nilai barangnya.</li>
                 </ol>
             </div>
 
@@ -261,7 +258,7 @@
                         <select id="corporateTemplate" onchange="handleTemplateChange()" style="border-color: var(--pos-dark); font-weight: bold;">
                             <option value="MANUAL">-- INPUT MANUAL / PELANGGAN BARU --</option>
                             <option value="PN_BATAM">PENGADILAN NEGERI BATAM (LNMAPN01294A)</option>
-                            <option value="MENSA">MENSA BINA SUKSES BATAM (DAGMBS01294A)</option>
+                            <option value="MENSA">MENSA BINA SUKSES BATAM - TJ. PINANG (DAGMBS01294A)</option>
                             <option value="TOYOTA">PT TOYOTA ASTRA FINANCE (FINTOYOTA02294A)</option>
                             <option value="POLRES">SATLANTAS POLRESTA BARELANG (LNPOLRES01294A)</option>
                         </select>
@@ -269,7 +266,6 @@
                 </div>
             </div>
 
-            <!-- FORMULIR PENGIRIM (Otomatis Sembunyi Jika Pakai Template) -->
             <div class="card" id="cardDataPengirim">
                 <div class="card-header">🏢 Data Pengirim</div>
                 <div class="grid-2">
@@ -277,7 +273,7 @@
                         <label>ID Pelanggan (Account No):</label>
                         <input type="text" id="customerId" value="" placeholder="Ketik ID Pelanggan...">
                     </div>
-                    <div class="form-group full-width" id="wrapSenderName">
+                    <div class="form-group full-width" id="wrapSenderName" style="display: block;">
                         <label>Nama Pengirim:</label>
                         <input type="text" id="senderName" value="" placeholder="Ketik Nama Pengirim...">
                     </div>
@@ -341,8 +337,7 @@
             <div class="table-container">
                 <table id="resultTable">
                     <thead>
-                        <!-- Table header generated via JS -->
-                    </thead>
+                        </thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -396,8 +391,7 @@
             <p>Masukkan berat (Kg) dan dimensi (cm). Kosongkan/biarkan jika ingin menggunakan default.</p>
             
             <div id="weightListContainer" class="weight-list-container">
-                <!-- Di-generate lewat JavaScript -->
-            </div>
+                </div>
 
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="cancelWeightInput()">Batalkan Berkas</button>
@@ -420,15 +414,14 @@
 
     <script>
         let uploadedFilesManager = [];
-        
         let fileProcessQueue = [];
         let currentWorkbook = null;
         let currentFileName = "";
         let currentHeaders = [];
         let tempExtractedRows = []; 
 
-        // HIERARKI KODEPOS TIER 1: KELURAHAN
-        const kelurahanMapping = [
+        // ================= DATABASE BATAM =================
+        const batamKelurahanMapping = [
             { keyword: 'TELUK TERING', code: '29411' }, { keyword: 'SUNGAI PANAS', code: '29412' },
             { keyword: 'BALOI PERMAI', code: '29413' }, { keyword: 'TAMAN BALOI', code: '29413' },
             { keyword: 'BELIAN', code: '29414' }, { keyword: 'SUKAJADI', code: '29415' },
@@ -463,8 +456,7 @@
             { keyword: 'SEKANAK RAYA', code: '29495' }, { keyword: 'PULAU TERUNG', code: '29496' }
         ];
 
-        // HIERARKI KODEPOS TIER 2: KECAMATAN
-        const kecamatanMapping = [
+        const batamKecamatanMapping = [
             { keyword: 'BATAM KOTA', code: '29411' }, { keyword: 'NONGSA', code: '29416' },
             { keyword: 'BATU AMPAR', code: '29421' }, { keyword: 'BENGKONG', code: '29426' },
             { keyword: 'LUBUK BAJA', code: '29431' }, { keyword: 'BATU AJI', code: '29441' },
@@ -474,8 +466,28 @@
             { keyword: 'BELAKANG PADANG', code: '29491' }
         ];
 
+        // ================= DATABASE TANJUNG PINANG (Khusus MENSA) =================
+        const tpiKelurahanMapping = [
+            { keyword: 'TANJUNG PINANG TIMUR', code: '29122' }, { keyword: 'TANJUNG PINANG BARAT', code: '29113' },
+            { keyword: 'TANJUNG PINANG KOTA', code: '29111' }, { keyword: 'TANJUNG AYUN SAKTI', code: '29124' },
+            { keyword: 'BATU IX (SEMBILAN)', code: '29125' }, { keyword: 'BATU IX', code: '29125' },
+            { keyword: 'BATU 9', code: '29125' }, { keyword: 'BATU SEMBILAN', code: '29125' },
+            { keyword: 'MELAYU KOTA PIRING', code: '29123' }, { keyword: 'TANJUNG UNGGAT', code: '29122' },
+            { keyword: 'KAMPUNG BULANG', code: '29122' }, { keyword: 'PINANG KENCANA', code: '29122' },
+            { keyword: 'KAMPUNG BUGIS', code: '29115' }, { keyword: 'BUKIT CERMIN', code: '29111' },
+            { keyword: 'KAMPUNG BARU', code: '29113' }, { keyword: 'SENGGARANG', code: '29111' },
+            { keyword: 'PENYENGAT', code: '29114' }, { keyword: 'SEI JANG', code: '29124' },
+            { keyword: 'AIR RAJA', code: '29122' }, { keyword: 'KEMBOJA', code: '29112' },
+            { keyword: 'DOMPAK', code: '29124' }
+        ];
+
+        const tpiKecamatanMapping = [
+            { keyword: 'TANJUNG PINANG BARAT', code: '29111' }, { keyword: 'TANJUNG PINANG TIMUR', code: '29122' },
+            { keyword: 'TANJUNG PINANG KOTA', code: '29115' }, { keyword: 'BUKIT BESTARI', code: '29124' }
+        ];
+
         document.addEventListener("DOMContentLoaded", () => {
-            handleModeChange(); // Inisiasi Mode
+            handleModeChange();
         });
 
         // MANAJEMEN UI BERDASARKAN MODE (KORPORAT vs RITEL)
@@ -502,7 +514,7 @@
             } 
             else if (mode === 'RITEL') {
                 wrapTemplate.style.display = 'none';
-                cardPengirim.style.display = 'block'; // Selalu tampil di Ritel
+                cardPengirim.style.display = 'block'; 
                 wrapCustId.style.display = 'none';
                 wrapSName.style.display = 'block';
                 wrapSPhone.style.display = 'block';
@@ -531,23 +543,21 @@
             const tariffInput = document.getElementById('tariffCode');
             const itemInput = document.getElementById('itemType');
 
-            // Cek jika mode Ritel, abaikan setting template
             if (mode !== 'KORPORAT') return;
 
-            // Set default reset
             custIdInput.readOnly = false;
             sNameInput.readOnly = false;
             tariffInput.readOnly = false;
             
             if (template === 'MANUAL') {
-                cardPengirim.style.display = 'block'; // Tampilkan Card Total
+                cardPengirim.style.display = 'block'; 
                 wrapSName.style.display = 'block'; 
                 wrapCustId.style.display = 'block';
                 custIdInput.value = "";
                 sNameInput.value = "";
                 tariffInput.value = "";
             } else {
-                cardPengirim.style.display = 'none'; // Sembunyikan Card Total!
+                cardPengirim.style.display = 'none'; // Sembunyikan Data Pengirim!
                 
                 if (template === 'PN_BATAM') {
                     custIdInput.value = "LNMAPN01294A";
@@ -569,6 +579,8 @@
                     tariffInput.value = "";
                 }
             }
+            // Update tabel agar kodeposnya ter-refresh sesuai database
+            updateInterface();
         }
 
         const dropzone = document.getElementById('dropzone');
@@ -666,6 +678,7 @@
 
         function applyMappingAndProcess() {
             document.getElementById('mappingModal').style.display = 'none';
+            const templateVal = document.getElementById('corporateTemplate').value;
 
             const idxName = parseInt(document.getElementById('mapName').value);
             const idxAddr = parseInt(document.getElementById('mapAddress').value);
@@ -712,7 +725,9 @@
                         let cleanPhone = cleanPhoneNumber(rawPhone);
                         let cleanRef = cleanReference(rawRef);
                         let cleanSenderName = cleanReference(rawSenderName); 
-                        let targetZipCode = getZipCodeFromAddress(cleanAddr);
+                        
+                        // Gunakan algoritma 2 Database tergantung Klien
+                        let targetZipCode = getZipCodeFromAddress(cleanAddr, templateVal);
                         
                         let parsedW = parseFloat(String(rawWeight).replace(',', '.')) || "";
                         let parsedP = parseFloat(String(rawP).replace(',', '.')) || "";
@@ -741,7 +756,6 @@
             }
 
             const itemType = document.getElementById('itemType').value;
-            
             if (itemType === 'PAKET') {
                 tempExtractedRows = extractedRows;
                 showWeightModal();
@@ -871,12 +885,19 @@
             return str;
         }
 
-        function getZipCodeFromAddress(address) {
+        // ALGORITMA MULTI-CITY (BATAM vs TANJUNG PINANG)
+        function getZipCodeFromAddress(address, template) {
             const addrUpper = String(address).toUpperCase();
+
+            // Tentukan Database yang Aktif
+            let activeKelMapping = (template === 'MENSA') ? tpiKelurahanMapping : batamKelurahanMapping;
+            let activeKecMapping = (template === 'MENSA') ? tpiKecamatanMapping : batamKecamatanMapping;
+            let defaultZip = (template === 'MENSA') ? "29111" : "29411";
+
             let bestKelurahanCode = null;
             let highestKelIndex = -1;
 
-            for (let item of kelurahanMapping) {
+            for (let item of activeKelMapping) {
                 let matchIndex = addrUpper.lastIndexOf(item.keyword);
                 if (matchIndex > -1 && matchIndex > highestKelIndex) {
                     highestKelIndex = matchIndex;
@@ -888,7 +909,7 @@
             let bestKecamatanCode = null;
             let highestKecIndex = -1;
 
-            for (let item of kecamatanMapping) {
+            for (let item of activeKecMapping) {
                 let matchIndex = addrUpper.lastIndexOf(item.keyword);
                 if (matchIndex > -1 && matchIndex > highestKecIndex) {
                     highestKecIndex = matchIndex;
@@ -897,7 +918,7 @@
             }
             if (bestKecamatanCode) return bestKecamatanCode;
 
-            return "29411";
+            return defaultZip;
         }
 
         function deleteFileFromQueue(id) {
@@ -998,6 +1019,7 @@
             const itemType = document.getElementById('itemType').value.toUpperCase();
             
             const paymentType = mode === 'RITEL' ? "CASH" : "INVOICE";
+            let destZoneCode = (template === 'MENSA') ? "29100" : "29400";
             
             let finalExportRows = [];
 
@@ -1073,7 +1095,7 @@
                     "destination_data_customer_phone": dPhone,
                     "destination_data_customer_address": dAddress,
                     "destination_data_customer_zip_code": dZip, 
-                    "destination_data_zone_code": "29400",        
+                    "destination_data_zone_code": destZoneCode,        
                     "service_code": serviceCode,
                     "connote_sub_service_code": finalTariffCode, 
                     "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, 
