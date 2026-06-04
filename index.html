@@ -237,21 +237,32 @@
             <div class="guide-card">
                 <h3><i data-lucide="book-open" style="width: 16px; height: 16px;"></i> PANDUAN PENGGUNAAN (SOP)</h3>
                 <ol class="guide-list">
-                    <li><b>Pemetaan Cerdas:</b> Upload Excel, lalu cocokkan kolomnya via Pop-up Mapping (Termasuk Dimensi PxLxT).</li>
-                    <li><b>Kalkulasi Paket:</b> Jika memilih "PAKET", sistem akan mengunci *Chargeable Weight* (Mengambil yang terberat antara Aktual vs Volumetrik).</li>
-                    <li><b>Opsi Asuransi:</b> Centang *Gunakan Asuransi* jika ada asuransi, lalu isikan nominal barang pada tabel di sebelah kanan.</li>
+                    <li><b>Upload Mentahan:</b> Drag & Drop file <b>.xlsx / .csv</b> ke area <i>Upload Berkas</i>. Sistem memindai file cerdas (Auto-Detect Berat & Dimensi).</li>
+                    <li><b>Pilih Layanan:</b> Tentukan Mode Transaksi (Korporat/Ritel) dan Template Pelanggan yang tersedia.</li>
+                    <li><b>Kalkulasi Paket:</b> Jika isi kiriman adalah "PAKET", dimensi dan berat akan dikalkulasi untuk <i>Chargeable Weight</i>.</li>
+                    <li><b>Export:</b> Cek tabel preview, klik Export. Data bebas spesial karakter, kodepos otomatis 2-Tier, dan siap ditarik ke Mile App.</li>
                 </ol>
             </div>
 
             <div class="card" style="border-left-color: var(--pos-dark);">
-                <div class="form-group full-width">
-                    <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 MODE KIRIMAN:</label>
-                    <select id="clientMode" onchange="handleModeChange()" style="border-color: var(--pos-orange); font-weight: bold;">
-                        <option value="STANDARD">KORPORAT STANDAR (Ada ID Pelanggan)</option>
-                        <option value="PN_BATAM">KORPORAT KHUSUS (Pengadilan Negeri Batam)</option>
-                        <option value="DAGMBS">KORPORAT DAGMBS01294A (Default Tarif: 914556)</option>
-                        <option value="RITEL">KIRIMAN RITEL (Non-Korporat / Pribadi)</option>
-                    </select>
+                <div class="grid-2">
+                    <div class="form-group full-width">
+                        <label style="color: var(--pos-orange); font-size: 0.85rem;">🔥 JENIS TRANSAKSI:</label>
+                        <select id="clientMode" onchange="handleModeChange()" style="border-color: var(--pos-orange); font-weight: bold;">
+                            <option value="KORPORAT">KIRIMAN KORPORAT (INVOICE)</option>
+                            <option value="RITEL">KIRIMAN RITEL (CASH)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group full-width" id="wrapTemplate" style="display: block;">
+                        <label style="color: var(--pos-dark); font-size: 0.85rem;">📚 TEMPLATE PELANGGAN (Otomatis Isi Data):</label>
+                        <select id="corporateTemplate" onchange="handleTemplateChange()" style="border-color: var(--pos-dark); font-weight: bold;">
+                            <option value="MANUAL">-- INPUT MANUAL / PELANGGAN BARU --</option>
+                            <option value="PN_BATAM">PENGADILAN NEGERI BATAM (LNMAPN01294A)</option>
+                            <option value="MENSA">MENSA BINA SUKSES BATAM (DAGMBS01294A)</option>
+                            <option value="TOYOTA">PT TOYOTA ASTRA FINANCE (FINTOYOTA02294A)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -260,11 +271,11 @@
                 <div class="grid-2">
                     <div class="form-group full-width" id="wrapCustomerId">
                         <label>ID Pelanggan (Account No):</label>
-                        <input type="text" id="customerId" value="FINTOYOTA02294A" placeholder="Contoh: FINTOYOTA02294A">
+                        <input type="text" id="customerId" value="" placeholder="Ketik ID Pelanggan...">
                     </div>
                     <div class="form-group full-width" id="wrapSenderName">
                         <label>Nama Pengirim:</label>
-                        <input type="text" id="senderName" value="TOYOTA BATAM" placeholder="Contoh: TOYOTA BATAM">
+                        <input type="text" id="senderName" value="" placeholder="Ketik Nama Pengirim...">
                     </div>
                     <div class="form-group full-width" id="wrapSenderPhone" style="display: none;">
                         <label>No HP Pengirim:</label>
@@ -458,59 +469,84 @@
         ];
 
         document.addEventListener("DOMContentLoaded", () => {
-            updateInterface();
+            handleModeChange(); // Inisiasi Mode saat halaman dimuat
         });
 
-        // MANAJEMEN UI BERDASARKAN MODE
+        // MANAJEMEN UI BERDASARKAN MODE (SIMPLIFIKASI 2 JALUR)
         function handleModeChange() {
             const mode = document.getElementById('clientMode').value;
+            const wrapTemplate = document.getElementById('wrapTemplate');
             const wrapCustId = document.getElementById('wrapCustomerId');
             const wrapSName = document.getElementById('wrapSenderName');
             const wrapSPhone = document.getElementById('wrapSenderPhone');
             const wrapSAddr = document.getElementById('wrapSenderAddress');
             const wrapTariff = document.getElementById('wrapTariffCode');
             const wrapItemType = document.getElementById('wrapItemType');
-            const tariffInput = document.getElementById('tariffCode');
-            const itemInput = document.getElementById('itemType');
-            const custIdInput = document.getElementById('customerId');
 
-            if (mode === 'PN_BATAM') {
-                wrapCustId.style.display = 'block'; wrapSName.style.display = 'none';
-                wrapSPhone.style.display = 'none'; wrapSAddr.style.display = 'none';
+            if (mode === 'KORPORAT') {
+                wrapTemplate.style.display = 'block';
+                wrapCustId.style.display = 'block';
                 wrapTariff.style.display = 'block';
-                itemInput.value = 'DOKUMEN'; wrapItemType.classList.add('full-width');
-                tariffInput.value = "897924"; tariffInput.readOnly = true;
-                custIdInput.readOnly = false;
-            } 
-            else if (mode === 'DAGMBS') {
-                wrapCustId.style.display = 'block'; wrapSName.style.display = 'block';
-                wrapSPhone.style.display = 'none'; wrapSAddr.style.display = 'none';
-                wrapTariff.style.display = 'block';
+                wrapSPhone.style.display = 'none';
+                wrapSAddr.style.display = 'none';
                 wrapItemType.classList.add('full-width');
                 
-                // Auto-fill DAGMBS specific
-                custIdInput.value = "DAGMBS01294A";
-                tariffInput.value = "914556";
-                tariffInput.readOnly = false;
-            }
-            else if (mode === 'STANDARD') {
-                wrapCustId.style.display = 'block'; wrapSName.style.display = 'block';
-                wrapSPhone.style.display = 'none'; wrapSAddr.style.display = 'none';
-                wrapTariff.style.display = 'block';
-                wrapItemType.classList.add('full-width');
-                tariffInput.value = ""; tariffInput.readOnly = false;
-                custIdInput.readOnly = false;
+                handleTemplateChange(); // Render isi form dari Template terpilih
             } 
             else if (mode === 'RITEL') {
-                wrapCustId.style.display = 'none'; wrapSName.style.display = 'block';
-                wrapSPhone.style.display = 'block'; wrapSAddr.style.display = 'block';
+                wrapTemplate.style.display = 'none';
+                wrapCustId.style.display = 'none';
+                wrapSName.style.display = 'block';
+                wrapSPhone.style.display = 'block';
+                wrapSAddr.style.display = 'block';
                 wrapTariff.style.display = 'none'; 
-                wrapItemType.classList.remove('full-width'); wrapItemType.style.gridColumn = 'span 2';
-                tariffInput.value = ""; tariffInput.readOnly = false;
+                wrapItemType.classList.remove('full-width');
+                wrapItemType.style.gridColumn = 'span 2';
+
+                // Reset tariff
+                document.getElementById('tariffCode').value = "";
+                document.getElementById('tariffCode').readOnly = false;
             }
 
             uploadedFilesManager = [];
             updateInterface();
+        }
+
+        // AUTO-FILL BUKU ALAMAT KORPORAT
+        function handleTemplateChange() {
+            const template = document.getElementById('corporateTemplate').value;
+            const wrapSName = document.getElementById('wrapSenderName');
+            const custIdInput = document.getElementById('customerId');
+            const sNameInput = document.getElementById('senderName');
+            const tariffInput = document.getElementById('tariffCode');
+            const itemInput = document.getElementById('itemType');
+
+            // Reset Kunci Default
+            custIdInput.readOnly = false;
+            sNameInput.readOnly = false;
+            tariffInput.readOnly = false;
+            wrapSName.style.display = 'block';
+
+            if (template === 'PN_BATAM') {
+                wrapSName.style.display = 'none'; // PN Batam pakai No Surat
+                custIdInput.value = "LNMAPN01294A";
+                tariffInput.value = "897924";
+                tariffInput.readOnly = true;
+                itemInput.value = 'DOKUMEN'; 
+            } else if (template === 'MENSA') {
+                custIdInput.value = "DAGMBS01294A";
+                sNameInput.value = "MENSA BINA SUKSES BATAM";
+                tariffInput.value = "914556";
+                tariffInput.readOnly = true;
+            } else if (template === 'TOYOTA') {
+                custIdInput.value = "FINTOYOTA02294A";
+                sNameInput.value = "PT TOYOTA ASTRA FINANCE";
+                tariffInput.value = "";
+            } else if (template === 'MANUAL') {
+                custIdInput.value = "";
+                sNameInput.value = "";
+                tariffInput.value = "";
+            }
         }
 
         const dropzone = document.getElementById('dropzone');
@@ -555,7 +591,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // MODAL TAHAP 1: MAPPING (Dengan Deteksi Dimensi/Berat Dinamis)
+        // MODAL TAHAP 1: MAPPING
         function showMappingModal(headers) {
             document.getElementById('mappingFileName').innerText = "📍 File: " + currentFileName;
 
@@ -586,7 +622,6 @@
                 if (text.includes('SURAT') || text.includes('REF') || text.includes('DESKRIPSI') || text.includes('TNKB') || text.includes('PLAT') || text.includes('AWB')) {
                     if(document.getElementById('mapRef').value == "-1") document.getElementById('mapRef').value = index;
                 }
-                // AI Deteksi Berat & Dimensi
                 if (text === 'BERAT' || text === 'KG' || text === 'WEIGHT' || text === 'BERAT AKTUAL' || text.includes('BERAT')) {
                     if(document.getElementById('mapWeight').value == "-1") document.getElementById('mapWeight').value = index;
                 }
@@ -618,7 +653,6 @@
             const idxRef = parseInt(document.getElementById('mapRef').value);
             const idxSenderName = parseInt(document.getElementById('mapSenderName').value);
             
-            // Kolom Dimensi
             const idxWeight = parseInt(document.getElementById('mapWeight').value);
             const idxP = parseInt(document.getElementById('mapP').value);
             const idxL = parseInt(document.getElementById('mapL').value);
@@ -635,7 +669,6 @@
                         let row = jsonData[i];
                         if (!row || row.length === 0) continue;
 
-                        // Skip header matching
                         if (
                             (idxName !== -1 && String(row[idxName]).toUpperCase() === String(currentHeaders[idxName]).toUpperCase()) ||
                             (idxAddr !== -1 && String(row[idxAddr]).toUpperCase() === String(currentHeaders[idxAddr]).toUpperCase())
@@ -649,7 +682,6 @@
                         let rawRef = idxRef !== -1 ? row[idxRef] : "";
                         let rawSenderName = idxSenderName !== -1 ? row[idxSenderName] : "";
                         
-                        // Ekstrak Data Dimensi
                         let rawWeight = idxWeight !== -1 ? row[idxWeight] : "";
                         let rawP = idxP !== -1 ? row[idxP] : "";
                         let rawL = idxL !== -1 ? row[idxL] : "";
@@ -662,7 +694,6 @@
                         let cleanSenderName = cleanReference(rawSenderName); 
                         let targetZipCode = getZipCodeFromAddress(cleanAddr);
                         
-                        // Parse float (kosong jika invalid)
                         let parsedW = parseFloat(String(rawWeight).replace(',', '.')) || "";
                         let parsedP = parseFloat(String(rawP).replace(',', '.')) || "";
                         let parsedL = parseFloat(String(rawL).replace(',', '.')) || "";
@@ -696,7 +727,7 @@
                 tempExtractedRows = extractedRows;
                 showWeightModal();
             } else {
-                // Bypass Modal: Set Default DOKUMEN 0.1 Kg & 10x10x10
+                // Bypass Modal: Set Default DOKUMEN
                 extractedRows.forEach(row => {
                     row.cw = "0.10"; row.p = 10; row.l = 10; row.t = 10; row.act = 0.1;
                 });
@@ -746,7 +777,6 @@
 
             document.getElementById('weightModal').style.display = 'flex';
 
-            // Eksekusi kalkulasi langsung saat modal terbuka
             setTimeout(() => {
                 tempExtractedRows.forEach((_, index) => calculateCW(index));
             }, 50);
@@ -779,7 +809,6 @@
                 const idx = input.getAttribute('data-index');
                 const rowDiv = input.closest('.weight-row');
                 
-                // Fallback default jika kosong
                 const act = parseFloat(input.value.replace(',', '.')) || 0.1;
                 const p = parseFloat(rowDiv.querySelector('.w-p').value) || 10;
                 const l = parseFloat(rowDiv.querySelector('.w-l').value) || 10;
@@ -804,6 +833,7 @@
             processNextInQueue();
         }
 
+        // FUNGSI PEMBERSIH TEKS
         function cleanArtifacts(text) {
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
@@ -819,7 +849,7 @@
         function cleanPhoneNumber(phone) {
             if (!phone) return "0";
             let str = String(phone).replace(/[^0-9]/g, ''); 
-            str = str.replace(/^0+/, '0'); // Basmi Double Zero '00'
+            str = str.replace(/^0+/, '0'); // Basmi Double Zero
             if (!str) return "0";
             if (str.startsWith('62')) { str = '0' + str.slice(2); }
             if (!str.startsWith('0')) { str = '0' + str; }
@@ -941,6 +971,7 @@
             }
 
             const mode = document.getElementById('clientMode').value;
+            const template = document.getElementById('corporateTemplate').value;
             const useInsurance = document.getElementById('useInsurance').checked;
             
             let finalCustomerId = "";
@@ -955,13 +986,13 @@
             
             let finalExportRows = [];
 
-            if (mode === 'PN_BATAM') {
+            if (mode === 'KORPORAT') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
-            } else if (mode === 'STANDARD' || mode === 'DAGMBS') {
-                finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
-                finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
-                baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
+                // Jika template selain PN_BATAM, kita baca base sender name dari input text UI
+                if (template !== 'PN_BATAM') {
+                    baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
+                }
             } else if (mode === 'RITEL') {
                 finalCustomerId = ""; 
                 finalTariffCode = ""; 
@@ -995,11 +1026,11 @@
 
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
-                if (mode === 'PN_BATAM') {
+                if (mode === 'KORPORAT' && template === 'PN_BATAM') {
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
                     senderAddrFinal = "PENGADILAN NEGERI BATAM";
                     senderPhoneFinal = "0";
-                } else if (mode === 'STANDARD' || mode === 'DAGMBS') {
+                } else if (mode === 'KORPORAT') {
                     senderNameFinal = dSenderName ? dSenderName : baseSenderName;
                     senderAddrFinal = baseSenderName;
                     if (!senderAddrFinal.endsWith("BATAM")) { senderAddrFinal += " BATAM"; }
@@ -1010,6 +1041,7 @@
                     senderPhoneFinal = baseSenderPhone;
                 }
 
+                // OBJ PUSAT
                 let rowObject = {
                     "connote_code": index + 1,
                     "customer_code": finalCustomerId,
@@ -1045,6 +1077,7 @@
                 finalExportRows.push(rowObject);
             });
 
+            // KONFIGURASI HEADER EXCEL (Hanya sertakan INS jika Asuransi diaktifkan)
             const exportHeaders = [
                 "connote_code", "customer_code", "origin_data_customer_name", "origin_data_customer_phone", 
                 "origin_data_customer_address", "origin_data_customer_zip_code", "origin_data_zone_code", 
