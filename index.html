@@ -269,20 +269,18 @@
                 </div>
             </div>
 
-            <div class="card">
+            <!-- FORMULIR PENGIRIM (Otomatis Sembunyi Jika Pakai Template) -->
+            <div class="card" id="cardDataPengirim">
                 <div class="card-header">🏢 Data Pengirim</div>
                 <div class="grid-2">
-                    <!-- Form Sender Name dihide/dimunculkan oleh JS -->
-                    <div class="form-group full-width" id="wrapSenderName" style="display: block;">
-                        <label>Nama Pengirim:</label>
-                        <input type="text" id="senderName" value="" placeholder="Ketik Nama Pengirim...">
-                    </div>
-                    
                     <div class="form-group full-width" id="wrapCustomerId">
                         <label>ID Pelanggan (Account No):</label>
                         <input type="text" id="customerId" value="" placeholder="Ketik ID Pelanggan...">
                     </div>
-                    
+                    <div class="form-group full-width" id="wrapSenderName">
+                        <label>Nama Pengirim:</label>
+                        <input type="text" id="senderName" value="" placeholder="Ketik Nama Pengirim...">
+                    </div>
                     <div class="form-group full-width" id="wrapSenderPhone" style="display: none;">
                         <label>No HP Pengirim:</label>
                         <input type="text" id="senderPhone" placeholder="Contoh: 08123456789">
@@ -484,6 +482,7 @@
         function handleModeChange() {
             const mode = document.getElementById('clientMode').value;
             const wrapTemplate = document.getElementById('wrapTemplate');
+            const cardPengirim = document.getElementById('cardDataPengirim');
             const wrapCustId = document.getElementById('wrapCustomerId');
             const wrapSName = document.getElementById('wrapSenderName');
             const wrapSPhone = document.getElementById('wrapSenderPhone');
@@ -491,12 +490,9 @@
             const wrapTariff = document.getElementById('wrapTariffCode');
             const wrapItemType = document.getElementById('wrapItemType');
             const tariffInput = document.getElementById('tariffCode');
-            const custIdInput = document.getElementById('customerId');
-            const template = document.getElementById('corporateTemplate').value;
 
             if (mode === 'KORPORAT') {
                 wrapTemplate.style.display = 'block';
-                wrapCustId.style.display = 'block';
                 wrapTariff.style.display = 'block';
                 wrapSPhone.style.display = 'none';
                 wrapSAddr.style.display = 'none';
@@ -506,8 +502,9 @@
             } 
             else if (mode === 'RITEL') {
                 wrapTemplate.style.display = 'none';
+                cardPengirim.style.display = 'block'; // Selalu tampil di Ritel
                 wrapCustId.style.display = 'none';
-                wrapSName.style.display = 'block'; // Tampilkan saat Ritel
+                wrapSName.style.display = 'block';
                 wrapSPhone.style.display = 'block';
                 wrapSAddr.style.display = 'block';
                 wrapTariff.style.display = 'none'; 
@@ -522,11 +519,13 @@
             updateInterface();
         }
 
-        // LOGIKA PENYEMBUNYIAN FORM PENGIRIM BERDASARKAN TEMPLATE
+        // LOGIKA PENYEMBUNYIAN KARTU PENGIRIM BERDASARKAN TEMPLATE
         function handleTemplateChange() {
             const template = document.getElementById('corporateTemplate').value;
             const mode = document.getElementById('clientMode').value;
+            const cardPengirim = document.getElementById('cardDataPengirim');
             const wrapSName = document.getElementById('wrapSenderName');
+            const wrapCustId = document.getElementById('wrapCustomerId');
             const custIdInput = document.getElementById('customerId');
             const sNameInput = document.getElementById('senderName');
             const tariffInput = document.getElementById('tariffCode');
@@ -540,33 +539,35 @@
             sNameInput.readOnly = false;
             tariffInput.readOnly = false;
             
-            if (template === 'PN_BATAM') {
-                wrapSName.style.display = 'none'; // Hide Form Sender Name
-                custIdInput.value = "LNMAPN01294A";
-                tariffInput.value = "897924";
-                tariffInput.readOnly = true;
-                itemInput.value = 'DOKUMEN'; 
-            } else if (template === 'MENSA') {
-                wrapSName.style.display = 'none'; // Hide Form Sender Name
-                custIdInput.value = "DAGMBS01294A";
-                sNameInput.value = "MENSA BINA SUKSES BATAM";
-                tariffInput.value = "914556";
-                tariffInput.readOnly = true;
-            } else if (template === 'TOYOTA') {
-                wrapSName.style.display = 'none'; // Hide Form Sender Name
-                custIdInput.value = "FINTOYOTA02294A";
-                sNameInput.value = "PT TOYOTA ASTRA FINANCE";
-                tariffInput.value = "";
-            } else if (template === 'POLRES') {
-                wrapSName.style.display = 'none'; // Hide Form Sender Name
-                custIdInput.value = "LNPOLRES01294A";
-                sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
-                tariffInput.value = "";
-            } else if (template === 'MANUAL') {
-                wrapSName.style.display = 'block'; // Tampilkan Form Sender Name
+            if (template === 'MANUAL') {
+                cardPengirim.style.display = 'block'; // Tampilkan Card Total
+                wrapSName.style.display = 'block'; 
+                wrapCustId.style.display = 'block';
                 custIdInput.value = "";
                 sNameInput.value = "";
                 tariffInput.value = "";
+            } else {
+                cardPengirim.style.display = 'none'; // Sembunyikan Card Total!
+                
+                if (template === 'PN_BATAM') {
+                    custIdInput.value = "LNMAPN01294A";
+                    tariffInput.value = "897924";
+                    tariffInput.readOnly = true;
+                    itemInput.value = 'DOKUMEN'; 
+                } else if (template === 'MENSA') {
+                    custIdInput.value = "DAGMBS01294A";
+                    sNameInput.value = "MENSA BINA SUKSES BATAM";
+                    tariffInput.value = "914556";
+                    tariffInput.readOnly = true;
+                } else if (template === 'TOYOTA') {
+                    custIdInput.value = "FINTOYOTA02294A";
+                    sNameInput.value = "PT TOYOTA ASTRA FINANCE";
+                    tariffInput.value = "";
+                } else if (template === 'POLRES') {
+                    custIdInput.value = "LNPOLRES01294A";
+                    sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
+                    tariffInput.value = "";
+                }
             }
         }
 
@@ -1004,7 +1005,6 @@
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
                 
-                // Ekstrak nama sesuai template yang dipilih
                 if (template === 'MANUAL') {
                     baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
                 } else if (template === 'PN_BATAM') {
@@ -1046,7 +1046,6 @@
 
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
-                // Logika Pembentukan Pengirim Berdasarkan Override Tabel vs Base Template
                 if (mode === 'KORPORAT' && template === 'PN_BATAM') {
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
                     senderAddrFinal = baseSenderName;
