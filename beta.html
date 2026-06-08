@@ -633,7 +633,8 @@
 
             try {
                 // Endpoint mengarah langsung ke server API Hugging Face Bapak
-                const response = await fetch("https://newbieot-mile.hf.space/extract", {
+                // Ganti baris fetch lama menjadi seperti ini:
+const response = await fetch("http://127.0.0.1:8000/extract", {
                     method: "POST",
                     body: formData
                 });
