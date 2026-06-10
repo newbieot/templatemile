@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Optimasi SEO: Title Tag By Ikhsan Radiansyah -->
     <title>Mile App Bulk Converter by Ikhsan Radiansyah | PosNew Hub</title>
+    <!-- Favicon PosIND -->
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
+    <!-- Library SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -100,7 +103,7 @@
         }
         input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: var(--pos-orange); }
         input[type="text"] { text-transform: uppercase; }
-        input[readonly] { background-color: #e9ecef; cursor: not-allowed; color: #666; font-weight: bold;}
+        input[readonly], select:disabled, input:disabled { background-color: #e9ecef; cursor: not-allowed; color: #666; font-weight: bold;}
 
         .checkbox-wrap { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 700; color: var(--pos-dark); padding: 5px 0;}
         .checkbox-wrap input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--pos-orange); }
@@ -237,9 +240,9 @@
             <div class="guide-card">
                 <h3><i data-lucide="book-open" style="width: 16px; height: 16px;"></i> PANDUAN PENGGUNAAN (SOP)</h3>
                 <ol class="guide-list">
-                    <li><b>Pemetaan Cerdas:</b> Upload Excel, lalu cocokkan kolomnya via Pop-up Mapping. Mendukung Multi-City (Batam & Tanjung Pinang).</li>
-                    <li><b>Kalkulasi Paket:</b> Otomatis mengunci <i>Chargeable Weight</i> (Aktual vs Volumetrik).</li>
-                    <li><b>Opsi Asuransi:</b> Centang <i>Gunakan Asuransi</i> jika perlu, lalu isi nilai barangnya.</li>
+                    <li><b>Pemetaan Cerdas:</b> Upload Excel, lalu cocokkan kolomnya via Pop-up Mapping (Termasuk Dimensi PxLxT).</li>
+                    <li><b>Kalkulasi Paket:</b> Jika memilih "PAKET", sistem akan mengunci *Chargeable Weight* (Mengambil yang terberat antara Aktual vs Volumetrik).</li>
+                    <li><b>Opsi Asuransi:</b> Centang *Gunakan Asuransi* jika ada asuransi, lalu isikan nominal barang pada tabel di sebelah kanan. Khusus Barang Pindah, ini <b>Wajib</b>.</li>
                 </ol>
             </div>
 
@@ -250,6 +253,7 @@
                         <select id="clientMode" onchange="handleModeChange()" style="border-color: var(--pos-orange); font-weight: bold;">
                             <option value="KORPORAT">KIRIMAN KORPORAT (INVOICE)</option>
                             <option value="RITEL">KIRIMAN RITEL (CASH)</option>
+                            <option value="PINDAH">KIRIMAN BARANG PINDAH</option>
                         </select>
                     </div>
                     
@@ -258,7 +262,7 @@
                         <select id="corporateTemplate" onchange="handleTemplateChange()" style="border-color: var(--pos-dark); font-weight: bold;">
                             <option value="MANUAL">-- INPUT MANUAL / PELANGGAN BARU --</option>
                             <option value="PN_BATAM">PENGADILAN NEGERI BATAM (LNMAPN01294A)</option>
-                            <option value="MENSA">MENSA BINA SUKSES BATAM - TJ. PINANG (DAGMBS01294A)</option>
+                            <option value="MENSA">MENSA BINA SUKSES BATAM (DAGMBS01294A)</option>
                             <option value="TOYOTA">PT TOYOTA ASTRA FINANCE (FINTOYOTA02294A)</option>
                             <option value="POLRES">SATLANTAS POLRESTA BARELANG (LNPOLRES01294A)</option>
                         </select>
@@ -266,6 +270,7 @@
                 </div>
             </div>
 
+            <!-- FORMULIR PENGIRIM (Otomatis Sembunyi Jika Pakai Template) -->
             <div class="card" id="cardDataPengirim">
                 <div class="card-header">🏢 Data Pengirim</div>
                 <div class="grid-2">
@@ -317,6 +322,21 @@
                         </label>
                     </div>
                 </div>
+                
+                <!-- KHUSUS BARANG PINDAH -->
+                <div class="form-group full-width" id="wrapPindahDest" style="display: none; background: #e3f2fd; padding: 10px; border-radius: 6px; border: 1px solid #90caf9; margin-top: 10px;">
+                    <label style="color: #0277bd; font-size: 0.8rem; margin-bottom: 8px;">🎯 Tujuan Barang Pindah (Wajib):</label>
+                    <div class="grid-2">
+                        <div>
+                            <label>Kodepos Tujuan:</label>
+                            <input type="text" id="destZipPindah" placeholder="Contoh: 29411">
+                        </div>
+                        <div>
+                            <label>Kode Zona Tujuan:</label>
+                            <input type="text" id="destZonePindah" placeholder="Contoh: 29400">
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="card" style="margin-bottom: 5px;">
@@ -337,7 +357,8 @@
             <div class="table-container">
                 <table id="resultTable">
                     <thead>
-                        </thead>
+                        <!-- Table header generated via JS -->
+                    </thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -348,6 +369,7 @@
         </div>
     </div>
 
+    <!-- MODAL 1: MAPPING KOLOM DINAMIS -->
     <div id="mappingModal" class="modal-overlay">
         <div class="modal-box">
             <h3>⚙️ 1. Konfigurasi Kolom Data</h3>
@@ -385,13 +407,15 @@
         </div>
     </div>
 
+    <!-- MODAL 2: INPUT BERAT PAKET (Chargeable Weight) -->
     <div id="weightModal" class="modal-overlay">
         <div class="modal-box large">
             <h3>⚖️ 2. Kalkulasi Dimensi & Berat Kiriman Paket</h3>
             <p>Masukkan berat (Kg) dan dimensi (cm). Kosongkan/biarkan jika ingin menggunakan default.</p>
             
             <div id="weightListContainer" class="weight-list-container">
-                </div>
+                <!-- Di-generate lewat JavaScript -->
+            </div>
 
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="cancelWeightInput()">Batalkan Berkas</button>
@@ -490,7 +514,7 @@
             handleModeChange();
         });
 
-        // MANAJEMEN UI BERDASARKAN MODE (KORPORAT vs RITEL)
+        // MANAJEMEN UI BERDASARKAN MODE (KORPORAT, RITEL, PINDAH)
         function handleModeChange() {
             const mode = document.getElementById('clientMode').value;
             const wrapTemplate = document.getElementById('wrapTemplate');
@@ -502,6 +526,13 @@
             const wrapTariff = document.getElementById('wrapTariffCode');
             const wrapItemType = document.getElementById('wrapItemType');
             const tariffInput = document.getElementById('tariffCode');
+            const itemInput = document.getElementById('itemType');
+            const cbInsurance = document.getElementById('useInsurance');
+            const wrapPindahDest = document.getElementById('wrapPindahDest');
+
+            // Reset Disabled Status for Safety
+            itemInput.disabled = false;
+            cbInsurance.disabled = false;
 
             if (mode === 'KORPORAT') {
                 wrapTemplate.style.display = 'block';
@@ -509,6 +540,7 @@
                 wrapSPhone.style.display = 'none';
                 wrapSAddr.style.display = 'none';
                 wrapItemType.classList.add('full-width');
+                wrapPindahDest.style.display = 'none';
                 
                 handleTemplateChange(); 
             } 
@@ -522,9 +554,30 @@
                 wrapTariff.style.display = 'none'; 
                 wrapItemType.classList.remove('full-width');
                 wrapItemType.style.gridColumn = 'span 2';
+                wrapPindahDest.style.display = 'none';
 
                 tariffInput.value = "";
                 tariffInput.readOnly = false;
+            }
+            else if (mode === 'PINDAH') {
+                wrapTemplate.style.display = 'none';
+                cardPengirim.style.display = 'block'; 
+                wrapCustId.style.display = 'block';
+                wrapSName.style.display = 'block';
+                wrapSPhone.style.display = 'block';
+                wrapSAddr.style.display = 'block';
+                wrapTariff.style.display = 'block'; 
+                wrapItemType.classList.add('full-width');
+                wrapPindahDest.style.display = 'block';
+
+                tariffInput.value = "";
+                tariffInput.readOnly = false;
+                
+                // Wajib Paket & Wajib Asuransi
+                itemInput.value = 'PAKET';
+                itemInput.disabled = true;
+                cbInsurance.checked = true;
+                cbInsurance.disabled = true;
             }
 
             uploadedFilesManager = [];
@@ -726,7 +779,6 @@
                         let cleanRef = cleanReference(rawRef);
                         let cleanSenderName = cleanReference(rawSenderName); 
                         
-                        // Gunakan algoritma 2 Database tergantung Klien
                         let targetZipCode = getZipCodeFromAddress(cleanAddr, templateVal);
                         
                         let parsedW = parseFloat(String(rawWeight).replace(',', '.')) || "";
@@ -885,11 +937,9 @@
             return str;
         }
 
-        // ALGORITMA MULTI-CITY (BATAM vs TANJUNG PINANG)
         function getZipCodeFromAddress(address, template) {
             const addrUpper = String(address).toUpperCase();
 
-            // Tentukan Database yang Aktif
             let activeKelMapping = (template === 'MENSA') ? tpiKelurahanMapping : batamKelurahanMapping;
             let activeKecMapping = (template === 'MENSA') ? tpiKecamatanMapping : batamKecamatanMapping;
             let defaultZip = (template === 'MENSA') ? "29111" : "29411";
@@ -1018,10 +1068,10 @@
             const serviceCode = document.getElementById('serviceCode').value.toUpperCase();
             const itemType = document.getElementById('itemType').value.toUpperCase();
             
-            const paymentType = mode === 'RITEL' ? "CASH" : "INVOICE";
-            let destZoneCode = (template === 'MENSA') ? "29100" : "29400";
+            const paymentType = (mode === 'KORPORAT') ? "INVOICE" : "CASH"; // Barang Pindah & Ritel ikut CASH
             
-            let finalExportRows = [];
+            let destZoneCodeGlobal = "29400";
+            let destZipCodeGlobal = "";
 
             if (mode === 'KORPORAT') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
@@ -1033,6 +1083,7 @@
                     baseSenderName = "PENGADILAN NEGERI BATAM";
                 } else if (template === 'MENSA') {
                     baseSenderName = "MENSA BINA SUKSES BATAM";
+                    destZoneCodeGlobal = "29100";
                 } else if (template === 'TOYOTA') {
                     baseSenderName = "PT TOYOTA ASTRA FINANCE";
                 } else if (template === 'POLRES') {
@@ -1044,9 +1095,28 @@
                 baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
                 baseSenderPhone = cleanPhoneNumber(document.getElementById('senderPhone').value);
                 baseSenderAddress = cleanArtifacts(document.getElementById('senderAddress').value);
+            } else if (mode === 'PINDAH') {
+                finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
+                finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
+                baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
+                baseSenderPhone = cleanPhoneNumber(document.getElementById('senderPhone').value);
+                baseSenderAddress = cleanArtifacts(document.getElementById('senderAddress').value);
+                
+                destZipCodeGlobal = document.getElementById('destZipPindah').value.trim();
+                destZoneCodeGlobal = document.getElementById('destZonePindah').value.trim();
+
+                if (!destZipCodeGlobal || !destZoneCodeGlobal) {
+                    alert("Kodepos Tujuan dan Kode Zona Tujuan WAJIB diisi untuk Barang Pindah!");
+                    return;
+                }
             }
 
+            let finalExportRows = [];
+            let validationFailed = false;
+
             rows.forEach((tr, index) => {
+                if (validationFailed) return;
+
                 let dSenderName = cleanReference(tr.querySelector('.val-senderName').value);
                 let dNoSurat = cleanReference(tr.querySelector('.val-noSurat').value);
                 let dName = cleanArtifacts(tr.querySelector('.val-name').value);
@@ -1054,6 +1124,11 @@
                 let dZip = cleanArtifacts(tr.querySelector('.val-zip').value); 
                 let dAddress = cleanArtifacts(tr.querySelector('.val-address').value);
                 
+                // Override khusus Barang Pindah
+                if (mode === 'PINDAH') {
+                    dZip = destZipCodeGlobal;
+                }
+
                 let dWeightStr = tr.querySelector('.val-cw').value.replace(',', '.');
                 let dWeight = parseFloat(dWeightStr) || 0.1;
 
@@ -1064,6 +1139,11 @@
                 let dHargaBarang = 0;
                 if (useInsurance) {
                     dHargaBarang = parseFloat(tr.querySelector('.val-ins-harga').value) || 0;
+                    if (mode === 'PINDAH' && dHargaBarang <= 0) {
+                        alert(`Nilai Barang (Asuransi) pada Baris ke-${index + 1} WAJIB diisi (Tidak Boleh 0) untuk Barang Pindah!`);
+                        validationFailed = true;
+                        return;
+                    }
                 }
 
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
@@ -1077,7 +1157,7 @@
                     senderAddrFinal = baseSenderName;
                     if (!senderAddrFinal.includes("BATAM") && template !== 'POLRES') { senderAddrFinal += " BATAM"; }
                     senderPhoneFinal = "0";
-                } else if (mode === 'RITEL') {
+                } else if (mode === 'RITEL' || mode === 'PINDAH') {
                     senderNameFinal = dSenderName ? dSenderName : baseSenderName;
                     senderAddrFinal = baseSenderAddress;
                     senderPhoneFinal = baseSenderPhone;
@@ -1095,7 +1175,7 @@
                     "destination_data_customer_phone": dPhone,
                     "destination_data_customer_address": dAddress,
                     "destination_data_customer_zip_code": dZip, 
-                    "destination_data_zone_code": destZoneCode,        
+                    "destination_data_zone_code": destZoneCodeGlobal,        
                     "service_code": serviceCode,
                     "connote_sub_service_code": finalTariffCode, 
                     "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, 
@@ -1117,6 +1197,8 @@
 
                 finalExportRows.push(rowObject);
             });
+
+            if (validationFailed) return;
 
             const exportHeaders = [
                 "connote_code", "customer_code", "origin_data_customer_name", "origin_data_customer_phone", 
@@ -1147,7 +1229,7 @@
                 if (cell_dest_zip) cell_dest_zip.z = '@';
             }
 
-            let fileSuffix = mode === 'RITEL' ? "Ritel" : (finalCustomerId || "Corporate");
+            let fileSuffix = mode === 'RITEL' ? "Ritel" : (mode === 'PINDAH' ? "BarangPindah" : (finalCustomerId || "Corporate"));
             XLSX.writeFile(workbook, `Upload_MileApp_${fileSuffix}.xlsx`);
         }
     </script>
