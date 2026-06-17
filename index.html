@@ -265,6 +265,7 @@
                             <option value="MENSA">MENSA BINA SUKSES BATAM (DAGMBS01294A)</option>
                             <option value="TOYOTA">PT TOYOTA ASTRA FINANCE (FINTOYOTA02294A)</option>
                             <option value="POLRES">SATLANTAS POLRESTA BARELANG (LNPOLRES01294A)</option>
+                            <option value="BNI">BANK BNI BATAM (BANKBNIBTAM02294A)</option>
                         </select>
                     </div>
                 </div>
@@ -630,6 +631,11 @@
                     custIdInput.value = "LNPOLRES01294A";
                     sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
                     tariffInput.value = "";
+                } else if (template === 'BNI') {
+                    custIdInput.value = "BANKBNIBTAM02294A";
+                    sNameInput.value = "BANK BNI BATAM";
+                    tariffInput.value = "907675";
+                    tariffInput.readOnly = true;
                 }
             }
             // Update tabel agar kodeposnya ter-refresh sesuai database
@@ -1088,6 +1094,8 @@
                     baseSenderName = "PT TOYOTA ASTRA FINANCE";
                 } else if (template === 'POLRES') {
                     baseSenderName = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
+                } else if (template === 'BNI') {
+                    baseSenderName = "BANK BNI BATAM";
                 }
             } else if (mode === 'RITEL') {
                 finalCustomerId = ""; 
@@ -1234,6 +1242,7 @@
         }
     </script>
     
+    <!-- Script Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         lucide.createIcons();
