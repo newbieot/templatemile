@@ -255,7 +255,7 @@
                         <select id="clientMode" onchange="handleModeChange()" style="border-color: var(--pos-orange); font-weight: bold;">
                             <option value="KORPORAT">KIRIMAN KORPORAT (INVOICE)</option>
                             <option value="RITEL">KIRIMAN RITEL (CASH)</option>
-                            <option value="PINDAH">KIRIMAN BARANG PINDAH</option>
+                            <option value="PINDAH">KIRIMAN BARANG PINDAH (INVOICE)</option>
                         </select>
                     </div>
                     
@@ -431,6 +431,7 @@
         </div>
     </div>
 
+    <!-- COMPACT DASHBOARD FOOTER (SEO IKHSAN RADIANSYAH) -->
     <footer class="dashboard-footer">
         <div class="footer-brand">
             <i data-lucide="layers" style="color: #f26522; width: 18px; height: 18px;"></i>
@@ -617,7 +618,7 @@
                 sNameInput.value = "";
                 tariffInput.value = "";
             } else {
-                cardPengirim.style.display = 'none'; // Sembunyikan Data Pengirim!
+                cardPengirim.style.display = 'none'; // Sembunyikan Seluruh Data Pengirim!
                 
                 if (template === 'PN_BATAM') {
                     custIdInput.value = "LNMAPN01294A";
@@ -638,7 +639,6 @@
                     sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
                     tariffInput.value = "";
                 } else if (template === 'BNI') {
-                    wrapSName.style.display = 'none'; // Sembunyikan Nama Pengirim
                     custIdInput.value = "BANKBNIBTAM02294A";
                     sNameInput.value = "BANK BNI BATAM";
                     tariffInput.value = "907675";
@@ -686,9 +686,89 @@
                     }
                 }
 
-                showMappingModal(currentHeaders);
+                // AI SMART BYPASS: JIKA FILE YANG DIUPLOAD ADALAH EXCEL MILEAPP HASIL EXPORT
+                let isMileApp = currentHeaders.some(h => String(h).toLowerCase().trim() === 'destination_data_customer_name');
+                
+                if (isMileApp) {
+                    processMileAppFormat(worksheet); // Bypass modal, langsung masuk tabel!
+                } else {
+                    showMappingModal(currentHeaders);
+                }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        // FUNGSI KHUSUS UNTUK MEMBACA FILE EXCEL MILE APP (AUTO-DETECT)
+        function processMileAppFormat(worksheet) {
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            const templateVal = document.getElementById('corporateTemplate').value;
+            const mode = document.getElementById('clientMode').value;
+            let extractedRows = [];
+
+            jsonData.forEach(row => {
+                let rSender = row['origin_data_customer_name'] || "";
+                let rRef = row['ref_no'] || row['koli_data_koli_description'] || "";
+                let rName = row['destination_data_customer_name'] || "";
+                let rPhone = row['destination_data_customer_phone'] || "0";
+                let rZip = row['destination_data_customer_zip_code'] || "";
+                let rAddress = row['destination_data_customer_address'] || "";
+                
+                let wRaw = row['koli_data_koli_weight'];
+                let rAct = wRaw !== undefined ? parseFloat(String(wRaw).replace(',', '.')) : 0.1;
+                if(isNaN(rAct)) rAct = 0.1;
+
+                let pRaw = row['koli_data_koli_width'];
+                let rP = pRaw !== undefined ? parseFloat(String(pRaw).replace(',', '.')) : 10;
+                if(isNaN(rP)) rP = 10;
+
+                let lRaw = row['koli_data_koli_length'];
+                let rL = lRaw !== undefined ? parseFloat(String(lRaw).replace(',', '.')) : 10;
+                if(isNaN(rL)) rL = 10;
+
+                let tRaw = row['koli_data_koli_height'];
+                let rT = tRaw !== undefined ? parseFloat(String(tRaw).replace(',', '.')) : 10;
+                if(isNaN(rT)) rT = 10;
+
+                let vol = (rP * rL * rT) / 6000;
+                let rCw = Math.max(rAct, vol).toFixed(2);
+                
+                let rIns = parseFloat(row['harga_barang']) || 0;
+
+                // Override BNI (Agar REK KORAN tampil di preview jika menggunakan file MileApp lama)
+                if (mode === 'KORPORAT' && templateVal === 'BNI') {
+                    rRef = "REK KORAN";
+                }
+
+                if (rName || rAddress) {
+                    extractedRows.push({
+                        senderName: cleanReference(rSender),
+                        noSurat: cleanReference(rRef),
+                        name: cleanArtifacts(rName),
+                        phone: cleanPhoneNumber(rPhone),
+                        zip: cleanArtifacts(rZip),
+                        address: cleanArtifacts(rAddress),
+                        cw: rCw,
+                        act: rAct, p: rP, l: rL, t: rT,
+                        insHarga: rIns
+                    });
+                }
+            });
+
+            if (extractedRows.length === 0) {
+                alert(`Gagal membaca data dari file Mile App "${currentFileName}".`);
+                processNextInQueue();
+                return;
+            }
+
+            // Aktifkan centang asuransi jika ada data harga barang
+            let hasInsurance = extractedRows.some(r => r.insHarga > 0);
+            if(hasInsurance && mode !== 'PINDAH') {
+                document.getElementById('useInsurance').checked = true;
+            }
+
+            uploadedFilesManager.push({ id: Date.now(), name: currentFileName, rows: extractedRows });
+            updateInterface();
+            processNextInQueue();
         }
 
         function showMappingModal(headers) {
@@ -745,6 +825,7 @@
         function applyMappingAndProcess() {
             document.getElementById('mappingModal').style.display = 'none';
             const templateVal = document.getElementById('corporateTemplate').value;
+            const mode = document.getElementById('clientMode').value;
 
             const idxName = parseInt(document.getElementById('mapName').value);
             const idxAddr = parseInt(document.getElementById('mapAddress').value);
@@ -791,6 +872,11 @@
                         let cleanPhone = cleanPhoneNumber(rawPhone);
                         let cleanRef = cleanReference(rawRef);
                         let cleanSenderName = cleanReference(rawSenderName); 
+
+                        // Terapkan Override BNI di awal, agar tabel web langsung menampilkan REK KORAN
+                        if (mode === 'KORPORAT' && templateVal === 'BNI') {
+                            cleanRef = "REK KORAN";
+                        }
                         
                         let targetZipCode = getZipCodeFromAddress(cleanAddr, templateVal);
                         
@@ -1030,7 +1116,8 @@
                     counter++;
                     const tr = document.createElement('tr');
                     
-                    let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga" value="0" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
+                    let insValue = item.insHarga !== undefined ? item.insHarga : 0;
+                    let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga" value="${insValue}" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
 
                     tr.innerHTML = `
                         <td style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
@@ -1081,7 +1168,8 @@
             const serviceCode = document.getElementById('serviceCode').value.toUpperCase();
             const itemType = document.getElementById('itemType').value.toUpperCase();
             
-            const paymentType = (mode === 'KORPORAT') ? "INVOICE" : "CASH"; // Barang Pindah & Ritel ikut CASH
+            // Logika Pembayaran: KORPORAT -> INVOICE, PINDAH -> INVOICE, RITEL -> CASH
+            const paymentType = (mode === 'KORPORAT' || mode === 'PINDAH') ? "INVOICE" : "CASH"; 
             
             let destZoneCodeGlobal = "29400";
             let destZipCodeGlobal = "";
@@ -1135,7 +1223,7 @@
                 let dSenderName = cleanReference(tr.querySelector('.val-senderName').value);
                 let dNoSurat = cleanReference(tr.querySelector('.val-noSurat').value);
                 
-                // Override Ref No khusus BNI
+                // Override Ref No khusus BNI (Backup jika user mengganti di tabel)
                 if (mode === 'KORPORAT' && template === 'BNI') {
                     dNoSurat = "REK KORAN";
                 }
