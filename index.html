@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Optimasi SEO: Title Tag By Ikhsan Radiansyah -->
-    <title>Mile App Bulk Converter by Ikhsan Radiansyah | PosNew Hub</title>
-    <!-- Favicon PosIND -->
+    <title>Mile App Bulk Converter (Dev Version) by Ikhsan Radiansyah | PosNew Hub</title>
     <link rel="icon" href="https://admin-piol.posindonesia.co.id/media/logo-posind-dark-1.png" type="image/png">
     
-    <!-- Library SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -49,7 +46,8 @@
         .logo-right img { height: 40px; object-fit: contain; }
         
         .header-title { text-align: center; flex-grow: 1; padding: 0 10px;}
-        .header-title h1 { font-size: 1.25rem; color: var(--pos-dark); font-weight: 800; }
+        .header-title h1 { font-size: 1.25rem; color: var(--pos-dark); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px;}
+        .dev-badge { background-color: var(--pos-danger); color: white; font-size: 0.65rem; padding: 3px 8px; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px; }
         .header-title p { font-size: 0.8rem; color: #666; margin-top: 2px; }
 
         /* DASHBOARD LAYOUT */
@@ -226,7 +224,7 @@
             <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Danantara_Indonesia.svg/1280px-Danantara_Indonesia.svg.png" alt="Danantara">
         </div>
         <div class="header-title">
-            <h1>CONVERTER DATA ENTRI MILE APP</h1>
+            <h1>CONVERTER DATA ENTRI MILE APP <span class="dev-badge">DEV VERSION</span></h1>
             <p>PosIND Together to Accelerate | Integrasi Kiriman Korporat & Ritel</p>
         </div>
         <div class="logo-right">
@@ -235,7 +233,6 @@
     </header>
 
     <div class="dashboard-container">
-        <!-- PANEL KIRI (INPUT & SETUP) -->
         <div class="panel-left">
             
             <div class="guide-card">
@@ -247,7 +244,6 @@
                 </ol>
             </div>
 
-            <!-- MODE KLIEN & TEMPLATE -->
             <div class="card" style="border-left-color: var(--pos-dark);">
                 <div class="grid-2">
                     <div class="form-group full-width">
@@ -274,7 +270,6 @@
                 </div>
             </div>
 
-            <!-- FORMULIR PENGIRIM -->
             <div class="card" id="cardDataPengirim">
                 <div class="card-header">🏢 Data Pengirim</div>
                 <div class="grid-2">
@@ -282,7 +277,6 @@
                         <label>ID Pelanggan (Account No):</label>
                         <input type="text" id="customerId" value="" placeholder="Ketik ID Pelanggan...">
                     </div>
-                    <!-- Form Sender Name dihide/dimunculkan oleh JS -->
                     <div class="form-group full-width" id="wrapSenderName" style="display: block;">
                         <label>Nama Pengirim:</label>
                         <input type="text" id="senderName" value="" placeholder="Ketik Nama Pengirim...">
@@ -298,7 +292,6 @@
                 </div>
             </div>
 
-            <!-- FORMULIR LAYANAN -->
             <div class="card">
                 <div class="card-header">📦 Atribut Layanan & Koli</div>
                 <div class="grid-2">
@@ -329,7 +322,6 @@
                     </div>
                 </div>
                 
-                <!-- KHUSUS BARANG PINDAH -->
                 <div class="form-group full-width" id="wrapPindahDest" style="display: none; background: #e3f2fd; padding: 10px; border-radius: 6px; border: 1px solid #90caf9; margin-top: 10px;">
                     <label style="color: #0277bd; font-size: 0.8rem; margin-bottom: 8px;">🎯 Tujuan Barang Pindah (Wajib):</label>
                     <div class="grid-2">
@@ -345,7 +337,6 @@
                 </div>
             </div>
 
-            <!-- AREA UPLOAD DRAG & DROP -->
             <div class="card" style="margin-bottom: 5px;">
                 <div class="card-header">📂 Area Drag & Drop Berkas Mentah</div>
                 <div class="dropzone-area" id="dropzone" onclick="document.getElementById('excelInput').click()">
@@ -357,7 +348,6 @@
             </div>
         </div>
 
-        <!-- PANEL KANAN (PREVIEW & EXPORT) -->
         <div class="panel-right">
             <div style="font-size: 0.8rem; color: #d32f2f; font-weight: bold; padding-left: 5px;">
                 *Klik teks di dalam tabel untuk memperbaiki data (*Editable*). Kodepos membaca posisi ter-kanan (*Two-Tier*).
@@ -365,8 +355,7 @@
             <div class="table-container">
                 <table id="resultTable">
                     <thead>
-                        <!-- Table header generated via JS -->
-                    </thead>
+                        </thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -377,7 +366,6 @@
         </div>
     </div>
 
-    <!-- MODAL 1: MAPPING KOLOM DINAMIS -->
     <div id="mappingModal" class="modal-overlay">
         <div class="modal-box">
             <h3>⚙️ 1. Konfigurasi Kolom Data</h3>
@@ -418,15 +406,13 @@
         </div>
     </div>
 
-    <!-- MODAL 2: INPUT BERAT PAKET (Chargeable Weight) -->
     <div id="weightModal" class="modal-overlay">
         <div class="modal-box large">
             <h3>⚖️ 2. Kalkulasi Dimensi & Berat Kiriman Paket</h3>
             <p>Masukkan berat (Kg) dan dimensi (cm). Kosongkan/biarkan jika ingin menggunakan default.</p>
             
             <div id="weightListContainer" class="weight-list-container">
-                <!-- Di-generate lewat JavaScript -->
-            </div>
+                </div>
 
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="cancelWeightInput()">Batalkan Berkas</button>
@@ -435,7 +421,6 @@
         </div>
     </div>
 
-    <!-- COMPACT DASHBOARD FOOTER (SEO IKHSAN RADIANSYAH) -->
     <footer class="dashboard-footer">
         <div class="footer-brand">
             <i data-lucide="layers" style="color: #f26522; width: 18px; height: 18px;"></i>
@@ -455,6 +440,7 @@
         let currentFileName = "";
         let currentHeaders = [];
         let tempExtractedRows = []; 
+        let globalHeaderRowIndex = 0; // Menyimpan baris di mana header sebenarnya berada
 
         // ================= DATABASE BATAM =================
         const batamKelurahanMapping = [
@@ -688,18 +674,54 @@
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                 currentHeaders = [];
-                for (let r = 0; r < Math.min(jsonData.length, 10); r++) {
-                    if (jsonData[r] && jsonData[r].length > 0) {
-                        currentHeaders = jsonData[r];
-                        break;
+                globalHeaderRowIndex = 0;
+                
+                // --- SMART HEADER DETECTION (Deteksi Judul walau nyelip di baris ke-2 atau seterusnya) ---
+                let maxScore = 0;
+                const headerKeywords = ['nama', 'name', 'alamat', 'address', 'penerima', 'hp', 'telp', 'phone', 'no', 'ref', 'surat', 'deskripsi', 'awb', 'berat', 'weight', 'destination', 'origin'];
+
+                for (let r = 0; r < Math.min(jsonData.length, 15); r++) {
+                    let row = jsonData[r];
+                    if (!row || row.length === 0) continue;
+
+                    let score = 0;
+                    row.forEach(cell => {
+                        if (typeof cell === 'string') {
+                            let cellLower = cell.toLowerCase().trim();
+                            if (headerKeywords.some(kw => cellLower.includes(kw))) {
+                                score++;
+                            }
+                        }
+                    });
+
+                    // Jika baris ini memiliki lebih banyak kecocokan keyword header, set sebagai Header baris utama
+                    if (score > maxScore) {
+                        maxScore = score;
+                        globalHeaderRowIndex = r;
+                        currentHeaders = row;
                     }
                 }
+
+                // Jika kata kunci benar-benar tidak ada, cari baris dengan kolom isi terbanyak sebagai fallback
+                if (maxScore === 0) {
+                    let maxCols = 0;
+                    for (let r = 0; r < Math.min(jsonData.length, 10); r++) {
+                        if (jsonData[r] && jsonData[r].length > maxCols) {
+                            maxCols = jsonData[r].length;
+                            globalHeaderRowIndex = r;
+                            currentHeaders = jsonData[r];
+                        }
+                    }
+                }
+                // --- END SMART HEADER DETECTION ---
 
                 // AI SMART BYPASS: JIKA FILE YANG DIUPLOAD ADALAH EXCEL MILEAPP HASIL EXPORT
                 let isMileApp = currentHeaders.some(h => String(h).toLowerCase().trim() === 'destination_data_customer_name');
                 
                 if (isMileApp) {
-                    processMileAppFormat(worksheet); // Bypass modal, langsung masuk tabel!
+                    // Gunakan range untuk memastikan data diambil mulai dari header row yang sebenarnya
+                    const mileAppJsonData = XLSX.utils.sheet_to_json(worksheet, { range: globalHeaderRowIndex });
+                    processMileAppFormat(mileAppJsonData); 
                 } else {
                     showMappingModal(currentHeaders);
                 }
@@ -708,8 +730,7 @@
         }
 
         // FUNGSI KHUSUS UNTUK MEMBACA FILE EXCEL MILE APP (AUTO-DETECT)
-        function processMileAppFormat(worksheet) {
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        function processMileAppFormat(jsonData) {
             const templateVal = document.getElementById('corporateTemplate').value;
             const mode = document.getElementById('clientMode').value;
             let extractedRows = [];
@@ -781,7 +802,7 @@
         }
 
         function showMappingModal(headers) {
-            document.getElementById('mappingFileName').innerText = "📍 File: " + currentFileName;
+            document.getElementById('mappingFileName').innerText = "📍 File: " + currentFileName + " (Header Terdeteksi di Baris " + (globalHeaderRowIndex + 1) + ")";
             
             // Kosongkan form ketik custom setiap kali modal terbuka
             document.getElementById('customRef').value = "";
@@ -854,15 +875,19 @@
 
             let extractedRows = [];
 
-            currentWorkbook.SheetNames.forEach(sheetName => {
+            currentWorkbook.SheetNames.forEach((sheetName, sheetIndex) => {
                 const worksheet = currentWorkbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
+                // Mulai membaca dari baris SETELAH header row agar tidak menangkap judul utama/header
+                let startIndex = (sheetIndex === 0) ? (globalHeaderRowIndex + 1) : 1;
+
                 if (jsonData.length > 0) {
-                    for (let i = 0; i < jsonData.length; i++) { 
+                    for (let i = startIndex; i < jsonData.length; i++) { 
                         let row = jsonData[i];
                         if (!row || row.length === 0) continue;
 
+                        // Tambahan proteksi bila baris tersebut mirip sekali dengan header (misalnya sheet lain formatnya beda tipis)
                         if (
                             (idxName !== -1 && String(row[idxName]).toUpperCase() === String(currentHeaders[idxName]).toUpperCase()) ||
                             (idxAddr !== -1 && String(row[idxAddr]).toUpperCase() === String(currentHeaders[idxAddr]).toUpperCase())
@@ -1360,7 +1385,6 @@
         }
     </script>
     
-    <!-- Script Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         lucide.createIcons();
