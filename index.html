@@ -272,6 +272,7 @@
                             <option value="BTN">BANK TABUNGAN NEGARA BATAM (BANKBTNBTAM02294A)</option>
                             <option value="ASTRA">ASTRA DAIHATSU MOTOR BATAM (INDASTRADAI01294A)</option>
                             <option value="OJK">KANTOR PUSAT OTORITAS JASA KEUANGAN (LNOJK02294A)</option>
+                            <option value="BP_BATAM">BP BATAM (LNBPBATAM02294A)</option>
                         </select>
                     </div>
                 </div>
@@ -663,6 +664,10 @@
                 } else if (template === 'OJK') {
                     custIdInput.value = "LNOJK02294A";
                     sNameInput.value = "KANTOR PUSAT OTORITAS JASA KEUANGAN";
+                    tariffInput.value = "";
+                } else if (template === 'BP_BATAM') {
+                    custIdInput.value = "LNBPBATAM02294A";
+                    sNameInput.value = "BP BATAM";
                     tariffInput.value = "";
                 }
             }
@@ -1263,6 +1268,8 @@
                     baseSenderName = "ASTRA DAIHATSU MOTOR BATAM";
                 } else if (template === 'OJK') {
                     baseSenderName = "KANTOR PUSAT OTORITAS JASA KEUANGAN";
+                } else if (template === 'BP_BATAM') {
+                    baseSenderName = "BP BATAM";
                 }
             } else if (mode === 'RITEL') {
                 finalCustomerId = ""; 
