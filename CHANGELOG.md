@@ -50,3 +50,10 @@
 - Added compact English PosNew Hub footer linked to posnew.com.
 - Added favicon, web manifest, Open Graph cover, structured data, sitemap, robots, 404 page, and Cloudflare headers.
 - Kept `beta.html` as a noindex experimental PDF workflow.
+
+## 2026-07-31 — Koreksi wajib v3
+
+- Menghapus penyelesaian koreksi otomatis saat mengetik, blur, pindah kolom, atau menekan Enter.
+- Menambahkan tombol centang `Tandai selesai & lanjut` sebagai satu-satunya cara menutup status koreksi.
+- Fokus baru berpindah ke bagian berikutnya setelah pengguna menekan tombol centang.
+- Sel tetap dapat diedit setelah ditandai selesai dan tidak pernah dikunci.

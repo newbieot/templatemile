@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from Excel and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260731-6">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260731-7">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -223,9 +223,12 @@
             <div class="review-alert-copy">
               <span class="review-required-label">Koreksi wajib</span>
               <strong id="reviewAlertTitle">Ada data yang wajib dikoreksi</strong>
-              <p>Ketik koreksi sampai selesai. Bagian baru dianggap selesai saat Anda pindah kolom atau menekan Enter. Sistem tidak akan mengunci baris atau berpindah otomatis.</p>
+              <p id="reviewActionHint">Pilih bagian bertanda kuning, perbaiki teksnya sampai selesai, lalu klik tombol centang. Mengetik, menekan Enter, atau berpindah kolom tidak akan menandainya selesai.</p>
             </div>
-            <button class="button button--review" id="nextReviewButton" type="button" onclick="focusNextReviewIssue()">Koreksi berikutnya</button>
+            <div class="review-alert-actions">
+              <button class="button button--review" id="openReviewButton" type="button" onclick="focusCurrentReviewIssue()">Buka koreksi</button>
+              <button class="button button--review-confirm" id="completeReviewButton" type="button" onclick="confirmActiveReviewCorrection()" disabled>✓ Tandai selesai & lanjut</button>
+            </div>
           </div>
 
           <div class="table-help">
@@ -298,7 +301,7 @@
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-  <script src="/assets/js/app-core.js?v=20260731-6" defer></script>
-  <script src="/assets/js/ui.js?v=20260731-6" defer></script>
+  <script src="/assets/js/app-core.js?v=20260731-7" defer></script>
+  <script src="/assets/js/ui.js?v=20260731-7" defer></script>
 </body>
 </html>

@@ -14,6 +14,7 @@
   let textMeasureCanvas = null;
   let lastReviewInputCount = 0;
   let mandatoryReviewFocusTimer = null;
+  let activeReviewEditor = null;
 
   function getDataRows() {
     return Array.from(document.querySelectorAll('#resultTable tbody tr'))
@@ -193,12 +194,16 @@
         const target = getReviewInputs()[0];
         if (!target) return;
         document.getElementById('reviewAlert')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        activeReviewEditor = target;
         focusReviewInput(target, { smooth: true, select: true });
-        showToast('Ada data yang wajib dikoreksi. Selesaikan pengetikan, lalu pindah kolom atau tekan Enter untuk menandainya selesai.', 'error');
+        updateReviewActionState();
+        showToast('Koreksi bagian bertanda kuning sampai selesai, lalu klik tombol centang untuk menyimpan dan lanjut.', 'error');
       }, 180);
     }
 
     if (reviewInputCount === 0 && lastReviewInputCount > 0) {
+      activeReviewEditor = null;
+      updateReviewActionState();
       showToast('Semua bagian yang perlu dicek sudah dikoreksi. Workbook siap diekspor.', 'success');
     }
 
@@ -236,7 +241,7 @@
     const reviewCount = document.getElementById('reviewCount');
     const reviewAlert = document.getElementById('reviewAlert');
     const reviewAlertTitle = document.getElementById('reviewAlertTitle');
-    const nextReviewButton = document.getElementById('nextReviewButton');
+    const openReviewButton = document.getElementById('openReviewButton');
 
     if (reviewCount) {
       reviewCount.textContent = String(reviewRowCount);
@@ -246,13 +251,62 @@
     if (reviewAlertTitle && reviewRowCount > 0) {
       reviewAlertTitle.textContent = `${reviewRowCount} baris memiliki ${reviewInputCount} bagian yang wajib dikoreksi`;
     }
-    if (nextReviewButton) nextReviewButton.disabled = reviewInputCount === 0;
+    if (openReviewButton) openReviewButton.disabled = reviewInputCount === 0;
+    updateReviewActionState();
     if (reviewCursor >= reviewInputCount) reviewCursor = -1;
 
     applyMandatoryReviewMode(reviewInputCount);
     scheduleMandatoryReviewFocus(reviewInputCount);
 
     return { reviewRowCount, reviewInputCount };
+  }
+
+  function getActivePendingReviewInput() {
+    if (activeReviewEditor?.isConnected && activeReviewEditor.dataset.reviewPending === 'true') {
+      return activeReviewEditor;
+    }
+    const focused = document.activeElement;
+    if (focused instanceof HTMLInputElement && focused.dataset.reviewPending === 'true') {
+      activeReviewEditor = focused;
+      return focused;
+    }
+    return null;
+  }
+
+  function updateReviewActionState() {
+    const button = document.getElementById('completeReviewButton');
+    const hint = document.getElementById('reviewActionHint');
+    const active = getActivePendingReviewInput();
+
+    document.querySelectorAll('#resultTable .is-active-review-editor').forEach(input => {
+      if (input !== active) input.classList.remove('is-active-review-editor');
+    });
+
+    if (!active) {
+      if (button) {
+        button.disabled = true;
+        button.textContent = '✓ Tandai selesai & lanjut';
+      }
+      if (hint) hint.textContent = 'Pilih bagian bertanda kuning, perbaiki teksnya, lalu klik tombol centang.';
+      return;
+    }
+
+    active.classList.add('is-active-review-editor');
+    const currentValue = String(active.value ?? '').trim();
+    const originalValue = String(active.dataset.reviewOriginal ?? '').trim();
+    const changed = currentValue !== '' && currentValue !== originalValue;
+    active.dataset.reviewDirty = String(changed);
+    active.classList.toggle('is-review-dirty', changed);
+
+    if (button) {
+      button.disabled = !changed;
+      button.textContent = changed ? '✓ Tandai selesai & lanjut' : 'Selesaikan koreksi dahulu';
+    }
+    if (hint) {
+      hint.textContent = changed
+        ? 'Perubahan belum disimpan. Klik centang setelah koreksi benar-benar selesai.'
+        : 'Silakan edit teks sampai benar. Mengetik tidak akan memindahkan fokus.';
+    }
   }
 
   function showToast(message, type = 'info') {
@@ -273,19 +327,77 @@
 
   window.showToast = showToast;
   window.refreshReviewState = refreshReviewState;
+  window.updateReviewActionState = updateReviewActionState;
   window.alert = message => showToast(message, /gagal|wajib|tidak ada|error|format|perlu dicek|koreksi/i.test(String(message)) ? 'error' : 'info');
 
-  window.focusNextReviewIssue = function focusNextReviewIssue() {
+  window.focusCurrentReviewIssue = function focusCurrentReviewIssue() {
     const inputs = getReviewInputs();
     if (!inputs.length) {
       showToast('Semua tanda “perlu dicek” sudah dikoreksi.', 'success');
       return;
     }
 
-    const activeIndex = inputs.indexOf(document.activeElement);
-    reviewCursor = activeIndex >= 0 ? (activeIndex + 1) % inputs.length : (reviewCursor + 1) % inputs.length;
-    const target = inputs[reviewCursor];
-    focusReviewInput(target, { smooth: true, select: true });
+    const current = getActivePendingReviewInput();
+    const target = current || inputs[0];
+    activeReviewEditor = target;
+    reviewCursor = inputs.indexOf(target);
+    focusReviewInput(target, { smooth: true, select: !current });
+    updateReviewActionState();
+  };
+
+  window.confirmActiveReviewCorrection = function confirmActiveReviewCorrection() {
+    const input = getActivePendingReviewInput();
+    if (!input) {
+      showToast('Pilih terlebih dahulu bagian bertanda “perlu dicek”.', 'error');
+      window.focusCurrentReviewIssue();
+      return;
+    }
+
+    const before = getReviewInputs();
+    const currentIndex = Math.max(0, before.indexOf(input));
+    const currentValue = String(input.value ?? '').trim();
+    const originalValue = String(input.dataset.reviewOriginal ?? '').trim();
+
+    if (!currentValue) {
+      showToast('Kolom koreksi tidak boleh kosong.', 'error');
+      input.focus();
+      return;
+    }
+    if (currentValue === originalValue) {
+      showToast('Belum ada perubahan. Selesaikan koreksinya terlebih dahulu.', 'error');
+      input.focus();
+      return;
+    }
+
+    const result = typeof window.commitReviewCorrection === 'function'
+      ? window.commitReviewCorrection(input)
+      : null;
+    if (!result?.resolved) {
+      showToast('Koreksi belum dapat ditandai selesai. Periksa kembali isinya.', 'error');
+      input.focus();
+      return;
+    }
+
+    input.classList.add('is-review-resolved');
+    input.classList.remove('is-active-review-editor');
+    window.setTimeout(() => input.classList.remove('is-review-resolved'), 900);
+    activeReviewEditor = null;
+    syncDashboard();
+
+    const remaining = getReviewInputs();
+    if (!remaining.length) {
+      collapseExpandedEditor(input);
+      showToast('Koreksi disimpan. Semua bagian sudah selesai.', 'success');
+      updateReviewActionState();
+      return;
+    }
+
+    const next = remaining[Math.min(currentIndex, remaining.length - 1)];
+    activeReviewEditor = next;
+    reviewCursor = remaining.indexOf(next);
+    showToast('Koreksi disimpan. Silakan perbaiki bagian berikutnya.', 'success');
+    focusReviewInput(next, { smooth: true, select: true });
+    updateReviewActionState();
   };
 
   function syncDashboard() {
@@ -412,12 +524,14 @@
       const input = event.target instanceof HTMLInputElement ? event.target : null;
       if (!input) return;
 
-      // Sel tetap berstatus perlu dikoreksi selama pengguna masih mengetik.
-      // Tidak ada perpindahan fokus dan tidak ada penguncian setelah satu huruf.
+      // Mengetik hanya mengubah isi dan indikator visual. Status koreksi tidak pernah
+      // diselesaikan otomatis melalui input, blur, Enter, atau perpindahan kolom.
       if (input.dataset.reviewPending === 'true') {
+        activeReviewEditor = input;
         const changed = String(input.value ?? '').trim() !== String(input.dataset.reviewOriginal ?? '').trim();
         input.dataset.reviewDirty = String(changed);
         input.classList.toggle('is-review-dirty', changed);
+        updateReviewActionState();
       }
 
       syncDashboard();
@@ -426,46 +540,31 @@
 
     resultTable?.addEventListener('focusin', event => {
       const input = event.target.closest?.('.table-input');
-      if (input) expandTableEditor(input);
+      if (!input) return;
+      expandTableEditor(input);
+      if (input.dataset.reviewPending === 'true') {
+        activeReviewEditor = input;
+        updateReviewActionState();
+      }
     });
 
     resultTable?.addEventListener('focusout', event => {
       const input = event.target.closest?.('input');
       if (!input) return;
       if (input.matches('.table-input')) collapseExpandedEditor(input);
-
-      if (input.dataset.reviewPending === 'true' && typeof window.commitReviewCorrection === 'function') {
-        const result = window.commitReviewCorrection(input);
-        if (result?.resolved) {
-          input.classList.add('is-review-resolved');
-          window.setTimeout(() => input.classList.remove('is-review-resolved'), 900);
-          showToast('Perubahan disimpan sebagai koreksi.', 'success');
-        }
-        syncDashboard();
-      }
+      // Sengaja tidak ada commit di sini. Pengguna wajib menekan tombol centang.
+      updateReviewActionState();
     });
 
     resultTable?.addEventListener('keydown', event => {
-      const input = event.target instanceof HTMLInputElement ? event.target : null;
       if (event.key === 'Escape' && event.target === activeExpandedEditor) {
         collapseExpandedEditor(activeExpandedEditor);
       }
-      if (event.key === 'Enter' && input?.dataset.reviewPending === 'true') {
+      // Enter tidak menyelesaikan koreksi dan tidak memindahkan fokus.
+      if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.dataset.reviewPending === 'true') {
         event.preventDefault();
-        const result = typeof window.commitReviewCorrection === 'function'
-          ? window.commitReviewCorrection(input)
-          : null;
-        if (result?.resolved) {
-          input.classList.add('is-review-resolved');
-          syncDashboard();
-          showToast('Perubahan disimpan sebagai koreksi.', 'success');
-          input.blur();
-          return;
-        }
-        const message = result?.reason === 'empty'
-          ? 'Kolom koreksi tidak boleh kosong.'
-          : 'Belum ada perubahan. Edit nilainya terlebih dahulu.';
-        showToast(message, 'error');
+        updateReviewActionState();
+        showToast('Setelah koreksi selesai, klik tombol centang “Tandai selesai & lanjut”.', 'info');
       }
     });
 

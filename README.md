@@ -40,3 +40,7 @@ All standard Excel and CSV processing happens locally in the browser. `beta.html
 - Koreksi dianggap selesai ketika nilainya berubah lalu pengguna pindah kolom atau menekan Enter.
 - Tombol **Koreksi berikutnya** digunakan secara manual untuk menuju masalah berikutnya.
 - Ekspor tetap nonaktif sampai seluruh koreksi wajib selesai.
+
+### Alur koreksi “perlu dicek”
+
+Pengguna bebas mengetik dan berpindah kolom tanpa penyelesaian otomatis. Koreksi hanya dianggap selesai setelah tombol **Tandai selesai & lanjut** diklik. Sesudah itu fokus berpindah ke bagian berikutnya.
