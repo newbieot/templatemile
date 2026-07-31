@@ -180,7 +180,6 @@
             handleModeChange();
             document.getElementById('resultTable')?.addEventListener('input', event => {
                 syncManagedRowFromInput(event.target);
-                if (typeof window.refreshReviewState === 'function') window.refreshReviewState();
             });
         });
 
@@ -265,7 +264,6 @@
             const custIdInput = document.getElementById('customerId');
             const sNameInput = document.getElementById('senderName');
             const tariffInput = document.getElementById('tariffCode');
-            const serviceInput = document.getElementById('serviceCode');
             const itemInput = document.getElementById('itemType');
 
             if (mode !== 'KORPORAT') return;
@@ -298,12 +296,6 @@
                     custIdInput.value = "FINTOYOTA02294A";
                     sNameInput.value = "PT TOYOTA ASTRA FINANCE";
                     tariffInput.value = "";
-                } else if (template === 'MPM_FINANCE') {
-                    custIdInput.value = "FINMPMJKT04120A";
-                    sNameInput.value = "PT JACCS MPM FINANCE INDONESIA";
-                    tariffInput.value = "868523";
-                    tariffInput.readOnly = true;
-                    serviceInput.value = "PKH";
                 } else if (template === 'POLRES') {
                     custIdInput.value = "LNPOLRES01294A";
                     sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
@@ -824,9 +816,43 @@
                 .replace(/>/g, '&gt;');
         }
 
+        const reviewFieldKeys = Object.freeze([
+            'senderName', 'noSurat', 'name', 'phone', 'zip', 'cw', 'p', 'l', 't', 'insHarga', 'address'
+        ]);
+
+        function ensureRowReviewState(row) {
+            if (!row._reviewState || typeof row._reviewState !== 'object') {
+                row._reviewState = {};
+                reviewFieldKeys.forEach(field => {
+                    const originalValue = String(row[field] ?? '');
+                    if (containsReviewMarker(originalValue)) {
+                        row._reviewState[field] = {
+                            pending: true,
+                            dirty: false,
+                            originalValue
+                        };
+                    }
+                });
+            }
+            return row._reviewState;
+        }
+
+        function getFieldReviewState(row, field) {
+            return ensureRowReviewState(row)[field] || null;
+        }
+
+        function isFieldReviewPending(row, field) {
+            return Boolean(getFieldReviewState(row, field)?.pending);
+        }
+
         function rowNeedsReview(row) {
-            return ['senderName', 'noSurat', 'name', 'phone', 'zip', 'cw', 'p', 'l', 't', 'insHarga', 'address']
-                .some(key => containsReviewMarker(row[key]));
+            return reviewFieldKeys.some(field => isFieldReviewPending(row, field));
+        }
+
+        function getPendingReviewCount() {
+            return uploadedFilesManager.reduce((total, file) => total + file.rows.reduce((rowTotal, row) => {
+                return rowTotal + reviewFieldKeys.filter(field => isFieldReviewPending(row, field)).length;
+            }, 0), 0);
         }
 
         function findManagedRow(fileId, rowId) {
@@ -836,29 +862,82 @@
             return row ? { file, row } : null;
         }
 
-        function syncManagedRowFromInput(input) {
-            if (!(input instanceof HTMLInputElement)) return;
-            const tr = input.closest('tr[data-file-id][data-row-id]');
-            if (!tr) return;
-            const managed = findManagedRow(tr.dataset.fileId, tr.dataset.rowId);
-            if (!managed) return;
+        const fieldClassMap = Object.freeze({
+            'val-senderName': 'senderName',
+            'val-noSurat': 'noSurat',
+            'val-name': 'name',
+            'val-phone': 'phone',
+            'val-zip': 'zip',
+            'val-cw': 'cw',
+            'val-p': 'p',
+            'val-l': 'l',
+            'val-t': 't',
+            'val-ins-harga': 'insHarga',
+            'val-address': 'address'
+        });
 
-            const fieldClassMap = {
-                'val-senderName': 'senderName',
-                'val-noSurat': 'noSurat',
-                'val-name': 'name',
-                'val-phone': 'phone',
-                'val-zip': 'zip',
-                'val-cw': 'cw',
-                'val-p': 'p',
-                'val-l': 'l',
-                'val-t': 't',
-                'val-ins-harga': 'insHarga',
-                'val-address': 'address'
-            };
+        function getManagedInputContext(input) {
+            if (!(input instanceof HTMLInputElement)) return null;
+            const tr = input.closest('tr[data-file-id][data-row-id]');
+            if (!tr) return null;
+            const managed = findManagedRow(tr.dataset.fileId, tr.dataset.rowId);
+            if (!managed) return null;
             const matchedClass = Object.keys(fieldClassMap).find(className => input.classList.contains(className));
-            if (!matchedClass) return;
-            managed.row[fieldClassMap[matchedClass]] = input.value;
+            if (!matchedClass) return null;
+            return { ...managed, tr, field: fieldClassMap[matchedClass] };
+        }
+
+        function syncManagedRowFromInput(input) {
+            const context = getManagedInputContext(input);
+            if (!context) return null;
+
+            context.row[context.field] = input.value;
+            const reviewState = getFieldReviewState(context.row, context.field);
+            if (reviewState?.pending) {
+                const changed = String(input.value ?? '').trim() !== String(reviewState.originalValue ?? '').trim();
+                reviewState.dirty = changed;
+                input.dataset.reviewDirty = String(changed);
+                input.classList.toggle('is-review-dirty', changed);
+            }
+            return { ...context, reviewState };
+        }
+
+        function commitReviewCorrection(input) {
+            const context = syncManagedRowFromInput(input);
+            if (!context?.reviewState?.pending) {
+                return { resolved: false, pending: false, reason: 'not-pending' };
+            }
+
+            const currentValue = String(input.value ?? '').trim();
+            const originalValue = String(context.reviewState.originalValue ?? '').trim();
+            if (!currentValue) {
+                context.reviewState.dirty = false;
+                input.dataset.reviewDirty = 'false';
+                input.classList.remove('is-review-dirty');
+                return { resolved: false, pending: true, reason: 'empty' };
+            }
+            if (currentValue === originalValue) {
+                context.reviewState.dirty = false;
+                input.dataset.reviewDirty = 'false';
+                input.classList.remove('is-review-dirty');
+                return { resolved: false, pending: true, reason: 'unchanged' };
+            }
+
+            context.reviewState.pending = false;
+            context.reviewState.dirty = false;
+            context.reviewState.resolvedValue = input.value;
+            input.dataset.reviewPending = 'false';
+            input.dataset.reviewDirty = 'false';
+            input.classList.remove('needs-review-field', 'is-review-dirty');
+            input.closest('td')?.classList.remove('needs-review-cell');
+
+            const rowStillPending = rowNeedsReview(context.row);
+            context.tr.dataset.needsReview = String(rowStillPending);
+            context.tr.classList.toggle('needs-review', rowStillPending);
+            const badge = context.tr.querySelector('.review-row-badge');
+            if (badge) badge.hidden = !rowStillPending;
+
+            return { resolved: true, pending: false, reason: 'changed', rowStillPending };
         }
 
         function deleteFileFromQueue(id) {
@@ -885,6 +964,8 @@
         }
 
         window.containsReviewMarker = containsReviewMarker;
+        window.commitReviewCorrection = commitReviewCorrection;
+        window.getPendingReviewCount = getPendingReviewCount;
         window.deleteDataRow = deleteDataRow;
 
         function updateInterface() {
@@ -894,7 +975,10 @@
             } else {
                 fileQueueDiv.innerHTML = "";
                 uploadedFilesManager.forEach(file => {
-                    file.rows.forEach(ensureRowIdentity);
+                    file.rows.forEach(row => {
+                        ensureRowIdentity(row);
+                        ensureRowReviewState(row);
+                    });
                     fileQueueDiv.innerHTML += `
                         <div class="file-item">
                             <span style="font-weight:600;">📄 ${escapeAttribute(file.name)} (${file.rows.length} Baris)</span>
@@ -929,6 +1013,7 @@
                 file.rows.forEach(item => {
                     counter++;
                     const rowId = ensureRowIdentity(item);
+                    ensureRowReviewState(item);
                     const tr = document.createElement('tr');
                     tr.dataset.fileId = String(file.id);
                     tr.dataset.rowId = rowId;
@@ -936,27 +1021,34 @@
                     tr.dataset.needsReview = String(needsReview);
                     tr.classList.toggle('needs-review', needsReview);
 
-                    const inputClass = value => containsReviewMarker(value) ? ' needs-review-field' : '';
+                    const reviewClass = field => isFieldReviewPending(item, field) ? ' needs-review-field' : '';
+                    const reviewAttributes = field => {
+                        const state = getFieldReviewState(item, field);
+                        const pending = Boolean(state?.pending);
+                        const dirty = Boolean(state?.dirty);
+                        const original = state?.originalValue ?? '';
+                        return ` data-review-field="${field}" data-review-pending="${pending}" data-review-dirty="${dirty}" data-review-original="${escapeAttribute(original)}"`;
+                    };
                     let insValue = item.insHarga !== undefined ? item.insHarga : 0;
-                    let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga${inputClass(insValue)}" value="${escapeAttribute(insValue)}" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
+                    let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga${reviewClass('insHarga')}"${reviewAttributes('insHarga')} value="${escapeAttribute(insValue)}" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
 
                     tr.innerHTML = `
                         <td class="row-number-cell" style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
-                        <td><input type="text" class="table-input val-senderName${inputClass(item.senderName)}" value="${escapeAttribute(item.senderName || '')}"></td>
-                        <td><input type="text" class="table-input val-noSurat${inputClass(item.noSurat)}" value="${escapeAttribute(item.noSurat || '')}"></td>
-                        <td><input type="text" class="table-input val-name${inputClass(item.name)}" value="${escapeAttribute(item.name || '')}"></td>
-                        <td><input type="text" class="table-input val-phone${inputClass(item.phone)}" value="${escapeAttribute(item.phone || '')}"></td>
-                        <td><input type="text" class="table-input val-zip${inputClass(item.zip)}" style="font-weight:bold; color:#d32f2f;" value="${escapeAttribute(item.zip || '')}"></td>
-                        <td><input type="text" class="table-input val-cw${inputClass(item.cw)}" style="font-weight:bold; color:#0277bd;" value="${escapeAttribute(item.cw || '0.20')}"></td>
+                        <td><input type="text" class="table-input val-senderName${reviewClass('senderName')}"${reviewAttributes('senderName')} value="${escapeAttribute(item.senderName || '')}"></td>
+                        <td><input type="text" class="table-input val-noSurat${reviewClass('noSurat')}"${reviewAttributes('noSurat')} value="${escapeAttribute(item.noSurat || '')}"></td>
+                        <td><input type="text" class="table-input val-name${reviewClass('name')}"${reviewAttributes('name')} value="${escapeAttribute(item.name || '')}"></td>
+                        <td><input type="text" class="table-input val-phone${reviewClass('phone')}"${reviewAttributes('phone')} value="${escapeAttribute(item.phone || '')}"></td>
+                        <td><input type="text" class="table-input val-zip${reviewClass('zip')}"${reviewAttributes('zip')} style="font-weight:bold; color:#d32f2f;" value="${escapeAttribute(item.zip || '')}"></td>
+                        <td><input type="text" class="table-input val-cw${reviewClass('cw')}"${reviewAttributes('cw')} style="font-weight:bold; color:#0277bd;" value="${escapeAttribute(item.cw || '0.20')}"></td>
                         <td>
                             <div class="dim-box">
-                                <input type="text" class="val-p${inputClass(item.p)}" value="${escapeAttribute(item.p || 10)}">x
-                                <input type="text" class="val-l${inputClass(item.l)}" value="${escapeAttribute(item.l || 10)}">x
-                                <input type="text" class="val-t${inputClass(item.t)}" value="${escapeAttribute(item.t || 10)}">
+                                <input type="text" class="val-p${reviewClass('p')}"${reviewAttributes('p')} value="${escapeAttribute(item.p || 10)}">x
+                                <input type="text" class="val-l${reviewClass('l')}"${reviewAttributes('l')} value="${escapeAttribute(item.l || 10)}">x
+                                <input type="text" class="val-t${reviewClass('t')}"${reviewAttributes('t')} value="${escapeAttribute(item.t || 10)}">
                             </div>
                         </td>
                         ${insColumn}
-                        <td><input type="text" class="table-input val-address${inputClass(item.address)}" value="${escapeAttribute(item.address || '')}"></td>
+                        <td><input type="text" class="table-input val-address${reviewClass('address')}"${reviewAttributes('address')} value="${escapeAttribute(item.address || '')}"></td>
                         <td class="row-action-cell">
                             <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>Perlu dicek</span>
                             <button class="row-delete-button" type="button" aria-label="Hapus baris ${counter}" title="Hapus baris" onclick='deleteDataRow(${JSON.stringify(file.id)}, ${JSON.stringify(rowId)})'>
@@ -980,8 +1072,7 @@
                 alert("Tidak ada data untuk diekspor."); return;
             }
 
-            const unresolvedReviewInputs = Array.from(document.querySelectorAll('#resultTable tbody tr input'))
-                .filter(input => containsReviewMarker(input.value));
+            const unresolvedReviewInputs = Array.from(document.querySelectorAll('#resultTable tbody tr input[data-review-pending="true"]'));
             if (unresolvedReviewInputs.length > 0) {
                 alert(`Masih ada ${unresolvedReviewInputs.length} bagian bertuliskan “perlu dicek”. Koreksi seluruhnya sebelum ekspor.`);
                 const firstIssue = unresolvedReviewInputs[0];
@@ -1011,13 +1102,6 @@
             if (mode === 'KORPORAT') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
-
-                // Gunakan data master saat ekspor agar field tersembunyi/kosong tidak
-                // menyebabkan customer_code atau nama pelanggan hilang di workbook.
-                if (template === 'MPM_FINANCE') {
-                    finalCustomerId = "FINMPMJKT04120A";
-                    finalTariffCode = "868523";
-                }
                 
                 if (template === 'MANUAL') {
                     baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
@@ -1028,8 +1112,6 @@
                     destZoneCodeGlobal = "29100";
                 } else if (template === 'TOYOTA') {
                     baseSenderName = "PT TOYOTA ASTRA FINANCE";
-                } else if (template === 'MPM_FINANCE') {
-                    baseSenderName = "PT JACCS MPM FINANCE INDONESIA";
                 } else if (template === 'POLRES') {
                     baseSenderName = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
                 } else if (template === 'BNI') {
@@ -1111,12 +1193,6 @@
                 if (mode === 'KORPORAT' && template === 'PN_BATAM') {
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
                     senderAddrFinal = baseSenderName;
-                    senderPhoneFinal = "0";
-                } else if (mode === 'KORPORAT' && template === 'MPM_FINANCE') {
-                    // Nama pelanggan wajib berasal dari data master, bukan kolom pengirim
-                    // pada file input.
-                    senderNameFinal = "PT JACCS MPM FINANCE INDONESIA";
-                    senderAddrFinal = "PT JACCS MPM FINANCE INDONESIA BATAM";
                     senderPhoneFinal = "0";
                 } else if (mode === 'KORPORAT') {
                     senderNameFinal = dSenderName ? dSenderName : baseSenderName;

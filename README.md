@@ -32,3 +32,11 @@ All standard Excel and CSV processing happens locally in the browser. `beta.html
 - Ekspor dinonaktifkan sampai seluruh penanda `perlu dicek` diselesaikan.
 - Setiap baris dapat dihapus langsung dari kolom **Aksi**.
 - Khusus template Pengadilan Negeri Batam, kode layanan default mengikuti hari kerja dan kalender libur/cuti bersama 2026.
+
+### Alur koreksi wajib
+
+- Data yang berasal dari AI dan memuat teks `perlu dicek` ditandai sebagai koreksi wajib.
+- Pengguna dapat mengetik sampai selesai tanpa baris dikunci atau fokus berpindah sendiri.
+- Koreksi dianggap selesai ketika nilainya berubah lalu pengguna pindah kolom atau menekan Enter.
+- Tombol **Koreksi berikutnya** digunakan secara manual untuk menuju masalah berikutnya.
+- Ekspor tetap nonaktif sampai seluruh koreksi wajib selesai.

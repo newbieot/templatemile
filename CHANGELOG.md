@@ -1,6 +1,13 @@
-- Memperbaiki ekspor PT JACCS MPM FINANCE INDONESIA: `customer_code` selalu `FINMPMJKT04120A` dan `origin_data_customer_name` selalu `PT JACCS MPM FINANCE INDONESIA`.
 # Changelog
-- Menambahkan template pelanggan PT JACCS MPM FINANCE INDONESIA (FINMPMJKT04120A), sub service 868523, layanan default PKH.
+
+## 2026-07-31 — Koreksi wajib tanpa perpindahan otomatis
+
+- Penanda `perlu dicek` tetap aktif selama pengguna masih mengetik.
+- Satu huruf pertama tidak lagi mengunci baris atau memindahkan fokus ke masalah berikutnya.
+- Koreksi baru dianggap selesai setelah nilai berubah dan pengguna pindah kolom atau menekan Enter.
+- Tidak ada field pengaturan maupun baris tabel yang dikunci; hanya ekspor yang tetap dibatasi sampai semua koreksi selesai.
+- Fokus awal hanya menyorot frasa `perlu dicek`, sehingga bagian nomor surat atau teks lain di belakangnya tetap dipertahankan.
+- Navigasi ke koreksi berikutnya hanya dilakukan lewat tombol **Koreksi berikutnya**.
 
 ## 2026-07-31 — Mandatory review workflow
 

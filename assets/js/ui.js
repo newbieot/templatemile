@@ -32,8 +32,17 @@
   }
 
   function getReviewInputs() {
-    return Array.from(document.querySelectorAll('#resultTable tbody tr input'))
-      .filter(input => hasReviewMarker(input.value));
+    return Array.from(document.querySelectorAll('#resultTable tbody tr input[data-review-pending="true"]'));
+  }
+
+  function selectReviewMarker(input) {
+    const value = String(input.value ?? '');
+    const match = /\bPERLU\s+(?:DI\s*)?CEK\b/i.exec(value);
+    if (match && typeof input.setSelectionRange === 'function') {
+      input.setSelectionRange(match.index, match.index + match[0].length);
+      return;
+    }
+    input.select?.();
   }
 
   function getExpandedColumnMinimum(input) {
@@ -146,31 +155,8 @@
     target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center', inline: 'center' });
     window.setTimeout(() => {
       target.focus({ preventScroll: true });
-      if (select) target.select?.();
+      if (select) selectReviewMarker(target);
     }, smooth ? 260 : 30);
-  }
-
-  function setControlReviewLock(control, locked) {
-    if (!(control instanceof HTMLElement)) return;
-    if (control.matches('.btn-delete-file, #clearDataButton')) return;
-
-    if (locked) {
-      if (!control.hasAttribute('data-review-lock-original-disabled')) {
-        control.setAttribute('data-review-lock-original-disabled', control.disabled ? 'true' : 'false');
-      }
-      if (!control.disabled) {
-        control.disabled = true;
-        control.setAttribute('data-review-lock-applied', 'true');
-      }
-      control.setAttribute('aria-disabled', 'true');
-    } else {
-      if (control.getAttribute('data-review-lock-applied') === 'true') {
-        control.disabled = control.getAttribute('data-review-lock-original-disabled') === 'true';
-      }
-      control.removeAttribute('data-review-lock-original-disabled');
-      control.removeAttribute('data-review-lock-applied');
-      if (!control.disabled) control.removeAttribute('aria-disabled');
-    }
   }
 
   function applyMandatoryReviewMode(reviewInputCount) {
@@ -178,14 +164,12 @@
     document.body.classList.toggle('is-mandatory-review', active);
     document.querySelector('.preview-card')?.classList.toggle('is-review-required', active);
 
-    document.querySelectorAll('.setup-column input, .setup-column select, .setup-column button')
-      .forEach(control => setControlReviewLock(control, active));
-
+    // Tidak ada field atau baris yang dikunci. Pengguna bebas mengoreksi dengan tenang;
+    // yang dibatasi hanya ekspor sampai seluruh koreksi wajib diselesaikan.
     getDataRows().forEach(row => {
-      const locked = active && row.dataset.needsReview !== 'true';
-      row.classList.toggle('is-review-locked-row', locked);
-      row.setAttribute('aria-disabled', locked ? 'true' : 'false');
-      if ('inert' in row) row.inert = locked;
+      row.classList.remove('is-review-locked-row');
+      row.removeAttribute('aria-disabled');
+      if ('inert' in row) row.inert = false;
     });
 
     const alert = document.getElementById('reviewAlert');
@@ -196,12 +180,7 @@
   }
 
   function scheduleMandatoryReviewFocus(reviewInputCount) {
-    const activeElement = document.activeElement;
-    const focusIsAlreadyUseful = activeElement instanceof HTMLInputElement
-      && activeElement.closest('#resultTable')
-      && activeElement.closest('tr')?.dataset.needsReview === 'true';
-    const shouldFocus = reviewInputCount > 0
-      && (lastReviewInputCount === 0 || (!focusIsAlreadyUseful && activeElement === document.body));
+    const shouldFocus = reviewInputCount > 0 && lastReviewInputCount === 0;
 
     if (reviewInputCount === 0 && mandatoryReviewFocusTimer) {
       window.clearTimeout(mandatoryReviewFocusTimer);
@@ -215,12 +194,12 @@
         if (!target) return;
         document.getElementById('reviewAlert')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         focusReviewInput(target, { smooth: true, select: true });
-        showToast('Koreksi wajib: perbaiki semua bagian bertuliskan “perlu dicek” sebelum melanjutkan.', 'error');
+        showToast('Ada data yang wajib dikoreksi. Selesaikan pengetikan, lalu pindah kolom atau tekan Enter untuk menandainya selesai.', 'error');
       }, 180);
     }
 
     if (reviewInputCount === 0 && lastReviewInputCount > 0) {
-      showToast('Semua bagian “perlu dicek” sudah dikoreksi. Fitur lain telah dibuka kembali.', 'success');
+      showToast('Semua bagian yang perlu dicek sudah dikoreksi. Workbook siap diekspor.', 'success');
     }
 
     lastReviewInputCount = reviewInputCount;
@@ -236,8 +215,10 @@
       let rowHasReview = false;
 
       inputs.forEach(input => {
-        const needsReview = hasReviewMarker(input.value);
+        const needsReview = input.dataset.reviewPending === 'true';
+        const isDirty = input.dataset.reviewDirty === 'true';
         input.classList.toggle('needs-review-field', needsReview);
+        input.classList.toggle('is-review-dirty', needsReview && isDirty);
         input.closest('td')?.classList.toggle('needs-review-cell', needsReview);
         if (needsReview) {
           rowHasReview = true;
@@ -263,7 +244,7 @@
     }
     if (reviewAlert) reviewAlert.hidden = reviewRowCount === 0;
     if (reviewAlertTitle && reviewRowCount > 0) {
-      reviewAlertTitle.textContent = `${reviewRowCount} baris memiliki ${reviewInputCount} bagian yang perlu dicek`;
+      reviewAlertTitle.textContent = `${reviewRowCount} baris memiliki ${reviewInputCount} bagian yang wajib dikoreksi`;
     }
     if (nextReviewButton) nextReviewButton.disabled = reviewInputCount === 0;
     if (reviewCursor >= reviewInputCount) reviewCursor = -1;
@@ -429,13 +410,18 @@
     const resultTable = document.getElementById('resultTable');
     resultTable?.addEventListener('input', event => {
       const input = event.target instanceof HTMLInputElement ? event.target : null;
-      const wasReview = Boolean(input?.classList.contains('needs-review-field'));
+      if (!input) return;
+
+      // Sel tetap berstatus perlu dikoreksi selama pengguna masih mengetik.
+      // Tidak ada perpindahan fokus dan tidak ada penguncian setelah satu huruf.
+      if (input.dataset.reviewPending === 'true') {
+        const changed = String(input.value ?? '').trim() !== String(input.dataset.reviewOriginal ?? '').trim();
+        input.dataset.reviewDirty = String(changed);
+        input.classList.toggle('is-review-dirty', changed);
+      }
+
       syncDashboard();
       if (input === activeExpandedEditor) expandTableEditor(activeExpandedEditor);
-      if (input && wasReview && !hasReviewMarker(input.value)) {
-        input.dataset.reviewJustResolved = 'true';
-        input.classList.add('is-review-resolved');
-      }
     });
 
     resultTable?.addEventListener('focusin', event => {
@@ -444,20 +430,18 @@
     });
 
     resultTable?.addEventListener('focusout', event => {
-      const input = event.target.closest?.('.table-input');
+      const input = event.target.closest?.('input');
       if (!input) return;
-      collapseExpandedEditor(input);
+      if (input.matches('.table-input')) collapseExpandedEditor(input);
 
-      if (input.dataset.reviewJustResolved === 'true' && !hasReviewMarker(input.value)) {
-        delete input.dataset.reviewJustResolved;
-        input.classList.remove('is-review-resolved');
-        window.setTimeout(() => {
-          const active = document.activeElement;
-          const activeIsReview = active instanceof HTMLInputElement && hasReviewMarker(active.value);
-          if (activeIsReview) return;
-          const remaining = getReviewInputs();
-          if (remaining.length) focusReviewInput(remaining[0], { smooth: true, select: true });
-        }, 80);
+      if (input.dataset.reviewPending === 'true' && typeof window.commitReviewCorrection === 'function') {
+        const result = window.commitReviewCorrection(input);
+        if (result?.resolved) {
+          input.classList.add('is-review-resolved');
+          window.setTimeout(() => input.classList.remove('is-review-resolved'), 900);
+          showToast('Perubahan disimpan sebagai koreksi.', 'success');
+        }
+        syncDashboard();
       }
     });
 
@@ -466,15 +450,22 @@
       if (event.key === 'Escape' && event.target === activeExpandedEditor) {
         collapseExpandedEditor(activeExpandedEditor);
       }
-      if (event.key === 'Enter' && input?.closest('tr')?.dataset.needsReview === 'true') {
+      if (event.key === 'Enter' && input?.dataset.reviewPending === 'true') {
         event.preventDefault();
-        if (hasReviewMarker(input.value)) {
-          showToast('Bagian ini masih memuat tulisan “perlu dicek”. Silakan koreksi terlebih dahulu.', 'error');
-          input.select?.();
+        const result = typeof window.commitReviewCorrection === 'function'
+          ? window.commitReviewCorrection(input)
+          : null;
+        if (result?.resolved) {
+          input.classList.add('is-review-resolved');
+          syncDashboard();
+          showToast('Perubahan disimpan sebagai koreksi.', 'success');
+          input.blur();
           return;
         }
-        const remaining = getReviewInputs();
-        if (remaining.length) focusReviewInput(remaining[0], { smooth: true, select: true });
+        const message = result?.reason === 'empty'
+          ? 'Kolom koreksi tidak boleh kosong.'
+          : 'Belum ada perubahan. Edit nilainya terlebih dahulu.';
+        showToast(message, 'error');
       }
     });
 
