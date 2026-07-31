@@ -9,6 +9,8 @@
 
   let reviewCursor = -1;
   let activeExpandedEditor = null;
+  let activeExpandedColumnIndex = -1;
+  let expandedColumnStyle = null;
   let textMeasureCanvas = null;
 
   function getDataRows() {
@@ -32,13 +34,22 @@
       .filter(input => hasReviewMarker(input.value));
   }
 
+  function getExpandedColumnMinimum(input) {
+    if (input.classList.contains('val-address')) return 680;
+    if (input.classList.contains('val-senderName')) return 520;
+    if (input.classList.contains('val-name')) return 480;
+    if (input.classList.contains('val-noSurat')) return 460;
+    return 380;
+  }
+
   function measureEditorWidth(input) {
     const currentWidth = Math.ceil(input.getBoundingClientRect().width || 0);
     const style = window.getComputedStyle(input);
     textMeasureCanvas ||= document.createElement('canvas');
     const context = textMeasureCanvas.getContext('2d');
+    const minimum = getExpandedColumnMinimum(input);
 
-    if (!context) return Math.max(currentWidth, 360);
+    if (!context) return Math.max(currentWidth, minimum);
 
     context.font = style.font || `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
     const value = input.value || input.placeholder || '';
@@ -46,17 +57,34 @@
     const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
     const border = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
 
-    // Ruang tambahan menjaga kursor dan ujung teks tetap terlihat saat diedit.
-    return Math.max(currentWidth, Math.ceil(measuredText + padding + border + 38), 360);
+    // Sisakan ruang untuk kursor dan agar ujung teks tidak berhimpitan dengan tepi input.
+    return Math.max(currentWidth, Math.ceil(measuredText + padding + border + 72), minimum);
+  }
+
+  function ensureExpandedColumnStyle() {
+    if (expandedColumnStyle?.isConnected) return expandedColumnStyle;
+    expandedColumnStyle = document.createElement('style');
+    expandedColumnStyle.id = 'mile-expanded-column-style';
+    document.head.appendChild(expandedColumnStyle);
+    return expandedColumnStyle;
+  }
+
+  function resetExpandedColumnRule() {
+    const table = document.getElementById('resultTable');
+    table?.classList.remove('is-column-expanded');
+    table?.removeAttribute('data-expanded-column');
+    if (expandedColumnStyle) expandedColumnStyle.textContent = '';
+    activeExpandedColumnIndex = -1;
   }
 
   function collapseExpandedEditor(input = activeExpandedEditor) {
-    if (!input) return;
-    input.classList.remove('is-expanded-editor');
-    input.style.removeProperty('width');
-    input.closest('td')?.classList.remove('is-active-editor-cell');
-    input.closest('tr')?.classList.remove('has-active-editor');
-    if (activeExpandedEditor === input) activeExpandedEditor = null;
+    if (input) {
+      input.classList.remove('is-expanded-editor');
+      input.closest('td')?.classList.remove('is-active-editor-cell');
+      input.closest('tr')?.classList.remove('has-active-editor');
+    }
+    resetExpandedColumnRule();
+    if (!input || activeExpandedEditor === input) activeExpandedEditor = null;
   }
 
   function expandTableEditor(input) {
@@ -66,17 +94,47 @@
       collapseExpandedEditor(activeExpandedEditor);
     }
 
+    const cell = input.closest('td');
+    const table = input.closest('table');
+    const container = input.closest('.table-container');
+    if (!cell || !table) return;
+
     activeExpandedEditor = input;
+    activeExpandedColumnIndex = cell.cellIndex;
     input.classList.add('is-expanded-editor');
-    input.closest('td')?.classList.add('is-active-editor-cell');
+    cell.classList.add('is-active-editor-cell');
     input.closest('tr')?.classList.add('has-active-editor');
 
-    const desiredWidth = Math.min(measureEditorWidth(input), 1800);
-    input.style.width = `${desiredWidth}px`;
+    const containerWidth = Math.max(container?.clientWidth || window.innerWidth || 900, 420);
+    const maximumUsefulWidth = Math.max(420, Math.min(1400, containerWidth - 110));
+    const desiredWidth = Math.min(measureEditorWidth(input), maximumUsefulWidth);
+    const columnNumber = activeExpandedColumnIndex + 1;
+    const style = ensureExpandedColumnStyle();
 
-    // Setelah tabel melebar, pastikan editor aktif tetap berada dalam viewport tabel.
+    // Yang diperlebar adalah seluruh kolom, bukan hanya input. !important diperlukan
+    // karena judul tabel lama memiliki width persentase melalui inline style.
+    style.textContent = `
+      #resultTable.is-column-expanded th:nth-child(${columnNumber}),
+      #resultTable.is-column-expanded td:nth-child(${columnNumber}) {
+        width: ${desiredWidth}px !important;
+        min-width: ${desiredWidth}px !important;
+        max-width: ${desiredWidth}px !important;
+      }
+      #resultTable.is-column-expanded td:nth-child(${columnNumber}) .table-input {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+      }
+    `;
+
+    table.classList.add('is-column-expanded');
+    table.dataset.expandedColumn = String(columnNumber);
+
+    // Tunggu browser menghitung ulang lebar tabel, kemudian bawa kolom aktif ke tengah viewport.
     window.requestAnimationFrame(() => {
-      input.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      window.requestAnimationFrame(() => {
+        input.scrollIntoView({ block: 'nearest', inline: 'center' });
+      });
     });
   }
 

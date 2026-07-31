@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-31 — Flexible column editor v2
+
+- Enlarges the complete active table column, not only its input element.
+- Automatically centers the active column inside the horizontal table viewport.
+- Restores the normal compact table when focus moves to another field.
+- Uses a stronger cache-busting version so Cloudflare/browser caches load the new behavior.
+
+
 ## 2026-07-31 — Flexible cell editor
 
 - Active table cells now expand automatically to show the complete text while editing.
