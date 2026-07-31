@@ -1,3 +1,4 @@
+- Memperbaiki ekspor PT JACCS MPM FINANCE INDONESIA: `customer_code` selalu `FINMPMJKT04120A` dan `origin_data_customer_name` selalu `PT JACCS MPM FINANCE INDONESIA`.
 # Changelog
 - Menambahkan template pelanggan PT JACCS MPM FINANCE INDONESIA (FINMPMJKT04120A), sub service 868523, layanan default PKH.
 

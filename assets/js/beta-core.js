@@ -704,6 +704,13 @@ const response = await fetch("http://127.0.0.1:8000/extract", {
             if (mode === 'KORPORAT') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
+
+                // Gunakan data master saat ekspor agar field tersembunyi/kosong tidak
+                // menyebabkan customer_code atau nama pelanggan hilang di workbook.
+                if (template === 'MPM_FINANCE') {
+                    finalCustomerId = "FINMPMJKT04120A";
+                    finalTariffCode = "868523";
+                }
                 
                 if (template === 'MANUAL') {
                     baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
@@ -751,6 +758,12 @@ const response = await fetch("http://127.0.0.1:8000/extract", {
                 if (mode === 'KORPORAT' && template === 'PN_BATAM') {
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
                     senderAddrFinal = baseSenderName;
+                    senderPhoneFinal = "0";
+                } else if (mode === 'KORPORAT' && template === 'MPM_FINANCE') {
+                    // Nama pelanggan wajib berasal dari data master, bukan kolom pengirim
+                    // pada file input.
+                    senderNameFinal = "PT JACCS MPM FINANCE INDONESIA";
+                    senderAddrFinal = "PT JACCS MPM FINANCE INDONESIA BATAM";
                     senderPhoneFinal = "0";
                 } else if (mode === 'KORPORAT') {
                     senderNameFinal = dSenderName ? dSenderName : baseSenderName;
