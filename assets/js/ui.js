@@ -220,6 +220,16 @@
       let rowHasReview = false;
 
       inputs.forEach(input => {
+        // Sinkronkan kembali status dengan isi aktual. Frasa "perlu dicek" selalu
+        // memenangkan status lama sehingga sorotan dan kewajiban koreksi tidak hilang.
+        if (typeof window.syncManagedRowFromInput === 'function') {
+          window.syncManagedRowFromInput(input);
+        }
+        const markerStillPresent = typeof window.containsReviewMarker === 'function'
+          ? window.containsReviewMarker(input.value)
+          : /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(String(input.value ?? ''));
+        if (markerStillPresent) input.dataset.reviewPending = 'true';
+
         const needsReview = input.dataset.reviewPending === 'true';
         const isDirty = input.dataset.reviewDirty === 'true';
         input.classList.toggle('needs-review-field', needsReview);
@@ -295,17 +305,30 @@
     const currentValue = String(active.value ?? '').trim();
     const originalValue = String(active.dataset.reviewOriginal ?? '').trim();
     const changed = currentValue !== '' && currentValue !== originalValue;
+    const markerStillPresent = typeof window.containsReviewMarker === 'function'
+      ? window.containsReviewMarker(currentValue)
+      : /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(currentValue);
+    const canConfirm = changed && !markerStillPresent;
     active.dataset.reviewDirty = String(changed);
     active.classList.toggle('is-review-dirty', changed);
 
     if (button) {
-      button.disabled = !changed;
-      button.textContent = changed ? '✓ Tandai selesai & lanjut' : 'Selesaikan koreksi dahulu';
+      button.disabled = !canConfirm;
+      if (!currentValue) button.textContent = 'Isi koreksi dahulu';
+      else if (!changed) button.textContent = 'Ubah teks terlebih dahulu';
+      else if (markerStillPresent) button.textContent = 'Hapus “perlu dicek” dahulu';
+      else button.textContent = '✓ Tandai selesai & lanjut';
     }
     if (hint) {
-      hint.textContent = changed
-        ? 'Perubahan belum disimpan. Klik centang setelah koreksi benar-benar selesai.'
-        : 'Silakan edit teks sampai benar. Mengetik tidak akan memindahkan fokus.';
+      if (!currentValue) {
+        hint.textContent = 'Kolom tidak boleh kosong. Masukkan hasil koreksi yang benar.';
+      } else if (!changed) {
+        hint.textContent = 'Silakan ubah teks yang meragukan. Mengetik tidak akan memindahkan fokus.';
+      } else if (markerStillPresent) {
+        hint.textContent = 'Koreksi belum selesai karena frasa “perlu dicek” masih ada. Ganti atau hapus frasa tersebut terlebih dahulu.';
+      } else {
+        hint.textContent = 'Perubahan siap disimpan. Klik tombol centang untuk menandai selesai dan lanjut.';
+      }
     }
   }
 
@@ -368,12 +391,25 @@
       input.focus();
       return;
     }
+    const markerStillPresent = typeof window.containsReviewMarker === 'function'
+      ? window.containsReviewMarker(currentValue)
+      : /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(currentValue);
+    if (markerStillPresent) {
+      showToast('Koreksi belum selesai. Ganti atau hapus seluruh frasa “perlu dicek”, lalu klik centang.', 'error');
+      input.focus();
+      selectReviewMarker(input);
+      updateReviewActionState();
+      return;
+    }
 
     const result = typeof window.commitReviewCorrection === 'function'
       ? window.commitReviewCorrection(input)
       : null;
     if (!result?.resolved) {
-      showToast('Koreksi belum dapat ditandai selesai. Periksa kembali isinya.', 'error');
+      const message = result?.reason === 'marker-remains'
+        ? 'Koreksi belum selesai karena frasa “perlu dicek” masih ada.'
+        : 'Koreksi belum dapat ditandai selesai. Periksa kembali isinya.';
+      showToast(message, 'error');
       input.focus();
       return;
     }

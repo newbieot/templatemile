@@ -57,3 +57,11 @@
 - Menambahkan tombol centang `Tandai selesai & lanjut` sebagai satu-satunya cara menutup status koreksi.
 - Fokus baru berpindah ke bagian berikutnya setelah pengguna menekan tombol centang.
 - Sel tetap dapat diedit setelah ditandai selesai dan tidak pernah dikunci.
+## 2026-07-31 — Koreksi wajib v4
+
+- Menjaga sorotan dan hitungan koreksi selama frasa “perlu dicek” masih ada.
+- Tombol checklist hanya aktif setelah isi berubah, tidak kosong, dan frasa penanda sudah dihapus/diganti.
+- Menolak konfirmasi apabila pengguna hanya menambah teks tetapi masih menyisakan “perlu dicek”.
+- Membuka kembali status koreksi apabila frasa penanda muncul lagi pada sel yang sebelumnya selesai.
+- Memperkuat highlight sel wajib koreksi dengan label visual yang jelas.
+

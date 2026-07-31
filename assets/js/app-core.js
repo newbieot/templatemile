@@ -797,7 +797,7 @@
         }
 
         function containsReviewMarker(value) {
-            return /\bPERLU\s+(?:DI\s*)?CEK\b/i.test(String(value ?? ''));
+            return /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(String(value ?? ''));
         }
 
         function ensureRowIdentity(row) {
@@ -823,17 +823,30 @@
         function ensureRowReviewState(row) {
             if (!row._reviewState || typeof row._reviewState !== 'object') {
                 row._reviewState = {};
-                reviewFieldKeys.forEach(field => {
-                    const originalValue = String(row[field] ?? '');
-                    if (containsReviewMarker(originalValue)) {
-                        row._reviewState[field] = {
-                            pending: true,
-                            dirty: false,
-                            originalValue
-                        };
-                    }
-                });
             }
+
+            // Rekonsiliasi setiap kali dipanggil. Dengan begitu, teks "perlu dicek"
+            // tidak pernah dapat tersembunyi hanya karena status lama sempat ditandai selesai.
+            reviewFieldKeys.forEach(field => {
+                const currentValue = String(row[field] ?? '');
+                const hasMarker = containsReviewMarker(currentValue);
+                let state = row._reviewState[field];
+
+                if (hasMarker && !state) {
+                    state = row._reviewState[field] = {
+                        pending: true,
+                        dirty: false,
+                        originalValue: currentValue
+                    };
+                } else if (hasMarker && state && !state.pending) {
+                    const previousResolvedValue = String(state.resolvedValue ?? state.originalValue ?? '');
+                    state.pending = true;
+                    state.dirty = currentValue.trim() !== previousResolvedValue.trim();
+                    state.originalValue = previousResolvedValue || currentValue;
+                    delete state.resolvedValue;
+                }
+            });
+
             return row._reviewState;
         }
 
@@ -891,11 +904,31 @@
             const context = getManagedInputContext(input);
             if (!context) return null;
 
+            const previousValue = String(context.row[context.field] ?? '');
             context.row[context.field] = input.value;
-            const reviewState = getFieldReviewState(context.row, context.field);
+            const states = ensureRowReviewState(context.row);
+            let reviewState = states[context.field] || null;
+            const currentValue = String(input.value ?? '');
+
+            // Jika frasa penanda muncul atau masih tersisa, status wajib koreksi dibuka kembali.
+            if (containsReviewMarker(currentValue)) {
+                if (!reviewState) {
+                    reviewState = states[context.field] = {
+                        pending: true,
+                        dirty: currentValue.trim() !== previousValue.trim(),
+                        originalValue: previousValue || currentValue
+                    };
+                } else {
+                    reviewState.pending = true;
+                    delete reviewState.resolvedValue;
+                }
+            }
+
             if (reviewState?.pending) {
-                const changed = String(input.value ?? '').trim() !== String(reviewState.originalValue ?? '').trim();
+                const changed = currentValue.trim() !== String(reviewState.originalValue ?? '').trim();
                 reviewState.dirty = changed;
+                input.dataset.reviewPending = 'true';
+                input.dataset.reviewOriginal = String(reviewState.originalValue ?? '');
                 input.dataset.reviewDirty = String(changed);
                 input.classList.toggle('is-review-dirty', changed);
             }
@@ -921,6 +954,15 @@
                 input.dataset.reviewDirty = 'false';
                 input.classList.remove('is-review-dirty');
                 return { resolved: false, pending: true, reason: 'unchanged' };
+            }
+            if (containsReviewMarker(currentValue)) {
+                context.reviewState.pending = true;
+                context.reviewState.dirty = true;
+                input.dataset.reviewPending = 'true';
+                input.dataset.reviewDirty = 'true';
+                input.classList.add('needs-review-field', 'is-review-dirty');
+                input.closest('td')?.classList.add('needs-review-cell');
+                return { resolved: false, pending: true, reason: 'marker-remains' };
             }
 
             context.reviewState.pending = false;
@@ -965,6 +1007,7 @@
 
         window.containsReviewMarker = containsReviewMarker;
         window.commitReviewCorrection = commitReviewCorrection;
+        window.syncManagedRowFromInput = syncManagedRowFromInput;
         window.getPendingReviewCount = getPendingReviewCount;
         window.deleteDataRow = deleteDataRow;
 

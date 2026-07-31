@@ -399,3 +399,13 @@ body.is-mandatory-review tbody tr.needs-review td{box-shadow:inset 0 1px 0 rgba(
 .button--review-confirm:disabled{border-color:#d0d5dd;color:#98a2b3;background:#f2f4f7;cursor:not-allowed;transform:none}
 .needs-review-field.is-active-review-editor{outline:3px solid rgba(37,99,235,.2);outline-offset:2px}
 @media (max-width:820px){.review-alert-actions{width:100%;display:grid;grid-template-columns:1fr}.review-alert-actions .button{width:100%}}
+
+/* v4 — penanda koreksi wajib tidak boleh hilang selama frasa masih ada */
+td.needs-review-cell{position:relative;padding-top:1.65rem!important;border-top:2px solid #d97706!important;border-bottom:2px solid #d97706!important;background:#fff7d6!important}
+td.needs-review-cell::before{content:"WAJIB DIKOREKSI";position:absolute;left:.45rem;top:.28rem;z-index:3;display:inline-flex;padding:.16rem .38rem;border-radius:999px;color:#fff;background:#b45309;font-size:.49rem;font-weight:950;letter-spacing:.07em;line-height:1;text-transform:uppercase;pointer-events:none}
+.needs-review-field{border:2px solid #d97706!important;color:#7c2d12!important;background:#fffdf0!important;box-shadow:0 0 0 4px rgba(217,119,6,.18)!important;font-weight:750!important}
+.needs-review-field:focus,.needs-review-field.is-active-review-editor{border-color:#b45309!important;background:#fff!important;box-shadow:0 0 0 5px rgba(217,119,6,.24)!important;outline:none!important}
+.needs-review-field.is-review-dirty{border-color:#ea580c!important;background:#fff7ed!important;box-shadow:0 0 0 5px rgba(234,88,12,.18)!important}
+tbody tr.needs-review td:first-child{box-shadow:inset 4px 0 0 #d97706}
+.summary-item--review.has-review{background:#fff7d6}
+.summary-item--review.has-review strong{color:#b45309;font-size:1rem}
