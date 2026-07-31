@@ -127,6 +127,7 @@
             const custIdInput = document.getElementById('customerId');
             const sNameInput = document.getElementById('senderName');
             const tariffInput = document.getElementById('tariffCode');
+            const serviceInput = document.getElementById('serviceCode');
             const itemInput = document.getElementById('itemType');
 
             if (mode !== 'KORPORAT') return;
@@ -159,6 +160,12 @@
                     custIdInput.value = "FINTOYOTA02294A";
                     sNameInput.value = "PT TOYOTA ASTRA FINANCE";
                     tariffInput.value = "";
+                } else if (template === 'MPM_FINANCE') {
+                    custIdInput.value = "FINMPMJKT04120A";
+                    sNameInput.value = "PT JACCS MPM FINANCE INDONESIA";
+                    tariffInput.value = "868523";
+                    tariffInput.readOnly = true;
+                    serviceInput.value = "PKH";
                 } else if (template === 'POLRES') {
                     custIdInput.value = "LNPOLRES01294A";
                     sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
@@ -706,6 +713,8 @@ const response = await fetch("http://127.0.0.1:8000/extract", {
                     baseSenderName = "MENSA BINA SUKSES BATAM";
                 } else if (template === 'TOYOTA') {
                     baseSenderName = "PT TOYOTA ASTRA FINANCE";
+                } else if (template === 'MPM_FINANCE') {
+                    baseSenderName = "PT JACCS MPM FINANCE INDONESIA";
                 } else if (template === 'POLRES') {
                     baseSenderName = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
                 }

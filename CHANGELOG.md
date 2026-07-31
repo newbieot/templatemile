@@ -1,4 +1,5 @@
 # Changelog
+- Menambahkan template pelanggan PT JACCS MPM FINANCE INDONESIA (FINMPMJKT04120A), sub service 868523, layanan default PKH.
 
 ## 2026-07-31 — Mandatory review workflow
 
