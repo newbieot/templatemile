@@ -178,9 +178,12 @@ td{padding:.24rem .32rem;border-right:1px solid #edf0f5;border-bottom:1px solid 
 td:last-child{border-right:0}
 tbody tr:nth-child(even) td{background:#fbfcfe}
 tbody tr:hover td{background:#f4f7fc}
-.table-input{width:100%;min-width:70px;height:32px;padding:0 .45rem;border:1px solid transparent;border-radius:7px;color:#263244;background:transparent;font-size:.66rem;text-transform:uppercase;outline:none;transition:border-color .15s ease,background .15s ease,box-shadow .15s ease}
+.table-input{width:100%;min-width:70px;height:32px;padding:0 .45rem;border:1px solid transparent;border-radius:7px;color:#263244;background:transparent;font-size:.66rem;text-transform:uppercase;outline:none;transition:border-color .15s ease,background .15s ease,box-shadow .15s ease,width .18s ease}
 .table-input:hover{border-color:#d6dde8;background:white}
 .table-input:focus{border-color:var(--orange);background:white;box-shadow:0 0 0 2px rgba(239,65,35,.12)}
+.table-input.is-expanded-editor{position:relative;z-index:14;min-width:360px;border-color:var(--orange);background:white;box-shadow:0 8px 24px rgba(15,23,42,.18),0 0 0 3px rgba(239,65,35,.14)}
+td.is-active-editor-cell{position:relative;z-index:13;overflow:visible;background:#fff7f3!important}
+tr.has-active-editor td{border-bottom-color:#f7b8aa}
 .dim-box{display:flex;align-items:center;justify-content:center;gap:3px;color:var(--muted-2)}
 .dim-box input{width:36px;height:30px;padding:0 2px;border:1px solid #d9dfe8;border-radius:6px;text-align:center;font-size:.62rem;outline:none}
 .dim-box input:focus{border-color:var(--orange);box-shadow:0 0 0 2px rgba(239,65,35,.1)}

@@ -8,6 +8,8 @@
   };
 
   let reviewCursor = -1;
+  let activeExpandedEditor = null;
+  let textMeasureCanvas = null;
 
   function getDataRows() {
     return Array.from(document.querySelectorAll('#resultTable tbody tr'))
@@ -28,6 +30,54 @@
   function getReviewInputs() {
     return Array.from(document.querySelectorAll('#resultTable tbody tr input'))
       .filter(input => hasReviewMarker(input.value));
+  }
+
+  function measureEditorWidth(input) {
+    const currentWidth = Math.ceil(input.getBoundingClientRect().width || 0);
+    const style = window.getComputedStyle(input);
+    textMeasureCanvas ||= document.createElement('canvas');
+    const context = textMeasureCanvas.getContext('2d');
+
+    if (!context) return Math.max(currentWidth, 360);
+
+    context.font = style.font || `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const value = input.value || input.placeholder || '';
+    const measuredText = context.measureText(value.toUpperCase()).width;
+    const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+    const border = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+
+    // Ruang tambahan menjaga kursor dan ujung teks tetap terlihat saat diedit.
+    return Math.max(currentWidth, Math.ceil(measuredText + padding + border + 38), 360);
+  }
+
+  function collapseExpandedEditor(input = activeExpandedEditor) {
+    if (!input) return;
+    input.classList.remove('is-expanded-editor');
+    input.style.removeProperty('width');
+    input.closest('td')?.classList.remove('is-active-editor-cell');
+    input.closest('tr')?.classList.remove('has-active-editor');
+    if (activeExpandedEditor === input) activeExpandedEditor = null;
+  }
+
+  function expandTableEditor(input) {
+    if (!(input instanceof HTMLInputElement) || !input.matches('#resultTable .table-input')) return;
+
+    if (activeExpandedEditor && activeExpandedEditor !== input) {
+      collapseExpandedEditor(activeExpandedEditor);
+    }
+
+    activeExpandedEditor = input;
+    input.classList.add('is-expanded-editor');
+    input.closest('td')?.classList.add('is-active-editor-cell');
+    input.closest('tr')?.classList.add('has-active-editor');
+
+    const desiredWidth = Math.min(measureEditorWidth(input), 1800);
+    input.style.width = `${desiredWidth}px`;
+
+    // Setelah tabel melebar, pastikan editor aktif tetap berada dalam viewport tabel.
+    window.requestAnimationFrame(() => {
+      input.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
   }
 
   function refreshReviewState() {
@@ -231,7 +281,31 @@
       document.getElementById(id)?.addEventListener('change', () => window.setTimeout(syncDashboard, 0));
     });
 
-    document.getElementById('resultTable')?.addEventListener('input', syncDashboard);
+    const resultTable = document.getElementById('resultTable');
+    resultTable?.addEventListener('input', event => {
+      syncDashboard();
+      if (event.target === activeExpandedEditor) expandTableEditor(activeExpandedEditor);
+    });
+
+    resultTable?.addEventListener('focusin', event => {
+      const input = event.target.closest?.('.table-input');
+      if (input) expandTableEditor(input);
+    });
+
+    resultTable?.addEventListener('focusout', event => {
+      const input = event.target.closest?.('.table-input');
+      if (input) collapseExpandedEditor(input);
+    });
+
+    resultTable?.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && event.target === activeExpandedEditor) {
+        collapseExpandedEditor(activeExpandedEditor);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (activeExpandedEditor) expandTableEditor(activeExpandedEditor);
+    });
   }
 
   function improveModalFocus() {

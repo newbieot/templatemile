@@ -10,6 +10,10 @@ This project is static and can be deployed directly to Cloudflare Pages.
 - Output directory: repository root
 - Custom domain: `mile.posnew.com`
 
+## Key editing features
+
+- Table cells expand temporarily on focus so long addresses and other text can be read and corrected in full.
+
 ## Main workflow
 
 1. Select corporate, retail, or moving-goods mode.

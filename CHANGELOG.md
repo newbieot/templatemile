@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-31 — Flexible cell editor
+
+- Active table cells now expand automatically to show the complete text while editing.
+- The expanded column returns to its normal compact width when focus moves to another cell.
+- Expansion width updates live as the user types, including fields marked `perlu dicek`.
+
 ## 2026-07-31
 
 - Added automatic detection and highlighting for cells containing “perlu dicek”.
