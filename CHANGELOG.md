@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-31
+
+- Added automatic detection and highlighting for cells containing “perlu dicek”.
+- Added guided next-issue navigation and blocked export while review markers remain.
+- Added per-row deletion with persistent table-state synchronization.
+- Added PN Batam PE/PKH defaults for weekdays, Fridays, holidays, and H-1 holidays.
+- Updated cache versions for deployment.
+
 ## 2026-07-25
 
 - Complete responsive UI and UX redesign.

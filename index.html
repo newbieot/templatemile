@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from Excel and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260725-1">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260731-2">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -141,6 +141,7 @@
             <div class="form-group">
               <label for="serviceCode">Kode layanan</label>
               <div class="select-shell"><select id="serviceCode"><option value="PKH">PKH</option><option value="PE">PE</option></select></div>
+              <span class="field-hint service-code-hint" id="serviceCodeHint" hidden></span>
             </div>
             <div class="form-group" id="wrapTariffCode">
               <label for="tariffCode">Kode tarif <span>Opsional</span></label>
@@ -211,11 +212,23 @@
             <div class="summary-item"><span>Berkas</span><strong id="fileCount">0</strong></div>
             <div class="summary-item"><span>Mode</span><strong id="modeSummary">Corporate</strong></div>
             <div class="summary-item"><span>Asuransi</span><strong id="insuranceSummary">Off</strong></div>
+            <div class="summary-item summary-item--review"><span>Perlu dicek</span><strong id="reviewCount">0</strong></div>
             <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu berkas sumber</div>
           </div>
 
+          <div class="review-alert" id="reviewAlert" hidden>
+            <span class="review-alert-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
+            </span>
+            <div class="review-alert-copy">
+              <strong id="reviewAlertTitle">Ada data yang perlu dikoreksi</strong>
+              <p>Tulisan “perlu dicek” disorot. Perbaiki seluruh bagian tersebut sebelum ekspor.</p>
+            </div>
+            <button class="button button--review" id="nextReviewButton" type="button" onclick="focusNextReviewIssue()">Tinjau berikutnya</button>
+          </div>
+
           <div class="table-help">
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk memperbaiki data. Deteksi kode pos memprioritaskan kecocokan alamat paling kanan.</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk mengoreksi data. Baris dapat dihapus melalui tombol pada kolom Aksi.</span>
           </div>
 
           <div class="table-container" role="region" aria-label="Editable recipient data" tabindex="0">
@@ -284,7 +297,7 @@
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-  <script src="/assets/js/app-core.js?v=20260725-1" defer></script>
-  <script src="/assets/js/ui.js?v=20260731-1" defer></script>
+  <script src="/assets/js/app-core.js?v=20260731-2" defer></script>
+  <script src="/assets/js/ui.js?v=20260731-2" defer></script>
 </body>
 </html>

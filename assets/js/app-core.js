@@ -6,6 +6,7 @@
         let currentHeaders = [];
         let tempExtractedRows = []; 
         let globalHeaderRowIndex = 0; // Menyimpan baris di mana header sebenarnya berada
+        let rowIdentityCounter = 0;
 
         // ================= DATABASE BATAM =================
         const batamKelurahanMapping = [
@@ -73,8 +74,114 @@
             { keyword: 'TANJUNG PINANG KOTA', code: '29115' }, { keyword: 'BUKIT BESTARI', code: '29124' }
         ];
 
+
+        // ================= ATURAN LAYANAN PN BATAM =================
+        // Kalender resmi 2026: libur nasional dan cuti bersama.
+        const pnBatamClosedDates2026 = Object.freeze({
+            "2026-01-01": "Tahun Baru 2026 Masehi",
+            "2026-01-16": "Isra Mikraj Nabi Muhammad SAW",
+            "2026-02-16": "Cuti Bersama Tahun Baru Imlek",
+            "2026-02-17": "Tahun Baru Imlek 2577 Kongzili",
+            "2026-03-18": "Cuti Bersama Hari Suci Nyepi",
+            "2026-03-19": "Hari Suci Nyepi",
+            "2026-03-20": "Cuti Bersama Idulfitri",
+            "2026-03-21": "Hari Raya Idulfitri 1447 H",
+            "2026-03-22": "Hari Raya Idulfitri 1447 H",
+            "2026-03-23": "Cuti Bersama Idulfitri",
+            "2026-03-24": "Cuti Bersama Idulfitri",
+            "2026-04-03": "Wafat Yesus Kristus",
+            "2026-04-05": "Kebangkitan Yesus Kristus (Paskah)",
+            "2026-05-01": "Hari Buruh Internasional",
+            "2026-05-14": "Kenaikan Yesus Kristus",
+            "2026-05-15": "Cuti Bersama Kenaikan Yesus Kristus",
+            "2026-05-27": "Hari Raya Iduladha 1447 H",
+            "2026-05-28": "Cuti Bersama Iduladha",
+            "2026-05-31": "Hari Raya Waisak 2570 BE",
+            "2026-06-01": "Hari Lahir Pancasila",
+            "2026-06-16": "1 Muharam 1448 H",
+            "2026-08-17": "Hari Proklamasi Kemerdekaan",
+            "2026-08-25": "Maulid Nabi Muhammad SAW",
+            "2026-12-24": "Cuti Bersama Kelahiran Yesus Kristus",
+            "2026-12-25": "Kelahiran Yesus Kristus"
+        });
+
+        function getBatamIsoDate(date = new Date()) {
+            const formatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Jakarta',
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            });
+            const parts = Object.fromEntries(formatter.formatToParts(date).map(part => [part.type, part.value]));
+            return `${parts.year}-${parts.month}-${parts.day}`;
+        }
+
+        function shiftIsoDate(isoDate, days) {
+            const [year, month, day] = isoDate.split('-').map(Number);
+            const date = new Date(Date.UTC(year, month - 1, day + days, 12));
+            return date.toISOString().slice(0, 10);
+        }
+
+        function getIsoDayOfWeek(isoDate) {
+            const [year, month, day] = isoDate.split('-').map(Number);
+            return new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay();
+        }
+
+        function formatIndonesianDate(isoDate) {
+            const [year, month, day] = isoDate.split('-').map(Number);
+            return new Intl.DateTimeFormat('id-ID', {
+                timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            }).format(new Date(Date.UTC(year, month - 1, day, 5)));
+        }
+
+        function getPNBatamServiceRecommendation(date = new Date()) {
+            const isoDate = getBatamIsoDate(date);
+            const holidayName = pnBatamClosedDates2026[isoDate];
+            if (holidayName) {
+                return { code: 'PKH', isoDate, reason: `${formatIndonesianDate(isoDate)} merupakan ${holidayName}.` };
+            }
+
+            const tomorrowIso = shiftIsoDate(isoDate, 1);
+            const tomorrowHoliday = pnBatamClosedDates2026[tomorrowIso];
+            if (tomorrowHoliday) {
+                return { code: 'PKH', isoDate, reason: `H-1 ${tomorrowHoliday} (${formatIndonesianDate(tomorrowIso)}).` };
+            }
+
+            const dayOfWeek = getIsoDayOfWeek(isoDate);
+            if (dayOfWeek === 5) {
+                return { code: 'PKH', isoDate, reason: 'Hari Jumat menggunakan layanan PKH.' };
+            }
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                return { code: 'PKH', isoDate, reason: 'Akhir pekan menggunakan layanan PKH.' };
+            }
+            return { code: 'PE', isoDate, reason: 'Hari Senin–Kamis normal menggunakan layanan PE.' };
+        }
+
+        function applyPNBatamServiceDefault() {
+            const template = document.getElementById('corporateTemplate')?.value;
+            const mode = document.getElementById('clientMode')?.value;
+            const serviceSelect = document.getElementById('serviceCode');
+            const hint = document.getElementById('serviceCodeHint');
+            if (!serviceSelect || !hint) return;
+
+            if (mode === 'KORPORAT' && template === 'PN_BATAM') {
+                const recommendation = getPNBatamServiceRecommendation();
+                serviceSelect.value = recommendation.code;
+                hint.hidden = false;
+                hint.innerHTML = `<strong>Otomatis: ${recommendation.code}</strong> · ${recommendation.reason} Tetap dapat diganti manual.`;
+            } else {
+                hint.hidden = true;
+                hint.textContent = '';
+            }
+        }
+
+        window.getPNBatamServiceRecommendation = getPNBatamServiceRecommendation;
+
+
         document.addEventListener("DOMContentLoaded", () => {
             handleModeChange();
+            document.getElementById('resultTable')?.addEventListener('input', event => {
+                syncManagedRowFromInput(event.target);
+                if (typeof window.refreshReviewState === 'function') window.refreshReviewState();
+            });
         });
 
         // MANAJEMEN UI BERDASARKAN MODE (KORPORAT, RITEL, PINDAH)
@@ -143,6 +250,7 @@
                 cbInsurance.disabled = true;
             }
 
+            applyPNBatamServiceDefault();
             uploadedFilesManager = [];
             updateInterface();
         }
@@ -217,6 +325,7 @@
                     tariffInput.value = "";
                 }
             }
+            applyPNBatamServiceDefault();
             // Update tabel agar kodeposnya ter-refresh sesuai database
             updateInterface();
         }
@@ -688,10 +797,88 @@
             return defaultZip;
         }
 
-        function deleteFileFromQueue(id) {
-            uploadedFilesManager = uploadedFilesManager.filter(f => f.id !== id);
-            updateInterface();
+        function containsReviewMarker(value) {
+            return /\bPERLU\s+(?:DI\s*)?CEK\b/i.test(String(value ?? ''));
         }
+
+        function ensureRowIdentity(row) {
+            if (!row._rowId) {
+                rowIdentityCounter += 1;
+                row._rowId = `row-${Date.now()}-${rowIdentityCounter}`;
+            }
+            return row._rowId;
+        }
+
+        function escapeAttribute(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function rowNeedsReview(row) {
+            return ['senderName', 'noSurat', 'name', 'phone', 'zip', 'cw', 'p', 'l', 't', 'insHarga', 'address']
+                .some(key => containsReviewMarker(row[key]));
+        }
+
+        function findManagedRow(fileId, rowId) {
+            const file = uploadedFilesManager.find(item => String(item.id) === String(fileId));
+            if (!file) return null;
+            const row = file.rows.find(item => ensureRowIdentity(item) === String(rowId));
+            return row ? { file, row } : null;
+        }
+
+        function syncManagedRowFromInput(input) {
+            if (!(input instanceof HTMLInputElement)) return;
+            const tr = input.closest('tr[data-file-id][data-row-id]');
+            if (!tr) return;
+            const managed = findManagedRow(tr.dataset.fileId, tr.dataset.rowId);
+            if (!managed) return;
+
+            const fieldClassMap = {
+                'val-senderName': 'senderName',
+                'val-noSurat': 'noSurat',
+                'val-name': 'name',
+                'val-phone': 'phone',
+                'val-zip': 'zip',
+                'val-cw': 'cw',
+                'val-p': 'p',
+                'val-l': 'l',
+                'val-t': 't',
+                'val-ins-harga': 'insHarga',
+                'val-address': 'address'
+            };
+            const matchedClass = Object.keys(fieldClassMap).find(className => input.classList.contains(className));
+            if (!matchedClass) return;
+            managed.row[fieldClassMap[matchedClass]] = input.value;
+        }
+
+        function deleteFileFromQueue(id) {
+            const file = uploadedFilesManager.find(item => String(item.id) === String(id));
+            if (!file) return;
+            if (!window.confirm(`Hapus berkas "${file.name}" beserta ${file.rows.length} baris datanya?`)) return;
+            uploadedFilesManager = uploadedFilesManager.filter(item => String(item.id) !== String(id));
+            updateInterface();
+            if (typeof window.showToast === 'function') window.showToast('Berkas dan seluruh barisnya telah dihapus.', 'success');
+        }
+
+        function deleteDataRow(fileId, rowId) {
+            const managed = findManagedRow(fileId, rowId);
+            if (!managed) return;
+            const label = managed.row.name || managed.row.noSurat || 'baris ini';
+            if (!window.confirm(`Hapus data "${label}" dari tabel?`)) return;
+
+            managed.file.rows = managed.file.rows.filter(item => ensureRowIdentity(item) !== String(rowId));
+            if (managed.file.rows.length === 0) {
+                uploadedFilesManager = uploadedFilesManager.filter(item => String(item.id) !== String(fileId));
+            }
+            updateInterface();
+            if (typeof window.showToast === 'function') window.showToast('Baris berhasil dihapus.', 'success');
+        }
+
+        window.containsReviewMarker = containsReviewMarker;
+        window.deleteDataRow = deleteDataRow;
 
         function updateInterface() {
             const fileQueueDiv = document.getElementById('fileQueue');
@@ -700,10 +887,11 @@
             } else {
                 fileQueueDiv.innerHTML = "";
                 uploadedFilesManager.forEach(file => {
+                    file.rows.forEach(ensureRowIdentity);
                     fileQueueDiv.innerHTML += `
                         <div class="file-item">
-                            <span style="font-weight:600;">📄 ${file.name} (${file.rows.length} Baris)</span>
-                            <button class="btn-delete-file" onclick="deleteFileFromQueue(${file.id})">Hapus</button>
+                            <span style="font-weight:600;">📄 ${escapeAttribute(file.name)} (${file.rows.length} Baris)</span>
+                            <button class="btn-delete-file" type="button" onclick="deleteFileFromQueue(${JSON.stringify(file.id)})">Hapus</button>
                         </div>`;
                 });
             }
@@ -713,15 +901,16 @@
             thead.innerHTML = `
                 <tr>
                     <th style="width: 3%; text-align: center;">NO</th>
-                    <th style="width: 13%;">PENGIRIM</th>
-                    <th style="width: 12%;">REF/SURAT</th>
-                    <th style="width: 15%;">PENERIMA</th>
-                    <th style="width: 10%;">NO HP</th>
+                    <th style="width: 12%;">PENGIRIM</th>
+                    <th style="width: 11%;">REF/SURAT</th>
+                    <th style="width: 14%;">PENERIMA</th>
+                    <th style="width: 9%;">NO HP</th>
                     <th style="width: 7%;">KODEPOS</th>
                     <th style="width: 7%;">BERAT(KG)</th>
                     <th style="width: 8%;">PxLxT</th>
-                    ${useInsurance ? '<th style="width: 10%;">NILAI BRG(Rp)</th>' : ''}
+                    ${useInsurance ? '<th style="width: 9%;">NILAI BRG(Rp)</th>' : ''}
                     <th style="width: 15%;">ALAMAT</th>
+                    <th class="action-column-heading" style="width: 8%; text-align:center;">AKSI</th>
                 </tr>
             `;
 
@@ -732,39 +921,49 @@
             uploadedFilesManager.forEach(file => {
                 file.rows.forEach(item => {
                     counter++;
+                    const rowId = ensureRowIdentity(item);
                     const tr = document.createElement('tr');
-                    
+                    tr.dataset.fileId = String(file.id);
+                    tr.dataset.rowId = rowId;
+                    const needsReview = rowNeedsReview(item);
+                    tr.dataset.needsReview = String(needsReview);
+                    tr.classList.toggle('needs-review', needsReview);
+
+                    const inputClass = value => containsReviewMarker(value) ? ' needs-review-field' : '';
                     let insValue = item.insHarga !== undefined ? item.insHarga : 0;
-                    let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga" value="${insValue}" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
+                    let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga${inputClass(insValue)}" value="${escapeAttribute(insValue)}" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
 
                     tr.innerHTML = `
-                        <td style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
-                        <td><input type="text" class="table-input val-senderName" value="${item.senderName || ''}"></td>
-                        <td><input type="text" class="table-input val-noSurat" value="${item.noSurat || ''}"></td>
-                        <td><input type="text" class="table-input val-name" value="${item.name || ''}"></td>
-                        <td><input type="text" class="table-input val-phone" value="${item.phone || ''}"></td>
-                        <td><input type="text" class="table-input val-zip" style="font-weight:bold; color:#d32f2f;" value="${item.zip || ''}"></td>
-                        
-                        <td><input type="text" class="table-input val-cw" style="font-weight:bold; color:#0277bd;" value="${item.cw || '0.20'}"></td>
-                        
+                        <td class="row-number-cell" style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
+                        <td><input type="text" class="table-input val-senderName${inputClass(item.senderName)}" value="${escapeAttribute(item.senderName || '')}"></td>
+                        <td><input type="text" class="table-input val-noSurat${inputClass(item.noSurat)}" value="${escapeAttribute(item.noSurat || '')}"></td>
+                        <td><input type="text" class="table-input val-name${inputClass(item.name)}" value="${escapeAttribute(item.name || '')}"></td>
+                        <td><input type="text" class="table-input val-phone${inputClass(item.phone)}" value="${escapeAttribute(item.phone || '')}"></td>
+                        <td><input type="text" class="table-input val-zip${inputClass(item.zip)}" style="font-weight:bold; color:#d32f2f;" value="${escapeAttribute(item.zip || '')}"></td>
+                        <td><input type="text" class="table-input val-cw${inputClass(item.cw)}" style="font-weight:bold; color:#0277bd;" value="${escapeAttribute(item.cw || '0.20')}"></td>
                         <td>
                             <div class="dim-box">
-                                <input type="text" class="val-p" value="${item.p || 10}">x
-                                <input type="text" class="val-l" value="${item.l || 10}">x
-                                <input type="text" class="val-t" value="${item.t || 10}">
+                                <input type="text" class="val-p${inputClass(item.p)}" value="${escapeAttribute(item.p || 10)}">x
+                                <input type="text" class="val-l${inputClass(item.l)}" value="${escapeAttribute(item.l || 10)}">x
+                                <input type="text" class="val-t${inputClass(item.t)}" value="${escapeAttribute(item.t || 10)}">
                             </div>
                         </td>
-                        
                         ${insColumn}
-                        
-                        <td><input type="text" class="table-input val-address" value="${item.address || ''}"></td>
+                        <td><input type="text" class="table-input val-address${inputClass(item.address)}" value="${escapeAttribute(item.address || '')}"></td>
+                        <td class="row-action-cell">
+                            <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>Perlu dicek</span>
+                            <button class="row-delete-button" type="button" aria-label="Hapus baris ${counter}" title="Hapus baris" onclick='deleteDataRow(${JSON.stringify(file.id)}, ${JSON.stringify(rowId)})'>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>
+                                <span>Hapus</span>
+                            </button>
+                        </td>
                     `;
                     tbody.appendChild(tr);
                 });
             });
 
             if (counter === 0) {
-                tbody.innerHTML = `<tr><td colspan="${useInsurance ? 10 : 9}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${useInsurance ? 11 : 10}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
             }
         }
 
@@ -772,6 +971,17 @@
             const rows = document.querySelectorAll('#resultTable tbody tr');
             if (rows.length === 0 || rows[0].querySelector('input') === null) {
                 alert("Tidak ada data untuk diekspor."); return;
+            }
+
+            const unresolvedReviewInputs = Array.from(document.querySelectorAll('#resultTable tbody tr input'))
+                .filter(input => containsReviewMarker(input.value));
+            if (unresolvedReviewInputs.length > 0) {
+                alert(`Masih ada ${unresolvedReviewInputs.length} bagian bertuliskan “perlu dicek”. Koreksi seluruhnya sebelum ekspor.`);
+                const firstIssue = unresolvedReviewInputs[0];
+                firstIssue.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                firstIssue.focus({ preventScroll: true });
+                firstIssue.select?.();
+                return;
             }
 
             const mode = document.getElementById('clientMode').value;
