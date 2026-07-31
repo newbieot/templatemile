@@ -12,6 +12,8 @@
   let activeExpandedColumnIndex = -1;
   let expandedColumnStyle = null;
   let textMeasureCanvas = null;
+  let lastReviewInputCount = 0;
+  let mandatoryReviewFocusTimer = null;
 
   function getDataRows() {
     return Array.from(document.querySelectorAll('#resultTable tbody tr'))
@@ -138,6 +140,92 @@
     });
   }
 
+  function focusReviewInput(target, options = {}) {
+    if (!(target instanceof HTMLInputElement)) return;
+    const { smooth = true, select = true } = options;
+    target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center', inline: 'center' });
+    window.setTimeout(() => {
+      target.focus({ preventScroll: true });
+      if (select) target.select?.();
+    }, smooth ? 260 : 30);
+  }
+
+  function setControlReviewLock(control, locked) {
+    if (!(control instanceof HTMLElement)) return;
+    if (control.matches('.btn-delete-file, #clearDataButton')) return;
+
+    if (locked) {
+      if (!control.hasAttribute('data-review-lock-original-disabled')) {
+        control.setAttribute('data-review-lock-original-disabled', control.disabled ? 'true' : 'false');
+      }
+      if (!control.disabled) {
+        control.disabled = true;
+        control.setAttribute('data-review-lock-applied', 'true');
+      }
+      control.setAttribute('aria-disabled', 'true');
+    } else {
+      if (control.getAttribute('data-review-lock-applied') === 'true') {
+        control.disabled = control.getAttribute('data-review-lock-original-disabled') === 'true';
+      }
+      control.removeAttribute('data-review-lock-original-disabled');
+      control.removeAttribute('data-review-lock-applied');
+      if (!control.disabled) control.removeAttribute('aria-disabled');
+    }
+  }
+
+  function applyMandatoryReviewMode(reviewInputCount) {
+    const active = reviewInputCount > 0;
+    document.body.classList.toggle('is-mandatory-review', active);
+    document.querySelector('.preview-card')?.classList.toggle('is-review-required', active);
+
+    document.querySelectorAll('.setup-column input, .setup-column select, .setup-column button')
+      .forEach(control => setControlReviewLock(control, active));
+
+    getDataRows().forEach(row => {
+      const locked = active && row.dataset.needsReview !== 'true';
+      row.classList.toggle('is-review-locked-row', locked);
+      row.setAttribute('aria-disabled', locked ? 'true' : 'false');
+      if ('inert' in row) row.inert = locked;
+    });
+
+    const alert = document.getElementById('reviewAlert');
+    if (alert) {
+      alert.setAttribute('aria-live', active ? 'assertive' : 'polite');
+      alert.setAttribute('aria-atomic', 'true');
+    }
+  }
+
+  function scheduleMandatoryReviewFocus(reviewInputCount) {
+    const activeElement = document.activeElement;
+    const focusIsAlreadyUseful = activeElement instanceof HTMLInputElement
+      && activeElement.closest('#resultTable')
+      && activeElement.closest('tr')?.dataset.needsReview === 'true';
+    const shouldFocus = reviewInputCount > 0
+      && (lastReviewInputCount === 0 || (!focusIsAlreadyUseful && activeElement === document.body));
+
+    if (reviewInputCount === 0 && mandatoryReviewFocusTimer) {
+      window.clearTimeout(mandatoryReviewFocusTimer);
+      mandatoryReviewFocusTimer = null;
+    }
+
+    if (shouldFocus && !mandatoryReviewFocusTimer) {
+      mandatoryReviewFocusTimer = window.setTimeout(() => {
+        mandatoryReviewFocusTimer = null;
+        const target = getReviewInputs()[0];
+        if (!target) return;
+        document.getElementById('reviewAlert')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        focusReviewInput(target, { smooth: true, select: true });
+        showToast('Koreksi wajib: perbaiki semua bagian bertuliskan “perlu dicek” sebelum melanjutkan.', 'error');
+      }, 180);
+    }
+
+    if (reviewInputCount === 0 && lastReviewInputCount > 0) {
+      showToast('Semua bagian “perlu dicek” sudah dikoreksi. Fitur lain telah dibuka kembali.', 'success');
+    }
+
+    lastReviewInputCount = reviewInputCount;
+  }
+
   function refreshReviewState() {
     const rows = getDataRows();
     let reviewRowCount = 0;
@@ -180,6 +268,9 @@
     if (nextReviewButton) nextReviewButton.disabled = reviewInputCount === 0;
     if (reviewCursor >= reviewInputCount) reviewCursor = -1;
 
+    applyMandatoryReviewMode(reviewInputCount);
+    scheduleMandatoryReviewFocus(reviewInputCount);
+
     return { reviewRowCount, reviewInputCount };
   }
 
@@ -213,11 +304,7 @@
     const activeIndex = inputs.indexOf(document.activeElement);
     reviewCursor = activeIndex >= 0 ? (activeIndex + 1) % inputs.length : (reviewCursor + 1) % inputs.length;
     const target = inputs[reviewCursor];
-    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    window.setTimeout(() => {
-      target.focus({ preventScroll: true });
-      target.select?.();
-    }, 260);
+    focusReviewInput(target, { smooth: true, select: true });
   };
 
   function syncDashboard() {
@@ -341,8 +428,14 @@
 
     const resultTable = document.getElementById('resultTable');
     resultTable?.addEventListener('input', event => {
+      const input = event.target instanceof HTMLInputElement ? event.target : null;
+      const wasReview = Boolean(input?.classList.contains('needs-review-field'));
       syncDashboard();
-      if (event.target === activeExpandedEditor) expandTableEditor(activeExpandedEditor);
+      if (input === activeExpandedEditor) expandTableEditor(activeExpandedEditor);
+      if (input && wasReview && !hasReviewMarker(input.value)) {
+        input.dataset.reviewJustResolved = 'true';
+        input.classList.add('is-review-resolved');
+      }
     });
 
     resultTable?.addEventListener('focusin', event => {
@@ -352,12 +445,36 @@
 
     resultTable?.addEventListener('focusout', event => {
       const input = event.target.closest?.('.table-input');
-      if (input) collapseExpandedEditor(input);
+      if (!input) return;
+      collapseExpandedEditor(input);
+
+      if (input.dataset.reviewJustResolved === 'true' && !hasReviewMarker(input.value)) {
+        delete input.dataset.reviewJustResolved;
+        input.classList.remove('is-review-resolved');
+        window.setTimeout(() => {
+          const active = document.activeElement;
+          const activeIsReview = active instanceof HTMLInputElement && hasReviewMarker(active.value);
+          if (activeIsReview) return;
+          const remaining = getReviewInputs();
+          if (remaining.length) focusReviewInput(remaining[0], { smooth: true, select: true });
+        }, 80);
+      }
     });
 
     resultTable?.addEventListener('keydown', event => {
+      const input = event.target instanceof HTMLInputElement ? event.target : null;
       if (event.key === 'Escape' && event.target === activeExpandedEditor) {
         collapseExpandedEditor(activeExpandedEditor);
+      }
+      if (event.key === 'Enter' && input?.closest('tr')?.dataset.needsReview === 'true') {
+        event.preventDefault();
+        if (hasReviewMarker(input.value)) {
+          showToast('Bagian ini masih memuat tulisan “perlu dicek”. Silakan koreksi terlebih dahulu.', 'error');
+          input.select?.();
+          return;
+        }
+        const remaining = getReviewInputs();
+        if (remaining.length) focusReviewInput(remaining[0], { smooth: true, select: true });
       }
     });
 

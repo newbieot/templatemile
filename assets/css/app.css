@@ -378,3 +378,23 @@ tbody tr.needs-review td.row-action-cell{background:#fff9e8!important}
   .review-alert-copy{width:calc(100% - 48px)}
   .button--review{width:100%}
 }
+
+
+/* Mode koreksi wajib untuk data bertanda “perlu dicek” */
+.review-required-label{display:inline-flex;width:max-content;margin-bottom:.28rem;padding:.2rem .42rem;border-radius:999px;color:#fff;background:#9a6700;font-size:.52rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+body.is-mandatory-review .review-alert{position:sticky;top:0;z-index:35;border-color:#d49a00;background:#fff6d6;box-shadow:0 10px 28px rgba(122,79,0,.18)}
+body.is-mandatory-review .review-alert::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;border-radius:12px 0 0 12px;background:#d49a00}
+body.is-mandatory-review .setup-column .panel-card,
+body.is-mandatory-review .setup-column .privacy-note{opacity:.66;filter:saturate(.75)}
+body.is-mandatory-review .setup-column .btn-delete-file{opacity:1;filter:none}
+body.is-mandatory-review .setup-column input:disabled,
+body.is-mandatory-review .setup-column select:disabled,
+body.is-mandatory-review .setup-column button:disabled{cursor:not-allowed}
+.preview-card.is-review-required .export-bar{opacity:.58}
+.preview-card.is-review-required .table-help{color:#7a4f00;background:#fffaf0}
+tbody tr.is-review-locked-row{opacity:.32;filter:grayscale(.35)}
+tbody tr.is-review-locked-row td{background:#f6f7f9!important}
+tbody tr.is-review-locked-row *{pointer-events:none!important}
+.needs-review-field.is-review-resolved{border-color:#15803d!important;background:#ecfdf3!important;box-shadow:0 0 0 3px rgba(21,128,61,.15)!important}
+body.is-mandatory-review tbody tr.needs-review{position:relative;z-index:2}
+body.is-mandatory-review tbody tr.needs-review td{box-shadow:inset 0 1px 0 rgba(226,171,19,.22),inset 0 -1px 0 rgba(226,171,19,.22)}

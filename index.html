@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from Excel and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260731-4">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260731-5">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -221,10 +221,11 @@
               <svg viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
             </span>
             <div class="review-alert-copy">
-              <strong id="reviewAlertTitle">Ada data yang perlu dikoreksi</strong>
-              <p>Tulisan “perlu dicek” disorot. Perbaiki seluruh bagian tersebut sebelum ekspor.</p>
+              <span class="review-required-label">Koreksi wajib</span>
+              <strong id="reviewAlertTitle">Ada data yang wajib dikoreksi</strong>
+              <p>Fitur lain dikunci sementara. Perbaiki atau edit seluruh bagian bertuliskan “perlu dicek”, atau hapus baris yang memang tidak digunakan.</p>
             </div>
-            <button class="button button--review" id="nextReviewButton" type="button" onclick="focusNextReviewIssue()">Tinjau berikutnya</button>
+            <button class="button button--review" id="nextReviewButton" type="button" onclick="focusNextReviewIssue()">Koreksi berikutnya</button>
           </div>
 
           <div class="table-help">
@@ -297,7 +298,7 @@
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-  <script src="/assets/js/app-core.js?v=20260731-4" defer></script>
-  <script src="/assets/js/ui.js?v=20260731-4" defer></script>
+  <script src="/assets/js/app-core.js?v=20260731-5" defer></script>
+  <script src="/assets/js/ui.js?v=20260731-5" defer></script>
 </body>
 </html>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-31 — Mandatory review workflow
+
+- Added mandatory correction mode when any cell contains “perlu dicek”.
+- Automatically focuses the first unresolved cell after import.
+- Locks setup/upload controls and non-review rows until all flagged cells are corrected or removed.
+- Automatically advances to the next unresolved cell after correction.
+- Keeps export unavailable until every flagged item has been resolved.
+
 ## 2026-07-31 — Flexible column editor v2
 
 - Enlarges the complete active table column, not only its input element.
