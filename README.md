@@ -65,3 +65,11 @@ Only the current image batch is sent to CosmosHub.
 ## Model selector
 
 The visible selector includes the complete configured CosmosHub allowlist, including `muse-spark-1.1`. Claude Opus 5 remains the default. A model being Healthy in CosmosHub only confirms endpoint availability; PDF extraction also requires support for OpenAI-compatible image input.
+
+## Vision-only CosmosHub list
+
+Untuk fitur PDF AI, dropdown model sekarang dibatasi hanya pada model vision yang sudah lolos uji di CosmosHub: Claude Opus 5, Claude Sonnet 4.5, Claude Haiku 4.5, Gemini 3.6 Flash, Gemini 3.5 Flash, dan Gemini 3.1 Pro. Model text-only / belum tervalidasi disembunyikan agar tidak menghasilkan output kosong.
+
+## Pemrosesan tanpa mode BNI
+
+Mode BNI khusus telah dihapus. Semua PDF memakai pipeline vision umum yang lebih ringan. Pembersihan salam `KEPADA YTH`, kode placeholder mandiri, dan artefak OCR tetap berjalan otomatis tanpa mengirim dua gambar per halaman atau memaksa audit penuh.

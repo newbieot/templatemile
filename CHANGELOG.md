@@ -1,3 +1,17 @@
+## 2026-08-02 · Remove BNI processing mode (v11)
+- Removed the dedicated BNI/dot-matrix mode and its automatic activation by template or filename.
+- PDF extraction now sends one optimized image per page instead of BNI dual-image payloads.
+- Removed BNI full-audit behavior; verification follows the selected speed preset only.
+- Retained lightweight global cleanup for `KEPADA YTH`, standalone placeholder codes such as `000000`, and OCR artifacts such as `DONGDOI`.
+- Reduced request payload size, expected token use, rendering overhead, and processing time.
+- Updated cache, health-check, and session configuration versions to `20260802-11`.
+
+## 2026-08-02 · Vision-only model list (v10)
+- Restricted CosmosHub PDF model selection to proven vision-capable models only: Claude Opus 5, Claude Sonnet 4.5, Claude Haiku 4.5, Gemini 3.6 Flash, Gemini 3.5 Flash, and Gemini 3.1 Pro.
+- Removed text-only / unverified models from the dropdown to prevent empty extraction results and mass `PERLU DICEK` rows.
+- Worker now rejects non-vision models for PDF requests.
+- Updated cache, health-check, and session configuration versions to `20260802-10`.
+
 # Changelog
 
 ## 2026-08-02 · v9

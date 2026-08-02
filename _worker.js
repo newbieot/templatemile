@@ -1,12 +1,8 @@
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const MAX_REQUEST_BYTES = 28 * 1024 * 1024;
 const ALLOWED_MODELS = new Set([
-  'qwen-3.7-max','gemini-3.5-flash','gemini-3.1-pro','mimo-v2.5','mimo-v2.5-pro',
-  'kimi-k2.7-code','glm-5.2','deepseek-v4-pro','deepseek-v4-flash','gpt-5.5',
-  'gpt-5.6-luna','gpt-5.6-sol','gpt-5.6-terra','muse-spark-1.1','claude-haiku-4.5',
-  'claude-sonnet-4.5','nemotron-3-super','kimi-k3','minimax-m3','minimax-m2.5',
-  'deepseek-3.2','gemini-3.6-flash','claude-opus-5','glm-5','qwen-3.8-max-preview',
-  'deepseek-v4-flash-0731'
+  'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
+  'gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro'
 ]);
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -55,7 +51,7 @@ async function handleProxy(request) {
     return json({ error: { message: 'Payload API tidak valid.' } }, 400);
   }
   if (!ALLOWED_MODELS.has(model)) {
-    return json({ error: { message: `Model CosmosHub tidak diizinkan: ${model || '(kosong)'}.` } }, 400);
+    return json({ error: { message: `Model CosmosHub tidak diizinkan untuk mode vision: ${model || '(kosong)'}.` } }, 400);
   }
 
   try {
@@ -109,7 +105,7 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-9' });
+      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-11' });
     }
 
     if (url.pathname === '/api/ai-proxy') {
