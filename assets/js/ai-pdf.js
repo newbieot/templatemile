@@ -19,6 +19,8 @@
   ]);
   const activeControllers = new Set();
   let cancelled = false;
+  let preferredTransport = 'proxy';
+  let lastSuccessfulTransport = '';
 
   const $ = id => document.getElementById(id);
 
@@ -177,7 +179,45 @@ Aturan wajib:
     };
   }
 
-  async function callProxy(config, body) {
+  function conciseResponseError(text, status, transport) {
+    const raw = String(text || '').trim();
+    const title = raw.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim();
+    if (title) return `${title} (HTTP ${status}, ${transport})`;
+    if (raw.startsWith('<!DOCTYPE') || raw.startsWith('<html')) {
+      return `Server ${transport} mengembalikan halaman HTML, bukan respons API (HTTP ${status}).`;
+    }
+    return raw.slice(0, 700) || `HTTP ${status}`;
+  }
+
+  async function parseApiResponse(response, transport) {
+    const text = await response.text();
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch (_) {
+      payload = { error: { message: conciseResponseError(text, response.status, transport) } };
+    }
+
+    if (!response.ok) {
+      let message = payload?.error?.message || payload?.message || `API gagal dengan HTTP ${response.status}`;
+      if (response.status === 401 || response.status === 403) message = `API key CosmosHub ditolak (${response.status}). Periksa kembali key dan saldo akun.`;
+      else if (response.status === 404) message = 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
+      else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
+      else if (response.status === 413) message = 'Kelompok halaman terlalu besar. Turunkan Halaman per permintaan menjadi 2–4.';
+      const error = new Error(message);
+      error.status = response.status;
+      error.details = payload;
+      error.transport = transport;
+      error.gateway = response.status >= 500 && /bad gateway|server .*html|halaman html|upstream/i.test(message);
+      throw error;
+    }
+
+    if (payload && typeof payload === 'object') payload._mileTransport = transport;
+    lastSuccessfulTransport = transport;
+    return payload;
+  }
+
+  async function callViaProxy(config, body) {
     const controller = new AbortController();
     activeControllers.add(controller);
     try {
@@ -185,29 +225,70 @@ Aturan wajib:
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({
-          provider: 'cosmoshub',
-          apiKey: config.apiKey,
-          body
-        })
+        body: JSON.stringify({ apiKey: config.apiKey, body })
       });
-      let payload;
-      const text = await response.text();
-      try { payload = JSON.parse(text); } catch (_) { payload = { error: { message: text || `HTTP ${response.status}` } }; }
-      if (!response.ok) {
-        let message = payload?.error?.message || payload?.message || `API gagal dengan HTTP ${response.status}`;
-        if (response.status === 401 || response.status === 403) message = `API key CosmosHub ditolak (${response.status}). Periksa kembali key dan saldo akun.`;
-        else if (response.status === 404) message = 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
-        else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
-        else if (response.status === 413) message = 'Kelompok halaman terlalu besar. Turunkan Halaman per permintaan menjadi 2–4.';
-        const error = new Error(message);
-        error.status = response.status;
-        error.details = payload;
-        throw error;
-      }
-      return payload;
+      return await parseApiResponse(response, 'proxy Cloudflare');
+    } catch (error) {
+      if (!error.transport) error.transport = 'proxy Cloudflare';
+      throw error;
     } finally {
       activeControllers.delete(controller);
+    }
+  }
+
+  async function callDirect(config, body) {
+    const controller = new AbortController();
+    activeControllers.add(controller);
+    try {
+      const response = await fetch(COSMOS_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        signal: controller.signal,
+        body: JSON.stringify(body)
+      });
+      return await parseApiResponse(response, 'langsung ke CosmosHub');
+    } catch (error) {
+      if (!error.transport) error.transport = 'langsung ke CosmosHub';
+      if (!error.status && error?.name !== 'AbortError') {
+        error.message = `Browser tidak dapat menghubungi CosmosHub secara langsung. Kemungkinan diblokir CORS atau jaringan: ${error.message}`;
+      }
+      throw error;
+    } finally {
+      activeControllers.delete(controller);
+    }
+  }
+
+  async function callCosmos(config, body) {
+    const first = preferredTransport === 'direct' ? callDirect : callViaProxy;
+    const second = preferredTransport === 'direct' ? callViaProxy : callDirect;
+    let firstError;
+
+    try {
+      return await first(config, body);
+    } catch (error) {
+      firstError = error;
+      if (cancelled || error?.name === 'AbortError') throw error;
+
+      const shouldFallback = !error?.status || error?.gateway || [500, 502, 503, 504].includes(Number(error?.status));
+      if (!shouldFallback) throw error;
+    }
+
+    try {
+      const payload = await second(config, body);
+      preferredTransport = preferredTransport === 'direct' ? 'proxy' : 'direct';
+      return payload;
+    } catch (secondError) {
+      const error = new Error(
+        `Dua jalur koneksi gagal. ${firstError.transport || 'Jalur pertama'}: ${firstError.message} | ` +
+        `${secondError.transport || 'Jalur kedua'}: ${secondError.message}`
+      );
+      error.status = secondError.status || firstError.status;
+      error.details = { first: firstError.details, second: secondError.details };
+      throw error;
     }
   }
 
@@ -222,7 +303,7 @@ Aturan wajib:
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
       try {
-        const payload = await callProxy(config, body);
+        const payload = await callCosmos(config, body);
         // Validasi JSON di sini agar respons terpotong juga dicoba ulang.
         parseRows(payload, config.protocol);
         return payload;
@@ -355,12 +436,13 @@ Aturan wajib:
         model: config.model,
         messages: [{ role: 'user', content: 'Balas hanya dengan kata OK.' }]
       };
-      const payload = await callProxy(config, body);
+      const payload = await callCosmos(config, body);
       const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
       const usage = getUsage(payload, 'openai');
       const usageText = usage.input || usage.output ? ` · ${formatUsage(usage)}` : '';
-      setFeedback(`Koneksi CosmosHub berhasil. Respons: ${text || 'OK'}${usageText}`, 'success');
-      showToast('Koneksi CosmosHub berhasil.', 'success');
+      const transportText = payload?._mileTransport ? ` melalui ${payload._mileTransport}` : '';
+      setFeedback(`Koneksi CosmosHub berhasil${transportText}. Respons: ${text || 'OK'}${usageText}`, 'success');
+      showToast(`Koneksi CosmosHub berhasil${payload?._mileTransport ? ` melalui ${payload._mileTransport}` : ''}.`, 'success');
     } catch (error) {
       setFeedback(`Koneksi CosmosHub gagal: ${error.message}`, 'error');
       showToast(`Koneksi CosmosHub gagal: ${error.message}`, 'error');

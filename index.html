@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-3">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-2">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -180,56 +180,44 @@
           <details class="ai-config" id="aiConfigPanel">
             <summary>
               <span class="ai-config-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v1.2A4.8 4.8 0 0 0 4 13.7V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.3a4.8 4.8 0 0 0-3-4.5V8a5 5 0 0 0-5-5Z"/><path d="M9 8a3 3 0 0 1 6 0v1H9V8Zm3 5v2"/></svg></span>
-              <span><strong>Pengaturan API untuk PDF</strong><small>CosmosHub OpenAI-compatible · API key manual dan tidak disimpan.</small></span>
+              <span><strong>Pengaturan API untuk PDF</strong><small>API key dimasukkan manual dan tidak disimpan.</small></span>
               <span class="ai-config-status" id="aiConfigStatus">Belum dikonfigurasi</span>
             </summary>
             <div class="ai-config-body">
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-                <p>API key hanya berada di memori tab ini, tidak dimasukkan ke GitHub, localStorage, atau file hasil. PDF dikirim ke endpoint resmi CosmosHub melalui proxy mile.posnew.com.</p>
+                <p>API key hanya berada di memori tab ini dan tidak disimpan. Koneksi memakai Cloudflare Worker; jika jalur tersebut bermasalah, web otomatis mencoba langsung ke CosmosHub.</p>
               </div>
-              <input id="aiProtocol" type="hidden" value="openai">
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
-                  <label for="aiProvider">Provider API</label>
-                  <input id="aiProvider" type="text" value="CosmosHub · OpenAI-compatible" readonly>
-                  <span class="field-hint">Walaupun modelnya Claude, format CosmosHub tetap OpenAI-compatible.</span>
+                  <label for="aiProtocol">Format API</label>
+                  <div class="select-shell"><select id="aiProtocol" disabled>
+                    <option value="openai" selected>CosmosHub · OpenAI-compatible</option>
+                  </select></div>
                 </div>
                 <div class="form-group">
-                  <label for="aiModel">Nama model</label>
+                  <label for="aiModel">Model CosmosHub</label>
                   <div class="select-shell"><select id="aiModel">
-                    <option value="claude-sonnet-4.5" selected>claude-sonnet-4.5</option>
-                    <option value="claude-haiku-4.5">claude-haiku-4.5</option>
-                    <option value="claude-opus-5">claude-opus-5</option>
-                    <option value="gemini-3.5-flash">gemini-3.5-flash</option>
-                    <option value="gemini-3.1-pro">gemini-3.1-pro</option>
-                    <option value="gemini-3.6-flash">gemini-3.6-flash</option>
-                    <option value="qwen-3.7-max">qwen-3.7-max</option>
-                    <option value="qwen-3.8-max-preview">qwen-3.8-max-preview</option>
-                    <option value="deepseek-3.2">deepseek-3.2</option>
-                    <option value="deepseek-v4-pro">deepseek-v4-pro</option>
-                    <option value="deepseek-v4-flash">deepseek-v4-flash</option>
-                    <option value="deepseek-v4-flash-0731">deepseek-v4-flash-0731</option>
-                    <option value="gpt-5.5">gpt-5.5</option>
-                    <option value="gpt-5.6-luna">gpt-5.6-luna</option>
-                    <option value="gpt-5.6-sol">gpt-5.6-sol</option>
-                    <option value="gpt-5.6-terra">gpt-5.6-terra</option>
-                    <option value="mimo-v2.5">mimo-v2.5</option>
-                    <option value="mimo-v2.5-pro">mimo-v2.5-pro</option>
-                    <option value="kimi-k2.7-code">kimi-k2.7-code</option>
-                    <option value="kimi-k3">kimi-k3</option>
-                    <option value="glm-5">glm-5</option>
-                    <option value="glm-5.2">glm-5.2</option>
-                    <option value="minimax-m2.5">minimax-m2.5</option>
-                    <option value="minimax-m3">minimax-m3</option>
-                    <option value="nemotron-3-super">nemotron-3-super</option>
-                    <option value="muse-spark-1.1">muse-spark-1.1</option>
+                    <option value="claude-sonnet-4.5" selected>Claude Sonnet 4.5</option>
+                    <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
+                    <option value="claude-opus-5">Claude Opus 5</option>
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                    <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
+                    <option value="qwen-3.7-max">Qwen 3.7 Max</option>
+                    <option value="qwen-3.8-max-preview">Qwen 3.8 Max Preview</option>
+                    <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+                    <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
+                    <option value="gpt-5.5">GPT-5.5</option>
+                    <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+                    <option value="gpt-5.6-sol">GPT-5.6 Sol</option>
+                    <option value="gpt-5.6-terra">GPT-5.6 Terra</option>
                   </select></div>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiEndpoint">Base URL CosmosHub</label>
                   <input id="aiEndpoint" type="url" value="https://api.cosmoshub.tech/v1" readonly>
-                  <span class="field-hint">Web otomatis mengirim ke <strong>/v1/chat/completions</strong> menggunakan header Authorization: Bearer.</span>
+                  <span class="field-hint">Request dikirim ke <strong>/v1/chat/completions</strong> dengan header Authorization: Bearer.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiApiKey">API key <span>Tidak disimpan</span></label>
@@ -282,7 +270,7 @@
 
         <section class="privacy-note">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          <div><strong>Transparansi pemrosesan</strong><p>Excel/CSV diproses lokal. PDF dan gambar halamannya dikirim melalui server proxy mile.posnew.com ke CosmosHub. API key hanya digunakan selama tab terbuka dan tidak disimpan.</p></div>
+          <div><strong>Transparansi pemrosesan</strong><p>Excel/CSV diproses lokal. PDF dan gambar halamannya dikirim melalui server proxy mile.posnew.com ke endpoint AI yang Anda tentukan. API key tidak disimpan.</p></div>
         </section>
       </aside>
 

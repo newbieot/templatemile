@@ -4,62 +4,54 @@ A browser-based utility for converting PDF, Excel, and CSV recipient lists into 
 
 ## Deployment
 
-Deploy directly to Cloudflare Pages so the included `/api/ai-proxy` Pages Function is available.
+Deploy the repository root directly to Cloudflare Pages.
 
 - Build command: none
 - Output directory: repository root
 - Custom domain: `mile.posnew.com`
+- Server entry: `_worker.js` (Cloudflare Pages Advanced Mode)
 
-## PDF extraction with a manual API key
+The Worker serves all static files through `env.ASSETS` and exposes:
 
-The main page now accepts `.pdf` files. Users configure the API from the **Pengaturan API untuk PDF** panel:
+- `GET /api/health` — proxy health check
+- `POST /api/ai-proxy` — CosmosHub OpenAI-compatible proxy
 
-1. Choose `OpenAI-compatible` or `Anthropic Messages`.
-2. Enter the endpoint supplied by the API provider.
-3. Enter the model name, defaulting to `claude-sonnet-4.5`.
-4. Paste the API key manually.
-5. Test the connection, then upload the PDF.
+## CosmosHub PDF extraction
 
-The API key is kept only in the current tab memory. It is not written to GitHub, localStorage, sessionStorage, the exported workbook, or application files. Requests pass through the included Cloudflare Pages Function to avoid browser CORS restrictions. The proxy does not intentionally persist request bodies or API keys.
+The PDF panel is configured specifically for CosmosHub:
 
-PDF pages are rendered to images in the browser and sent in small batches. The model must return structured JSON, which is merged into the existing MILE table in page order. The interface displays token usage when the provider includes it in the API response.
+- Base URL: `https://api.cosmoshub.tech/v1`
+- Endpoint: `/chat/completions`
+- Authentication: `Authorization: Bearer <API_KEY>`
+- Default model: `claude-sonnet-4.5`
 
-## Review workflow
+The API key is entered manually and kept only in current-tab memory. It is not stored in GitHub, localStorage, sessionStorage, or the exported workbook.
 
-- Text containing `perlu dicek`, `perlu di cek`, or equivalent spacing is highlighted as mandatory correction.
-- Typing, pressing Enter, blurring, or moving to another cell does not resolve the issue automatically.
-- The user must remove or replace the marker, complete the corrected value, and click **Tandai selesai & lanjut**.
-- Export remains disabled until every mandatory correction is explicitly confirmed.
-- Active table columns expand temporarily so long addresses can be read and corrected in full.
-- Rows can be removed from the **Aksi** column.
-- Rows identified by AI as outside Batam receive a **Luar Batam** badge.
+The browser first uses the Cloudflare Worker proxy. If that route returns a gateway/network failure, the application automatically tries a direct browser request to CosmosHub. A concise error is shown instead of dumping a complete Cloudflare HTML error page.
+
+## Large PDF processing
+
+- Maximum: 300 pages and 120 MB per PDF
+- Default: 6 pages per request
+- Default concurrency: 4 requests
+- Configurable: 2–10 pages per request and 1–6 parallel requests
+- Failed batches are retried up to three times
+- Results are merged back into original page order
+
+PDF pages are rendered to JPEG images in the browser. Only the current image batch is sent to CosmosHub.
+
+## Mandatory review workflow
+
+- `PERLU DICEK` markers are highlighted as mandatory corrections.
+- Typing does not automatically complete a correction or move focus.
+- The user must remove/replace the marker and click **Tandai selesai & lanjut**.
+- Export remains disabled until every flagged correction is explicitly confirmed.
+- Active columns expand temporarily to show long text in full.
+- Rows can be deleted from the **Aksi** column.
+- Addresses explicitly identified outside Batam receive a **Luar Batam** badge.
 
 ## Existing business rules
 
 - Excel and CSV remain processed locally in the browser.
-- Pengadilan Negeri Batam automatically defaults to PE on normal Monday–Thursday workdays and PKH on Fridays, holidays, and H-1 holidays based on the configured 2026 calendar.
+- Pengadilan Negeri Batam defaults to PE on normal Monday–Thursday workdays and PKH on Fridays, national holidays, collective leave, and H-1 holidays according to the configured 2026 calendar.
 - Corporate, retail, moving-goods, insurance, postal-code mapping, chargeable-weight, and MILE export logic remain available.
-
-## API compatibility notes
-
-The provider must support image input for the selected Claude model.
-
-- OpenAI-compatible endpoint usually ends with `/v1/chat/completions` and uses Bearer authentication.
-- Anthropic Messages endpoint usually ends with `/v1/messages` and uses `x-api-key` authentication.
-
-Third-party providers may use different paths, headers, model names, limits, or response formats. Use the provider's documentation as the source of truth.
-
-## PDF besar hingga 300 halaman
-
-Ekstraksi PDF dilakukan per kelompok halaman dan beberapa kelompok dapat diproses bersamaan. Pengaturan default adalah 6 halaman per permintaan dan 4 permintaan paralel. Untuk provider dengan rate limit rendah, gunakan 2–3 jalur paralel. PDF tetap dibaca lokal di browser; hanya gambar halaman per kelompok yang dikirim ke endpoint AI.
-
-## CosmosHub PDF configuration
-
-The PDF extractor is configured specifically for CosmosHub:
-
-- Base URL: `https://api.cosmoshub.tech/v1`
-- Request endpoint: `/chat/completions`
-- Authentication: `Authorization: Bearer <API_KEY>`
-- API format: OpenAI-compatible, even when using `claude-sonnet-4.5`
-
-The API key is entered manually in the browser and forwarded through the Cloudflare Pages Function at `/api/ai-proxy`. It is not committed to the repository or stored in localStorage.

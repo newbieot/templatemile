@@ -88,10 +88,12 @@
 - Tombol batal sekarang menghentikan seluruh permintaan paralel.
 - Progres menampilkan jumlah kelompok selesai, jumlah baris sementara, penggunaan token, dan estimasi waktu tersisa.
 
-## 2026-08-02 — CosmosHub compatibility fix
+## 2026-08-02 — CosmosHub gateway fix
 
-- Fixed CosmosHub integration to always use the OpenAI-compatible endpoint `/v1/chat/completions`.
-- Fixed authentication to always use `Authorization: Bearer <API_KEY>`, including for Claude models.
-- Added a fixed CosmosHub provider preset and model selector to prevent selecting the incompatible Anthropic Messages format.
-- Added clearer diagnostics for invalid keys, missing models, rate limits, and oversized image batches.
-- Removed optional request fields that can be rejected by some OpenAI-compatible gateways.
+- Replaced the Pages Functions directory with a single Cloudflare Pages Advanced Mode `_worker.js`.
+- Added `GET /api/health` for deployment verification.
+- Fixed CosmosHub requests to use `https://api.cosmoshub.tech/v1/chat/completions` and Bearer authentication.
+- Added automatic direct-to-CosmosHub fallback when the Cloudflare proxy route returns a gateway/network failure.
+- Prevented complete Cloudflare HTML error pages from being displayed to users.
+- Locked the interface to CosmosHub OpenAI-compatible format and added a CosmosHub model selector.
+- Updated browser cache versions to `20260802-3`.
