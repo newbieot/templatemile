@@ -32,13 +32,13 @@ The browser first uses the Cloudflare Worker proxy. If that route returns a gate
 ## Large PDF processing
 
 - Maximum: 300 pages and 120 MB per PDF
-- Default: 4 pages per request
+- Default BNI mode: 2 pages per request
 - Default concurrency: 4 requests
 - Configurable: 2–10 pages per request and 1–6 parallel requests
 - Failed batches are retried up to three times
 - Results are merged back into original page order
 
-PDF pages are automatically cropped to their visible content, enlarged, converted to high-contrast grayscale, and labelled by page number before being sent. The default **Akurat & cepat** mode performs a second AI audit only for low-confidence or suspicious batches. **Maksimum akurasi** audits every batch, while **Paling cepat** skips the second audit.
+PDF pages are automatically cropped and labelled by page number. The default **BNI / scan dot-matrix** mode sends two views of each page—an original-color crop and a high-contrast zoom—then performs an independent second audit. It discards standalone numeric codes such as `000000` because they are not needed, and prevents OCR inventions such as `DONGDOI` from entering any output field. General-document balanced, maximum-accuracy, and fast modes remain available.
 
 Only the current image batch is sent to CosmosHub.
 

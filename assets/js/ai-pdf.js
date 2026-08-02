@@ -6,11 +6,12 @@
   const IMAGE_PROFILES = {
     fast: { maxSide: 1800, jpegQuality: 0.82, verify: 'none' },
     balanced: { maxSide: 2300, jpegQuality: 0.90, verify: 'smart' },
-    accurate: { maxSide: 2700, jpegQuality: 0.92, verify: 'all' }
+    accurate: { maxSide: 2700, jpegQuality: 0.92, verify: 'all' },
+    bni: { maxSide: 3000, jpegQuality: 0.94, verify: 'all' }
   };
-  const DEFAULT_ACCURACY_MODE = 'balanced';
+  const DEFAULT_ACCURACY_MODE = 'bni';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v4';
+  const STORAGE_KEY = 'mile-ai-config-v7';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -272,7 +273,7 @@
     context.putImageData(image, 0, 0);
   }
 
-  function encodeEnhancedCrop(sourceCanvas, bounds, maxSide, jpegQuality) {
+  function encodeCrop(sourceCanvas, bounds, maxSide, jpegQuality, enhance = false) {
     const outputScale = Math.min(1, maxSide / Math.max(bounds.w, bounds.h));
     const outputCanvas = document.createElement('canvas');
     outputCanvas.width = Math.max(1, Math.round(bounds.w * outputScale));
@@ -287,7 +288,7 @@
       bounds.x, bounds.y, bounds.w, bounds.h,
       0, 0, outputCanvas.width, outputCanvas.height
     );
-    enhanceForReading(outputContext, outputCanvas.width, outputCanvas.height);
+    if (enhance) enhanceForReading(outputContext, outputCanvas.width, outputCanvas.height);
     const url = outputCanvas.toDataURL('image/jpeg', jpegQuality);
     outputCanvas.width = outputCanvas.height = 1;
     return url;
@@ -296,8 +297,8 @@
   async function renderPageToImage(page, accuracyMode = DEFAULT_ACCURACY_MODE) {
     const profile = IMAGE_PROFILES[accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
     const viewportBase = page.getViewport({ scale: 1 });
-    const initialTarget = Math.min(profile.maxSide * 1.15, 3200);
-    const scale = Math.min(4, Math.max(1.5, initialTarget / Math.max(viewportBase.width, viewportBase.height)));
+    const initialTarget = Math.min(profile.maxSide * 1.18, 3400);
+    const scale = Math.min(4.5, Math.max(1.7, initialTarget / Math.max(viewportBase.width, viewportBase.height)));
     const viewport = page.getViewport({ scale });
     const sourceCanvas = document.createElement('canvas');
     const sourceContext = sourceCanvas.getContext('2d', { alpha: false, willReadFrequently: true });
@@ -312,64 +313,109 @@
       ? fullBounds
       : findPrimaryTextBounds(sourceContext, sourceCanvas.width, sourceCanvas.height, fullBounds);
 
-    const fullUrl = encodeEnhancedCrop(sourceCanvas, fullBounds, profile.maxSide, profile.jpegQuality);
+    // Untuk scan dot-matrix, model mendapat dua sudut pandang halaman yang sama:
+    // warna asli untuk bentuk huruf dan versi kontras untuk ketajaman karakter.
+    const originalUrl = encodeCrop(sourceCanvas, fullBounds, profile.maxSide, Math.min(0.96, profile.jpegQuality + 0.02), false);
+    const fullUrl = encodeCrop(sourceCanvas, fullBounds, profile.maxSide, profile.jpegQuality, true);
     const detailUrl = (
       detailBounds.x !== fullBounds.x || detailBounds.y !== fullBounds.y ||
       detailBounds.w !== fullBounds.w || detailBounds.h !== fullBounds.h
     )
-      ? encodeEnhancedCrop(sourceCanvas, detailBounds, profile.maxSide, profile.jpegQuality)
+      ? encodeCrop(sourceCanvas, detailBounds, profile.maxSide, profile.jpegQuality, true)
       : fullUrl;
 
     sourceCanvas.width = sourceCanvas.height = 1;
-    return { fullUrl, detailUrl };
+    return { originalUrl, fullUrl, detailUrl };
   }
 
-  function buildPrompt(startPage, endPage) {
+  function buildPrompt(startPage, endPage, options = {}) {
+    const bniMode = Boolean(options.bniMode);
+    const bniRules = bniMode ? `
+
+MODE KHUSUS BNI / CETAKAN DOT-MATRIX:
+Dokumen biasanya memiliki satu penerima per halaman dengan pola:
+CABANG : 245 BATAM
+KEPADA YTH
+[NAMA PENERIMA]
+[ALAMAT JALAN/GEDUNG]
+[KODE MANDIRI 5–8 DIGIT, misalnya 000000 — ABAIKAN]
+[KELURAHAN/KECAMATAN/KOTA/KODE POS]
+
+Aturan wajib:
+- "KEPADA YTH" hanyalah salam dan tidak boleh masuk Nama Penerima.
+- Kode mandiri 5–8 digit yang berada setelah alamat jalan dan sebelum wilayah TIDAK DIBUTUHKAN. Buang sepenuhnya: jangan masukkan ke Nama, Alamat, atau Nomor Surat.
+- Jangan mengubah deretan nol menjadi kata seperti DONGDOI, DONGD01, OOOOOO, atau kata rekaan lain. Jika baris itu tampak seperti kode mandiri, abaikan saja dan jangan membuat tanda PERLU DICEK karenanya.
+- Baris setelah kode mandiri, seperti BENGKONG LAUT, TIBAN INDAH, SEKUPANG/BATAM 29426, tetap merupakan bagian Alamat Penerima.
+- Kolom nomor_surat dikosongkan kecuali benar-benar terlihat nomor surat yang memiliki pola nyata, misalnya mengandung garis miring, tanda hubung, atau gabungan huruf dan angka yang jelas. Kode angka mandiri bukan nomor surat.
+- Abaikan teks PT yang berdiri sendiri jauh di sisi kanan apabila nama perusahaan sudah memuat PT.
+
+CONTOH FORMAT YANG BENAR:
+Teks halaman:
+KEPADA YTH
+PT CONTOH PENERIMA
+JL CONTOH UTAMA
+000000
+KELURAHAN CONTOH
+KECAMATAN CONTOH 29400
+Hasil:
+{"nama_penerima":"PT CONTOH PENERIMA","alamat_penerima":"JL CONTOH UTAMA, KELURAHAN CONTOH, KECAMATAN CONTOH, BATAM 29400","nomor_surat":""}
+
+Teks halaman:
+KEPADA YTH
+CONTOH INTERNASIONAL PT
+RUKO CONTOH BLOK A NO 10
+DONGDOI
+KELURAHAN CONTOH
+KECAMATAN/BATAM 29400
+Hasil:
+{"nama_penerima":"CONTOH INTERNASIONAL PT","alamat_penerima":"RUKO CONTOH BLOK A NO 10, KELURAHAN CONTOH, KECAMATAN, BATAM 29400","nomor_surat":""}
+` : '';
+
     return `Tolong ubah dokumen ini menjadi data terstruktur untuk Excel.
 Kolom: No, Nama Penerima, Alamat Penerima, Nomor Surat.
 Urutan data mengikuti urutan halaman dokumen.
 Tandai nomor urut yang alamatnya jelas berada di luar Kota Batam.
 Jangan menebak tulisan yang tidak terbaca; beri keterangan literal "PERLU DICEK" tepat pada bagian yang meragukan.
 
-Sebelum menghasilkan jawaban, periksa kembali ejaan nama dan alamat terhadap gambar sebanyak dua kali. Jangan tampilkan proses pemeriksaan tersebut.
+Baca setiap halaman secara mandiri. Sebelum menjawab, cocokkan huruf demi huruf antara foto asli dan versi zoom/kontras halaman yang sama. Jangan tampilkan proses berpikir.
 
 Kembalikan HANYA JSON valid tanpa markdown dan tanpa penjelasan:
-{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95}]}
+{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
 
-ATURAN PEMISAHAN KOLOM:
-1. Setiap gambar diberi label HALAMAN. Gunakan nomor halaman itu; jangan menukar atau menggabungkan isi antarhalaman.
-2. Hapus salam pembuka dari nama: "KEPADA YTH", "KEPADA YANG TERHORMAT", "YTH.", "ATTN", dan variasinya. Nama penerima hanya nama orang/perusahaan setelah salam tersebut.
-3. Jangan memasukkan alamat ke kolom nama. Baris yang mulai dengan JL/JALAN, RUKO, PERUM/PERUMAHAN, KOMP/KOMPLEK, KAVLING, GEDUNG, BLOK, KAMPUNG, atau nama wilayah adalah alamat.
-4. Abaikan header administrasi seperti "CABANG", "CARRIAGE", "245 BATAM", kode cabang, serta footer seperti "TGL TRANS", "TGL VALUTA", "NO DOKUMEN", dan "URAIAN MUTASI". Itu bukan nama, alamat, atau nomor surat.
-5. "Nomor Surat" hanya diisi jika ada label atau pola nomor surat/referensi yang nyata pada isi dokumen. "245 BATAM", CABANG, CARRIAGE, nomor halaman, nomor rekening, atau kode pengiriman bukan nomor surat. Jika tidak ada nomor surat, gunakan string kosong.
-6. Deretan nol/placeholder seperti "000000" yang berdiri sendiri tidak perlu dimasukkan ke alamat. Jangan mengubah deretan nol menjadi kata.
-7. Jangan memperbaiki ejaan dengan tebakan. Jika satu kata tidak yakin, pertahankan bagian yang terbaca dan ganti hanya kata meragukan dengan "PERLU DICEK".
-8. Jika satu halaman memuat lebih dari satu penerima, keluarkan semuanya sesuai urutan tampil. Jika tidak ada penerima, jangan membuat baris palsu.
-9. di_luar_batam=true hanya jika alamat jelas berada di luar Kota Batam. Jika ragu, false dan tambahkan "PERLU DICEK" pada alamat.
-10. confidence adalah keyakinan 0 sampai 1 terhadap ketepatan keseluruhan baris. Untuk scan buram/dot-matrix, jangan memberi nilai di atas 0.90. Isi perlu_dicek_fields dengan nama field yang meragukan, misalnya ["alamat_penerima"].
-11. Pertahankan kapitalisasi secara wajar; jangan menambahkan informasi yang tidak terlihat.
-12. Halaman yang diproses: ${startPage} sampai ${endPage}.`;
+ATURAN UMUM:
+1. Setiap gambar diberi label HALAMAN. Dua gambar dapat berasal dari halaman yang sama: FOTO ASLI dan ZOOM KONTRAS. Jangan menganggapnya sebagai dua halaman.
+2. Gunakan nomor halaman pada label; jangan menukar atau menggabungkan isi antarhalaman.
+3. Hapus salam pembuka dari nama: "KEPADA YTH", "KEPADA YANG TERHORMAT", "YTH.", "ATTN", dan variasinya.
+4. Jangan memasukkan alamat ke kolom nama. Baris yang mulai dengan JL/JALAN, RUKO, PERUM/PERUMAHAN, KOMP/KOMPLEK, KAVLING, GEDUNG, BLOK, KAMPUNG, atau nama wilayah adalah alamat.
+5. Abaikan header seperti CABANG/CARRIAGE/245 BATAM serta footer TGL TRANS, TGL VALUTA, NO DOKUMEN, dan URAIAN MUTASI.
+6. Pertahankan urutan kata nama perusahaan persis seperti yang tercetak, termasuk PT di awal atau akhir.
+7. Jangan memperbaiki ejaan dengan tebakan. Jika satu kata tidak yakin, pertahankan bagian yang terbaca dan ganti hanya bagian meragukan dengan "PERLU DICEK".
+8. di_luar_batam=true hanya jika alamat jelas berada di luar Kota Batam.
+9. confidence adalah keyakinan 0–1. Scan buram/dot-matrix tidak boleh diberi confidence tinggi jika masih ada huruf meragukan.
+10. raw_lines berisi baris teks penting setelah header/footer dibuang, urut dari atas ke bawah. Raw lines dipakai sistem untuk pemeriksaan otomatis.
+11. Halaman yang diproses: ${startPage} sampai ${endPage}.${bniRules}`;
   }
 
-  function buildVerificationPrompt(startPage, endPage, draftRows) {
-    return `Audit ulang hasil ekstraksi berikut terhadap gambar asli halaman ${startPage}–${endPage}.
-Tujuan audit adalah mengoreksi salah baca OCR tanpa menebak.
+  function buildVerificationPrompt(startPage, endPage, draftRows, options = {}) {
+    const bniMode = Boolean(options.bniMode);
+    return `Baca ulang gambar asli halaman ${startPage}–${endPage} secara INDEPENDEN terlebih dahulu, baru bandingkan dengan draft. Jangan sekadar menyetujui draft karena draft dapat salah.
 
 DRAFT:
 ${JSON.stringify({ rows: draftRows })}
 
-Kembalikan HANYA JSON valid dengan struktur yang sama:
-{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95}]}
+Kembalikan HANYA JSON valid:
+{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
 
 Aturan audit:
-- Hapus "KEPADA YTH/YTH/ATTN" dari nama.
+- Dua gambar dengan nomor halaman sama adalah FOTO ASLI dan ZOOM KONTRAS dari halaman yang sama.
+- Hapus KEPADA YTH/YTH/ATTN dari nama.
 - Jangan campur alamat ke nama.
 - Abaikan CABANG/CARRIAGE/245 BATAM dan footer transaksi.
-- Jangan gunakan "245 BATAM" sebagai nomor surat.
-- Hapus placeholder nol yang berdiri sendiri.
-- Cocokkan setiap kata dengan gambar. Jika tidak benar-benar terbaca, gunakan "PERLU DICEK", jangan menciptakan kata yang terdengar masuk akal.
-- Pastikan urutan dan nomor halaman benar.
-- Scan buram/dot-matrix harus diberi confidence realistis, maksimal 0.90.
+- Cocokkan setiap karakter dengan gambar; gunakan PERLU DICEK jika tidak pasti.
+- Pastikan urutan halaman benar.
+${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wilayah tidak dibutuhkan dan harus dibuang.
+- Jika kode mandiri terbaca sebagai DONGDOI/DONGD01/OOOOOO atau bentuk rekaan lain, abaikan seluruh baris itu; jangan masukkan ke bidang apa pun dan jangan tandai PERLU DICEK hanya karena kode tersebut.
+- Baris wilayah setelah kode tetap bagian alamat. nomor_surat dikosongkan kecuali terlihat nomor surat nyata dengan pola huruf/angka dan pemisah yang jelas.` : '- Nomor surat hanya diisi dari teks yang benar-benar terlihat.'}
 - Jangan tampilkan penjelasan atau reasoning.`;
   }
 
@@ -378,7 +424,10 @@ Aturan audit:
     images.forEach((image, index) => {
       const page = Number(image?.page || image?.pageNumber || index + 1);
       const url = typeof image === 'string' ? image : image?.url || image?.dataUrl;
-      content.push({ type: 'text', text: `HALAMAN ${page}` });
+      const label = typeof image === 'string'
+        ? `HALAMAN ${page}`
+        : (image?.label || `HALAMAN ${page}`);
+      content.push({ type: 'text', text: label });
       content.push({ type: 'image_url', image_url: { url } });
     });
 
@@ -607,14 +656,17 @@ Aturan audit:
     return /^(true|ya|yes|1|luar)/i.test(String(value || '').trim());
   }
 
-  function stripCommonArtifacts(value) {
-    return String(value ?? '')
+  function stripCommonArtifacts(value, kind = 'text') {
+    let raw = String(value ?? '')
       .replace(/\u0000/g, ' ')
       .replace(/\b(?:CABANG|CARRIAGE)\s*:?\s*245\s+BATAM\b/gi, ' ')
       .replace(/\b(?:TGL\.?\s*TRANS|TGL\.?\s*VALUTA|NO\.?\s*DOKUMEN|URAIAN\s+MUTASI)\b.*$/gi, ' ')
-      .replace(/\b[0O]{5,}\b/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+
+    // Kode mandiri pada dokumen BNI bukan bagian nama, alamat, maupun nomor surat.
+    if (kind === 'name') raw = raw.replace(/^\s*[0O]{5,8}\s*$/i, '');
+    return raw;
   }
 
   function stripRecipientPrefix(value) {
@@ -624,7 +676,7 @@ Aturan audit:
   }
 
   function normalizeAIText(value, kind = 'text') {
-    let raw = stripCommonArtifacts(value);
+    let raw = stripCommonArtifacts(value, kind);
     if (!raw) return '';
     const core = window.__mileCore;
     if (kind === 'name') raw = stripRecipientPrefix(raw);
@@ -664,9 +716,145 @@ Aturan audit:
     return /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(String(value || ''));
   }
 
+  function normalizeRawLines(value) {
+    const source = Array.isArray(value)
+      ? value
+      : (typeof value === 'string' ? value.split(/\r?\n|\s*\|\s*/) : []);
+    return source
+      .map(line => String(line ?? '').replace(/\u0000/g, ' ').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+  }
+
+  function isAdministrativeLine(line) {
+    return /^(?:CABANG|CARRIAGE)\b|^245\s+BATAM$|^(?:TGL\.?\s*TRANS|TGL\.?\s*VALUTA|NO\.?\s*DOKUMEN|URAIAN\s+MUTASI)\b/i.test(line);
+  }
+
+  function isAddressLine(line) {
+    return /^(?:JL\.?|JALAN|RUKO|PERUM(?:AHAN)?|KOMP(?:LEK)?|KAVLING|GEDUNG|BLOK|KAMPUNG|PASIR\s+PUTIH\s+RESIDENCE)\b/i.test(line);
+  }
+
+  function compactReferenceCandidate(value) {
+    return String(value || '').toUpperCase().replace(/[\s.,/_\-:]/g, '');
+  }
+
+  function isIgnoredBniStandaloneCode(value) {
+    const raw = String(value || '').trim().toUpperCase();
+    if (!raw) return false;
+    const compact = compactReferenceCandidate(raw);
+    if (/^294\d{2}$/.test(compact)) return false; // kode pos Batam tetap dipertahankan
+    if (/^[0-9O]{5,8}(?:[?*]+)?$/.test(compact)) return true;
+    return /^(?:DONGDOI|DONGD0I|DONGD01|OOOOOO|OOOOO|00000O|O00000)$/i.test(compact);
+  }
+
+  function normalizeBniReference(value) {
+    const raw = String(value || '').trim().toUpperCase();
+    if (!raw || /^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(raw)) return '';
+    if (isIgnoredBniStandaloneCode(raw)) return '';
+
+    // Tanda PERLU DICEK yang hanya berasal dari kode mandiri juga dibuang.
+    if (containsReviewMarker(raw) && /(?:DONGD|OOOO|0000|KODE|TIDAK\s+TERBACA)/i.test(raw)) return '';
+
+    // Nomor surat nyata biasanya memiliki digit dan pemisah/komponen alfabet.
+    const hasDigit = /\d/.test(raw);
+    const hasLetter = /[A-Z]/.test(raw);
+    const hasSeparator = /[\/\-]/.test(raw);
+    if (hasDigit && (hasSeparator || hasLetter)) return raw.replace(/\s+/g, ' ').trim();
+    return '';
+  }
+
+  function removeIgnoredBniCodesFromAddress(value) {
+    return String(value || '')
+      .split(/\s*,\s*/)
+      .map(part => part.trim())
+      .filter(part => part && !isIgnoredBniStandaloneCode(part))
+      .join(', ')
+      .replace(/\b(?:DONGDOI|DONGD0I|DONGD01|OOOOOO)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/(?:,\s*){2,}/g, ', ')
+      .replace(/^,\s*|\s*,$/g, '')
+      .trim();
+  }
+
+  function normalizeAddressPunctuation(value) {
+    return String(value || '')
+      .replace(/\s*\/\s*/g, ', ')
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/(?:,\s*){2,}/g, ', ')
+      .replace(/\s+/g, ' ')
+      .replace(/^,\s*|\s*,$/g, '')
+      .trim();
+  }
+
+  function extractPrintedZip(address) {
+    const matches = String(address || '').match(/\b\d{5}\b/g);
+    return matches?.length ? matches[matches.length - 1] : '';
+  }
+
+  function ensureBatamCity(address) {
+    const value = normalizeAddressPunctuation(address);
+    const zip = extractPrintedZip(value);
+    if (!/^294\d{2}$/.test(zip) || /\bBATAM\b/i.test(value)) return value;
+    return value.replace(new RegExp(`\\s*,?\\s*${zip}\\b`), `, BATAM ${zip}`);
+  }
+
+  function parseBniStructure(rawLines, fallback) {
+    let lines = normalizeRawLines(rawLines)
+      .filter(line => !isAdministrativeLine(line));
+
+    const greetingIndex = lines.findIndex(line => /^(?:KEPADA\s+(?:YANG\s+TERHORMAT|YTH\.?)|YTH\.?|ATTN\.?)\b/i.test(line));
+    if (greetingIndex >= 0) {
+      const greeting = lines[greetingIndex];
+      const remainder = stripRecipientPrefix(greeting);
+      lines = lines.slice(greetingIndex + 1);
+      if (remainder) lines.unshift(remainder);
+    }
+
+    lines = lines
+      .map(line => stripCommonArtifacts(line))
+      .filter(Boolean)
+      .filter((line, index, arr) => !(line.toUpperCase() === 'PT' && arr.some(other => /\bPT\b/i.test(other) && other !== line)));
+
+    // Kode angka mandiri dan hasil OCR rekaan atas kode itu dibuang total.
+    const ignoredCodeIndexes = new Set();
+    lines.forEach((line, index) => {
+      if (isIgnoredBniStandaloneCode(line)) ignoredCodeIndexes.add(index);
+    });
+
+    let addressStart = lines.findIndex(isAddressLine);
+    if (addressStart < 0 && fallback.address) addressStart = 1;
+
+    const beforeAddress = addressStart > 0 ? lines.slice(0, addressStart) : [];
+    const afterAddress = addressStart >= 0 ? lines.slice(addressStart) : [];
+
+    const nameFromLines = beforeAddress
+      .filter((_, index) => !ignoredCodeIndexes.has(index))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const addressFromLines = afterAddress
+      .filter((_, index) => !ignoredCodeIndexes.has(addressStart + index))
+      .filter(line => !isIgnoredBniStandaloneCode(line))
+      .join(', ');
+
+    let name = nameFromLines || fallback.name || '';
+    let address = addressFromLines || fallback.address || '';
+    const noSurat = normalizeBniReference(fallback.noSurat);
+
+    name = stripRecipientPrefix(name)
+      .replace(/\bPT\s+PT\b/gi, 'PT')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    address = normalizeAddressPunctuation(removeIgnoredBniCodesFromAddress(address));
+    const cleanedRawLines = lines.filter((_, index) => !ignoredCodeIndexes.has(index));
+    return { name, address, noSurat, rawLines: cleanedRawLines };
+  }
+
   function looksSuspiciousRow(row) {
     if (!row.name || !row.address) return true;
-    if (row.aiConfidence < 0.92) return true;
+    if (row.aiConfidence < (row.bniMode ? 0.96 : 0.92)) return true;
     if (row.aiReviewFields.length) return true;
     if (containsReviewMarker(`${row.name} ${row.address} ${row.noSurat}`)) return true;
     if (/^\s*(?:KEPADA|YTH|ATTN)\b/i.test(row.name)) return true;
@@ -676,26 +864,43 @@ Aturan audit:
     return false;
   }
 
-  function normalizeRows(aiRows, template, pageOffset = 0) {
+  function normalizeRows(aiRows, template, pageOffset = 0, options = {}) {
     const core = window.__mileCore;
+    const bniMode = Boolean(options.bniMode);
     return aiRows.map((item, index) => {
       let name = normalizeAIText(pick(item, ['nama_penerima', 'nama', 'name', 'penerima']), 'name');
-      let address = normalizeAIText(pick(item, ['alamat_penerima', 'alamat', 'address', 'destination_address']));
+      let address = normalizeAIText(pick(item, ['alamat_penerima', 'alamat', 'address', 'destination_address']), 'address');
       let noSurat = normalizeAIText(pick(item, ['nomor_surat', 'no_surat', 'surat', 'ref', 'reference']), 'reference');
+      const rawLines = normalizeRawLines(pick(item, ['raw_lines', 'baris_mentah', 'lines', 'transcription'], []));
+
+      if (bniMode) {
+        const parsed = parseBniStructure(rawLines, { name, address, noSurat });
+        name = normalizeAIText(parsed.name, 'name');
+        address = normalizeAIText(parsed.address, 'address');
+        noSurat = parsed.noSurat;
+      }
+
       const split = splitMixedNameAddress(name, address);
       name = split.name;
-      address = split.address;
-      noSurat = /^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(noSurat) ? '' : noSurat;
+      address = ensureBatamCity(bniMode ? removeIgnoredBniCodesFromAddress(split.address) : split.address);
+      noSurat = /^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(noSurat) ? '' : (bniMode ? normalizeBniReference(noSurat) : noSurat);
 
       const page = Number(pick(item, ['page', 'halaman', 'page_number'], pageOffset + index + 1)) || pageOffset + index + 1;
       const outsideBatam = normalizeBoolean(pick(item, ['di_luar_batam', 'luar_batam', 'outside_batam'], false));
-      const aiReviewFields = normalizeReviewFields(pick(item, ['perlu_dicek_fields', 'review_fields', 'uncertain_fields'], []));
+      let aiReviewFields = normalizeReviewFields(pick(item, ['perlu_dicek_fields', 'review_fields', 'uncertain_fields'], []));
+      if (bniMode && !noSurat) aiReviewFields = aiReviewFields.filter(field => !/^(?:nomor_surat|no_surat|surat|reference|ref)$/i.test(field));
+      if (containsReviewMarker(noSurat) && !aiReviewFields.includes('nomor_surat')) aiReviewFields.push('nomor_surat');
+      if (containsReviewMarker(name) && !aiReviewFields.includes('nama_penerima')) aiReviewFields.push('nama_penerima');
+      if (containsReviewMarker(address) && !aiReviewFields.includes('alamat_penerima')) aiReviewFields.push('alamat_penerima');
+
       const aiConfidence = clampConfidence(pick(item, ['confidence', 'keyakinan', 'score'], 0.75));
-      const zip = core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411';
+      const printedZip = extractPrintedZip(address);
+      const zip = printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411');
       const row = {
         senderName: '', noSurat, name, phone: '0', zip, address,
         act: 0.2, p: 10, l: 10, t: 10, cw: '0.20',
-        outsideBatam, sourcePage: page, aiConfidence, aiReviewFields
+        outsideBatam, sourcePage: page, aiConfidence, aiReviewFields,
+        rawLines, bniMode
       };
       row.needsVerification = looksSuspiciousRow(row);
       return row;
@@ -711,12 +916,14 @@ Aturan audit:
       nomor_surat: row.noSurat,
       di_luar_batam: row.outsideBatam,
       perlu_dicek_fields: row.aiReviewFields,
-      confidence: row.aiConfidence
+      confidence: row.aiConfidence,
+      raw_lines: row.rawLines || []
     }));
   }
 
   function shouldVerifyChunk(config, rows) {
     const profile = IMAGE_PROFILES[config.accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
+    if (config.bniMode) return true;
     if (profile.verify === 'all') return true;
     if (profile.verify === 'none') return false;
     if (!rows.length) return true;
@@ -795,6 +1002,19 @@ Aturan audit:
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
       if (pdf.numPages > 150) showToast('PDF besar terdeteksi. Biarkan tab tetap terbuka sampai proses selesai.', 'info');
 
+      const selectedTemplate = $('corporateTemplate')?.value || 'MANUAL';
+      const bniMode = config.accuracyMode === 'bni' || selectedTemplate === 'BNI' || /\bBNI\b/i.test(file.name || '');
+      config = {
+        ...config,
+        bniMode,
+        accuracyMode: bniMode ? 'bni' : config.accuracyMode,
+        pagesPerRequest: bniMode ? Math.min(2, config.pagesPerRequest) : config.pagesPerRequest,
+        concurrency: bniMode ? Math.min(6, Math.max(4, config.concurrency)) : config.concurrency
+      };
+      if (bniMode) {
+        showToast('Mode BNI/dot-matrix aktif: 2 halaman per request, dua gambar per halaman, dan verifikasi kedua.', 'info');
+      }
+
       const chunks = [];
       for (let start = 1; start <= pdf.numPages; start += config.pagesPerRequest) {
         chunks.push({ start, end: Math.min(pdf.numPages, start + config.pagesPerRequest - 1) });
@@ -831,6 +1051,7 @@ Aturan audit:
             const rendered = await renderPageToImage(page, config.accuracyMode);
             images.push({
               page: pageNumber,
+              originalUrl: rendered.originalUrl,
               url: rendered.fullUrl,
               detailUrl: rendered.detailUrl
             });
@@ -840,35 +1061,70 @@ Aturan audit:
         }
 
         updateParallelProgress(chunk, 'Ekstraksi pertama');
+        const extractionImages = config.bniMode
+          ? images.flatMap(image => ([
+              {
+                page: image.page,
+                label: `HALAMAN ${image.page} — FOTO ASLI (halaman yang sama)`,
+                url: image.originalUrl || image.url
+              },
+              {
+                page: image.page,
+                label: `HALAMAN ${image.page} — ZOOM KONTRAS (halaman yang sama)`,
+                url: image.detailUrl || image.url
+              }
+            ]))
+          : images.map(image => ({
+              page: image.page,
+              label: `HALAMAN ${image.page}`,
+              url: image.url
+            }));
+
         const body = buildApiBody(
           config,
-          buildPrompt(chunk.start, chunk.end),
-          images,
-          Math.max(3200, (chunk.end - chunk.start + 1) * 1150)
+          buildPrompt(chunk.start, chunk.end, config),
+          extractionImages,
+          Math.max(3600, (chunk.end - chunk.start + 1) * (config.bniMode ? 1650 : 1150))
         );
         const payload = await callProxyWithRetry(config, body, `halaman ${chunk.start}–${chunk.end}`);
         let usage = getUsage(payload, config.protocol);
         totalUsage.input += Number(usage.input || 0);
         totalUsage.output += Number(usage.output || 0);
         const template = $('corporateTemplate')?.value || 'MANUAL';
-        let normalized = normalizeRows(parseRows(payload, config.protocol), template, chunk.start - 1);
+        let normalized = normalizeRows(parseRows(payload, config.protocol), template, chunk.start - 1, config);
 
         if (shouldVerifyChunk(config, normalized)) {
           updateParallelProgress(chunk, 'Verifikasi akurasi');
+          const verificationImages = config.bniMode
+            ? images.flatMap(image => ([
+                {
+                  page: image.page,
+                  label: `HALAMAN ${image.page} — FOTO ASLI UNTUK AUDIT`,
+                  url: image.originalUrl || image.url
+                },
+                {
+                  page: image.page,
+                  label: `HALAMAN ${image.page} — ZOOM KONTRAS UNTUK AUDIT`,
+                  url: image.detailUrl || image.url
+                }
+              ]))
+            : images.map(image => ({
+                page: image.page,
+                label: `HALAMAN ${image.page} — ZOOM AUDIT`,
+                url: image.detailUrl || image.url
+              }));
+
           const verificationBody = buildApiBody(
             config,
-            buildVerificationPrompt(chunk.start, chunk.end, rowsForVerification(normalized)),
-            images.map(image => ({
-              page: image.page,
-              url: image.detailUrl || image.url
-            })),
-            Math.max(3200, (chunk.end - chunk.start + 1) * 1150)
+            buildVerificationPrompt(chunk.start, chunk.end, rowsForVerification(normalized), config),
+            verificationImages,
+            Math.max(3600, (chunk.end - chunk.start + 1) * (config.bniMode ? 1650 : 1150))
           );
           const verifiedPayload = await callProxyWithRetry(config, verificationBody, `verifikasi halaman ${chunk.start}–${chunk.end}`);
           usage = getUsage(verifiedPayload, config.protocol);
           totalUsage.input += Number(usage.input || 0);
           totalUsage.output += Number(usage.output || 0);
-          normalized = normalizeRows(parseRows(verifiedPayload, config.protocol), template, chunk.start - 1);
+          normalized = normalizeRows(parseRows(verifiedPayload, config.protocol), template, chunk.start - 1, config);
         }
 
         results[chunkIndex] = normalized;
@@ -952,7 +1208,7 @@ Aturan audit:
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildPrompt, buildVerificationPrompt, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildPrompt, buildVerificationPrompt, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

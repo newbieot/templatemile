@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-4">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-7">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -229,22 +229,23 @@
                 <div class="form-group full-width">
                   <label for="aiAccuracyMode">Mode ekstraksi</label>
                   <div class="select-shell"><select id="aiAccuracyMode">
-                    <option value="balanced" selected>Akurat & cepat · verifikasi otomatis saat diperlukan</option>
-                    <option value="accurate">Maksimum akurasi · semua kelompok diperiksa dua kali</option>
-                    <option value="fast">Paling cepat · tanpa pemeriksaan kedua</option>
+                    <option value="bni" selected>BNI / scan dot-matrix · hasil paling akurat</option>
+                    <option value="balanced">Dokumen umum · akurat & cepat</option>
+                    <option value="accurate">Dokumen umum · maksimum akurasi</option>
+                    <option value="fast">Dokumen umum · paling cepat</option>
                   </select></div>
-                  <span class="field-hint">Mode Akurat & cepat memperbesar serta membersihkan gambar, lalu mengulang hanya kelompok yang buram atau meragukan.</span>
+                  <span class="field-hint">Mode BNI membaca foto asli dan zoom kontras, membuang kode angka mandiri yang tidak dibutuhkan, lalu melakukan audit kedua.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
                   <div class="select-shell"><select id="aiPagesPerRequest">
-                    <option value="2">2 halaman · paling aman</option>
-                    <option value="4" selected>4 halaman · rekomendasi akurat</option>
+                    <option value="2" selected>2 halaman · rekomendasi BNI</option>
+                    <option value="4">4 halaman · dokumen umum</option>
                     <option value="6">6 halaman · lebih cepat</option>
                     <option value="8">8 halaman · PDF sangat jelas</option>
                     <option value="10">10 halaman · tercepat</option>
                   </select></div>
-                  <span class="field-hint">Gunakan 4 halaman sebagai default agar nama dan alamat tidak tercampur. Naikkan hanya untuk PDF yang sangat jelas.</span>
+                  <span class="field-hint">Mode BNI otomatis dibatasi 2 halaman per permintaan agar hasil antarhalaman tidak tercampur.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
@@ -407,8 +408,8 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-4" defer></script>
-  <script src="/assets/js/ai-pdf.js?v=20260802-4" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-4" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-7" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-7" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-7" defer></script>
 </body>
 </html>

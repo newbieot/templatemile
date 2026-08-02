@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-02 — BNI standalone-code removal v7
+
+- Standalone 5–8 digit BNI codes such as `000000`, `001001`, and `002017` are now discarded completely.
+- The ignored code is not written to Name, Address, or Nomor Surat.
+- OCR inventions such as `DONGDOI`, `DONGD01`, and `OOOOOO` are removed without creating a mandatory correction when they only represent the unused code line.
+- Locality and postal-address lines after the ignored code remain part of Alamat Penerima.
+- Nomor Surat remains blank unless a genuine reference with a clear letter/number pattern and separator is visible.
+
+## 2026-08-02 — BNI benchmark extraction v6
+
+- Added a dedicated BNI/dot-matrix mode calibrated against a 12-page reference benchmark.
+- Sends both the original-color crop and a high-contrast zoom for every page.
+- Uses two pages per request and a mandatory independent second audit for BNI mode.
+- Added BNI layout grammar: `KEPADA YTH` → recipient name → street/building → 5–8 digit reference → locality/postal address.
+- Preserves valid references such as `000000`, `001001`, and `002017`.
+- Rejects OCR hallucinations such as `DONGDOI` and converts them into mandatory `PERLU DICEK` corrections.
+- Added `raw_lines` transcription so deterministic browser-side parsing can repair field placement.
+- Prefers the postal code printed in the document instead of replacing it with a locality lookup.
+- Automatically appends `BATAM` before a printed 294xx postal code when the city word is omitted.
+- BNI mode activates automatically when the BNI customer template is selected or the PDF filename contains BNI.
+
 ## 2026-08-02 — Accuracy-first PDF extraction v5
 
 - Added automatic blank-margin cropping, higher-resolution rendering, grayscale enhancement, and stronger JPEG quality for low-quality scans.
