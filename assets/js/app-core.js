@@ -180,6 +180,9 @@
             set tempExtractedRows(value) { tempExtractedRows = value; },
             getZipCodeFromAddress,
             cleanArtifacts,
+            cleanRecipientName,
+            cleanAddressArtifacts,
+            splitRecipientAndAddress,
             cleanReference,
             cleanPhoneNumber,
             updateInterface: () => updateInterface(),
@@ -478,13 +481,14 @@
                 }
 
                 if (rName || rAddress) {
+                    const recipient = splitRecipientAndAddress(rName, rAddress);
                     extractedRows.push({
                         senderName: cleanReference(rSender),
-                        noSurat: cleanReference(rRef),
-                        name: cleanArtifacts(rName),
+                        noSurat: /^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(cleanReference(rRef)) ? "" : cleanReference(rRef),
+                        name: recipient.name,
                         phone: cleanPhoneNumber(rPhone),
                         zip: cleanArtifacts(rZip),
-                        address: cleanArtifacts(rAddress),
+                        address: recipient.address,
                         cw: rCw,
                         act: rAct, p: rP, l: rL, t: rT,
                         insHarga: rIns
@@ -616,8 +620,9 @@
                         let rawL = idxL !== -1 ? row[idxL] : "";
                         let rawT = idxT !== -1 ? row[idxT] : "";
 
-                        let cleanName = cleanArtifacts(rawName);
-                        let cleanAddr = cleanArtifacts(rawAddr);
+                        const recipient = splitRecipientAndAddress(rawName, rawAddr);
+                        let cleanName = recipient.name;
+                        let cleanAddr = recipient.address;
                         let cleanPhone = cleanPhoneNumber(rawPhone);
                         let cleanRef = cleanReference(rawRef);
                         let cleanSenderName = cleanReference(rawSenderName); 
@@ -767,6 +772,30 @@
             if (!text) return "";
             let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
             return str.replace(/[^A-Za-z0-9\s.,]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+        }
+
+        function cleanRecipientName(text) {
+            return cleanArtifacts(text)
+                .replace(/^\s*(?:KEPADA\s+(?:YANG\s+TERHORMAT|YTH)|YTH|ATTN)\.?\s*[:,.\-]?\s*/i, '')
+                .trim();
+        }
+
+        function cleanAddressArtifacts(text) {
+            return cleanArtifacts(text)
+                .replace(/\b0{5,}\b/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function splitRecipientAndAddress(name, address) {
+            const cleanName = cleanRecipientName(name);
+            const cleanAddress = cleanAddressArtifacts(address);
+            const match = /\b(?:JL\.?|JALAN|RUKO|PERUM(?:AHAN)?|KOMP(?:LEK)?|KAVLING|GEDUNG|PASIR\s+PUTIH\s+RESIDENCE)\b/i.exec(cleanName);
+            if (!match || match.index < 5) return { name: cleanName, address: cleanAddress };
+            return {
+                name: cleanName.slice(0, match.index).trim(),
+                address: `${cleanName.slice(match.index).trim()} ${cleanAddress}`.replace(/\s+/g, ' ').trim()
+            };
         }
 
         function cleanReference(text) { 
@@ -1229,10 +1258,10 @@
                     dNoSurat = "REK KORAN";
                 }
                 
-                let dName = cleanArtifacts(tr.querySelector('.val-name').value);
+                let dName = cleanRecipientName(tr.querySelector('.val-name').value);
                 let dPhone = cleanPhoneNumber(tr.querySelector('.val-phone').value);
                 let dZip = cleanArtifacts(tr.querySelector('.val-zip').value); 
-                let dAddress = cleanArtifacts(tr.querySelector('.val-address').value);
+                let dAddress = cleanAddressArtifacts(tr.querySelector('.val-address').value);
                 
                 // Override khusus Barang Pindah
                 if (mode === 'PINDAH') {

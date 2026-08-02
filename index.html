@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-2">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-4">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -174,7 +174,7 @@
         <section class="panel-card upload-card">
           <div class="panel-heading panel-heading--compact">
             <div><span class="section-index">04</span><h2>Unggah berkas sumber</h2></div>
-            <p>PDF diproses melalui model AI pilihan Anda. Excel dan CSV tetap diproses lokal di browser.</p>
+            <p>PDF diproses dengan gambar yang diperbesar, dibersihkan, dan diverifikasi otomatis. Excel dan CSV tetap diproses lokal di browser.</p>
           </div>
 
           <details class="ai-config" id="aiConfigPanel">
@@ -226,16 +226,25 @@
                     <button id="toggleApiKey" class="api-key-toggle" type="button" aria-label="Tampilkan atau sembunyikan API key">Lihat</button>
                   </div>
                 </div>
+                <div class="form-group full-width">
+                  <label for="aiAccuracyMode">Mode ekstraksi</label>
+                  <div class="select-shell"><select id="aiAccuracyMode">
+                    <option value="balanced" selected>Akurat & cepat · verifikasi otomatis saat diperlukan</option>
+                    <option value="accurate">Maksimum akurasi · semua kelompok diperiksa dua kali</option>
+                    <option value="fast">Paling cepat · tanpa pemeriksaan kedua</option>
+                  </select></div>
+                  <span class="field-hint">Mode Akurat & cepat memperbesar serta membersihkan gambar, lalu mengulang hanya kelompok yang buram atau meragukan.</span>
+                </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
                   <div class="select-shell"><select id="aiPagesPerRequest">
                     <option value="2">2 halaman · paling aman</option>
-                    <option value="4">4 halaman · seimbang</option>
-                    <option value="6" selected>6 halaman · cepat</option>
+                    <option value="4" selected>4 halaman · rekomendasi akurat</option>
+                    <option value="6">6 halaman · lebih cepat</option>
                     <option value="8">8 halaman · PDF sangat jelas</option>
                     <option value="10">10 halaman · tercepat</option>
                   </select></div>
-                  <span class="field-hint">Gunakan 6 halaman sebagai default. Turunkan bila respons API terpotong atau hasil kurang akurat.</span>
+                  <span class="field-hint">Gunakan 4 halaman sebagai default agar nama dan alamat tidak tercampur. Naikkan hanya untuk PDF yang sangat jelas.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
@@ -398,8 +407,8 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-3" defer></script>
-  <script src="/assets/js/ai-pdf.js?v=20260802-3" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-3" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-4" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-4" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-4" defer></script>
 </body>
 </html>

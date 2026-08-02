@@ -109,7 +109,7 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-3' });
+      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-4' });
     }
 
     if (url.pathname === '/api/ai-proxy') {

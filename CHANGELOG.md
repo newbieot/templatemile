@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-02 — Accuracy-first PDF extraction v5
+
+- Added automatic blank-margin cropping, higher-resolution rendering, grayscale enhancement, and stronger JPEG quality for low-quality scans.
+- Labelled every image with its exact PDF page number before sending it to the model.
+- Replaced the generic prompt with the user's proven Excel extraction instruction plus strict field-separation rules.
+- Explicitly removes `KEPADA YTH/YTH/ATTN` from recipient names.
+- Explicitly ignores `CABANG/CARRIAGE/245 BATAM` and transaction footer labels.
+- Leaves `Nomor Surat` blank unless a real letter/reference number is visible.
+- Removes standalone zero placeholders instead of allowing them to become invented words.
+- Added confidence and uncertain-field output.
+- Added three modes: fast, balanced smart verification, and full double-check.
+- The default balanced mode automatically performs a second AI audit only for blurry or suspicious groups.
+- Changed the recommended default from 6 to 4 pages per request to reduce name/address mixing.
+- Added deterministic cleanup that splits address text accidentally merged into the recipient name.
+
 ## 2026-08-02 — PDF to MILE via manual AI API key
 
 - Added PDF uploads to the main `mile.posnew.com` workflow.

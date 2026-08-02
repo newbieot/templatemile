@@ -32,13 +32,15 @@ The browser first uses the Cloudflare Worker proxy. If that route returns a gate
 ## Large PDF processing
 
 - Maximum: 300 pages and 120 MB per PDF
-- Default: 6 pages per request
+- Default: 4 pages per request
 - Default concurrency: 4 requests
 - Configurable: 2–10 pages per request and 1–6 parallel requests
 - Failed batches are retried up to three times
 - Results are merged back into original page order
 
-PDF pages are rendered to JPEG images in the browser. Only the current image batch is sent to CosmosHub.
+PDF pages are automatically cropped to their visible content, enlarged, converted to high-contrast grayscale, and labelled by page number before being sent. The default **Akurat & cepat** mode performs a second AI audit only for low-confidence or suspicious batches. **Maksimum akurasi** audits every batch, while **Paling cepat** skips the second audit.
+
+Only the current image batch is sent to CosmosHub.
 
 ## Mandatory review workflow
 
