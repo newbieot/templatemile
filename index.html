@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-8">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-9">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -198,21 +198,46 @@
                 <div class="form-group">
                   <label for="aiModel">Model CosmosHub</label>
                   <div class="select-shell"><select id="aiModel">
-                    <option value="claude-opus-5" selected>Claude Opus 5 · Default</option>
-                    <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
-                    <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
-                    <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
-                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-                    <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
-                    <option value="qwen-3.7-max">Qwen 3.7 Max</option>
-                    <option value="qwen-3.8-max-preview">Qwen 3.8 Max Preview</option>
-                    <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
-                    <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
-                    <option value="gpt-5.5">GPT-5.5</option>
-                    <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
-                    <option value="gpt-5.6-sol">GPT-5.6 Sol</option>
-                    <option value="gpt-5.6-terra">GPT-5.6 Terra</option>
+                    <optgroup label="Claude · Kiro AI">
+                      <option value="claude-opus-5" selected>Claude Opus 5 · Default</option>
+                      <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+                      <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
+                    </optgroup>
+                    <optgroup label="Meta AI">
+                      <option value="muse-spark-1.1">Muse Spark 1.1</option>
+                    </optgroup>
+                    <optgroup label="Gemini · Antigravity">
+                      <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                      <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
+                    </optgroup>
+                    <optgroup label="Qwen / DeepSeek / GLM · Alibaba dan Qoder">
+                      <option value="qwen-3.7-max">Qwen 3.7 Max</option>
+                      <option value="qwen-3.8-max-preview">Qwen 3.8 Max Preview</option>
+                      <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+                      <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
+                      <option value="deepseek-v4-flash-0731">DeepSeek V4 Flash 0731</option>
+                      <option value="deepseek-3.2">DeepSeek 3.2</option>
+                      <option value="glm-5.2">GLM 5.2</option>
+                      <option value="glm-5">GLM 5</option>
+                    </optgroup>
+                    <optgroup label="GPT · Codex">
+                      <option value="gpt-5.5">GPT-5.5</option>
+                      <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+                      <option value="gpt-5.6-sol">GPT-5.6 Sol</option>
+                      <option value="gpt-5.6-terra">GPT-5.6 Terra</option>
+                    </optgroup>
+                    <optgroup label="Model lainnya">
+                      <option value="mimo-v2.5">Mimo V2.5</option>
+                      <option value="mimo-v2.5-pro">Mimo V2.5 Pro</option>
+                      <option value="kimi-k2.7-code">Kimi K2.7 Code</option>
+                      <option value="kimi-k3">Kimi K3</option>
+                      <option value="minimax-m2.5">MiniMax M2.5</option>
+                      <option value="minimax-m3">MiniMax M3</option>
+                      <option value="nemotron-3-super">Nemotron 3 Super</option>
+                    </optgroup>
                   </select></div>
+                  <span class="field-hint">Status Healthy tidak selalu berarti model mendukung input gambar. Untuk PDF, uji 1–2 halaman terlebih dahulu saat memakai model selain Claude atau Gemini.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiEndpoint">Base URL CosmosHub</label>
@@ -421,8 +446,8 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-8" defer></script>
-  <script src="/assets/js/ai-pdf.js?v=20260802-8" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-8" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-9" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-9" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-9" defer></script>
 </body>
 </html>

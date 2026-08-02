@@ -19,7 +19,7 @@
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v8';
+  const STORAGE_KEY = 'mile-ai-config-v9';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([

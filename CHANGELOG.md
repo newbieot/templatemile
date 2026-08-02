@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-02 · v9
+
+- Added `muse-spark-1.1` to the visible CosmosHub model selector.
+- Expanded the selector to show every model already accepted by the browser and Cloudflare Worker allowlists.
+- Grouped models by provider/family for easier comparison.
+- Added a warning that a Healthy text endpoint does not guarantee image/PDF vision support.
+- Updated cache, health-check, and session configuration versions to `20260802-9`.
+
 ## 2026-08-02 — Claude Opus 5 adaptive extraction v8
 
 - Changed the default CosmosHub model to `claude-opus-5`.

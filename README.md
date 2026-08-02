@@ -61,3 +61,7 @@ Only the current image batch is sent to CosmosHub.
 - Excel and CSV remain processed locally in the browser.
 - Pengadilan Negeri Batam defaults to PE on normal Monday–Thursday workdays and PKH on Fridays, national holidays, collective leave, and H-1 holidays according to the configured 2026 calendar.
 - Corporate, retail, moving-goods, insurance, postal-code mapping, chargeable-weight, and MILE export logic remain available.
+
+## Model selector
+
+The visible selector includes the complete configured CosmosHub allowlist, including `muse-spark-1.1`. Claude Opus 5 remains the default. A model being Healthy in CosmosHub only confirms endpoint availability; PDF extraction also requires support for OpenAI-compatible image input.
