@@ -8,6 +8,9 @@
 /assets/*
   Cache-Control: public, max-age=604800, immutable
 
+/assets/js/firebase-auth-v16.js
+  Cache-Control: public, max-age=0, must-revalidate
+
 /favicon.svg
   Cache-Control: public, max-age=604800
 

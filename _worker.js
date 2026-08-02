@@ -1,4 +1,8 @@
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
+const FIREBASE_API_KEY = 'AIzaSyDj6242f-Z-TOp4-VaLG6xU62xMmKA-G_o';
+const FIREBASE_PROJECT_ID = 'mile-posnew-com';
+const FIREBASE_LOOKUP_ENDPOINT = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`;
+const DEFAULT_ALLOWED_EMAILS = new Set(['ikhsan@posnew.com']);
 const MAX_REQUEST_BYTES = 28 * 1024 * 1024;
 const ALLOWED_MODELS = new Set([
   'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
@@ -23,7 +27,58 @@ function conciseHtmlError(text, status) {
   return `Upstream mengembalikan HTML, bukan JSON (HTTP ${status}).`;
 }
 
-async function handleProxy(request, env) {
+function allowedEmails(env) {
+  const set = new Set(DEFAULT_ALLOWED_EMAILS);
+  String(env?.FIREBASE_ALLOWED_EMAILS || '')
+    .split(/[;,\n]/)
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean)
+    .forEach(value => set.add(value));
+  return set;
+}
+
+function bearerToken(request) {
+  const match = String(request.headers.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || '';
+}
+
+async function verifyFirebaseUser(request, env) {
+  const token = bearerToken(request);
+  if (!token) return { error: json({ error: { message: 'Silakan login dengan Firebase terlebih dahulu.' } }, 401) };
+
+  let response;
+  try {
+    response = await fetch(FIREBASE_LOOKUP_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ idToken: token })
+    });
+  } catch (_) {
+    return { error: json({ error: { message: 'Layanan verifikasi Firebase tidak dapat dihubungi.' } }, 503) };
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const code = data?.error?.message || 'INVALID_ID_TOKEN';
+    return { error: json({ error: { message: `Sesi Firebase tidak valid atau sudah kedaluwarsa (${code}). Silakan login kembali.` } }, 401) };
+  }
+
+  const user = data?.users?.[0];
+  const email = String(user?.email || '').trim().toLowerCase();
+  if (!user?.localId || !email) {
+    return { error: json({ error: { message: 'Data akun Firebase tidak lengkap.' } }, 401) };
+  }
+  if (user.disabled) {
+    return { error: json({ error: { message: 'Akun Firebase ini sedang dinonaktifkan.' } }, 403) };
+  }
+  if (!allowedEmails(env).has(email)) {
+    return { error: json({ error: { message: 'Email Firebase ini belum diizinkan menggunakan MILE.' } }, 403) };
+  }
+
+  return { user: { uid: user.localId, email, emailVerified: Boolean(user.emailVerified) } };
+}
+
+async function handleProxy(request, env, user) {
   if (request.method !== 'POST') {
     return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
   }
@@ -45,7 +100,7 @@ async function handleProxy(request, env) {
   const model = String(body?.model || '').trim();
 
   if (!apiKey) {
-    return json({ error: { message: 'COSMOS_API_KEY belum tersedia pada runtime Cloudflare Pages. Secret yang hanya ditambahkan pada Build variables tidak dapat dibaca oleh Worker.' } }, 503);
+    return json({ error: { message: 'COSMOS_API_KEY belum tersedia pada Cloudflare Pages.' } }, 503);
   }
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return json({ error: { message: 'Payload API tidak valid.' } }, 400);
@@ -84,6 +139,7 @@ async function handleProxy(request, env) {
     return json(output, upstream.status, {
       'x-mile-transport': 'cloudflare-worker',
       'x-mile-upstream-status': String(upstream.status),
+      'x-mile-auth-user': user.email,
       'x-mile-request-id': upstream.headers.get('x-request-id') || upstream.headers.get('request-id') || ''
     });
   } catch (error) {
@@ -105,11 +161,27 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-15', cosmosConfigured: Boolean(String(env?.COSMOS_API_KEY || '').trim()), secretScope: String(env?.COSMOS_API_KEY || '').trim() ? 'runtime' : 'missing' });
+      return json({
+        ok: true,
+        service: 'mile-cosmos-proxy',
+        version: '20260802-16',
+        cosmosConfigured: Boolean(String(env?.COSMOS_API_KEY || '').trim()),
+        firebaseAuth: true,
+        firebaseProjectId: FIREBASE_PROJECT_ID
+      });
+    }
+
+    if (url.pathname === '/api/auth-check') {
+      if (request.method !== 'GET') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'GET' });
+      const auth = await verifyFirebaseUser(request, env);
+      if (auth.error) return auth.error;
+      return json({ ok: true, user: auth.user });
     }
 
     if (url.pathname === '/api/ai-proxy') {
-      return handleProxy(request, env);
+      const auth = await verifyFirebaseUser(request, env);
+      if (auth.error) return auth.error;
+      return handleProxy(request, env, auth.user);
     }
 
     return env.ASSETS.fetch(request);
