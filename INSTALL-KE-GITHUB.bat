@@ -5,7 +5,7 @@ set "SOURCE=%~dp0"
 set "TARGET=C:\Users\Ikhsan Radiansyah\Documents\GitHub\templatemile"
 
 echo ================================================
-echo  INSTALL MILE SERVER SECRET v15 KE GITHUB
+echo  INSTALL MILE SERVER SECRET v16 KE GITHUB
 echo ================================================
 echo.
 
@@ -37,9 +37,9 @@ if %RC% GEQ 8 (
   exit /b %RC%
 )
 
-findstr /C:"Runtime Secret · v15" "%TARGET%\index.html" >nul
+findstr /C:"Runtime Secret · v16" "%TARGET%\index.html" >nul
 if errorlevel 1 (
-  echo ERROR: Instalasi selesai tetapi penanda v15 tidak ditemukan.
+  echo ERROR: Instalasi selesai tetapi penanda v16 tidak ditemukan.
   echo Jangan commit. Coba ekstrak ZIP ulang.
   pause
   exit /b 1
@@ -53,7 +53,7 @@ if not errorlevel 1 (
 )
 
 echo.
-echo BERHASIL: Runtime Secret v15 sudah disalin ke repository.
+echo BERHASIL: Runtime Secret v16 sudah disalin ke repository.
 echo.
 echo Langkah berikutnya:
 echo 1. Buka GitHub Desktop.

@@ -18,7 +18,7 @@
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v15';
+  const STORAGE_KEY = 'mile-ai-config-v16';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -73,7 +73,7 @@
     if ($('aiModel')) $('aiModel').value = 'gemini-3.6-flash';
     try {
       // Hapus konfigurasi model versi lama agar Claude Opus tidak terbawa.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -506,7 +506,12 @@ Aturan audit:
 
     if (!response.ok) {
       let message = payload?.error?.message || payload?.message || `API gagal dengan HTTP ${response.status}`;
-      if (response.status === 401 || response.status === 403) message = `API key CosmosHub ditolak (${response.status}). Periksa kembali key dan saldo akun.`;
+      if (response.status === 401 || response.status === 403) {
+        const serverMessage = String(payload?.error?.message || payload?.message || '');
+        message = /firebase|login|sesi|akun|token|akses/i.test(serverMessage)
+          ? (serverMessage || 'Sesi login tidak valid. Silakan masuk kembali.')
+          : `CosmosHub menolak permintaan (${response.status}). Periksa status key dan saldo akun.`;
+      }
       else if (response.status === 404) message = 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
       else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
       else if (response.status === 413) message = 'Kelompok halaman terlalu besar. Turunkan Halaman per permintaan menjadi 2–4.';
@@ -527,9 +532,14 @@ Aturan audit:
     const controller = new AbortController();
     activeControllers.add(controller);
     try {
+      const token = await window.MileAuth?.getIdToken();
+      if (!token) throw new Error('Sesi Firebase tidak tersedia. Silakan login kembali.');
       const response = await fetch('/api/ai-proxy', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`
+        },
         signal: controller.signal,
         body: JSON.stringify({ body })
       });
