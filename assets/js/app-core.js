@@ -174,6 +174,18 @@
         }
 
         window.getPNBatamServiceRecommendation = getPNBatamServiceRecommendation;
+        window.__mileCore = {
+            get uploadedFilesManager() { return uploadedFilesManager; },
+            get currentFileName() { return currentFileName; },
+            set tempExtractedRows(value) { tempExtractedRows = value; },
+            getZipCodeFromAddress,
+            cleanArtifacts,
+            cleanReference,
+            cleanPhoneNumber,
+            updateInterface: () => updateInterface(),
+            processNextInQueue: () => processNextInQueue(),
+            showWeightModal: () => showWeightModal()
+        };
 
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -349,6 +361,17 @@
 
             const file = fileProcessQueue.shift();
             currentFileName = file.name;
+            const fileExt = String(file.name || '').split('.').pop().toLowerCase();
+
+            if (fileExt === 'pdf') {
+                if (window.MileAI && typeof window.MileAI.processPDFFile === 'function') {
+                    window.MileAI.processPDFFile(file);
+                } else {
+                    alert('Modul ekstraksi PDF belum siap. Muat ulang halaman lalu coba lagi.');
+                    processNextInQueue();
+                }
+                return;
+            }
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -1063,6 +1086,7 @@
                     const needsReview = rowNeedsReview(item);
                     tr.dataset.needsReview = String(needsReview);
                     tr.classList.toggle('needs-review', needsReview);
+                    tr.classList.toggle('outside-batam', Boolean(item.outsideBatam));
 
                     const reviewClass = field => isFieldReviewPending(item, field) ? ' needs-review-field' : '';
                     const reviewAttributes = field => {
@@ -1093,6 +1117,7 @@
                         ${insColumn}
                         <td><input type="text" class="table-input val-address${reviewClass('address')}"${reviewAttributes('address')} value="${escapeAttribute(item.address || '')}"></td>
                         <td class="row-action-cell">
+                            <span class="outside-batam-badge" ${item.outsideBatam ? '' : 'hidden'}>Luar Batam</span>
                             <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>Perlu dicek</span>
                             <button class="row-delete-button" type="button" aria-label="Hapus baris ${counter}" title="Hapus baris" onclick='deleteDataRow(${JSON.stringify(file.id)}, ${JSON.stringify(rowId)})'>
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>
@@ -1105,7 +1130,7 @@
             });
 
             if (counter === 0) {
-                tbody.innerHTML = `<tr><td colspan="${useInsurance ? 11 : 10}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file Excel ke panel kiri untuk memulai.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${useInsurance ? 11 : 10}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.</td></tr>`;
             }
         }
 

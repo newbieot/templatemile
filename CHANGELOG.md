@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-08-02 — PDF to MILE via manual AI API key
+
+- Added PDF uploads to the main `mile.posnew.com` workflow.
+- Added manual API configuration for OpenAI-compatible and Anthropic Messages endpoints.
+- Defaulted the model field to `claude-sonnet-4.5` while keeping it editable.
+- Added a Cloudflare Pages Function proxy so browser CORS does not block provider requests.
+- Kept API keys in tab memory only and excluded them from browser storage and exports.
+- Rendered PDF pages to images and processed them in configurable 2–5 page batches.
+- Added strict JSON extraction, page-order merging, token-usage display, cancellation, limits, and error handling.
+- Sent uncertain OCR text into the existing mandatory `PERLU DICEK` checklist workflow.
+- Added an outside-Batam row badge when the AI explicitly identifies the destination as outside Kota Batam.
+
 ## 2026-07-31 — Koreksi wajib tanpa perpindahan otomatis
 
 - Penanda `perlu dicek` tetap aktif selama pengguna masih mengetik.

@@ -1,7 +1,7 @@
 {
   "name": "MILE Bulk Converter | PosNew Hub",
   "short_name": "MILE Converter",
-  "description": "Prepare clean MILE App bulk-upload workbooks from Excel and CSV recipient data.",
+  "description": "Prepare MILE App bulk-upload workbooks from PDF, Excel, and CSV recipient data.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -16,3 +16,8 @@
 
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
+
+/api/*
+  Cache-Control: no-store
+  X-Content-Type-Options: nosniff
+

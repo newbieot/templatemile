@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>MILE Bulk Converter — Excel & CSV to PosIND Upload Template | PosNew Hub</title>
-  <meta name="description" content="Convert Excel and CSV recipient lists into a clean, editable MILE App bulk-upload workbook for PosIND corporate, retail, and moving-goods shipments.">
+  <title>MILE Bulk Converter — PDF, Excel & CSV to PosIND Upload Template | PosNew Hub</title>
+  <meta name="description" content="Convert PDF, Excel, and CSV recipient lists into a clean, editable MILE App bulk-upload workbook with AI-assisted PDF extraction.">
   <meta name="author" content="Ikhsan Radiansyah">
   <meta name="theme-color" content="#172554">
   <meta name="color-scheme" content="light">
@@ -16,20 +16,20 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="PosNew Hub">
   <meta property="og:title" content="MILE Bulk Converter | PosNew Hub">
-  <meta property="og:description" content="Prepare clean, editable MILE App bulk-upload data from Excel and CSV files.">
+  <meta property="og:description" content="Prepare clean, editable MILE App bulk-upload data from PDF, Excel, and CSV files.">
   <meta property="og:url" content="https://mile.posnew.com/">
   <meta property="og:image" content="https://mile.posnew.com/og-cover.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="MILE Bulk Converter | PosNew Hub">
-  <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from Excel and CSV files.">
+  <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260731-8">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-1">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
 </head>
-<body>
+<body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
 
   <header class="app-header">
@@ -43,7 +43,7 @@
       <div class="header-actions">
         <span class="privacy-pill">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          Diproses di browser
+          Excel lokal · PDF via AI
         </span>
         <a class="all-tools-link" href="https://posnew.com/">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
@@ -58,11 +58,11 @@
       <div class="intro-copy">
         <span class="eyebrow">Persiapan data massal</span>
         <h1 id="pageTitle">Siapkan data MILE dengan alur yang lebih jelas.</h1>
-        <p>Atur jenis transaksi, unggah Excel atau CSV, periksa hasil yang sudah dibersihkan, lalu ekspor workbook siap unggah.</p>
+        <p>Atur transaksi, unggah PDF, Excel, atau CSV, koreksi hasil ekstraksi AI bila diperlukan, lalu ekspor workbook siap unggah.</p>
       </div>
       <div class="workflow-steps" aria-label="Workflow steps">
         <div class="workflow-step is-active" data-step="1"><span>1</span><strong>Atur</strong><small>Transaksi & pengirim</small></div>
-        <div class="workflow-step" data-step="2"><span>2</span><strong>Unggah</strong><small>Excel atau CSV</small></div>
+        <div class="workflow-step" data-step="2"><span>2</span><strong>Unggah</strong><small>PDF, Excel, atau CSV</small></div>
         <div class="workflow-step" data-step="3"><span>3</span><strong>Periksa</strong><small>Edit data tabel</small></div>
         <div class="workflow-step" data-step="4"><span>4</span><strong>Ekspor</strong><small>Workbook MILE</small></div>
       </div>
@@ -174,21 +174,75 @@
         <section class="panel-card upload-card">
           <div class="panel-heading panel-heading--compact">
             <div><span class="section-index">04</span><h2>Unggah berkas sumber</h2></div>
-            <p>Excel dan CSV dapat ditambahkan sekaligus. File duplikat akan diabaikan.</p>
+            <p>PDF diproses melalui model AI pilihan Anda. Excel dan CSV tetap diproses lokal di browser.</p>
           </div>
+
+          <details class="ai-config" id="aiConfigPanel">
+            <summary>
+              <span class="ai-config-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v1.2A4.8 4.8 0 0 0 4 13.7V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.3a4.8 4.8 0 0 0-3-4.5V8a5 5 0 0 0-5-5Z"/><path d="M9 8a3 3 0 0 1 6 0v1H9V8Zm3 5v2"/></svg></span>
+              <span><strong>Pengaturan API untuk PDF</strong><small>API key dimasukkan manual dan tidak disimpan.</small></span>
+              <span class="ai-config-status" id="aiConfigStatus">Belum dikonfigurasi</span>
+            </summary>
+            <div class="ai-config-body">
+              <div class="ai-security-note">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
+                <p>API key hanya berada di memori tab ini, tidak dimasukkan ke GitHub, localStorage, atau file hasil. PDF dikirim ke endpoint AI yang Anda isi.</p>
+              </div>
+              <div class="form-grid form-grid--two ai-config-grid">
+                <div class="form-group">
+                  <label for="aiProtocol">Format API</label>
+                  <div class="select-shell"><select id="aiProtocol">
+                    <option value="openai">OpenAI-compatible</option>
+                    <option value="anthropic">Anthropic Messages</option>
+                  </select></div>
+                </div>
+                <div class="form-group">
+                  <label for="aiModel">Nama model</label>
+                  <input id="aiModel" type="text" autocomplete="off" value="claude-sonnet-4.5" placeholder="claude-sonnet-4.5">
+                </div>
+                <div class="form-group full-width">
+                  <label for="aiEndpoint">Endpoint API <span>Dari penyedia API</span></label>
+                  <input id="aiEndpoint" type="url" inputmode="url" autocomplete="off" placeholder="Contoh: https://domain-api.example/v1/chat/completions">
+                  <span class="field-hint">Untuk OpenAI-compatible gunakan endpoint chat completions. Untuk Anthropic gunakan endpoint messages.</span>
+                </div>
+                <div class="form-group full-width">
+                  <label for="aiApiKey">API key <span>Tidak disimpan</span></label>
+                  <div class="api-key-shell">
+                    <input id="aiApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Tempel API key di sini">
+                    <button id="toggleApiKey" class="api-key-toggle" type="button" aria-label="Tampilkan atau sembunyikan API key">Lihat</button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="aiPagesPerRequest">Halaman per permintaan</label>
+                  <div class="select-shell"><select id="aiPagesPerRequest">
+                    <option value="2">2 halaman · paling aman</option>
+                    <option value="3" selected>3 halaman · disarankan</option>
+                    <option value="4">4 halaman · lebih cepat</option>
+                    <option value="5">5 halaman · PDF jelas</option>
+                  </select></div>
+                </div>
+                <div class="form-group ai-test-group">
+                  <label>Uji konfigurasi</label>
+                  <button id="testAiConnection" class="button button--secondary ai-test-button" type="button">Tes koneksi API</button>
+                </div>
+              </div>
+              <div class="ai-config-feedback" id="aiConfigFeedback" hidden></div>
+            </div>
+          </details>
+
           <button class="dropzone-area" id="dropzone" type="button" onclick="document.getElementById('excelInput').click()" aria-describedby="uploadHelp">
             <span class="dropzone-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
-            <span class="dropzone-copy"><strong>Lepaskan berkas di sini atau pilih</strong><small id="uploadHelp">Format yang diterima: .xlsx, .xls, dan .csv</small></span>
+            <span class="dropzone-copy"><strong>Lepaskan berkas di sini atau pilih</strong><small id="uploadHelp">Format: .pdf, .xlsx, .xls, dan .csv · PDF maksimal 15 MB / 60 halaman</small></span>
             <span class="browse-chip">Pilih berkas</span>
           </button>
-          <input id="excelInput" type="file" accept=".xlsx,.xls,.csv" multiple hidden onchange="handleFileSelection(this.files)">
+          <input id="excelInput" type="file" accept=".pdf,.xlsx,.xls,.csv" multiple hidden onchange="handleFileSelection(this.files)">
           <div class="file-queue-header"><span>Berkas diproses</span><span id="fileCountInline">0 berkas</span></div>
           <div class="file-queue-container" id="fileQueue" aria-live="polite"></div>
         </section>
 
         <section class="privacy-note">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          <div><strong>Privat secara bawaan</strong><p>Data penerima diproses secara lokal di browser dan tidak diunggah ke server PosNew Hub.</p></div>
+          <div><strong>Transparansi pemrosesan</strong><p>Excel/CSV diproses lokal. PDF dan gambar halamannya dikirim melalui server proxy mile.posnew.com ke endpoint AI yang Anda tentukan. API key tidak disimpan.</p></div>
         </section>
       </aside>
 
@@ -256,6 +310,20 @@
 
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
 
+  <div class="modal-overlay" id="aiProgressModal" role="dialog" aria-modal="true" aria-labelledby="aiProgressTitle" aria-describedby="aiProgressMessage">
+    <div class="modal-box ai-progress-box">
+      <div class="ai-progress-visual" aria-hidden="true"><span class="ai-orbit"></span><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v1.2A4.8 4.8 0 0 0 4 13.7V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.3a4.8 4.8 0 0 0-3-4.5V8a5 5 0 0 0-5-5Z"/><path d="M9 8a3 3 0 0 1 6 0v1H9V8Zm3 5v2"/></svg></div>
+      <div class="modal-heading ai-progress-heading">
+        <span class="modal-step" id="aiProgressStep">Menyiapkan PDF</span>
+        <h3 id="aiProgressTitle">Claude sedang membaca dokumen</h3>
+        <p id="aiProgressMessage">PDF sedang disiapkan untuk ekstraksi.</p>
+      </div>
+      <div class="ai-progress-track" aria-hidden="true"><span id="aiProgressBar"></span></div>
+      <div class="ai-progress-meta"><span id="aiProgressPercent">0%</span><span id="aiProgressUsage">Token akan tampil setelah respons</span></div>
+      <div class="modal-actions"><button id="cancelAiProcess" class="button button--ghost" type="button">Batalkan</button></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="mappingModal" role="dialog" aria-modal="true" aria-labelledby="mappingTitle">
     <div class="modal-box">
       <div class="modal-heading"><span class="modal-step">Langkah 1 dari 2</span><h3 id="mappingTitle">Cocokkan kolom spreadsheet</h3><p id="mappingFileName">Memproses berkas…</p></div>
@@ -301,7 +369,9 @@
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-  <script src="/assets/js/app-core.js?v=20260731-8" defer></script>
-  <script src="/assets/js/ui.js?v=20260731-8" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-1" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-1" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-1" defer></script>
 </body>
 </html>

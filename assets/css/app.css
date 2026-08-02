@@ -409,3 +409,51 @@ td.needs-review-cell::before{content:"WAJIB DIKOREKSI";position:absolute;left:.4
 tbody tr.needs-review td:first-child{box-shadow:inset 4px 0 0 #d97706}
 .summary-item--review.has-review{background:#fff7d6}
 .summary-item--review.has-review strong{color:#b45309;font-size:1rem}
+
+/* 2026-08-02 — PDF AI manual API configuration */
+.ai-config{margin-bottom:12px;border:1px solid #cfd9ea;border-radius:13px;background:#f8faff;overflow:hidden}
+.ai-config>summary{min-height:56px;display:flex;align-items:center;gap:.68rem;padding:.7rem .78rem;cursor:pointer;list-style:none;color:var(--navy-950);user-select:none}
+.ai-config>summary::-webkit-details-marker{display:none}
+.ai-config>summary::after{content:"";width:7px;height:7px;margin-left:.15rem;border-right:1.8px solid #667085;border-bottom:1.8px solid #667085;transform:rotate(45deg);transition:transform .18s ease}
+.ai-config[open]>summary::after{transform:rotate(225deg) translate(-2px,-2px)}
+.ai-config-summary-icon{width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto;border-radius:10px;color:#fff;background:linear-gradient(145deg,var(--navy-700),var(--navy-950))}
+.ai-config-summary-icon svg{width:18px}
+.ai-config>summary>span:nth-child(2){min-width:0;display:flex;flex:1;flex-direction:column}
+.ai-config>summary strong{font-size:.72rem}
+.ai-config>summary small{margin-top:.12rem;color:var(--muted);font-size:.6rem;font-weight:550}
+.ai-config-status{display:inline-flex;align-items:center;padding:.25rem .46rem;border-radius:999px;color:#765300;background:#fff1be;font-size:.54rem;font-weight:850;white-space:nowrap}
+.ai-config-status.is-ready{color:#166534;background:#dcfce7}
+.ai-config-body{padding:.8rem;border-top:1px solid #dfe5ef;background:#fff}
+.ai-security-note{display:flex;align-items:flex-start;gap:.55rem;margin-bottom:.75rem;padding:.62rem .68rem;border:1px solid #dbe5ff;border-radius:10px;color:#344054;background:#f4f7ff}
+.ai-security-note svg{width:18px;flex:0 0 auto;color:var(--navy-700)}
+.ai-security-note p{margin:0;font-size:.61rem;line-height:1.48}
+.ai-config-grid{gap:10px}
+.api-key-shell{position:relative}
+.api-key-shell input{padding-right:5.3rem;text-transform:none}
+.api-key-toggle{position:absolute;right:.35rem;top:50%;height:30px;padding:0 .62rem;border:1px solid #cfd8e6;border-radius:8px;color:var(--navy-700);background:#f8faff;font-size:.59rem;font-weight:800;transform:translateY(-50%);cursor:pointer}
+.ai-test-group{display:flex;flex-direction:column}
+.ai-test-button{width:100%;height:42px;border:1px solid var(--navy-700);color:var(--navy-800);background:#fff}
+.ai-test-button:hover:not(:disabled){color:#fff;background:var(--navy-700)}
+.ai-config-feedback{margin-top:.68rem;padding:.58rem .65rem;border:1px solid #d8e0ec;border-radius:9px;color:#344054;background:#f8fafc;font-size:.61rem;line-height:1.45}
+.ai-config-feedback.is-success{border-color:#a7dfb9;color:#166534;background:#ecfdf3}
+.ai-config-feedback.is-error{border-color:#f0b4b4;color:#991b1b;background:#fff1f1}
+.ai-progress-box{width:min(460px,calc(100% - 28px));text-align:center}
+.ai-progress-visual{position:relative;width:64px;height:64px;margin:0 auto 15px;display:grid;place-items:center;border-radius:20px;color:#fff;background:linear-gradient(145deg,var(--navy-700),var(--navy-950));box-shadow:0 12px 28px rgba(23,37,84,.22)}
+.ai-progress-visual svg{width:27px;position:relative;z-index:2}
+.ai-orbit{position:absolute;inset:-7px;border:2px solid transparent;border-top-color:var(--orange);border-right-color:rgba(239,65,35,.35);border-radius:50%;animation:ai-spin 1s linear infinite}
+@keyframes ai-spin{to{transform:rotate(360deg)}}
+.ai-progress-heading{margin-bottom:14px;text-align:center}
+.ai-progress-heading h3{font-size:1.05rem}
+.ai-progress-track{height:9px;overflow:hidden;border-radius:999px;background:#e8edf5}
+.ai-progress-track span{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--orange),#ff7a4f);transition:width .25s ease}
+.ai-progress-meta{display:flex;justify-content:space-between;gap:1rem;margin-top:.45rem;color:var(--muted);font-size:.59rem}
+.outside-batam-badge{display:inline-flex;margin-bottom:.28rem;padding:.2rem .38rem;border-radius:999px;color:#7f1d1d;background:#fee2e2;font-size:.52rem;font-weight:850;white-space:nowrap}
+.outside-batam-badge[hidden]{display:none}
+tbody tr.outside-batam td{background-image:linear-gradient(rgba(254,242,242,.55),rgba(254,242,242,.55))}
+.preview-card:not(.has-data) .table-container::after{content:"Unggah berkas PDF, Excel, atau CSV untuk mulai menyiapkan data MILE."}
+@media (max-width:640px){
+  .ai-config>summary{flex-wrap:wrap}
+  .ai-config-status{margin-left:42px}
+  .ai-config>summary::after{margin-left:auto}
+  .ai-progress-meta{flex-direction:column;gap:.2rem;text-align:left}
+}
