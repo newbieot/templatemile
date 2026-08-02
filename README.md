@@ -25,7 +25,7 @@ The PDF panel is configured specifically for CosmosHub:
 - Authentication: `Authorization: Bearer <API_KEY>`
 - Default model: `gemini-3.6-flash`
 
-The API key is entered manually and kept only in current-tab memory. It is not stored in GitHub, localStorage, sessionStorage, or the exported workbook.
+The API key is stored only as the encrypted Cloudflare Pages secret `COSMOS_API_KEY`. It is never sent to the browser or stored in GitHub.
 
 The browser first uses the Cloudflare Worker proxy. If that route returns a gateway/network failure, the application automatically tries a direct browser request to CosmosHub. A concise error is shown instead of dumping a complete Cloudflare HTML error page.
 

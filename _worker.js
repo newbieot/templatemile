@@ -105,7 +105,7 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-13', cosmosConfigured: Boolean(env.COSMOS_API_KEY) });
+      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-14', cosmosConfigured: Boolean(env.COSMOS_API_KEY) });
     }
 
     if (url.pathname === '/api/ai-proxy') {

@@ -1,3 +1,9 @@
+## 2026-08-02 · Server Secret deployment marker (v14)
+- Removed all user-facing API-key and Base-URL controls.
+- Added a visible `Server Secret · v14` marker so the deployed frontend can be verified immediately.
+- Continued using `env.COSMOS_API_KEY` exclusively in `_worker.js`.
+- Updated health-check and asset cache versions to `20260802-14`.
+
 ## 2026-08-02 · Cloudflare server secret (v13)
 - Removed manual API-key input from the browser.
 - Cloudflare Worker now reads `COSMOS_API_KEY` from encrypted Pages secrets.
