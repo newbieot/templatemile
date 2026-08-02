@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-1">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-3">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -180,30 +180,56 @@
           <details class="ai-config" id="aiConfigPanel">
             <summary>
               <span class="ai-config-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v1.2A4.8 4.8 0 0 0 4 13.7V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.3a4.8 4.8 0 0 0-3-4.5V8a5 5 0 0 0-5-5Z"/><path d="M9 8a3 3 0 0 1 6 0v1H9V8Zm3 5v2"/></svg></span>
-              <span><strong>Pengaturan API untuk PDF</strong><small>API key dimasukkan manual dan tidak disimpan.</small></span>
+              <span><strong>Pengaturan API untuk PDF</strong><small>CosmosHub OpenAI-compatible · API key manual dan tidak disimpan.</small></span>
               <span class="ai-config-status" id="aiConfigStatus">Belum dikonfigurasi</span>
             </summary>
             <div class="ai-config-body">
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-                <p>API key hanya berada di memori tab ini, tidak dimasukkan ke GitHub, localStorage, atau file hasil. PDF dikirim ke endpoint AI yang Anda isi.</p>
+                <p>API key hanya berada di memori tab ini, tidak dimasukkan ke GitHub, localStorage, atau file hasil. PDF dikirim ke endpoint resmi CosmosHub melalui proxy mile.posnew.com.</p>
               </div>
+              <input id="aiProtocol" type="hidden" value="openai">
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
-                  <label for="aiProtocol">Format API</label>
-                  <div class="select-shell"><select id="aiProtocol">
-                    <option value="openai">OpenAI-compatible</option>
-                    <option value="anthropic">Anthropic Messages</option>
-                  </select></div>
+                  <label for="aiProvider">Provider API</label>
+                  <input id="aiProvider" type="text" value="CosmosHub · OpenAI-compatible" readonly>
+                  <span class="field-hint">Walaupun modelnya Claude, format CosmosHub tetap OpenAI-compatible.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiModel">Nama model</label>
-                  <input id="aiModel" type="text" autocomplete="off" value="claude-sonnet-4.5" placeholder="claude-sonnet-4.5">
+                  <div class="select-shell"><select id="aiModel">
+                    <option value="claude-sonnet-4.5" selected>claude-sonnet-4.5</option>
+                    <option value="claude-haiku-4.5">claude-haiku-4.5</option>
+                    <option value="claude-opus-5">claude-opus-5</option>
+                    <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+                    <option value="gemini-3.1-pro">gemini-3.1-pro</option>
+                    <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+                    <option value="qwen-3.7-max">qwen-3.7-max</option>
+                    <option value="qwen-3.8-max-preview">qwen-3.8-max-preview</option>
+                    <option value="deepseek-3.2">deepseek-3.2</option>
+                    <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+                    <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+                    <option value="deepseek-v4-flash-0731">deepseek-v4-flash-0731</option>
+                    <option value="gpt-5.5">gpt-5.5</option>
+                    <option value="gpt-5.6-luna">gpt-5.6-luna</option>
+                    <option value="gpt-5.6-sol">gpt-5.6-sol</option>
+                    <option value="gpt-5.6-terra">gpt-5.6-terra</option>
+                    <option value="mimo-v2.5">mimo-v2.5</option>
+                    <option value="mimo-v2.5-pro">mimo-v2.5-pro</option>
+                    <option value="kimi-k2.7-code">kimi-k2.7-code</option>
+                    <option value="kimi-k3">kimi-k3</option>
+                    <option value="glm-5">glm-5</option>
+                    <option value="glm-5.2">glm-5.2</option>
+                    <option value="minimax-m2.5">minimax-m2.5</option>
+                    <option value="minimax-m3">minimax-m3</option>
+                    <option value="nemotron-3-super">nemotron-3-super</option>
+                    <option value="muse-spark-1.1">muse-spark-1.1</option>
+                  </select></div>
                 </div>
                 <div class="form-group full-width">
-                  <label for="aiEndpoint">Endpoint API <span>Dari penyedia API</span></label>
-                  <input id="aiEndpoint" type="url" inputmode="url" autocomplete="off" placeholder="Contoh: https://domain-api.example/v1/chat/completions">
-                  <span class="field-hint">Untuk OpenAI-compatible gunakan endpoint chat completions. Untuk Anthropic gunakan endpoint messages.</span>
+                  <label for="aiEndpoint">Base URL CosmosHub</label>
+                  <input id="aiEndpoint" type="url" value="https://api.cosmoshub.tech/v1" readonly>
+                  <span class="field-hint">Web otomatis mengirim ke <strong>/v1/chat/completions</strong> menggunakan header Authorization: Bearer.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiApiKey">API key <span>Tidak disimpan</span></label>
@@ -216,14 +242,28 @@
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
                   <div class="select-shell"><select id="aiPagesPerRequest">
                     <option value="2">2 halaman · paling aman</option>
-                    <option value="3" selected>3 halaman · disarankan</option>
-                    <option value="4">4 halaman · lebih cepat</option>
-                    <option value="5">5 halaman · PDF jelas</option>
+                    <option value="4">4 halaman · seimbang</option>
+                    <option value="6" selected>6 halaman · cepat</option>
+                    <option value="8">8 halaman · PDF sangat jelas</option>
+                    <option value="10">10 halaman · tercepat</option>
                   </select></div>
+                  <span class="field-hint">Gunakan 6 halaman sebagai default. Turunkan bila respons API terpotong atau hasil kurang akurat.</span>
                 </div>
-                <div class="form-group ai-test-group">
+                <div class="form-group">
+                  <label for="aiConcurrency">Permintaan paralel</label>
+                  <div class="select-shell"><select id="aiConcurrency">
+                    <option value="1">1 jalur · paling aman</option>
+                    <option value="2">2 jalur · hemat limit</option>
+                    <option value="3">3 jalur · seimbang</option>
+                    <option value="4" selected>4 jalur · cepat</option>
+                    <option value="5">5 jalur · provider kuat</option>
+                    <option value="6">6 jalur · maksimum</option>
+                  </select></div>
+                  <span class="field-hint">Jika muncul rate limit 429, turunkan menjadi 2–3 jalur.</span>
+                </div>
+                <div class="form-group full-width ai-test-group">
                   <label>Uji konfigurasi</label>
-                  <button id="testAiConnection" class="button button--secondary ai-test-button" type="button">Tes koneksi API</button>
+                  <button id="testAiConnection" class="button button--secondary ai-test-button" type="button">Tes API CosmosHub</button>
                 </div>
               </div>
               <div class="ai-config-feedback" id="aiConfigFeedback" hidden></div>
@@ -232,7 +272,7 @@
 
           <button class="dropzone-area" id="dropzone" type="button" onclick="document.getElementById('excelInput').click()" aria-describedby="uploadHelp">
             <span class="dropzone-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
-            <span class="dropzone-copy"><strong>Lepaskan berkas di sini atau pilih</strong><small id="uploadHelp">Format: .pdf, .xlsx, .xls, dan .csv · PDF maksimal 15 MB / 60 halaman</small></span>
+            <span class="dropzone-copy"><strong>Lepaskan berkas di sini atau pilih</strong><small id="uploadHelp">Format: .pdf, .xlsx, .xls, dan .csv · PDF maksimal 120 MB / 300 halaman</small></span>
             <span class="browse-chip">Pilih berkas</span>
           </button>
           <input id="excelInput" type="file" accept=".pdf,.xlsx,.xls,.csv" multiple hidden onchange="handleFileSelection(this.files)">
@@ -242,7 +282,7 @@
 
         <section class="privacy-note">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          <div><strong>Transparansi pemrosesan</strong><p>Excel/CSV diproses lokal. PDF dan gambar halamannya dikirim melalui server proxy mile.posnew.com ke endpoint AI yang Anda tentukan. API key tidak disimpan.</p></div>
+          <div><strong>Transparansi pemrosesan</strong><p>Excel/CSV diproses lokal. PDF dan gambar halamannya dikirim melalui server proxy mile.posnew.com ke CosmosHub. API key hanya digunakan selama tab terbuka dan tidak disimpan.</p></div>
         </section>
       </aside>
 
@@ -370,8 +410,8 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-1" defer></script>
-  <script src="/assets/js/ai-pdf.js?v=20260802-1" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-1" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-3" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-3" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-3" defer></script>
 </body>
 </html>

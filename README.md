@@ -48,3 +48,18 @@ The provider must support image input for the selected Claude model.
 - Anthropic Messages endpoint usually ends with `/v1/messages` and uses `x-api-key` authentication.
 
 Third-party providers may use different paths, headers, model names, limits, or response formats. Use the provider's documentation as the source of truth.
+
+## PDF besar hingga 300 halaman
+
+Ekstraksi PDF dilakukan per kelompok halaman dan beberapa kelompok dapat diproses bersamaan. Pengaturan default adalah 6 halaman per permintaan dan 4 permintaan paralel. Untuk provider dengan rate limit rendah, gunakan 2–3 jalur paralel. PDF tetap dibaca lokal di browser; hanya gambar halaman per kelompok yang dikirim ke endpoint AI.
+
+## CosmosHub PDF configuration
+
+The PDF extractor is configured specifically for CosmosHub:
+
+- Base URL: `https://api.cosmoshub.tech/v1`
+- Request endpoint: `/chat/completions`
+- Authentication: `Authorization: Bearer <API_KEY>`
+- API format: OpenAI-compatible, even when using `claude-sonnet-4.5`
+
+The API key is entered manually in the browser and forwarded through the Cloudflare Pages Function at `/api/ai-proxy`. It is not committed to the repository or stored in localStorage.

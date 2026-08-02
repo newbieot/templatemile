@@ -1,12 +1,23 @@
 (() => {
   'use strict';
 
-  const MAX_PDF_BYTES = 15 * 1024 * 1024;
-  const MAX_PAGES = 60;
-  const MAX_IMAGE_SIDE = 1800;
-  const JPEG_QUALITY = 0.82;
-  const STORAGE_KEY = 'mile-ai-config-v1';
-  let activeController = null;
+  const MAX_PDF_BYTES = 120 * 1024 * 1024;
+  const MAX_PAGES = 300;
+  const MAX_IMAGE_SIDE = 1568;
+  const JPEG_QUALITY = 0.76;
+  const MAX_RETRIES = 3;
+  const STORAGE_KEY = 'mile-ai-config-v3';
+  const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
+  const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
+  const COSMOS_MODELS = new Set([
+    'qwen-3.7-max','gemini-3.5-flash','gemini-3.1-pro','mimo-v2.5','mimo-v2.5-pro',
+    'kimi-k2.7-code','glm-5.2','deepseek-v4-pro','deepseek-v4-flash','gpt-5.5',
+    'gpt-5.6-luna','gpt-5.6-sol','gpt-5.6-terra','muse-spark-1.1','claude-haiku-4.5',
+    'claude-sonnet-4.5','nemotron-3-super','kimi-k3','minimax-m3','minimax-m2.5',
+    'deepseek-3.2','gemini-3.6-flash','claude-opus-5','glm-5','qwen-3.8-max-preview',
+    'deepseek-v4-flash-0731'
+  ]);
+  const activeControllers = new Set();
   let cancelled = false;
 
   const $ = id => document.getElementById(id);
@@ -16,45 +27,30 @@
     else window.alert(message);
   }
 
-  function normalizeEndpoint(raw, protocol) {
-    let value = String(raw || '').trim();
-    if (!value) return '';
-    if (!/^https:\/\//i.test(value)) throw new Error('Endpoint API wajib menggunakan HTTPS.');
-    const url = new URL(value);
-    let path = url.pathname.replace(/\/+$/, '');
-    if (!path || path === '/') path = '/v1';
-    if (/\/v1$/i.test(path)) path += protocol === 'anthropic' ? '/messages' : '/chat/completions';
-    if (protocol === 'anthropic' && !/\/messages$/i.test(path)) {
-      if (/\/chat\/completions$/i.test(path)) path = path.replace(/\/chat\/completions$/i, '/messages');
-    }
-    if (protocol === 'openai' && !/\/chat\/completions$/i.test(path)) {
-      if (/\/messages$/i.test(path)) path = path.replace(/\/messages$/i, '/chat/completions');
-    }
-    url.pathname = path;
-    url.search = '';
-    url.hash = '';
-    return url.toString();
+  function normalizeEndpoint(raw) {
+    const value = String(raw || COSMOS_BASE_URL).trim().replace(/\/+$/, '');
+    if (value === COSMOS_BASE_URL || value === COSMOS_ENDPOINT) return COSMOS_ENDPOINT;
+    throw new Error('Base URL CosmosHub tidak sesuai. Gunakan https://api.cosmoshub.tech/v1.');
   }
 
   function getConfig({ requireKey = true } = {}) {
-    const protocol = $('aiProtocol')?.value || 'openai';
-    const endpoint = normalizeEndpoint($('aiEndpoint')?.value, protocol);
+    const protocol = 'openai';
+    const endpoint = normalizeEndpoint($('aiEndpoint')?.value);
     const apiKey = String($('aiApiKey')?.value || '').trim();
-    const model = String($('aiModel')?.value || '').trim();
-    const pagesPerRequest = Math.max(2, Math.min(5, Number($('aiPagesPerRequest')?.value || 3)));
-    if (!endpoint) throw new Error('Isi endpoint API dari penyedia terlebih dahulu.');
-    if (!model) throw new Error('Isi nama model API.');
-    if (requireKey && !apiKey) throw new Error('Masukkan API key terlebih dahulu.');
-    return { protocol, endpoint, apiKey, model, pagesPerRequest };
+    const model = String($('aiModel')?.value || 'claude-sonnet-4.5').trim();
+    const pagesPerRequest = Math.max(2, Math.min(10, Number($('aiPagesPerRequest')?.value || 6)));
+    const concurrency = Math.max(1, Math.min(6, Number($('aiConcurrency')?.value || 4)));
+    if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar CosmosHub yang dikonfigurasi.');
+    if (requireKey && !apiKey) throw new Error('Masukkan API key CosmosHub terlebih dahulu.');
+    return { provider: 'cosmoshub', protocol, endpoint, apiKey, model, pagesPerRequest, concurrency };
   }
 
   function saveNonSecretConfig() {
     try {
       const cfg = {
-        protocol: $('aiProtocol')?.value || 'openai',
-        endpoint: $('aiEndpoint')?.value || '',
         model: $('aiModel')?.value || 'claude-sonnet-4.5',
-        pagesPerRequest: $('aiPagesPerRequest')?.value || '3'
+        pagesPerRequest: $('aiPagesPerRequest')?.value || '6',
+        concurrency: $('aiConcurrency')?.value || '4'
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
     } catch (_) {}
@@ -62,24 +58,24 @@
   }
 
   function loadNonSecretConfig() {
+    if ($('aiEndpoint')) $('aiEndpoint').value = COSMOS_BASE_URL;
+    if ($('aiProtocol')) $('aiProtocol').value = 'openai';
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
+      const raw = sessionStorage.getItem(STORAGE_KEY) || sessionStorage.getItem('mile-ai-config-v2') || sessionStorage.getItem('mile-ai-config-v1');
       if (!raw) return;
       const cfg = JSON.parse(raw);
-      if ($('aiProtocol') && cfg.protocol) $('aiProtocol').value = cfg.protocol;
-      if ($('aiEndpoint') && cfg.endpoint) $('aiEndpoint').value = cfg.endpoint;
-      if ($('aiModel') && cfg.model) $('aiModel').value = cfg.model;
+      if ($('aiModel') && cfg.model && COSMOS_MODELS.has(cfg.model)) $('aiModel').value = cfg.model;
       if ($('aiPagesPerRequest') && cfg.pagesPerRequest) $('aiPagesPerRequest').value = String(cfg.pagesPerRequest);
+      if ($('aiConcurrency') && cfg.concurrency) $('aiConcurrency').value = String(cfg.concurrency);
     } catch (_) {}
   }
 
   function refreshConfigStatus() {
     const status = $('aiConfigStatus');
     if (!status) return;
-    const hasEndpoint = Boolean(String($('aiEndpoint')?.value || '').trim());
     const hasKey = Boolean(String($('aiApiKey')?.value || '').trim());
-    status.classList.toggle('is-ready', hasEndpoint && hasKey);
-    status.textContent = hasEndpoint && hasKey ? 'Siap untuk PDF' : hasEndpoint ? 'Masukkan API key' : 'Belum dikonfigurasi';
+    status.classList.toggle('is-ready', hasKey);
+    status.textContent = hasKey ? 'CosmosHub siap' : 'Masukkan API key';
   }
 
   function setFeedback(message, type = 'info') {
@@ -109,6 +105,18 @@
   function formatUsage(total) {
     if (!total || (!total.input && !total.output)) return 'Usage token tidak diberikan provider';
     return `Input ${Number(total.input || 0).toLocaleString('id-ID')} · Output ${Number(total.output || 0).toLocaleString('id-ID')} token`;
+  }
+
+  function formatDuration(seconds) {
+    const value = Math.max(0, Math.round(Number(seconds) || 0));
+    if (value < 60) return `${value} detik`;
+    const minutes = Math.floor(value / 60);
+    const rest = value % 60;
+    return rest ? `${minutes} menit ${rest} detik` : `${minutes} menit`;
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
   }
 
   function fileToArrayBuffer(file) {
@@ -155,58 +163,84 @@ Aturan wajib:
   }
 
   function buildApiBody(config, prompt, images, maxTokens = 7000) {
-    if (config.protocol === 'anthropic') {
-      return {
-        model: config.model,
-        max_tokens: maxTokens,
-        temperature: 0,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            ...images.map(image => ({
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/jpeg', data: image.split(',')[1] }
-            }))
-          ]
-        }]
-      };
-    }
     return {
       model: config.model,
-      temperature: 0,
+      stream: false,
       max_tokens: maxTokens,
       messages: [{
         role: 'user',
         content: [
           { type: 'text', text: prompt },
-          ...images.map(image => ({ type: 'image_url', image_url: { url: image, detail: 'high' } }))
+          ...images.map(image => ({ type: 'image_url', image_url: { url: image } }))
         ]
       }]
     };
   }
 
   async function callProxy(config, body) {
-    activeController = new AbortController();
-    const response = await fetch('/api/ai-proxy', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      signal: activeController.signal,
-      body: JSON.stringify({
-        protocol: config.protocol,
-        endpoint: config.endpoint,
-        apiKey: config.apiKey,
-        body
-      })
-    });
-    let payload;
-    const text = await response.text();
-    try { payload = JSON.parse(text); } catch (_) { payload = { error: { message: text || `HTTP ${response.status}` } }; }
-    if (!response.ok) {
-      const message = payload?.error?.message || payload?.message || `API gagal dengan HTTP ${response.status}`;
-      throw new Error(message);
+    const controller = new AbortController();
+    activeControllers.add(controller);
+    try {
+      const response = await fetch('/api/ai-proxy', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          provider: 'cosmoshub',
+          apiKey: config.apiKey,
+          body
+        })
+      });
+      let payload;
+      const text = await response.text();
+      try { payload = JSON.parse(text); } catch (_) { payload = { error: { message: text || `HTTP ${response.status}` } }; }
+      if (!response.ok) {
+        let message = payload?.error?.message || payload?.message || `API gagal dengan HTTP ${response.status}`;
+        if (response.status === 401 || response.status === 403) message = `API key CosmosHub ditolak (${response.status}). Periksa kembali key dan saldo akun.`;
+        else if (response.status === 404) message = 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
+        else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
+        else if (response.status === 413) message = 'Kelompok halaman terlalu besar. Turunkan Halaman per permintaan menjadi 2–4.';
+        const error = new Error(message);
+        error.status = response.status;
+        error.details = payload;
+        throw error;
+      }
+      return payload;
+    } finally {
+      activeControllers.delete(controller);
     }
-    return payload;
+  }
+
+  function isRetryable(error) {
+    if (cancelled || error?.name === 'AbortError') return false;
+    if (!error?.status) return true;
+    return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
+  }
+
+  async function callProxyWithRetry(config, body, label = '') {
+    let lastError;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+      try {
+        const payload = await callProxy(config, body);
+        // Validasi JSON di sini agar respons terpotong juga dicoba ulang.
+        parseRows(payload, config.protocol);
+        return payload;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryable(error) && !/JSON valid|array rows|teks hasil/i.test(String(error.message || ''))) throw error;
+        if (attempt >= MAX_RETRIES) break;
+        const delay = [1800, 4200, 8500][attempt - 1] || 8500;
+        setProgress(
+          Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10),
+          `Mencoba ulang ${label}`,
+          `Percobaan ${attempt + 1}/${MAX_RETRIES} dimulai dalam ${formatDuration(delay / 1000)}.`,
+          $('aiProgressUsage')?.textContent || ''
+        );
+        await sleep(delay + Math.floor(Math.random() * 700));
+      }
+    }
+    throw lastError || new Error('Permintaan AI gagal setelah beberapa kali percobaan.');
   }
 
   function extractTextFromResponse(payload, protocol) {
@@ -216,7 +250,7 @@ Aturan wajib:
         return payload.content.map(block => block?.text || block?.content || '').filter(Boolean).join('\n');
       }
     }
-    const content = payload?.choices?.[0]?.message?.content ?? payload?.choices?.[0]?.text ?? payload?.output_text;
+    const content = payload?.choices?.[0]?.message?.content ?? payload?.choices?.[0]?.message?.reasoning_content ?? payload?.choices?.[0]?.text ?? payload?.output_text;
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) return content.map(part => part?.text || part?.content || '').filter(Boolean).join('\n');
     if (payload?.rows || Array.isArray(payload)) return JSON.stringify(payload);
@@ -315,22 +349,24 @@ Aturan wajib:
       const config = getConfig();
       saveNonSecretConfig();
       button.disabled = true;
-      button.textContent = 'Menguji…';
-      setFeedback('Menghubungi endpoint API…');
-      const body = config.protocol === 'anthropic'
-        ? { model: config.model, max_tokens: 8, messages: [{ role: 'user', content: 'Balas hanya dengan kata OK.' }] }
-        : { model: config.model, max_tokens: 8, messages: [{ role: 'user', content: 'Balas hanya dengan kata OK.' }] };
+      button.textContent = 'Menguji CosmosHub…';
+      setFeedback(`Menghubungi CosmosHub dengan model ${config.model}…`);
+      const body = {
+        model: config.model,
+        messages: [{ role: 'user', content: 'Balas hanya dengan kata OK.' }]
+      };
       const payload = await callProxy(config, body);
-      const text = extractTextFromResponse(payload, config.protocol).trim().slice(0, 80);
-      setFeedback(`Koneksi berhasil. Respons model: ${text || 'OK'}`, 'success');
-      showToast('Koneksi API berhasil.', 'success');
+      const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
+      const usage = getUsage(payload, 'openai');
+      const usageText = usage.input || usage.output ? ` · ${formatUsage(usage)}` : '';
+      setFeedback(`Koneksi CosmosHub berhasil. Respons: ${text || 'OK'}${usageText}`, 'success');
+      showToast('Koneksi CosmosHub berhasil.', 'success');
     } catch (error) {
-      setFeedback(`Koneksi gagal: ${error.message}`, 'error');
-      showToast(`Koneksi API gagal: ${error.message}`, 'error');
+      setFeedback(`Koneksi CosmosHub gagal: ${error.message}`, 'error');
+      showToast(`Koneksi CosmosHub gagal: ${error.message}`, 'error');
     } finally {
       button.disabled = false;
-      button.textContent = 'Tes koneksi API';
-      activeController = null;
+      button.textContent = 'Tes API CosmosHub';
       refreshConfigStatus();
     }
   }
@@ -346,7 +382,7 @@ Aturan wajib:
       config = getConfig();
       saveNonSecretConfig();
       if (!file || file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) throw new Error('Berkas bukan PDF.');
-      if (file.size > MAX_PDF_BYTES) throw new Error('Ukuran PDF melebihi 15 MB. Kompres PDF lalu coba lagi.');
+      if (file.size > MAX_PDF_BYTES) throw new Error('Ukuran PDF melebihi 120 MB. Kompres PDF lalu coba lagi.');
       if (typeof window.pdfjsLib === 'undefined') throw new Error('Library pembaca PDF gagal dimuat. Periksa koneksi lalu muat ulang halaman.');
     } catch (error) {
       $('aiConfigPanel')?.setAttribute('open', '');
@@ -358,48 +394,88 @@ Aturan wajib:
     cancelled = false;
     let pdf = null;
     const totalUsage = { input: 0, output: 0 };
+    const startedAt = performance.now();
     try {
       setProgress(2, 'Membaca PDF', `Membuka ${file.name}…`);
       const bytes = await fileToArrayBuffer(file);
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
-      if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas sementara adalah ${MAX_PAGES} halaman.`);
+      if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
+      if (pdf.numPages > 150) showToast('PDF besar terdeteksi. Biarkan tab tetap terbuka sampai proses selesai.', 'info');
 
       const chunks = [];
       for (let start = 1; start <= pdf.numPages; start += config.pagesPerRequest) {
         chunks.push({ start, end: Math.min(pdf.numPages, start + config.pagesPerRequest - 1) });
       }
-      const mergedRows = [];
-      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+
+      const results = new Array(chunks.length);
+      let nextChunkIndex = 0;
+      let completedChunks = 0;
+      let rowsFound = 0;
+      let firstCompletedAt = 0;
+
+      const updateParallelProgress = (chunk, phase = 'AI') => {
+        const elapsed = (performance.now() - startedAt) / 1000;
+        const throughput = completedChunks ? completedChunks / Math.max(1, elapsed) : 0;
+        const remainingChunks = Math.max(0, chunks.length - completedChunks);
+        const eta = throughput ? ` · estimasi sisa ${formatDuration(remainingChunks / throughput)}` : '';
+        const percent = 5 + (completedChunks / Math.max(1, chunks.length)) * 90;
+        setProgress(
+          percent,
+          `${phase} halaman ${chunk.start}–${chunk.end}`,
+          `${completedChunks}/${chunks.length} kelompok selesai · ${rowsFound} baris ditemukan${eta}`,
+          formatUsage(totalUsage)
+        );
+      };
+
+      async function processChunk(chunk, chunkIndex) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-        const chunk = chunks[chunkIndex];
+        updateParallelProgress(chunk, 'Menyiapkan');
         const images = [];
         for (let pageNumber = chunk.start; pageNumber <= chunk.end; pageNumber++) {
-          const base = 5 + ((chunkIndex + (pageNumber - chunk.start) / Math.max(1, chunk.end - chunk.start + 1)) / chunks.length) * 45;
-          setProgress(base, `Menyiapkan halaman ${pageNumber}/${pdf.numPages}`, `Mengubah halaman menjadi gambar agar dapat dibaca model.`, formatUsage(totalUsage));
+          if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
           const page = await pdf.getPage(pageNumber);
-          images.push(await renderPageToImage(page));
-          page.cleanup();
+          try {
+            images.push(await renderPageToImage(page));
+          } finally {
+            page.cleanup();
+          }
         }
 
-        const requestNo = chunkIndex + 1;
-        const beforeCall = 50 + (chunkIndex / chunks.length) * 45;
-        setProgress(beforeCall, `Permintaan AI ${requestNo}/${chunks.length}`, `Membaca halaman ${chunk.start}–${chunk.end} menggunakan ${config.model}.`, formatUsage(totalUsage));
-        const body = buildApiBody(config, buildPrompt(chunk.start, chunk.end), images);
-        const payload = await callProxy(config, body);
-        activeController = null;
+        updateParallelProgress(chunk, 'Membaca AI');
+        const body = buildApiBody(config, buildPrompt(chunk.start, chunk.end), images, Math.max(3000, (chunk.end - chunk.start + 1) * 950));
+        const payload = await callProxyWithRetry(config, body, `halaman ${chunk.start}–${chunk.end}`);
         const usage = getUsage(payload, config.protocol);
         totalUsage.input += Number(usage.input || 0);
         totalUsage.output += Number(usage.output || 0);
         const aiRows = parseRows(payload, config.protocol);
         const template = $('corporateTemplate')?.value || 'MANUAL';
-        mergedRows.push(...normalizeRows(aiRows, template, chunk.start - 1));
-        setProgress(50 + ((chunkIndex + 1) / chunks.length) * 45, `Permintaan AI ${requestNo}/${chunks.length} selesai`, `${mergedRows.length} baris ditemukan sementara.`, formatUsage(totalUsage));
+        const normalized = normalizeRows(aiRows, template, chunk.start - 1);
+        results[chunkIndex] = normalized;
+        rowsFound += normalized.length;
+        completedChunks++;
+        if (!firstCompletedAt) firstCompletedAt = performance.now();
+        updateParallelProgress(chunk, 'Selesai');
       }
 
+      async function worker() {
+        while (true) {
+          if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+          const index = nextChunkIndex++;
+          if (index >= chunks.length) return;
+          await processChunk(chunks[index], index);
+        }
+      }
+
+      const workerCount = Math.min(config.concurrency, chunks.length);
+      setProgress(5, 'Memulai pemrosesan paralel', `${chunks.length} kelompok halaman diproses dengan ${workerCount} jalur paralel.`, formatUsage(totalUsage));
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+      const mergedRows = results.flat().filter(Boolean);
       if (!mergedRows.length) throw new Error('AI tidak menemukan data penerima pada PDF ini.');
       mergedRows.sort((a, b) => Number(a.sourcePage || 0) - Number(b.sourcePage || 0));
-      setProgress(98, 'Menyiapkan tabel', `${mergedRows.length} baris hasil ekstraksi sedang dimasukkan ke tabel.`, formatUsage(totalUsage));
+      const elapsed = (performance.now() - startedAt) / 1000;
+      setProgress(98, 'Menyiapkan tabel', `${mergedRows.length} baris hasil ekstraksi sedang dimasukkan ke tabel. Waktu proses ${formatDuration(elapsed)}.`, formatUsage(totalUsage));
 
       const itemType = $('itemType')?.value || 'DOKUMEN';
       if (itemType === 'PAKET') {
@@ -409,30 +485,33 @@ Aturan wajib:
       } else {
         core.uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: mergedRows, source: 'AI PDF' });
         core.updateInterface();
-        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak. Periksa semua sel kuning sebelum ekspor.`, formatUsage(totalUsage));
-        window.setTimeout(hideProgress, 800);
-        showToast(`${mergedRows.length} baris berhasil dibaca dari PDF.`, 'success');
+        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatDuration(elapsed)}. Periksa semua sel kuning sebelum ekspor.`, formatUsage(totalUsage));
+        window.setTimeout(hideProgress, 1200);
+        showToast(`${mergedRows.length} baris berhasil dibaca dari PDF dalam ${formatDuration(elapsed)}.`, 'success');
         core.processNextInQueue();
       }
     } catch (error) {
+      if (error?.name !== 'AbortError') cancelled = true;
       hideProgress();
-      if (error?.name === 'AbortError' || cancelled) showToast('Proses PDF dibatalkan.', 'info');
+      if (error?.name === 'AbortError') showToast('Proses PDF dibatalkan.', 'info');
       else showToast(`Gagal memproses PDF: ${error.message}`, 'error');
       core.processNextInQueue();
     } finally {
-      activeController = null;
+      activeControllers.forEach(controller => controller.abort());
+      activeControllers.clear();
       try { pdf?.cleanup?.(); pdf?.destroy?.(); } catch (_) {}
     }
   }
 
   function cancelProcess() {
     cancelled = true;
-    activeController?.abort();
+    activeControllers.forEach(controller => controller.abort());
+    activeControllers.clear();
   }
 
   function bind() {
     loadNonSecretConfig();
-    ['aiProtocol', 'aiEndpoint', 'aiModel', 'aiPagesPerRequest'].forEach(id => {
+    ['aiModel', 'aiPagesPerRequest', 'aiConcurrency'].forEach(id => {
       $(id)?.addEventListener('change', saveNonSecretConfig);
       $(id)?.addEventListener('input', saveNonSecretConfig);
     });

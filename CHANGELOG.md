@@ -77,3 +77,21 @@
 - Membuka kembali status koreksi apabila frasa penanda muncul lagi pada sel yang sebelumnya selesai.
 - Memperkuat highlight sel wajib koreksi dengan label visual yang jelas.
 
+
+## 2026-08-02 — PDF besar dan pemrosesan paralel
+
+- Batas satu PDF dinaikkan menjadi 300 halaman dan 120 MB.
+- Default pemrosesan diubah menjadi 6 halaman per permintaan dengan 4 permintaan paralel.
+- Pengguna dapat memilih 2–10 halaman per permintaan dan 1–6 jalur paralel.
+- Hasil kelompok halaman tetap digabung sesuai urutan halaman asli.
+- Ditambahkan percobaan ulang otomatis untuk rate limit, gangguan provider, dan respons JSON terpotong.
+- Tombol batal sekarang menghentikan seluruh permintaan paralel.
+- Progres menampilkan jumlah kelompok selesai, jumlah baris sementara, penggunaan token, dan estimasi waktu tersisa.
+
+## 2026-08-02 — CosmosHub compatibility fix
+
+- Fixed CosmosHub integration to always use the OpenAI-compatible endpoint `/v1/chat/completions`.
+- Fixed authentication to always use `Authorization: Bearer <API_KEY>`, including for Claude models.
+- Added a fixed CosmosHub provider preset and model selector to prevent selecting the incompatible Anthropic Messages format.
+- Added clearer diagnostics for invalid keys, missing models, rate limits, and oversized image batches.
+- Removed optional request fields that can be rejected by some OpenAI-compatible gateways.
