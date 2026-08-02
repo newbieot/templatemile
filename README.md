@@ -64,7 +64,7 @@ Only the current image batch is sent to CosmosHub.
 
 ## Model selector
 
-Dropdown PDF hanya menampilkan model vision yang telah lolos uji. `gemini-3.6-flash` menjadi default, dengan Claude Opus/Sonnet/Haiku dan Gemini lain tetap tersedia sebagai pilihan.
+The visible selector includes the complete configured CosmosHub allowlist, including `muse-spark-1.1`. Claude Opus 5 remains the default. A model being Healthy in CosmosHub only confirms endpoint availability; PDF extraction also requires support for OpenAI-compatible image input.
 
 ## Vision-only CosmosHub list
 
@@ -77,3 +77,7 @@ Mode BNI khusus telah dihapus. Semua PDF memakai pipeline vision umum yang lebih
 ## PDF review workflow v12
 
 Hasil PDF AI menyediakan editor No Ref massal untuk seluruh baris PDF. Kolom NO dibuat sticky agar nomor urut tetap terlihat ketika tabel digeser horizontal. Panel koreksi juga menampilkan nomor urut dan nama kolom yang sedang diperbaiki.
+
+## Cloudflare Secret setup
+
+Production requires an encrypted Pages secret named `COSMOS_API_KEY`. The browser sends only the AI request body to `/api/ai-proxy`; `_worker.js` adds the server-side Authorization header.

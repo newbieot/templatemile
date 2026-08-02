@@ -1,3 +1,10 @@
+## 2026-08-02 · Cloudflare server secret (v13)
+- Removed manual API-key input from the browser.
+- Cloudflare Worker now reads `COSMOS_API_KEY` from encrypted Pages secrets.
+- Removed direct-browser fallback to CosmosHub so the key never reaches users.
+- Added `/api/health` field `cosmosConfigured` and updated version to `20260802-13`.
+- Updated UI wording to neutral AI service labels.
+
 ## 2026-08-02 · Gemini default, PDF bulk reference, review row UX (v12)
 - Changed the default vision model to `gemini-3.6-flash` and reset the non-secret session configuration version.
 - Replaced model-branded PDF progress wording with neutral “AI sedang bekerja”.

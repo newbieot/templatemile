@@ -18,7 +18,7 @@
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v12';
+  const STORAGE_KEY = 'mile-ai-config-v13';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -27,7 +27,6 @@
   ]);
   const activeControllers = new Set();
   let cancelled = false;
-  let preferredTransport = 'proxy';
   let lastSuccessfulTransport = '';
 
   const $ = id => document.getElementById(id);
@@ -43,10 +42,8 @@
     throw new Error('Base URL CosmosHub tidak sesuai. Gunakan https://api.cosmoshub.tech/v1.');
   }
 
-  function getConfig({ requireKey = true } = {}) {
+  function getConfig() {
     const protocol = 'openai';
-    const endpoint = normalizeEndpoint($('aiEndpoint')?.value);
-    const apiKey = String($('aiApiKey')?.value || '').trim();
     const model = String($('aiModel')?.value || 'gemini-3.6-flash').trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
@@ -54,8 +51,7 @@
     const concurrency = Math.max(1, Math.min(6, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
     const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
-    if (requireKey && !apiKey) throw new Error('Masukkan API key CosmosHub terlebih dahulu.');
-    return { provider: 'cosmoshub', protocol, endpoint, apiKey, model, accuracyMode, speedPreset, verificationPolicy, pagesPerRequest, concurrency };
+    return { provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy, pagesPerRequest, concurrency };
   }
 
   function saveNonSecretConfig() {
@@ -73,8 +69,6 @@
   }
 
   function loadNonSecretConfig() {
-    if ($('aiEndpoint')) $('aiEndpoint').value = COSMOS_BASE_URL;
-    if ($('aiProtocol')) $('aiProtocol').value = 'openai';
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
@@ -131,9 +125,28 @@
   function refreshConfigStatus() {
     const status = $('aiConfigStatus');
     if (!status) return;
-    const hasKey = Boolean(String($('aiApiKey')?.value || '').trim());
-    status.classList.toggle('is-ready', hasKey);
-    status.textContent = hasKey ? 'CosmosHub siap' : 'Masukkan API key';
+    status.classList.add('is-ready');
+    status.textContent = 'Dikelola server';
+  }
+
+  async function checkServerConfiguration() {
+    const status = $('aiConfigStatus');
+    try {
+      const response = await fetch('/api/health', { headers: { accept: 'application/json' }, cache: 'no-store' });
+      const data = await response.json();
+      const configured = Boolean(response.ok && data?.cosmosConfigured);
+      if (status) {
+        status.classList.toggle('is-ready', configured);
+        status.textContent = configured ? 'AI siap digunakan' : 'Secret belum aktif';
+      }
+      return configured;
+    } catch (_) {
+      if (status) {
+        status.classList.remove('is-ready');
+        status.textContent = 'Server belum terhubung';
+      }
+      return false;
+    }
   }
 
   function setFeedback(message, type = 'info') {
@@ -508,7 +521,7 @@ Aturan audit:
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ apiKey: config.apiKey, body })
+        body: JSON.stringify({ body })
       });
       return await parseApiResponse(response, 'proxy Cloudflare');
     } catch (error) {
@@ -519,60 +532,8 @@ Aturan audit:
     }
   }
 
-  async function callDirect(config, body) {
-    const controller = new AbortController();
-    activeControllers.add(controller);
-    try {
-      const response = await fetch(COSMOS_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json'
-        },
-        signal: controller.signal,
-        body: JSON.stringify(body)
-      });
-      return await parseApiResponse(response, 'langsung ke CosmosHub');
-    } catch (error) {
-      if (!error.transport) error.transport = 'langsung ke CosmosHub';
-      if (!error.status && error?.name !== 'AbortError') {
-        error.message = `Browser tidak dapat menghubungi CosmosHub secara langsung. Kemungkinan diblokir CORS atau jaringan: ${error.message}`;
-      }
-      throw error;
-    } finally {
-      activeControllers.delete(controller);
-    }
-  }
-
   async function callCosmos(config, body) {
-    const first = preferredTransport === 'direct' ? callDirect : callViaProxy;
-    const second = preferredTransport === 'direct' ? callViaProxy : callDirect;
-    let firstError;
-
-    try {
-      return await first(config, body);
-    } catch (error) {
-      firstError = error;
-      if (cancelled || error?.name === 'AbortError') throw error;
-
-      const shouldFallback = !error?.status || error?.gateway || [500, 502, 503, 504].includes(Number(error?.status));
-      if (!shouldFallback) throw error;
-    }
-
-    try {
-      const payload = await second(config, body);
-      preferredTransport = preferredTransport === 'direct' ? 'proxy' : 'direct';
-      return payload;
-    } catch (secondError) {
-      const error = new Error(
-        `Dua jalur koneksi gagal. ${firstError.transport || 'Jalur pertama'}: ${firstError.message} | ` +
-        `${secondError.transport || 'Jalur kedua'}: ${secondError.message}`
-      );
-      error.status = secondError.status || firstError.status;
-      error.details = { first: firstError.details, second: secondError.details };
-      throw error;
-    }
+    return callViaProxy(config, body);
   }
 
   function isRetryable(error) {
@@ -992,8 +953,8 @@ Aturan audit:
       const config = getConfig();
       saveNonSecretConfig();
       button.disabled = true;
-      button.textContent = 'Menguji CosmosHub…';
-      setFeedback(`Menghubungi CosmosHub dengan model ${config.model}…`);
+      button.textContent = 'Menguji layanan AI…';
+      setFeedback(`Menguji layanan AI dengan model ${config.model}…`);
       const body = {
         model: config.model,
         messages: [{ role: 'user', content: 'Balas hanya dengan kata OK.' }]
@@ -1003,14 +964,14 @@ Aturan audit:
       const usage = getUsage(payload, 'openai');
       const usageText = usage.input || usage.output ? ` · ${formatUsage(usage)}` : '';
       const transportText = payload?._mileTransport ? ` melalui ${payload._mileTransport}` : '';
-      setFeedback(`Koneksi CosmosHub berhasil${transportText}. Respons: ${text || 'OK'}${usageText}`, 'success');
-      showToast(`Koneksi CosmosHub berhasil${payload?._mileTransport ? ` melalui ${payload._mileTransport}` : ''}.`, 'success');
+      setFeedback(`Layanan AI siap${transportText}. Respons: ${text || 'OK'}${usageText}`, 'success');
+      showToast('Layanan AI siap digunakan.', 'success');
     } catch (error) {
-      setFeedback(`Koneksi CosmosHub gagal: ${error.message}`, 'error');
-      showToast(`Koneksi CosmosHub gagal: ${error.message}`, 'error');
+      setFeedback(`Tes layanan AI gagal: ${error.message}`, 'error');
+      showToast(`Tes layanan AI gagal: ${error.message}`, 'error');
     } finally {
       button.disabled = false;
-      button.textContent = 'Tes API CosmosHub';
+      button.textContent = 'Tes layanan AI';
       refreshConfigStatus();
     }
   }
@@ -1213,17 +1174,10 @@ Aturan audit:
       $(id)?.addEventListener('change', markSpeedPresetCustom);
       $(id)?.addEventListener('input', markSpeedPresetCustom);
     });
-    $('aiApiKey')?.addEventListener('input', refreshConfigStatus);
-    $('toggleApiKey')?.addEventListener('click', () => {
-      const input = $('aiApiKey');
-      if (!input) return;
-      const showing = input.type === 'text';
-      input.type = showing ? 'password' : 'text';
-      $('toggleApiKey').textContent = showing ? 'Lihat' : 'Sembunyikan';
-    });
     $('testAiConnection')?.addEventListener('click', testConnection);
     $('cancelAiProcess')?.addEventListener('click', cancelProcess);
     refreshConfigStatus();
+    checkServerConfiguration();
   }
 
   window.MileAI = {

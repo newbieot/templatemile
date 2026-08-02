@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-12">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-13">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -180,23 +180,17 @@
           <details class="ai-config" id="aiConfigPanel">
             <summary>
               <span class="ai-config-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v1.2A4.8 4.8 0 0 0 4 13.7V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.3a4.8 4.8 0 0 0-3-4.5V8a5 5 0 0 0-5-5Z"/><path d="M9 8a3 3 0 0 1 6 0v1H9V8Zm3 5v2"/></svg></span>
-              <span><strong>Pengaturan API untuk PDF</strong><small>API key dimasukkan manual dan tidak disimpan.</small></span>
+              <span><strong>Pengaturan API untuk PDF</strong><small>API key dikelola aman oleh Cloudflare dan tidak terlihat oleh pengguna.</small></span>
               <span class="ai-config-status" id="aiConfigStatus">Belum dikonfigurasi</span>
             </summary>
             <div class="ai-config-body">
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-                <p>API key hanya berada di memori tab ini dan tidak disimpan. Koneksi memakai Cloudflare Worker; jika jalur tersebut bermasalah, web otomatis mencoba langsung ke CosmosHub.</p>
+                <p>API key disimpan sebagai Cloudflare Secret dan hanya dibaca oleh Worker di server. Browser pengguna tidak menerima atau menyimpan API key.</p>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
-                  <label for="aiProtocol">Format API</label>
-                  <div class="select-shell"><select id="aiProtocol" disabled>
-                    <option value="openai" selected>CosmosHub · OpenAI-compatible</option>
-                  </select></div>
-                </div>
-                <div class="form-group">
-                  <label for="aiModel">Model CosmosHub</label>
+                  <label for="aiModel">Model AI</label>
                   <div class="select-shell"><select id="aiModel">
                     <optgroup label="Claude Vision · Kiro AI">
                       <option value="claude-opus-5">Claude Opus 5</option>
@@ -209,19 +203,7 @@
                       <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
                     </optgroup>
                     </select></div>
-                  <span class="field-hint">Daftar model dibatasi hanya ke model vision yang telah lolos uji untuk pembacaan gambar/PDF di CosmosHub. Model text-only seperti Muse Spark, GLM, Qwen, GPT, dan lainnya disembunyikan agar tidak menghasilkan output kosong.</span>
-                </div>
-                <div class="form-group full-width">
-                  <label for="aiEndpoint">Base URL CosmosHub</label>
-                  <input id="aiEndpoint" type="url" value="https://api.cosmoshub.tech/v1" readonly>
-                  <span class="field-hint">Request dikirim ke <strong>/v1/chat/completions</strong> dengan header Authorization: Bearer.</span>
-                </div>
-                <div class="form-group full-width">
-                  <label for="aiApiKey">API key <span>Tidak disimpan</span></label>
-                  <div class="api-key-shell">
-                    <input id="aiApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Tempel API key di sini">
-                    <button id="toggleApiKey" class="api-key-toggle" type="button" aria-label="Tampilkan atau sembunyikan API key">Lihat</button>
-                  </div>
+                  <span class="field-hint">Hanya model vision yang telah lolos uji pembacaan gambar/PDF yang ditampilkan.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiAccuracyMode">Mode ekstraksi</label>
@@ -269,8 +251,8 @@
                   <span class="field-hint">Nilai dapat diedit manual. Jika muncul rate limit 429, turunkan menjadi 2–3 jalur.</span>
                 </div>
                 <div class="form-group full-width ai-test-group">
-                  <label>Uji konfigurasi</label>
-                  <button id="testAiConnection" class="button button--secondary ai-test-button" type="button">Tes API CosmosHub</button>
+                  <label>Uji layanan</label>
+                  <button id="testAiConnection" class="button button--secondary ai-test-button" type="button">Tes layanan AI</button>
                 </div>
               </div>
               <div class="ai-config-feedback" id="aiConfigFeedback" hidden></div>
@@ -289,7 +271,7 @@
 
         <section class="privacy-note">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          <div><strong>Transparansi pemrosesan</strong><p>Excel/CSV diproses lokal. PDF dan gambar halamannya dikirim melalui server proxy mile.posnew.com ke endpoint AI yang Anda tentukan. API key tidak disimpan.</p></div>
+          <div><strong>Transparansi pemrosesan</strong><p>Excel/CSV diproses lokal. PDF dan gambar halamannya dikirim melalui server aman mile.posnew.com ke layanan AI. API key tersimpan sebagai Cloudflare Secret dan tidak pernah dikirim ke browser.</p></div>
         </section>
       </aside>
 
@@ -430,8 +412,8 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-12" defer></script>
-  <script src="/assets/js/ai-pdf.js?v=20260802-12" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-12" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-13" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-13" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-13" defer></script>
 </body>
 </html>
