@@ -23,9 +23,9 @@ The PDF panel is configured specifically for CosmosHub:
 - Base URL: `https://api.cosmoshub.tech/v1`
 - Endpoint: `/chat/completions`
 - Authentication: `Authorization: Bearer <API_KEY>`
-- Default model: `claude-opus-5`
+- Default model: `gemini-3.6-flash`
 
-The API key is entered manually and kept only in current-tab memory. It is not stored in GitHub, localStorage, sessionStorage, or the exported workbook.
+The API key is stored only as the encrypted Cloudflare Pages secret `COSMOS_API_KEY`. It is never sent to the browser or stored in GitHub.
 
 The browser first uses the Cloudflare Worker proxy. If that route returns a gateway/network failure, the application automatically tries a direct browser request to CosmosHub. A concise error is shown instead of dumping a complete Cloudflare HTML error page.
 
@@ -73,3 +73,11 @@ Untuk fitur PDF AI, dropdown model sekarang dibatasi hanya pada model vision yan
 ## Pemrosesan tanpa mode BNI
 
 Mode BNI khusus telah dihapus. Semua PDF memakai pipeline vision umum yang lebih ringan. Pembersihan salam `KEPADA YTH`, kode placeholder mandiri, dan artefak OCR tetap berjalan otomatis tanpa mengirim dua gambar per halaman atau memaksa audit penuh.
+
+## PDF review workflow v12
+
+Hasil PDF AI menyediakan editor No Ref massal untuk seluruh baris PDF. Kolom NO dibuat sticky agar nomor urut tetap terlihat ketika tabel digeser horizontal. Panel koreksi juga menampilkan nomor urut dan nama kolom yang sedang diperbaiki.
+
+## Cloudflare Secret setup
+
+Production requires an encrypted Pages secret named `COSMOS_API_KEY`. The browser sends only the AI request body to `/api/ai-proxy`; `_worker.js` adds the server-side Authorization header.

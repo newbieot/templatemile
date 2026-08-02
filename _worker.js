@@ -23,7 +23,7 @@ function conciseHtmlError(text, status) {
   return `Upstream mengembalikan HTML, bukan JSON (HTTP ${status}).`;
 }
 
-async function handleProxy(request) {
+async function handleProxy(request, env) {
   if (request.method !== 'POST') {
     return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
   }
@@ -40,12 +40,12 @@ async function handleProxy(request) {
     return json({ error: { message: 'Body harus berupa JSON valid.' } }, 400);
   }
 
-  const apiKey = String(input?.apiKey || '').trim();
+  const apiKey = String(env.COSMOS_API_KEY || '').trim();
   const body = input?.body;
   const model = String(body?.model || '').trim();
 
-  if (!apiKey || apiKey.length < 8 || apiKey.length > 4096) {
-    return json({ error: { message: 'API key CosmosHub tidak valid.' } }, 400);
+  if (!apiKey) {
+    return json({ error: { message: 'COSMOS_API_KEY belum dikonfigurasi pada Cloudflare Pages.' } }, 503);
   }
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return json({ error: { message: 'Payload API tidak valid.' } }, 400);
@@ -105,11 +105,11 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-11' });
+      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-14', cosmosConfigured: Boolean(env.COSMOS_API_KEY) });
     }
 
     if (url.pathname === '/api/ai-proxy') {
-      return handleProxy(request);
+      return handleProxy(request, env);
     }
 
     return env.ASSETS.fetch(request);
