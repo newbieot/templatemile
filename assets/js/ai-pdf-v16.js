@@ -18,7 +18,7 @@
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v15';
+  const STORAGE_KEY = 'mile-ai-config-v16';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -73,7 +73,7 @@
     if ($('aiModel')) $('aiModel').value = 'gemini-3.6-flash';
     try {
       // Hapus konfigurasi model versi lama agar Claude Opus tidak terbawa.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -138,14 +138,14 @@
         cache: 'no-store'
       });
       const data = await response.json();
-      const configured = Boolean(response.ok && data?.cosmosConfigured);
+      const configured = Boolean(response.ok && data?.cosmosConfigured && data?.firebaseConfigured && data?.sessionConfigured && data?.serverSideGate);
       if (status) {
         status.dataset.healthChecked = 'true';
         status.classList.toggle('is-ready', configured);
-        status.textContent = configured ? 'AI siap digunakan' : 'Secret runtime belum aktif';
+        status.textContent = configured ? 'AI siap digunakan' : 'Konfigurasi server belum lengkap';
       }
       if (!configured && showFeedback) {
-        setFeedback('COSMOS_API_KEY belum tersedia pada runtime Cloudflare. Tambahkan sebagai Runtime Secret, bukan Build secret, lalu buat deployment baru.', 'error');
+        setFeedback('Konfigurasi Secure Gateway belum lengkap. Pastikan COSMOS_API_KEY, FIREBASE_WEB_API_KEY, dan MILE_SESSION_SECRET tersedia di Cloudflare Variables and Secrets, lalu deploy ulang.', 'error');
       }
       return configured;
     } catch (_) {
@@ -506,7 +506,10 @@ Aturan audit:
 
     if (!response.ok) {
       let message = payload?.error?.message || payload?.message || `API gagal dengan HTTP ${response.status}`;
-      if (response.status === 401 || response.status === 403) message = `API key CosmosHub ditolak (${response.status}). Periksa kembali key dan saldo akun.`;
+      if (response.status === 401) {
+        message = 'Sesi login telah berakhir. Silakan masuk kembali.';
+        window.dispatchEvent(new CustomEvent('mile:session-expired'));
+      } else if (response.status === 403) message = 'Akun ini tidak memiliki izin menggunakan layanan AI.';
       else if (response.status === 404) message = 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
       else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
       else if (response.status === 413) message = 'Kelompok halaman terlalu besar. Turunkan Halaman per permintaan menjadi 2–4.';
@@ -530,6 +533,7 @@ Aturan audit:
       const response = await fetch('/api/ai-proxy', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
         signal: controller.signal,
         body: JSON.stringify({ body })
       });
@@ -962,7 +966,7 @@ Aturan audit:
     try {
       const configured = await checkServerConfiguration({ showFeedback: true });
       if (!configured) {
-        throw new Error('COSMOS_API_KEY belum aktif pada runtime Cloudflare. Tambahkan di Settings > Variables and Secrets (runtime), bukan di Build variables and secrets, kemudian redeploy.');
+        throw new Error('Konfigurasi Secure Gateway belum lengkap. Periksa tiga secret Cloudflare lalu deploy ulang.');
       }
       const config = getConfig();
       saveNonSecretConfig();

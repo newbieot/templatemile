@@ -1,5 +1,2 @@
 User-agent: *
-Allow: /
-Disallow: /beta.html
-
-Sitemap: https://mile.posnew.com/sitemap.xml
+Disallow: /

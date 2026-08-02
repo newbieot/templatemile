@@ -1,0 +1,10 @@
+.session-user{display:flex;align-items:center;gap:8px;min-width:0;padding:5px 6px 5px 7px;border:1px solid #dbe5f6;border-radius:999px;background:#f4f7ff}
+.session-avatar{width:29px;height:29px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;color:#fff;background:linear-gradient(145deg,#172554,#2563eb);font-size:.7rem;font-weight:900}
+.session-copy{min-width:0;display:flex;flex-direction:column}
+.session-copy strong{max-width:170px;overflow:hidden;color:#172554;font-size:.66rem;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+.session-copy small{margin-top:1px;color:#667085;font-size:.55rem}
+.session-user button{height:29px;padding:0 10px;border:1px solid #d6deec;border-radius:999px;color:#1d3470;background:#fff;font-size:.6rem;font-weight:850;cursor:pointer;transition:color .18s ease,border-color .18s ease,background .18s ease}
+.session-user button:hover:not(:disabled){border-color:#ef4123;color:#fff;background:#ef4123}
+.session-user button:disabled{opacity:.6;cursor:wait}
+@media(max-width:900px){.session-copy{display:none}.session-user{padding-left:6px}.privacy-pill{display:none}}
+@media(max-width:560px){.all-tools-link{display:none}.session-user button{width:31px;padding:0;font-size:0}.session-user button::after{content:"↗";font-size:.75rem}.header-inner{width:min(100% - 20px,1540px)}}

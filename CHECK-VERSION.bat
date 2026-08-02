@@ -1,11 +1,35 @@
 @echo off
-setlocal
-set "TARGET=C:\Users\Ikhsan Radiansyah\Documents\GitHub\templatemile"
-echo Memeriksa repository lokal...
-echo.
-findstr /C:"Runtime Secret · v15" "%TARGET%\index.html" && echo [OK] index.html v15 || echo [GAGAL] index.html masih lama
-findstr /C:"version: '20260802-14'" "%TARGET%\_worker.js" && echo [OK] worker v15 || echo [GAGAL] worker masih lama
-findstr /C:"env.COSMOS_API_KEY" "%TARGET%\_worker.js" && echo [OK] Cloudflare Secret digunakan || echo [GAGAL] Cloudflare Secret belum digunakan
-findstr /C:"aiApiKey" "%TARGET%\index.html" >nul && echo [GAGAL] Input API key masih ada || echo [OK] Input API key sudah hilang
-pause
-endlocal
+setlocal EnableExtensions
+cd /d "%~dp0"
+set "FAIL=0"
+
+echo Memeriksa MILE Secure Gateway v16...
+
+findstr /c:"20260802-16" "_worker.js" >nul && echo [OK] Worker v16 || (echo [GAGAL] Worker bukan v16 & set "FAIL=1")
+findstr /c:"serverSideGate: true" "_worker.js" >nul && echo [OK] Gate sisi server aktif || (echo [GAGAL] Gate sisi server tidak ditemukan & set "FAIL=1")
+findstr /c:"FIREBASE_WEB_API_KEY" "_worker.js" >nul && echo [OK] Firebase key dibaca dari Cloudflare Secret || (echo [GAGAL] Binding Firebase tidak ditemukan & set "FAIL=1")
+findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session HMAC server aktif || (echo [GAGAL] Session secret tidak ditemukan & set "FAIL=1")
+findstr /c:"Masuk ke workspace" "index.html" >nul && echo [OK] Halaman login tersedia || (echo [GAGAL] Halaman login tidak ditemukan & set "FAIL=1")
+findstr /c:"Pengaturan transaksi" "app.html" >nul && echo [OK] HTML inti dipisahkan dari login || (echo [GAGAL] app.html tidak ditemukan & set "FAIL=1")
+findstr /c:"ai-pdf-v16.js" "app.html" >nul && echo [OK] AI PDF v16 dimuat || (echo [GAGAL] AI PDF v16 tidak dimuat & set "FAIL=1")
+
+if exist "assets\js\firebase-auth-v16.js" (
+  echo [GAGAL] File Firebase client lama masih ada
+  set "FAIL=1"
+) else echo [OK] File Firebase client lama sudah dihapus
+
+findstr /s /i /m /c:"AIza" *.html *.js *.md *.json *.xml 2>nul >nul
+if not errorlevel 1 (
+  echo [GAGAL] Ada Google API key tertanam di file repository
+  set "FAIL=1"
+) else echo [OK] Tidak ada Google API key tertanam
+
+findstr /s /i /m /c:"BEGIN PRIVATE KEY" *.html *.js *.md *.json *.xml 2>nul >nul
+if not errorlevel 1 (
+  echo [GAGAL] Ada private key tertanam di file repository
+  set "FAIL=1"
+) else echo [OK] Tidak ada private key tertanam
+
+if "%FAIL%"=="1" exit /b 1
+echo Semua pemeriksaan dasar lulus.
+exit /b 0

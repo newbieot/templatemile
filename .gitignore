@@ -1,0 +1,11 @@
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+service-account*.json
+*-firebase-adminsdk-*.json
+node_modules/
+.DS_Store
+Thumbs.db
