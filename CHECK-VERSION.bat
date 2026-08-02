@@ -3,9 +3,9 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa MILE Secure Gateway v16...
+echo Memeriksa mile.posnew.com Secure Gateway v16.2...
 
-findstr /c:"20260802-16" "_worker.js" >nul && echo [OK] Worker v16 || (echo [GAGAL] Worker bukan v16 & set "FAIL=1")
+findstr /c:"20260802-16.2" "_worker.js" >nul && echo [OK] Worker v16.2 || (echo [GAGAL] Worker bukan v16.2 & set "FAIL=1")
 findstr /c:"serverSideGate: true" "_worker.js" >nul && echo [OK] Gate sisi server aktif || (echo [GAGAL] Gate sisi server tidak ditemukan & set "FAIL=1")
 findstr /c:"FIREBASE_WEB_API_KEY" "_worker.js" >nul && echo [OK] Firebase key dibaca dari Cloudflare Secret || (echo [GAGAL] Binding Firebase tidak ditemukan & set "FAIL=1")
 findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session HMAC server aktif || (echo [GAGAL] Session secret tidak ditemukan & set "FAIL=1")

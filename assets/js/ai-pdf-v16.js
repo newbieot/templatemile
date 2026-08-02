@@ -997,7 +997,7 @@ Aturan audit:
   async function processPDFFile(file) {
     const core = window.__mileCore;
     if (!core) {
-      alert('Core MILE belum siap. Muat ulang halaman.');
+      alert('Aplikasi mile.posnew.com belum siap. Muat ulang halaman.');
       return;
     }
     let config;

@@ -336,7 +336,7 @@ tr.has-active-editor td{border-bottom-color:#f7b8aa}
 }
 .preview-card:not(.has-data) .table-container{position:relative;background:linear-gradient(180deg,#fff,#fbfcfe)}
 .preview-card:not(.has-data) .table-container::before{content:"";position:absolute;left:50%;top:43%;width:42px;height:42px;border:1px solid #dbe2ec;border-radius:13px;background:#f7f9fc;transform:translate(-50%,-50%)}
-.preview-card:not(.has-data) .table-container::after{content:"Unggah berkas Excel atau CSV untuk mulai menyiapkan data MILE.";position:absolute;left:50%;top:54%;width:min(340px,75%);color:#7b8798;text-align:center;font-size:.7rem;line-height:1.5;transform:translate(-50%,-50%)}
+.preview-card:not(.has-data) .table-container::after{content:"Unggah berkas Excel atau CSV untuk mulai menyiapkan data Mile App.";position:absolute;left:50%;top:54%;width:min(340px,75%);color:#7b8798;text-align:center;font-size:.7rem;line-height:1.5;transform:translate(-50%,-50%)}
 .preview-card:not(.has-data) #resultTable{visibility:hidden}
 
 
@@ -450,7 +450,7 @@ tbody tr.needs-review td:first-child{box-shadow:inset 4px 0 0 #d97706}
 .outside-batam-badge{display:inline-flex;margin-bottom:.28rem;padding:.2rem .38rem;border-radius:999px;color:#7f1d1d;background:#fee2e2;font-size:.52rem;font-weight:850;white-space:nowrap}
 .outside-batam-badge[hidden]{display:none}
 tbody tr.outside-batam td{background-image:linear-gradient(rgba(254,242,242,.55),rgba(254,242,242,.55))}
-.preview-card:not(.has-data) .table-container::after{content:"Unggah berkas PDF, Excel, atau CSV untuk mulai menyiapkan data MILE."}
+.preview-card:not(.has-data) .table-container::after{content:"Unggah berkas PDF, Excel, atau CSV untuk mulai menyiapkan data Mile App."}
 @media (max-width:640px){
   .ai-config>summary{flex-wrap:wrap}
   .ai-config-status{margin-left:42px}

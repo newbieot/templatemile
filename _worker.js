@@ -1,4 +1,4 @@
-const APP_VERSION = '20260802-16.1';
+const APP_VERSION = '20260802-16.2';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -389,7 +389,7 @@ export default {
     if (url.pathname === '/api/health') {
       return json({
         ok: true,
-        service: 'mile-secure-gateway',
+        service: 'mile-posnew-secure-gateway',
         version: APP_VERSION,
         cosmosConfigured: Boolean(String(env?.COSMOS_API_KEY || '').trim()),
         firebaseConfigured: Boolean(String(env?.FIREBASE_WEB_API_KEY || '').trim()),

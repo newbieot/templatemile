@@ -1,14 +1,22 @@
 {
-  "name": "MILE Bulk Converter | PosNew Hub",
-  "short_name": "MILE Converter",
-  "description": "Prepare MILE App bulk-upload workbooks from PDF, Excel, and CSV recipient data.",
+  "name": "mile.posnew.com | PosNew Hub",
+  "short_name": "mile.posnew.com",
+  "description": "Menyiapkan workbook bulk upload Mile App dari data penerima PDF, Excel, dan CSV.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#eef2f7",
   "theme_color": "#172554",
   "icons": [
-    {"src":"/icon-192.png","sizes":"192x192","type":"image/png"},
-    {"src":"/icon-512.png","sizes":"512x512","type":"image/png"}
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }

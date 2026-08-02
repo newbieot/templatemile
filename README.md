@@ -1,6 +1,13 @@
-# MILE Secure Gateway v16
+# mile.posnew.com Secure Gateway v16.2
 
-Versi ini mempertahankan seluruh fungsi MILE v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Worker**, bukan melalui Firebase SDK di browser.
+Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
+
+
+## Penamaan aplikasi
+
+- Nama aplikasi sementara: **mile.posnew.com**.
+- Sistem Pos Indonesia yang menjadi tujuan upload disebut **Mile App**.
+- Nama teknis lama seperti `MILE_SESSION_SECRET`, `MILE_ALLOWED_EMAILS`, dan cookie `__Host-mile_session` tetap dipertahankan agar konfigurasi Cloudflare yang sudah berjalan tidak rusak.
 
 ## Perubahan keamanan utama
 
@@ -68,7 +75,7 @@ Karena key lama pernah masuk commit GitHub, lakukan rotasi:
 7. Simpan key baru sebagai `FIREBASE_WEB_API_KEY` di Cloudflare Secret.
 8. Hapus/revoke key lama yang terdeteksi GitHub.
 
-Karena request Firebase dikirim dari Cloudflare Worker, jangan memakai HTTP referrer restriction pada key server ini. Nilai key tidak dikirim ke browser.
+Karena request Firebase dikirim dari Cloudflare Pages Function (`_worker.js`), jangan memakai HTTP referrer restriction pada key server ini. Nilai key tidak dikirim ke browser.
 
 ## Firebase Authentication
 
@@ -108,8 +115,8 @@ Hasil yang benar:
 ```json
 {
   "ok": true,
-  "service": "mile-secure-gateway",
-  "version": "20260802-16",
+  "service": "mile-posnew-secure-gateway",
+  "version": "20260802-16.2",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,
@@ -129,9 +136,9 @@ Uji melalui Incognito:
 
 ## Cloudflare Access
 
-Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16 dan AI dipastikan berfungsi:
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.2 dan AI dipastikan berfungsi:
 
-1. Zero Trust → Access controls → Applications → MILE Converter.
+1. Zero Trust → Access controls → Applications → mile.posnew.com.
 2. Tambahkan policy `Bypass`.
 3. Include: `Everyone`.
 4. Uji lagi melalui Incognito.
@@ -153,3 +160,8 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/session-v16.js` — status akun dan logout.
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
 - `assets/js/ai-pdf-v16.js` — alur PDF AI berbasis session.
+
+
+## Pembaruan v16.2
+
+Mempertahankan perbaikan redirect Cloudflare Pages v16.1 dan menyeragamkan nama aplikasi menjadi `mile.posnew.com`. Semua penyebutan sistem operasional tujuan kini menggunakan istilah `Mile App`.
