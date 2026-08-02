@@ -4,14 +4,22 @@
   const MAX_PDF_BYTES = 120 * 1024 * 1024;
   const MAX_PAGES = 300;
   const IMAGE_PROFILES = {
-    fast: { maxSide: 1800, jpegQuality: 0.82, verify: 'none' },
-    balanced: { maxSide: 2300, jpegQuality: 0.90, verify: 'smart' },
-    accurate: { maxSide: 2700, jpegQuality: 0.92, verify: 'all' },
+    auto: { maxSide: 2400, jpegQuality: 0.90, verify: 'smart' },
+    fast: { maxSide: 1900, jpegQuality: 0.84, verify: 'none' },
+    balanced: { maxSide: 2400, jpegQuality: 0.90, verify: 'smart' },
+    accurate: { maxSide: 2800, jpegQuality: 0.93, verify: 'all' },
     bni: { maxSide: 3000, jpegQuality: 0.94, verify: 'all' }
   };
-  const DEFAULT_ACCURACY_MODE = 'bni';
+  const SPEED_PRESETS = {
+    medium: { pagesPerRequest: 5, concurrency: 2, verification: 'all', label: 'Sedang' },
+    fast: { pagesPerRequest: 10, concurrency: 4, verification: 'smart', label: 'Cepat' },
+    turbo: { pagesPerRequest: 10, concurrency: 6, verification: 'none', label: 'Turbo' },
+    custom: { verification: 'smart', label: 'Kustom' }
+  };
+  const DEFAULT_ACCURACY_MODE = 'auto';
+  const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v7';
+  const STORAGE_KEY = 'mile-ai-config-v8';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -44,22 +52,25 @@
     const protocol = 'openai';
     const endpoint = normalizeEndpoint($('aiEndpoint')?.value);
     const apiKey = String($('aiApiKey')?.value || '').trim();
-    const model = String($('aiModel')?.value || 'claude-sonnet-4.5').trim();
+    const model = String($('aiModel')?.value || 'claude-opus-5').trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
-    const pagesPerRequest = Math.max(2, Math.min(10, Number($('aiPagesPerRequest')?.value || 4)));
-    const concurrency = Math.max(1, Math.min(6, Number($('aiConcurrency')?.value || 4)));
+    const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
+    const pagesPerRequest = Math.max(1, Math.min(10, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const concurrency = Math.max(1, Math.min(6, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
+    const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar CosmosHub yang dikonfigurasi.');
     if (requireKey && !apiKey) throw new Error('Masukkan API key CosmosHub terlebih dahulu.');
-    return { provider: 'cosmoshub', protocol, endpoint, apiKey, model, accuracyMode, pagesPerRequest, concurrency };
+    return { provider: 'cosmoshub', protocol, endpoint, apiKey, model, accuracyMode, speedPreset, verificationPolicy, pagesPerRequest, concurrency };
   }
 
   function saveNonSecretConfig() {
     try {
       const cfg = {
-        model: $('aiModel')?.value || 'claude-sonnet-4.5',
+        model: $('aiModel')?.value || 'claude-opus-5',
         accuracyMode: $('aiAccuracyMode')?.value || DEFAULT_ACCURACY_MODE,
-        pagesPerRequest: $('aiPagesPerRequest')?.value || '4',
-        concurrency: $('aiConcurrency')?.value || '4'
+        speedPreset: $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET,
+        pagesPerRequest: $('aiPagesPerRequest')?.value || String(SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest),
+        concurrency: $('aiConcurrency')?.value || String(SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
     } catch (_) {}
@@ -70,14 +81,56 @@
     if ($('aiEndpoint')) $('aiEndpoint').value = COSMOS_BASE_URL;
     if ($('aiProtocol')) $('aiProtocol').value = 'openai';
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY) || sessionStorage.getItem('mile-ai-config-v2') || sessionStorage.getItem('mile-ai-config-v1');
-      if (!raw) return;
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        if ($('aiModel')) $('aiModel').value = 'claude-opus-5';
+        if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
+        if ($('aiSpeedPreset')) $('aiSpeedPreset').value = DEFAULT_SPEED_PRESET;
+        applySpeedPreset(DEFAULT_SPEED_PRESET, false);
+        return;
+      }
       const cfg = JSON.parse(raw);
       if ($('aiModel') && cfg.model && COSMOS_MODELS.has(cfg.model)) $('aiModel').value = cfg.model;
+      else if ($('aiModel')) $('aiModel').value = 'claude-opus-5';
       if ($('aiAccuracyMode') && IMAGE_PROFILES[cfg.accuracyMode]) $('aiAccuracyMode').value = cfg.accuracyMode;
+      if ($('aiSpeedPreset') && SPEED_PRESETS[cfg.speedPreset]) $('aiSpeedPreset').value = cfg.speedPreset;
       if ($('aiPagesPerRequest') && cfg.pagesPerRequest) $('aiPagesPerRequest').value = String(cfg.pagesPerRequest);
       if ($('aiConcurrency') && cfg.concurrency) $('aiConcurrency').value = String(cfg.concurrency);
     } catch (_) {}
+  }
+
+  function applySpeedPreset(presetName, persist = true) {
+    const preset = SPEED_PRESETS[presetName];
+    if (!preset || presetName === 'custom') return;
+    if ($('aiPagesPerRequest')) $('aiPagesPerRequest').value = String(preset.pagesPerRequest);
+    if ($('aiConcurrency')) $('aiConcurrency').value = String(preset.concurrency);
+    if ($('aiSpeedPreset')) $('aiSpeedPreset').value = presetName;
+    updateSpeedPresetHint();
+    if (persist) saveNonSecretConfig();
+  }
+
+  function updateSpeedPresetHint() {
+    const hint = $('aiSpeedPresetHint');
+    if (!hint) return;
+    const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
+    const descriptions = {
+      medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
+      fast: '10 halaman × 4 jalur, audit kedua hanya jika hasil meragukan. Default untuk Claude Opus 5.',
+      turbo: '10 halaman × 6 jalur, satu kali pembacaan tanpa audit kedua. Tercepat tetapi perlu pemeriksaan hasil lebih teliti.',
+      custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
+    };
+    hint.textContent = descriptions[presetName] || descriptions.custom;
+  }
+
+  function markSpeedPresetCustom() {
+    const pages = Number($('aiPagesPerRequest')?.value || 0);
+    const concurrency = Number($('aiConcurrency')?.value || 0);
+    const exact = Object.entries(SPEED_PRESETS).find(([name, preset]) =>
+      name !== 'custom' && preset.pagesPerRequest === pages && preset.concurrency === concurrency
+    );
+    if ($('aiSpeedPreset')) $('aiSpeedPreset').value = exact?.[0] || 'custom';
+    updateSpeedPresetHint();
+    saveNonSecretConfig();
   }
 
   function refreshConfigStatus() {
@@ -294,8 +347,17 @@
     return url;
   }
 
-  async function renderPageToImage(page, accuracyMode = DEFAULT_ACCURACY_MODE) {
-    const profile = IMAGE_PROFILES[accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
+  async function renderPageToImage(page, accuracyMode = DEFAULT_ACCURACY_MODE, speedPreset = DEFAULT_SPEED_PRESET) {
+    const baseProfile = IMAGE_PROFILES[accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
+    const profile = { ...baseProfile };
+    if (speedPreset === 'fast') {
+      profile.maxSide = Math.min(profile.maxSide, 2450);
+      profile.jpegQuality = Math.min(profile.jpegQuality, 0.90);
+    } else if (speedPreset === 'turbo') {
+      profile.maxSide = Math.min(profile.maxSide, 2200);
+      profile.jpegQuality = Math.min(profile.jpegQuality, 0.87);
+      profile.verify = 'none';
+    }
     const viewportBase = page.getViewport({ scale: 1 });
     const initialTarget = Math.min(profile.maxSide * 1.18, 3400);
     const scale = Math.min(4.5, Math.max(1.7, initialTarget / Math.max(viewportBase.width, viewportBase.height)));
@@ -358,7 +420,7 @@ JL CONTOH UTAMA
 KELURAHAN CONTOH
 KECAMATAN CONTOH 29400
 Hasil:
-{"nama_penerima":"PT CONTOH PENERIMA","alamat_penerima":"JL CONTOH UTAMA, KELURAHAN CONTOH, KECAMATAN CONTOH, BATAM 29400","nomor_surat":""}
+{"nama_penerima":"PT CONTOH PENERIMA","alamat_penerima":"JL CONTOH UTAMA, KELURAHAN CONTOH, KECAMATAN CONTOH, BATAM 29400","nomor_hp":"","nomor_surat":""}
 
 Teks halaman:
 KEPADA YTH
@@ -368,19 +430,19 @@ DONGDOI
 KELURAHAN CONTOH
 KECAMATAN/BATAM 29400
 Hasil:
-{"nama_penerima":"CONTOH INTERNASIONAL PT","alamat_penerima":"RUKO CONTOH BLOK A NO 10, KELURAHAN CONTOH, KECAMATAN, BATAM 29400","nomor_surat":""}
+{"nama_penerima":"CONTOH INTERNASIONAL PT","alamat_penerima":"RUKO CONTOH BLOK A NO 10, KELURAHAN CONTOH, KECAMATAN, BATAM 29400","nomor_hp":"","nomor_surat":""}
 ` : '';
 
     return `Tolong ubah dokumen ini menjadi data terstruktur untuk Excel.
-Kolom: No, Nama Penerima, Alamat Penerima, Nomor Surat.
+Kolom: No, Nama Penerima, Alamat Penerima, Nomor HP, Nomor Surat.
 Urutan data mengikuti urutan halaman dokumen.
 Tandai nomor urut yang alamatnya jelas berada di luar Kota Batam.
 Jangan menebak tulisan yang tidak terbaca; beri keterangan literal "PERLU DICEK" tepat pada bagian yang meragukan.
 
-Baca setiap halaman secara mandiri. Sebelum menjawab, cocokkan huruf demi huruf antara foto asli dan versi zoom/kontras halaman yang sama. Jangan tampilkan proses berpikir.
+Baca setiap halaman secara mandiri. Jika tersedia foto asli dan versi zoom/kontras untuk halaman yang sama, cocokkan keduanya huruf demi huruf sebelum menjawab. Jangan tampilkan proses berpikir.
 
 Kembalikan HANYA JSON valid tanpa markdown dan tanpa penjelasan:
-{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
+{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
 
 ATURAN UMUM:
 1. Setiap gambar diberi label HALAMAN. Dua gambar dapat berasal dari halaman yang sama: FOTO ASLI dan ZOOM KONTRAS. Jangan menganggapnya sebagai dua halaman.
@@ -390,10 +452,12 @@ ATURAN UMUM:
 5. Abaikan header seperti CABANG/CARRIAGE/245 BATAM serta footer TGL TRANS, TGL VALUTA, NO DOKUMEN, dan URAIAN MUTASI.
 6. Pertahankan urutan kata nama perusahaan persis seperti yang tercetak, termasuk PT di awal atau akhir.
 7. Jangan memperbaiki ejaan dengan tebakan. Jika satu kata tidak yakin, pertahankan bagian yang terbaca dan ganti hanya bagian meragukan dengan "PERLU DICEK".
-8. di_luar_batam=true hanya jika alamat jelas berada di luar Kota Batam.
-9. confidence adalah keyakinan 0–1. Scan buram/dot-matrix tidak boleh diberi confidence tinggi jika masih ada huruf meragukan.
-10. raw_lines berisi baris teks penting setelah header/footer dibuang, urut dari atas ke bawah. Raw lines dipakai sistem untuk pemeriksaan otomatis.
-11. Halaman yang diproses: ${startPage} sampai ${endPage}.${bniRules}`;
+8. nomor_hp diisi hanya bila nomor telepon/HP/WhatsApp penerima benar-benar terlihat. Terima pola 08..., +62..., atau label HP/TEL/WA. Jangan mengambil kode pos, nomor cabang, nomor transaksi, atau kode mandiri sebagai nomor HP. Jika tidak ada, isi string kosong.
+9. nomor_surat diisi hanya bila nomor surat/referensi benar-benar terlihat. Jika tidak ada, isi string kosong. Setiap halaman boleh memiliki kombinasi berbeda: ada HP saja, nomor surat saja, keduanya, atau tidak keduanya.
+10. di_luar_batam=true hanya jika alamat jelas berada di luar Kota Batam.
+11. confidence adalah keyakinan 0–1. Scan buram/dot-matrix tidak boleh diberi confidence tinggi jika masih ada huruf meragukan.
+12. raw_lines berisi baris teks penting setelah header/footer dibuang, urut dari atas ke bawah. Raw lines dipakai sistem untuk pemeriksaan otomatis.
+13. Halaman yang diproses: ${startPage} sampai ${endPage}.${bniRules}`;
   }
 
   function buildVerificationPrompt(startPage, endPage, draftRows, options = {}) {
@@ -404,12 +468,14 @@ DRAFT:
 ${JSON.stringify({ rows: draftRows })}
 
 Kembalikan HANYA JSON valid:
-{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
+{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
 
 Aturan audit:
 - Dua gambar dengan nomor halaman sama adalah FOTO ASLI dan ZOOM KONTRAS dari halaman yang sama.
 - Hapus KEPADA YTH/YTH/ATTN dari nama.
 - Jangan campur alamat ke nama.
+- nomor_hp hanya diisi jika nomor telepon/HP/WA benar-benar terlihat; kosongkan jika tidak ada. Jangan salah menganggap kode pos atau kode mandiri sebagai nomor HP.
+- Nomor surat boleh kosong; isi hanya jika benar-benar tercetak sebagai nomor surat/referensi.
 - Abaikan CABANG/CARRIAGE/245 BATAM dan footer transaksi.
 - Cocokkan setiap karakter dengan gambar; gunakan PERLU DICEK jika tidak pasti.
 - Pastikan urutan halaman benar.
@@ -688,6 +754,19 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
     return raw.toUpperCase();
   }
 
+  function normalizeAIPhone(value, rawLines = []) {
+    const direct = String(value ?? '').trim();
+    if (containsReviewMarker(direct)) return direct.toUpperCase();
+    const joined = [direct, ...normalizeRawLines(rawLines)].join(' ');
+    const candidates = joined.match(/(?:\+?62|0)[\s().-]*8(?:[\s().-]*\d){7,12}/g) || [];
+    for (const candidate of candidates) {
+      let digits = String(candidate).replace(/\D/g, '');
+      if (digits.startsWith('62')) digits = `0${digits.slice(2)}`;
+      if (/^08\d{7,12}$/.test(digits)) return digits;
+    }
+    return '';
+  }
+
   function splitMixedNameAddress(name, address) {
     const pattern = /\b(?:JL\.?|JALAN|RUKO|PERUM(?:AHAN)?|KOMP(?:LEK)?|KAVLING|GEDUNG|PASIR\s+PUTIH\s+RESIDENCE)\b/i;
     const match = pattern.exec(name);
@@ -731,6 +810,25 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
 
   function isAddressLine(line) {
     return /^(?:JL\.?|JALAN|RUKO|PERUM(?:AHAN)?|KOMP(?:LEK)?|KAVLING|GEDUNG|BLOK|KAMPUNG|PASIR\s+PUTIH\s+RESIDENCE)\b/i.test(line);
+  }
+
+  function isPhoneLine(line) {
+    const value = String(line || '').trim();
+    return /^(?:NO\.?\s*)?(?:HP|TELP?\.?|TELEPON|PHONE|WA|WHATSAPP)\b/i.test(value) || /(?:\+?62|0)[\s().-]*8(?:[\s().-]*\d){7,12}/.test(value);
+  }
+
+  function isReferenceLine(line) {
+    return /^(?:NO\.?\s*)?(?:SURAT|REF(?:ERENSI)?|REFERENCE|NOMOR\s+SURAT)\b/i.test(String(line || '').trim());
+  }
+
+  function extractReferenceFromLines(lines) {
+    for (const line of normalizeRawLines(lines)) {
+      if (!isReferenceLine(line)) continue;
+      const candidate = line.replace(/^(?:NO\.?\s*)?(?:SURAT|REF(?:ERENSI)?|REFERENCE|NOMOR\s+SURAT)\s*[:#.-]?\s*/i, '').trim();
+      const normalized = normalizeBniReference(candidate);
+      if (normalized) return normalized;
+    }
+    return '';
   }
 
   function compactReferenceCandidate(value) {
@@ -836,11 +934,12 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
     const addressFromLines = afterAddress
       .filter((_, index) => !ignoredCodeIndexes.has(addressStart + index))
       .filter(line => !isIgnoredBniStandaloneCode(line))
+      .filter(line => !isPhoneLine(line) && !isReferenceLine(line))
       .join(', ');
 
     let name = nameFromLines || fallback.name || '';
     let address = addressFromLines || fallback.address || '';
-    const noSurat = normalizeBniReference(fallback.noSurat);
+    const noSurat = normalizeBniReference(fallback.noSurat) || extractReferenceFromLines(lines);
 
     name = stripRecipientPrefix(name)
       .replace(/\bPT\s+PT\b/gi, 'PT')
@@ -872,6 +971,7 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
       let address = normalizeAIText(pick(item, ['alamat_penerima', 'alamat', 'address', 'destination_address']), 'address');
       let noSurat = normalizeAIText(pick(item, ['nomor_surat', 'no_surat', 'surat', 'ref', 'reference']), 'reference');
       const rawLines = normalizeRawLines(pick(item, ['raw_lines', 'baris_mentah', 'lines', 'transcription'], []));
+      let phone = normalizeAIPhone(pick(item, ['nomor_hp', 'no_hp', 'phone', 'telepon', 'telp', 'whatsapp', 'wa']), rawLines);
 
       if (bniMode) {
         const parsed = parseBniStructure(rawLines, { name, address, noSurat });
@@ -890,6 +990,7 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
       let aiReviewFields = normalizeReviewFields(pick(item, ['perlu_dicek_fields', 'review_fields', 'uncertain_fields'], []));
       if (bniMode && !noSurat) aiReviewFields = aiReviewFields.filter(field => !/^(?:nomor_surat|no_surat|surat|reference|ref)$/i.test(field));
       if (containsReviewMarker(noSurat) && !aiReviewFields.includes('nomor_surat')) aiReviewFields.push('nomor_surat');
+      if (containsReviewMarker(phone) && !aiReviewFields.includes('nomor_hp')) aiReviewFields.push('nomor_hp');
       if (containsReviewMarker(name) && !aiReviewFields.includes('nama_penerima')) aiReviewFields.push('nama_penerima');
       if (containsReviewMarker(address) && !aiReviewFields.includes('alamat_penerima')) aiReviewFields.push('alamat_penerima');
 
@@ -897,7 +998,7 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
       const printedZip = extractPrintedZip(address);
       const zip = printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411');
       const row = {
-        senderName: '', noSurat, name, phone: '0', zip, address,
+        senderName: '', noSurat, name, phone: phone || '0', zip, address,
         act: 0.2, p: 10, l: 10, t: 10, cw: '0.20',
         outsideBatam, sourcePage: page, aiConfidence, aiReviewFields,
         rawLines, bniMode
@@ -913,6 +1014,7 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
       page: row.sourcePage,
       nama_penerima: row.name,
       alamat_penerima: row.address,
+      nomor_hp: row.phone === '0' ? '' : row.phone,
       nomor_surat: row.noSurat,
       di_luar_batam: row.outsideBatam,
       perlu_dicek_fields: row.aiReviewFields,
@@ -923,12 +1025,13 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
 
   function shouldVerifyChunk(config, rows) {
     const profile = IMAGE_PROFILES[config.accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
-    if (config.bniMode) return true;
-    if (profile.verify === 'all') return true;
-    if (profile.verify === 'none') return false;
+    const policy = config.verificationPolicy || profile.verify;
+    if (policy === 'all') return true;
+    if (policy === 'none') return false;
     if (!rows.length) return true;
     const averageConfidence = rows.reduce((sum, row) => sum + Number(row.aiConfidence || 0), 0) / rows.length;
-    return averageConfidence < 0.93 || rows.some(row => row.needsVerification);
+    const threshold = config.bniMode ? 0.95 : 0.92;
+    return averageConfidence < threshold || rows.some(row => row.needsVerification);
   }
 
   function getUsage(payload, protocol) {
@@ -1007,12 +1110,11 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
       config = {
         ...config,
         bniMode,
-        accuracyMode: bniMode ? 'bni' : config.accuracyMode,
-        pagesPerRequest: bniMode ? Math.min(2, config.pagesPerRequest) : config.pagesPerRequest,
-        concurrency: bniMode ? Math.min(6, Math.max(4, config.concurrency)) : config.concurrency
+        accuracyMode: bniMode ? 'bni' : (config.accuracyMode === 'auto' ? 'balanced' : config.accuracyMode)
       };
       if (bniMode) {
-        showToast('Mode BNI/dot-matrix aktif: 2 halaman per request, dua gambar per halaman, dan verifikasi kedua.', 'info');
+        const auditLabel = config.verificationPolicy === 'all' ? 'audit penuh' : config.verificationPolicy === 'none' ? 'tanpa audit kedua' : 'audit adaptif';
+        showToast(`Mode BNI/dot-matrix aktif: ${config.pagesPerRequest} halaman per request, ${config.concurrency} jalur, ${auditLabel}.`, 'info');
       }
 
       const chunks = [];
@@ -1048,7 +1150,7 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
           if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
           const page = await pdf.getPage(pageNumber);
           try {
-            const rendered = await renderPageToImage(page, config.accuracyMode);
+            const rendered = await renderPageToImage(page, config.accuracyMode, config.speedPreset);
             images.push({
               page: pageNumber,
               originalUrl: rendered.originalUrl,
@@ -1061,7 +1163,7 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
         }
 
         updateParallelProgress(chunk, 'Ekstraksi pertama');
-        const extractionImages = config.bniMode
+        const extractionImages = config.bniMode && config.speedPreset === 'medium'
           ? images.flatMap(image => ([
               {
                 page: image.page,
@@ -1076,8 +1178,8 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
             ]))
           : images.map(image => ({
               page: image.page,
-              label: `HALAMAN ${image.page}`,
-              url: image.url
+              label: config.bniMode ? `HALAMAN ${image.page} — HASIL KONTRAS` : `HALAMAN ${image.page}`,
+              url: config.bniMode ? (image.detailUrl || image.url) : image.url
             }));
 
         const body = buildApiBody(
@@ -1144,7 +1246,7 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
       }
 
       const workerCount = Math.min(config.concurrency, chunks.length);
-      setProgress(5, 'Memulai pemrosesan paralel', `${chunks.length} kelompok halaman diproses dengan ${workerCount} jalur paralel.`, formatUsage(totalUsage));
+      setProgress(5, 'Memulai pemrosesan paralel', `${chunks.length} kelompok halaman diproses dengan ${workerCount} jalur paralel · preset ${SPEED_PRESETS[config.speedPreset]?.label || 'Kustom'}.`, formatUsage(totalUsage));
       await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
       const mergedRows = results.flat().filter(Boolean);
@@ -1187,9 +1289,19 @@ ${bniMode ? `- MODE BNI: kode mandiri 5–8 digit di antara alamat jalan dan wil
 
   function bind() {
     loadNonSecretConfig();
-    ['aiModel', 'aiAccuracyMode', 'aiPagesPerRequest', 'aiConcurrency'].forEach(id => {
+    updateSpeedPresetHint();
+    ['aiModel', 'aiAccuracyMode'].forEach(id => {
       $(id)?.addEventListener('change', saveNonSecretConfig);
       $(id)?.addEventListener('input', saveNonSecretConfig);
+    });
+    $('aiSpeedPreset')?.addEventListener('change', event => {
+      const preset = event.target.value;
+      if (preset !== 'custom') applySpeedPreset(preset);
+      else { updateSpeedPresetHint(); saveNonSecretConfig(); }
+    });
+    ['aiPagesPerRequest', 'aiConcurrency'].forEach(id => {
+      $(id)?.addEventListener('change', markSpeedPresetCustom);
+      $(id)?.addEventListener('input', markSpeedPresetCustom);
     });
     $('aiApiKey')?.addEventListener('input', refreshConfigStatus);
     $('toggleApiKey')?.addEventListener('click', () => {

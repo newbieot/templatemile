@@ -34,7 +34,7 @@ async function handleProxy(request) {
 
   const length = Number(request.headers.get('content-length') || 0);
   if (length && length > MAX_REQUEST_BYTES) {
-    return json({ error: { message: 'Payload terlalu besar. Kurangi halaman per permintaan menjadi 2–4.' } }, 413);
+    return json({ error: { message: 'Payload terlalu besar. Turunkan halaman per permintaan atau gunakan preset Sedang.' } }, 413);
   }
 
   let input;
@@ -109,7 +109,7 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-7' });
+      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-8' });
     }
 
     if (url.pathname === '/api/ai-proxy') {

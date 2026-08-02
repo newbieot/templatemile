@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-08-02 — Claude Opus 5 adaptive extraction v8
+
+- Changed the default CosmosHub model to `claude-opus-5`.
+- Added adaptive extraction for documents that may contain Nomor HP, Nomor Surat, both fields, or neither field on each page.
+- Added phone normalization for visible Indonesian `08...` and `+62...` numbers while rejecting postal codes, branch numbers, transaction numbers, and standalone BNI codes.
+- Added speed presets while keeping page and concurrency controls editable:
+  - **Sedang**: 5 pages × 2 parallel requests with a full second audit.
+  - **Cepat**: 10 pages × 4 parallel requests with an adaptive second audit.
+  - **Turbo**: 10 pages × 6 parallel requests with one-pass extraction.
+- Removed the previous forced two-page limit for BNI documents so the user can test 10-page batches.
+- Added automatic document mode: BNI rules activate from the selected BNI template or PDF filename; other PDFs use the general document profile.
+- Tuned image size and audit behavior per speed preset to balance accuracy, payload size, and processing time.
+- Updated health-check and browser-cache version to `20260802-8`.
+
 ## 2026-08-02 — BNI standalone-code removal v7
 
 - Standalone 5–8 digit BNI codes such as `000000`, `001001`, and `002017` are now discarded completely.

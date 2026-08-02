@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-7">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-8">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -174,7 +174,7 @@
         <section class="panel-card upload-card">
           <div class="panel-heading panel-heading--compact">
             <div><span class="section-index">04</span><h2>Unggah berkas sumber</h2></div>
-            <p>PDF diproses dengan gambar yang diperbesar, dibersihkan, dan diverifikasi otomatis. Excel dan CSV tetap diproses lokal di browser.</p>
+            <p>PDF diproses dengan Claude Opus 5 secara default. Sistem menyesuaikan data per halaman: Nomor HP dan Nomor Surat boleh ada, salah satu saja, atau keduanya kosong.</p>
           </div>
 
           <details class="ai-config" id="aiConfigPanel">
@@ -198,9 +198,9 @@
                 <div class="form-group">
                   <label for="aiModel">Model CosmosHub</label>
                   <div class="select-shell"><select id="aiModel">
-                    <option value="claude-sonnet-4.5" selected>Claude Sonnet 4.5</option>
+                    <option value="claude-opus-5" selected>Claude Opus 5 · Default</option>
+                    <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
                     <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
-                    <option value="claude-opus-5">Claude Opus 5</option>
                     <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
                     <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                     <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
@@ -229,23 +229,36 @@
                 <div class="form-group full-width">
                   <label for="aiAccuracyMode">Mode ekstraksi</label>
                   <div class="select-shell"><select id="aiAccuracyMode">
-                    <option value="bni" selected>BNI / scan dot-matrix · hasil paling akurat</option>
+                    <option value="auto" selected>Otomatis · sesuaikan jenis dokumen</option>
+                    <option value="bni">BNI / scan dot-matrix · aturan khusus</option>
                     <option value="balanced">Dokumen umum · akurat & cepat</option>
                     <option value="accurate">Dokumen umum · maksimum akurasi</option>
                     <option value="fast">Dokumen umum · paling cepat</option>
                   </select></div>
-                  <span class="field-hint">Mode BNI membaca foto asli dan zoom kontras, membuang kode angka mandiri yang tidak dibutuhkan, lalu melakukan audit kedua.</span>
+                  <span class="field-hint">Mode otomatis mengenali BNI dari template atau nama berkas. Nomor HP dan Nomor Surat diisi hanya jika benar-benar ada pada tiap halaman.</span>
+                </div>
+                <div class="form-group full-width">
+                  <label for="aiSpeedPreset">Preset kecepatan</label>
+                  <div class="select-shell"><select id="aiSpeedPreset">
+                    <option value="medium">Sedang · audit penuh</option>
+                    <option value="fast" selected>Cepat · rekomendasi Opus 5</option>
+                    <option value="turbo">Turbo · satu kali pembacaan</option>
+                    <option value="custom">Kustom · atur manual</option>
+                  </select></div>
+                  <span class="field-hint" id="aiSpeedPresetHint">10 halaman × 4 jalur, audit kedua hanya jika hasil meragukan. Default untuk Claude Opus 5.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
                   <div class="select-shell"><select id="aiPagesPerRequest">
-                    <option value="2" selected>2 halaman · rekomendasi BNI</option>
-                    <option value="4">4 halaman · dokumen umum</option>
-                    <option value="6">6 halaman · lebih cepat</option>
-                    <option value="8">8 halaman · PDF sangat jelas</option>
-                    <option value="10">10 halaman · tercepat</option>
+                    <option value="1">1 halaman · paling hati-hati</option>
+                    <option value="2">2 halaman</option>
+                    <option value="4">4 halaman</option>
+                    <option value="5">5 halaman · preset Sedang</option>
+                    <option value="6">6 halaman</option>
+                    <option value="8">8 halaman</option>
+                    <option value="10" selected>10 halaman · preset Cepat/Turbo</option>
                   </select></div>
-                  <span class="field-hint">Mode BNI otomatis dibatasi 2 halaman per permintaan agar hasil antarhalaman tidak tercampur.</span>
+                  <span class="field-hint">Tetap dapat diubah manual. Untuk PDF 50 halaman, nilai 10 menghasilkan 5 kelompok request.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
@@ -253,11 +266,11 @@
                     <option value="1">1 jalur · paling aman</option>
                     <option value="2">2 jalur · hemat limit</option>
                     <option value="3">3 jalur · seimbang</option>
-                    <option value="4" selected>4 jalur · cepat</option>
+                    <option value="4" selected>4 jalur · preset Cepat</option>
                     <option value="5">5 jalur · provider kuat</option>
-                    <option value="6">6 jalur · maksimum</option>
+                    <option value="6">6 jalur · preset Turbo</option>
                   </select></div>
-                  <span class="field-hint">Jika muncul rate limit 429, turunkan menjadi 2–3 jalur.</span>
+                  <span class="field-hint">Nilai dapat diedit manual. Jika muncul rate limit 429, turunkan menjadi 2–3 jalur.</span>
                 </div>
                 <div class="form-group full-width ai-test-group">
                   <label>Uji konfigurasi</label>
@@ -408,8 +421,8 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-7" defer></script>
-  <script src="/assets/js/ai-pdf.js?v=20260802-7" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-7" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-8" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-8" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-8" defer></script>
 </body>
 </html>

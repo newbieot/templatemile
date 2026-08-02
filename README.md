@@ -23,7 +23,7 @@ The PDF panel is configured specifically for CosmosHub:
 - Base URL: `https://api.cosmoshub.tech/v1`
 - Endpoint: `/chat/completions`
 - Authentication: `Authorization: Bearer <API_KEY>`
-- Default model: `claude-sonnet-4.5`
+- Default model: `claude-opus-5`
 
 The API key is entered manually and kept only in current-tab memory. It is not stored in GitHub, localStorage, sessionStorage, or the exported workbook.
 
@@ -32,13 +32,17 @@ The browser first uses the Cloudflare Worker proxy. If that route returns a gate
 ## Large PDF processing
 
 - Maximum: 300 pages and 120 MB per PDF
-- Default BNI mode: 2 pages per request
-- Default concurrency: 4 requests
-- Configurable: 2–10 pages per request and 1–6 parallel requests
+- Default speed preset: **Cepat** — 10 pages per request, 4 parallel requests, adaptive second audit
+- Preset **Sedang**: 5 pages, 2 parallel requests, full second audit
+- Preset **Turbo**: 10 pages, 6 parallel requests, one-pass extraction
+- Page and concurrency values remain manually editable: 1–10 pages and 1–6 parallel requests
+- A 50-page PDF becomes five request groups when using 10 pages per request
 - Failed batches are retried up to three times
 - Results are merged back into original page order
 
-PDF pages are automatically cropped and labelled by page number. The default **BNI / scan dot-matrix** mode sends two views of each page—an original-color crop and a high-contrast zoom—then performs an independent second audit. It discards standalone numeric codes such as `000000` because they are not needed, and prevents OCR inventions such as `DONGDOI` from entering any output field. General-document balanced, maximum-accuracy, and fast modes remain available.
+PDF pages are automatically cropped and labelled by page number. Automatic document mode activates the dedicated BNI/dot-matrix rules when the BNI template is selected or the filename contains `BNI`; other files use the general document profile. Standalone BNI codes such as `000000` are discarded because they are not needed, and OCR inventions such as `DONGDOI` are prevented from entering output fields.
+
+Each page is handled independently and may contain a recipient phone number, a letter/reference number, both, or neither. Phone and reference fields remain blank when they are not visibly present; the MILE export normalizes an absent phone according to its existing output rules.
 
 Only the current image batch is sent to CosmosHub.
 
