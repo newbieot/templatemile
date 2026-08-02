@@ -23,7 +23,7 @@ The PDF panel is configured specifically for CosmosHub:
 - Base URL: `https://api.cosmoshub.tech/v1`
 - Endpoint: `/chat/completions`
 - Authentication: `Authorization: Bearer <API_KEY>`
-- Default model: `claude-opus-5`
+- Default model: `gemini-3.6-flash`
 
 The API key is entered manually and kept only in current-tab memory. It is not stored in GitHub, localStorage, sessionStorage, or the exported workbook.
 
@@ -64,7 +64,7 @@ Only the current image batch is sent to CosmosHub.
 
 ## Model selector
 
-The visible selector includes the complete configured CosmosHub allowlist, including `muse-spark-1.1`. Claude Opus 5 remains the default. A model being Healthy in CosmosHub only confirms endpoint availability; PDF extraction also requires support for OpenAI-compatible image input.
+Dropdown PDF hanya menampilkan model vision yang telah lolos uji. `gemini-3.6-flash` menjadi default, dengan Claude Opus/Sonnet/Haiku dan Gemini lain tetap tersedia sebagai pilihan.
 
 ## Vision-only CosmosHub list
 
@@ -73,3 +73,7 @@ Untuk fitur PDF AI, dropdown model sekarang dibatasi hanya pada model vision yan
 ## Pemrosesan tanpa mode BNI
 
 Mode BNI khusus telah dihapus. Semua PDF memakai pipeline vision umum yang lebih ringan. Pembersihan salam `KEPADA YTH`, kode placeholder mandiri, dan artefak OCR tetap berjalan otomatis tanpa mengirim dua gambar per halaman atau memaksa audit penuh.
+
+## PDF review workflow v12
+
+Hasil PDF AI menyediakan editor No Ref massal untuk seluruh baris PDF. Kolom NO dibuat sticky agar nomor urut tetap terlihat ketika tabel digeser horizontal. Panel koreksi juga menampilkan nomor urut dan nama kolom yang sedang diperbaiki.

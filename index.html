@@ -24,7 +24,7 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-11">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-12">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
@@ -174,7 +174,7 @@
         <section class="panel-card upload-card">
           <div class="panel-heading panel-heading--compact">
             <div><span class="section-index">04</span><h2>Unggah berkas sumber</h2></div>
-            <p>PDF diproses dengan Claude Opus 5 secara default. Sistem menyesuaikan data per halaman: Nomor HP dan Nomor Surat boleh ada, salah satu saja, atau keduanya kosong.</p>
+            <p>PDF diproses dengan AI vision. Sistem menyesuaikan data per halaman: Nomor HP dan Nomor Surat boleh ada, salah satu saja, atau keduanya kosong.</p>
           </div>
 
           <details class="ai-config" id="aiConfigPanel">
@@ -199,12 +199,12 @@
                   <label for="aiModel">Model CosmosHub</label>
                   <div class="select-shell"><select id="aiModel">
                     <optgroup label="Claude Vision · Kiro AI">
-                      <option value="claude-opus-5" selected>Claude Opus 5 · Default</option>
+                      <option value="claude-opus-5">Claude Opus 5</option>
                       <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
                       <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
                     </optgroup>
                     <optgroup label="Gemini Vision · Antigravity">
-                      <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                      <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash · Default</option>
                       <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                       <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
                     </optgroup>
@@ -237,11 +237,11 @@
                   <label for="aiSpeedPreset">Preset kecepatan</label>
                   <div class="select-shell"><select id="aiSpeedPreset">
                     <option value="medium">Sedang · audit penuh</option>
-                    <option value="fast" selected>Cepat · rekomendasi Opus 5</option>
+                    <option value="fast" selected>Cepat · rekomendasi Gemini 3.6 Flash</option>
                     <option value="turbo">Turbo · satu kali pembacaan</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">10 halaman × 4 jalur, audit kedua hanya jika hasil meragukan. Default untuk Claude Opus 5.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">10 halaman × 4 jalur, audit kedua hanya jika hasil meragukan. Default untuk Gemini 3.6 Flash.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -317,12 +317,25 @@
             <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu berkas sumber</div>
           </div>
 
+          <div class="bulk-reference-editor" id="bulkPdfReferenceEditor" hidden>
+            <div class="bulk-reference-copy">
+              <span class="bulk-reference-label">Hasil PDF AI</span>
+              <strong>Atur No Ref untuk semua baris PDF</strong>
+              <small id="bulkPdfReferenceHint">Nilai yang dimasukkan akan diterapkan ke seluruh baris hasil PDF yang sedang dimuat.</small>
+            </div>
+            <div class="bulk-reference-controls">
+              <input id="bulkPdfReferenceValue" type="text" autocomplete="off" placeholder="Contoh: REK KORAN atau nomor referensi">
+              <button class="button button--secondary" id="applyBulkPdfReference" type="button" onclick="applyPdfReferenceToAllRows()">Terapkan ke semua</button>
+              <button class="button button--ghost" id="clearBulkPdfReference" type="button" onclick="clearPdfReferenceForAllRows()">Kosongkan semua</button>
+            </div>
+          </div>
+
           <div class="review-alert" id="reviewAlert" hidden>
             <span class="review-alert-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
             </span>
             <div class="review-alert-copy">
-              <span class="review-required-label">Koreksi wajib</span>
+              <span class="review-required-label">Koreksi wajib</span><span class="review-location-badge" id="reviewLocationBadge" hidden></span>
               <strong id="reviewAlertTitle">Ada data yang wajib dikoreksi</strong>
               <p id="reviewActionHint">Sel kuning wajib diperbaiki. Ganti atau hapus seluruh frasa “perlu dicek”, selesaikan teksnya, lalu klik tombol centang. Mengetik atau berpindah kolom tidak akan menandainya selesai.</p>
             </div>
@@ -362,7 +375,7 @@
       <div class="ai-progress-visual" aria-hidden="true"><span class="ai-orbit"></span><svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v1.2A4.8 4.8 0 0 0 4 13.7V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.3a4.8 4.8 0 0 0-3-4.5V8a5 5 0 0 0-5-5Z"/><path d="M9 8a3 3 0 0 1 6 0v1H9V8Zm3 5v2"/></svg></div>
       <div class="modal-heading ai-progress-heading">
         <span class="modal-step" id="aiProgressStep">Menyiapkan PDF</span>
-        <h3 id="aiProgressTitle">Claude sedang membaca dokumen</h3>
+        <h3 id="aiProgressTitle">AI sedang bekerja</h3>
         <p id="aiProgressMessage">PDF sedang disiapkan untuk ekstraksi.</p>
       </div>
       <div class="ai-progress-track" aria-hidden="true"><span id="aiProgressBar"></span></div>
@@ -417,8 +430,8 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-11" defer></script>
-  <script src="/assets/js/ai-pdf.js?v=20260802-11" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-11" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-12" defer></script>
+  <script src="/assets/js/ai-pdf.js?v=20260802-12" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-12" defer></script>
 </body>
 </html>

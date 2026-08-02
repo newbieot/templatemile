@@ -1,3 +1,10 @@
+## 2026-08-02 · Gemini default, PDF bulk reference, review row UX (v12)
+- Changed the default vision model to `gemini-3.6-flash` and reset the non-secret session configuration version.
+- Replaced model-branded PDF progress wording with neutral “AI sedang bekerja”.
+- Added a bulk No Ref editor for all rows originating from AI-processed PDFs, including an explicit clear-all action.
+- Added always-visible sticky NO column, row-numbered review badges, review alert row lists, and active correction location labels.
+- Updated cache and health-check versions to `20260802-12`.
+
 ## 2026-08-02 · Remove BNI processing mode (v11)
 - Removed the dedicated BNI/dot-matrix mode and its automatic activation by template or filename.
 - PDF extraction now sends one optimized image per page instead of BNI dual-image payloads.

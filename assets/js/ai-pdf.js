@@ -18,7 +18,7 @@
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v11';
+  const STORAGE_KEY = 'mile-ai-config-v12';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -47,7 +47,7 @@
     const protocol = 'openai';
     const endpoint = normalizeEndpoint($('aiEndpoint')?.value);
     const apiKey = String($('aiApiKey')?.value || '').trim();
-    const model = String($('aiModel')?.value || 'claude-opus-5').trim();
+    const model = String($('aiModel')?.value || 'gemini-3.6-flash').trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
     const pagesPerRequest = Math.max(1, Math.min(10, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
@@ -61,7 +61,7 @@
   function saveNonSecretConfig() {
     try {
       const cfg = {
-        model: $('aiModel')?.value || 'claude-opus-5',
+        model: $('aiModel')?.value || 'gemini-3.6-flash',
         accuracyMode: $('aiAccuracyMode')?.value || DEFAULT_ACCURACY_MODE,
         speedPreset: $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET,
         pagesPerRequest: $('aiPagesPerRequest')?.value || String(SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest),
@@ -78,7 +78,7 @@
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        if ($('aiModel')) $('aiModel').value = 'claude-opus-5';
+        if ($('aiModel')) $('aiModel').value = 'gemini-3.6-flash';
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
         if ($('aiSpeedPreset')) $('aiSpeedPreset').value = DEFAULT_SPEED_PRESET;
         applySpeedPreset(DEFAULT_SPEED_PRESET, false);
@@ -86,7 +86,7 @@
       }
       const cfg = JSON.parse(raw);
       if ($('aiModel') && cfg.model && COSMOS_MODELS.has(cfg.model)) $('aiModel').value = cfg.model;
-      else if ($('aiModel')) $('aiModel').value = 'claude-opus-5';
+      else if ($('aiModel')) $('aiModel').value = 'gemini-3.6-flash';
       if ($('aiAccuracyMode') && IMAGE_PROFILES[cfg.accuracyMode]) $('aiAccuracyMode').value = cfg.accuracyMode;
       if ($('aiSpeedPreset') && SPEED_PRESETS[cfg.speedPreset]) $('aiSpeedPreset').value = cfg.speedPreset;
       if ($('aiPagesPerRequest') && cfg.pagesPerRequest) $('aiPagesPerRequest').value = String(cfg.pagesPerRequest);
@@ -110,7 +110,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: '10 halaman × 4 jalur, audit kedua hanya jika hasil meragukan. Default untuk Claude Opus 5.',
+      fast: '10 halaman × 4 jalur, audit kedua hanya jika hasil meragukan. Default untuk Gemini 3.6 Flash.',
       turbo: '10 halaman × 6 jalur, satu kali pembacaan tanpa audit kedua. Tercepat tetapi perlu pemeriksaan hasil lebih teliti.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
