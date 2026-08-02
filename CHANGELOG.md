@@ -1,6 +1,14 @@
 # Changelog
 
-## v16.4 — Stopwatch dan statistik Google Sheets
+## v16.5 — Lima jalur sebagai default
+
+- Menghapus pilihan 6 jalur dan preset Turbo.
+- Menetapkan 5 jalur paralel sebagai default baru.
+- Preset Cepat sekarang memakai 10 halaman per permintaan, 5 jalur, dan audit adaptif.
+- Membatasi nilai concurrency maksimum menjadi 5 di JavaScript, termasuk untuk konfigurasi sesi lama.
+- Mengganti storage key agar konfigurasi 6 jalur dari versi sebelumnya tidak terbawa.
+
+## v16.5 — Stopwatch dan statistik Google Sheets
 
 - Menambahkan stopwatch live selama PDF dirender, dikirim ke AI, diverifikasi, dan dimasukkan ke tabel.
 - Menampilkan total durasi, jumlah data, detik per data, dan jumlah halaman setelah proses.

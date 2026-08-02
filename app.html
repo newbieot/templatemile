@@ -25,8 +25,8 @@
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-16.4">
-  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260802-16.4">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-16.5">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260802-16.5">
 </head>
 <body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
@@ -191,7 +191,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.4</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.5</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -224,11 +224,10 @@
                   <label for="aiSpeedPreset">Preset kecepatan</label>
                   <div class="select-shell"><select id="aiSpeedPreset">
                     <option value="medium">Sedang · audit penuh</option>
-                    <option value="fast" selected>Cepat · rekomendasi Gemini 3.6 Flash</option>
-                    <option value="turbo">Turbo · satu kali pembacaan</option>
+                    <option value="fast" selected>Cepat · 5 jalur rekomendasi</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">10 halaman × 4 jalur, audit kedua hanya jika hasil meragukan. Default untuk Gemini 3.6 Flash.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">10 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default baru untuk Gemini 3.6 Flash.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -239,7 +238,7 @@
                     <option value="5">5 halaman · preset Sedang</option>
                     <option value="6">6 halaman</option>
                     <option value="8">8 halaman</option>
-                    <option value="10" selected>10 halaman · preset Cepat/Turbo</option>
+                    <option value="10" selected>10 halaman · preset Cepat</option>
                   </select></div>
                   <span class="field-hint">Tetap dapat diubah manual. Untuk PDF 50 halaman, nilai 10 menghasilkan 5 kelompok request.</span>
                 </div>
@@ -249,9 +248,8 @@
                     <option value="1">1 jalur · paling aman</option>
                     <option value="2">2 jalur · hemat limit</option>
                     <option value="3">3 jalur · seimbang</option>
-                    <option value="4" selected>4 jalur · preset Cepat</option>
-                    <option value="5">5 jalur · provider kuat</option>
-                    <option value="6">6 jalur · preset Turbo</option>
+                    <option value="4">4 jalur · cepat dan stabil</option>
+                    <option value="5" selected>5 jalur · default baru</option>
                   </select></div>
                   <span class="field-hint">Nilai dapat diedit manual. Jika muncul rate limit 429, turunkan menjadi 2–3 jalur.</span>
                 </div>
@@ -456,10 +454,10 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-16.4" defer></script>
-  <script src="/assets/js/ai-pdf-v16.js?v=20260802-16.4" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-16.4" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260802-16.4" defer></script>
-  <script src="/assets/js/session-v16.js?v=20260802-16.4" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-16.5" defer></script>
+  <script src="/assets/js/ai-pdf-v16.js?v=20260802-16.5" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-16.5" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260802-16.5" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260802-16.5" defer></script>
 </body>
 </html>

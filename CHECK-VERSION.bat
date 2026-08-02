@@ -3,9 +3,9 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.4...
+echo Memeriksa mile.posnew.com Secure Gateway v16.5...
 
-findstr /c:"20260802-16.4" "_worker.js" >nul && echo [OK] Worker v16.4 || (echo [GAGAL] Worker bukan v16.4 & set "FAIL=1")
+findstr /c:"20260802-16.5" "_worker.js" >nul && echo [OK] Worker v16.5 || (echo [GAGAL] Worker bukan v16.5 & set "FAIL=1")
 findstr /c:"serverSideGate: true" "_worker.js" >nul && echo [OK] Gate sisi server aktif || (echo [GAGAL] Gate sisi server tidak ditemukan & set "FAIL=1")
 findstr /c:"FIREBASE_WEB_API_KEY" "_worker.js" >nul && echo [OK] Firebase key dibaca dari Cloudflare Secret || (echo [GAGAL] Binding Firebase tidak ditemukan & set "FAIL=1")
 findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session HMAC server aktif || (echo [GAGAL] Session secret tidak ditemukan & set "FAIL=1")
@@ -21,6 +21,10 @@ findstr /c:"/api/metrics/ai" "_worker.js" >nul && echo [OK] Endpoint statistik A
 findstr /c:"GOOGLE_SHEETS_WEBHOOK_SECRET" "_worker.js" >nul && echo [OK] Secret Google Sheets dibaca dari Cloudflare || (echo [GAGAL] Binding Google Sheets tidak ditemukan & set "FAIL=1")
 findstr /c:"aiElapsedTime" "app.html" >nul && echo [OK] Stopwatch UI tersedia || (echo [GAGAL] Stopwatch UI tidak ditemukan & set "FAIL=1")
 findstr /c:"submitProcessingMetrics" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Pencatatan metrik dari browser aktif || (echo [GAGAL] Pengiriman metrik tidak ditemukan & set "FAIL=1")
+findstr /c:"5 jalur" "app.html" >nul && echo [OK] Default paralel 5 jalur || (echo [GAGAL] Default 5 jalur tidak ditemukan & set "FAIL=1")
+findstr /c:"6 jalur" "app.html" >nul && (echo [GAGAL] Opsi 6 jalur masih ada & set "FAIL=1") || echo [OK] Opsi 6 jalur sudah dihapus
+findstr /i /c:"turbo" "assets\js\ai-pdf-v16.js" >nul && (echo [GAGAL] Preset Turbo masih ada & set "FAIL=1") || echo [OK] Preset Turbo sudah dihapus
+findstr /c:"Math.min(5, Number($('aiConcurrency')" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas concurrency maksimum 5 || (echo [GAGAL] Batas concurrency 5 tidak ditemukan & set "FAIL=1")
 
 if exist "assets\js\firebase-auth-v16.js" (
   echo [GAGAL] File Firebase client lama masih ada
