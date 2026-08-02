@@ -1,3 +1,10 @@
+## 2026-08-02 · Runtime Secret and default model fix (v15)
+- Added a new JavaScript filename to force a real cache refresh.
+- Gemini 3.6 Flash is forced as the default model on every page load; old Claude session settings are cleared.
+- Removed all remaining API-key-oriented status labels.
+- Added explicit diagnostics for Cloudflare Build secret versus Runtime secret.
+- Health endpoint now reports version `20260802-15` and runtime secret scope.
+
 ## 2026-08-02 · Server Secret deployment marker (v14)
 - Removed all user-facing API-key and Base-URL controls.
 - Added a visible `Server Secret · v14` marker so the deployed frontend can be verified immediately.
