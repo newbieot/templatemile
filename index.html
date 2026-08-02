@@ -24,49 +24,12 @@
   <meta name="twitter:description" content="Prepare MILE App bulk-upload data faster from PDF, Excel, and CSV files.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-16">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-15">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"SoftwareApplication","name":"MILE Bulk Converter","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://mile.posnew.com/","description":"Browser-based utility for preparing editable PosIND MILE bulk-upload workbooks from Excel and CSV recipient data.","author":{"@type":"Person","name":"Ikhsan Radiansyah","url":"https://posnew.com/about-me.html"}}
   </script>
 </head>
-<body class="auth-pending" data-accept-pdf="true">
-  <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
-    <div class="auth-card">
-      <div class="auth-brand" aria-hidden="true">
-        <span class="auth-brand-mark"><svg viewBox="0 0 24 24"><path d="M4 7.4 12 3l8 4.4v9.2L12 21l-8-4.4V7.4Z"/><path d="m4.5 7.6 7.5 4.2 7.5-4.2M12 12v8.2"/></svg></span>
-        <span><strong>MILE AI Converter</strong><small>PosNew Hub · Akses terbatas</small></span>
-      </div>
-      <div class="auth-copy">
-        <span class="auth-kicker">Firebase Authentication</span>
-        <h1 id="authTitle">Masuk ke workspace MILE</h1>
-        <p>Gunakan akun yang telah didaftarkan oleh administrator. Tidak tersedia pendaftaran akun publik.</p>
-      </div>
-      <form class="auth-form" id="authForm" novalidate>
-        <div class="auth-field">
-          <label for="authEmail">Email</label>
-          <input id="authEmail" name="email" type="email" autocomplete="username" value="ikhsan@posnew.com" required>
-        </div>
-        <div class="auth-field">
-          <label for="authPassword">Password</label>
-          <div class="auth-password-shell">
-            <input id="authPassword" name="password" type="password" autocomplete="current-password" required>
-            <button id="authTogglePassword" type="button" aria-label="Tampilkan atau sembunyikan password">Lihat</button>
-          </div>
-        </div>
-        <label class="auth-remember" for="authRemember">
-          <input id="authRemember" type="checkbox" checked>
-          <span>Tetap masuk di perangkat ini</span>
-        </label>
-        <button class="auth-submit" id="authSubmit" type="submit">Masuk ke aplikasi</button>
-        <button class="auth-reset" id="authResetPassword" type="button">Lupa password?</button>
-        <div class="auth-message" id="authMessage" role="alert" hidden></div>
-      </form>
-      <div class="auth-security">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-        <span>Login diverifikasi Firebase. API CosmosHub tetap tersimpan sebagai Cloudflare Secret.</span>
-      </div>
-    </div>
-  </section>
+<body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
 
   <header class="app-header">
@@ -86,10 +49,6 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
           Semua alat
         </a>
-        <div class="auth-user" id="authUser" hidden>
-          <span id="authUserEmail"></span>
-          <button id="authLogout" type="button">Keluar</button>
-        </div>
       </div>
     </div>
   </header>
@@ -228,7 +187,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Worker menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Firebase Auth · v16</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Runtime Secret · v15</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -452,11 +411,10 @@
   </footer>
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan konverter MILE.</div></noscript>
-  <script type="module" src="/assets/js/firebase-auth-v16.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-16" defer></script>
-  <script src="/assets/js/ai-pdf-v16.js" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-16" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-15" defer></script>
+  <script src="/assets/js/ai-pdf-v15.js" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-15" defer></script>
 </body>
 </html>

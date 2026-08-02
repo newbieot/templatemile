@@ -1,2 +1,1 @@
-// Compatibility loader v16
-import('/assets/js/ai-pdf-v16.js');
+// Compatibility shim v15. The application loads ai-pdf-v15.js directly.

@@ -1,5 +1,3 @@
-# MILE AI Converter · Firebase Auth v16
-
 # MILE Bulk Converter — PosNew Hub
 
 A browser-based utility for converting PDF, Excel, and CSV recipient lists into an editable PosIND MILE bulk-upload workbook.
@@ -86,16 +84,3 @@ Production requires an encrypted Pages secret named `COSMOS_API_KEY`. The browse
 
 ## Runtime secret requirement (v15)
 `COSMOS_API_KEY` must be configured as a runtime Secret for the Production Pages environment. A Build secret is only available during the build and is not accessible to `_worker.js` at runtime.
-
-
-## Firebase Authentication v16
-
-- Project: `mile-posnew-com`
-- Login: Firebase Email/Password
-- Allowlist awal: `ikhsan@posnew.com`
-- Firebase ID token dikirim sebagai Bearer token dan diverifikasi oleh Cloudflare Worker melalui Firebase Auth REST `accounts:lookup`.
-- Endpoint `/api/ai-proxy` menolak pengguna tanpa sesi Firebase yang valid.
-- `COSMOS_API_KEY` tetap disimpan pada Cloudflare Variables and Secrets.
-- Tambahan email dapat dimasukkan lewat variabel Cloudflare `FIREBASE_ALLOWED_EMAILS` dengan pemisah koma.
-
-Cloudflare Access sebaiknya tetap aktif sampai login Firebase berhasil diuji. Setelah itu buat policy `Bypass` untuk `Everyone` atau nonaktifkan aplikasi Access MILE.

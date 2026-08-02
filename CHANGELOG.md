@@ -1,13 +1,3 @@
-# v16 · Firebase Authentication (2026-08-02)
-
-- Login email/password Firebase.
-- Allowlist awal `ikhsan@posnew.com`.
-- Persistensi login lokal opsional untuk admin.
-- Logout dan reset password.
-- Verifikasi token server-side sebelum akses CosmosHub.
-- Endpoint `/api/auth-check`.
-- Health version `20260802-16`.
-
 ## 2026-08-02 · Runtime Secret and default model fix (v15)
 - Added a new JavaScript filename to force a real cache refresh.
 - Gemini 3.6 Flash is forced as the default model on every page load; old Claude session settings are cleared.
