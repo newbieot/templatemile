@@ -1,86 +1,155 @@
-# MILE Bulk Converter — PosNew Hub
+# MILE Secure Gateway v16
 
-A browser-based utility for converting PDF, Excel, and CSV recipient lists into an editable PosIND MILE bulk-upload workbook.
+Versi ini mempertahankan seluruh fungsi MILE v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Worker**, bukan melalui Firebase SDK di browser.
 
-## Deployment
+## Perubahan keamanan utama
 
-Deploy the repository root directly to Cloudflare Pages.
+- Pengunjung yang belum login hanya menerima `index.html` (halaman login).
+- HTML inti aplikasi dipindahkan ke `app.html` dan hanya disajikan setelah session valid.
+- Semua asset inti di `/assets/` ditolak sebelum login.
+- `/api/ai-proxy` wajib memiliki session valid.
+- Firebase Web API Key tidak disimpan di HTML, JavaScript, atau GitHub.
+- `COSMOS_API_KEY` tetap berada di Cloudflare Secret.
+- Session memakai cookie `__Host-...`, `HttpOnly`, `Secure`, dan `SameSite=Lax`.
+- Email yang diizinkan secara default hanya `ikhsan@posnew.com`.
+- CSP memblokir inline JavaScript; event lama dipindahkan ke `events-v16.js`.
+- Tidak ada registrasi akun publik.
 
-- Build command: none
-- Output directory: repository root
-- Custom domain: `mile.posnew.com`
-- Server entry: `_worker.js` (Cloudflare Pages Advanced Mode)
+> Catatan penting: pengunjung yang belum login tidak bisa mengambil HTML/JS inti melalui website. Namun repository GitHub yang **public** tetap bisa dibaca siapa pun. Jadikan repository private bila kode sumber juga tidak ingin terlihat dari GitHub. Keamanan endpoint tidak bergantung pada kerahasiaan HTML.
 
-The Worker serves all static files through `env.ASSETS` and exposes:
+## Secret Cloudflare yang wajib
 
-- `GET /api/health` — proxy health check
-- `POST /api/ai-proxy` — CosmosHub OpenAI-compatible proxy
+Buka Cloudflare Pages:
 
-## CosmosHub PDF extraction
+`Workers & Pages → templatemile → Settings → Variables and Secrets → Add`
 
-The PDF panel is configured specifically for CosmosHub:
+Tambahkan sebagai **Secret**:
 
-- Base URL: `https://api.cosmoshub.tech/v1`
-- Endpoint: `/chat/completions`
-- Authentication: `Authorization: Bearer <API_KEY>`
-- Default model: `gemini-3.6-flash`
+1. `COSMOS_API_KEY`
+2. `FIREBASE_WEB_API_KEY`
+3. `MILE_SESSION_SECRET`
 
-The API key is stored only as the encrypted Cloudflare Pages secret `COSMOS_API_KEY`. It is never sent to the browser or stored in GitHub.
+Opsional sebagai Text atau Secret:
 
-The browser first uses the Cloudflare Worker proxy. If that route returns a gateway/network failure, the application automatically tries a direct browser request to CosmosHub. A concise error is shown instead of dumping a complete Cloudflare HTML error page.
+4. `MILE_ALLOWED_EMAILS`
 
-## Large PDF processing
+Nilai awal:
 
-- Maximum: 300 pages and 120 MB per PDF
-- Default speed preset: **Cepat** — 10 pages per request, 4 parallel requests, adaptive second audit
-- Preset **Sedang**: 5 pages, 2 parallel requests, full second audit
-- Preset **Turbo**: 10 pages, 6 parallel requests, one-pass extraction
-- Page and concurrency values remain manually editable: 1–10 pages and 1–6 parallel requests
-- A 50-page PDF becomes five request groups when using 10 pages per request
-- Failed batches are retried up to three times
-- Results are merged back into original page order
+```text
+ikhsan@posnew.com
+```
 
-PDF pages are automatically cropped and labelled by page number. Automatic document mode activates the dedicated BNI/dot-matrix rules when the BNI template is selected or the filename contains `BNI`; other files use the general document profile. Standalone BNI codes such as `000000` are discarded because they are not needed, and OCR inventions such as `DONGDOI` are prevented from entering output fields.
+Beberapa email dapat dipisahkan dengan koma:
 
-Each page is handled independently and may contain a recipient phone number, a letter/reference number, both, or neither. Phone and reference fields remain blank when they are not visibly present; the MILE export normalizes an absent phone according to its existing output rules.
+```text
+ikhsan@posnew.com,user2@example.com
+```
 
-Only the current image batch is sent to CosmosHub.
+### Membuat `MILE_SESSION_SECRET`
 
-## Mandatory review workflow
+Jalankan:
 
-- `PERLU DICEK` markers are highlighted as mandatory corrections.
-- Typing does not automatically complete a correction or move focus.
-- The user must remove/replace the marker and click **Tandai selesai & lanjut**.
-- Export remains disabled until every flagged correction is explicitly confirmed.
-- Active columns expand temporarily to show long text in full.
-- Rows can be deleted from the **Aksi** column.
-- Addresses explicitly identified outside Batam receive a **Luar Batam** badge.
+```text
+GENERATE-SESSION-SECRET.bat
+```
 
-## Existing business rules
+Nilai acak akan dibuat dan disalin ke clipboard. Tempel ke Cloudflare. Jangan simpan nilainya di GitHub.
 
-- Excel and CSV remain processed locally in the browser.
-- Pengadilan Negeri Batam defaults to PE on normal Monday–Thursday workdays and PKH on Fridays, national holidays, collective leave, and H-1 holidays according to the configured 2026 calendar.
-- Corporate, retail, moving-goods, insurance, postal-code mapping, chargeable-weight, and MILE export logic remain available.
+## Menyiapkan Firebase API Key yang aman
 
-## Model selector
+Karena key lama pernah masuk commit GitHub, lakukan rotasi:
 
-The visible selector includes the complete configured CosmosHub allowlist, including `muse-spark-1.1`. Claude Opus 5 remains the default. A model being Healthy in CosmosHub only confirms endpoint availability; PDF extraction also requires support for OpenAI-compatible image input.
+1. Google Cloud Console → project `mile-posnew-com`.
+2. APIs & Services → Credentials.
+3. Buat API key baru.
+4. Pada **API restrictions**, pilih `Restrict key`.
+5. Izinkan hanya **Identity Toolkit API** (`identitytoolkit.googleapis.com`).
+6. Jangan menambahkan Generative Language API/Gemini API.
+7. Simpan key baru sebagai `FIREBASE_WEB_API_KEY` di Cloudflare Secret.
+8. Hapus/revoke key lama yang terdeteksi GitHub.
 
-## Vision-only CosmosHub list
+Karena request Firebase dikirim dari Cloudflare Worker, jangan memakai HTTP referrer restriction pada key server ini. Nilai key tidak dikirim ke browser.
 
-Untuk fitur PDF AI, dropdown model sekarang dibatasi hanya pada model vision yang sudah lolos uji di CosmosHub: Claude Opus 5, Claude Sonnet 4.5, Claude Haiku 4.5, Gemini 3.6 Flash, Gemini 3.5 Flash, dan Gemini 3.1 Pro. Model text-only / belum tervalidasi disembunyikan agar tidak menghasilkan output kosong.
+## Firebase Authentication
 
-## Pemrosesan tanpa mode BNI
+Di Firebase Console:
 
-Mode BNI khusus telah dihapus. Semua PDF memakai pipeline vision umum yang lebih ringan. Pembersihan salam `KEPADA YTH`, kode placeholder mandiri, dan artefak OCR tetap berjalan otomatis tanpa mengirim dua gambar per halaman atau memaksa audit penuh.
+1. Authentication → Sign-in method.
+2. Aktifkan Email/Password.
+3. Authentication → Users.
+4. Pastikan akun `ikhsan@posnew.com` tersedia dan memiliki password.
+5. Jangan aktifkan pendaftaran publik pada website.
 
-## PDF review workflow v12
+## Instalasi
 
-Hasil PDF AI menyediakan editor No Ref massal untuk seluruh baris PDF. Kolom NO dibuat sticky agar nomor urut tetap terlihat ketika tabel digeser horizontal. Panel koreksi juga menampilkan nomor urut dan nama kolom yang sedang diperbaiki.
+1. Ekstrak ZIP ke folder biasa.
+2. Jalankan `INSTALL-KE-GITHUB.bat`.
+3. Installer menyalin repository penuh ke:
 
-## Cloudflare Secret setup
+```text
+%USERPROFILE%\Documents\GitHub\templatemile
+```
 
-Production requires an encrypted Pages secret named `COSMOS_API_KEY`. The browser sends only the AI request body to `/api/ai-proxy`; `_worker.js` adds the server-side Authorization header.
+4. Jalankan `CHECK-VERSION.bat`.
+5. Pastikan seluruh pemeriksaan berstatus `[OK]`.
+6. Commit dan Push melalui GitHub Desktop.
+7. Tunggu deployment Cloudflare selesai.
 
-## Runtime secret requirement (v15)
-`COSMOS_API_KEY` must be configured as a runtime Secret for the Production Pages environment. A Build secret is only available during the build and is not accessible to `_worker.js` at runtime.
+## Verifikasi setelah deployment
+
+Buka:
+
+```text
+https://mile.posnew.com/api/health
+```
+
+Hasil yang benar:
+
+```json
+{
+  "ok": true,
+  "service": "mile-secure-gateway",
+  "version": "20260802-16",
+  "cosmosConfigured": true,
+  "firebaseConfigured": true,
+  "sessionConfigured": true,
+  "serverSideGate": true
+}
+```
+
+Uji melalui Incognito:
+
+1. Pengunjung belum login hanya melihat halaman login.
+2. `/app.html` mengarah kembali ke login.
+3. `/assets/js/app-core.js` tanpa session menghasilkan `401`.
+4. Email/password salah ditolak.
+5. `ikhsan@posnew.com` berhasil masuk.
+6. Proses PDF dan tombol Tes Layanan AI bekerja.
+7. Tombol Keluar menghapus session.
+
+## Cloudflare Access
+
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16 dan AI dipastikan berfungsi:
+
+1. Zero Trust → Access controls → Applications → MILE Converter.
+2. Tambahkan policy `Bypass`.
+3. Include: `Everyone`.
+4. Uji lagi melalui Incognito.
+
+Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Firebase bermasalah, hapus policy Bypass untuk mengaktifkan kembali Access.
+
+## Session
+
+- Tanpa centang “Tetap masuk”: 12 jam.
+- Dengan centang: 7 hari.
+- Untuk memutus semua session sekaligus, ganti `MILE_SESSION_SECRET` dan deploy ulang.
+
+## File penting
+
+- `_worker.js` — login server, session, gate asset, dan proxy CosmosHub.
+- `index.html` — halaman login publik.
+- `app.html` — HTML inti yang hanya disajikan setelah login.
+- `assets/js/login-v16.js` — form login tanpa Firebase key.
+- `assets/js/session-v16.js` — status akun dan logout.
+- `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
+- `assets/js/ai-pdf-v16.js` — alur PDF AI berbasis session.

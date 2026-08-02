@@ -1,66 +1,45 @@
 @echo off
-setlocal
-chcp 65001 >nul
+setlocal EnableExtensions
 set "SOURCE=%~dp0"
-set "TARGET=C:\Users\Ikhsan Radiansyah\Documents\GitHub\templatemile"
+set "TARGET=%USERPROFILE%\Documents\GitHub\templatemile"
 
-echo ================================================
-echo  INSTALL MILE SERVER SECRET v15 KE GITHUB
-echo ================================================
+echo =====================================================
+echo  MILE Secure Gateway v16 - Installer
+ECHO =====================================================
+echo Sumber : %SOURCE%
+echo Target : %TARGET%
 echo.
-
-if not exist "%SOURCE%index.html" (
-  echo ERROR: index.html tidak ditemukan di folder installer.
-  echo Ekstrak seluruh ZIP terlebih dahulu, lalu jalankan file ini.
-  pause
-  exit /b 1
-)
 
 if not exist "%TARGET%\.git" (
-  echo ERROR: Folder repository atau .git tidak ditemukan:
+  echo [GAGAL] Folder target tidak ditemukan atau bukan repository Git.
+  echo Pastikan repository berada di:
   echo %TARGET%
-  echo.
-  echo Pastikan lokasi GitHub Desktop benar.
   pause
   exit /b 1
 )
 
-echo Sumber : %SOURCE%
-echo Tujuan : %TARGET%
-echo.
-echo Menyalin dan menimpa seluruh file aplikasi...
-robocopy "%SOURCE%" "%TARGET%" /E /IS /IT /R:2 /W:1 /XD ".git" /XF "INSTALL-KE-GITHUB.bat" "CHECK-VERSION.bat" >nul
+rem Hapus file Firebase client lama yang pernah memuat API key di repository.
+del /q "%TARGET%\assets\js\firebase-auth-v16.js" 2>nul
+del /q "%TARGET%\assets\js\ai-pdf-v15.js" 2>nul
+del /q "%TARGET%\assets\js\ai-pdf.js" 2>nul
+
+robocopy "%SOURCE%" "%TARGET%" /MIR /XD ".git" /XF "INSTALL-KE-GITHUB.bat" /R:2 /W:1 /NFL /NDL /NJH /NJS /NP
 set "RC=%ERRORLEVEL%"
 if %RC% GEQ 8 (
-  echo ERROR: Robocopy gagal dengan kode %RC%.
+  echo [GAGAL] Penyalinan berhenti dengan kode Robocopy %RC%.
   pause
   exit /b %RC%
 )
 
-findstr /C:"Runtime Secret · v15" "%TARGET%\index.html" >nul
+call "%TARGET%\CHECK-VERSION.bat"
 if errorlevel 1 (
-  echo ERROR: Instalasi selesai tetapi penanda v15 tidak ditemukan.
-  echo Jangan commit. Coba ekstrak ZIP ulang.
-  pause
-  exit /b 1
-)
-
-findstr /C:"input?.apiKey" "%TARGET%\_worker.js" >nul
-if not errorlevel 1 (
-  echo ERROR: _worker.js lama masih terdeteksi.
+  echo.
+  echo [GAGAL] Pemeriksaan versi tidak lulus. Jangan commit dahulu.
   pause
   exit /b 1
 )
 
 echo.
-echo BERHASIL: Runtime Secret v15 sudah disalin ke repository.
-echo.
-echo Langkah berikutnya:
-echo 1. Buka GitHub Desktop.
-echo 2. Pastikan banyak file terlihat berubah.
-echo 3. Commit to main.
-echo 4. Push origin.
-echo 5. Tunggu Cloudflare Deployment berstatus Success.
-echo.
+echo [BERHASIL] Secure Gateway v16 sudah dipasang ke repository lokal.
+echo Berikutnya buka GitHub Desktop, periksa perubahan, Commit to main, lalu Push origin.
 pause
-endlocal
