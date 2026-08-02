@@ -1024,6 +1024,71 @@
             return { resolved: true, pending: false, reason: 'changed', rowStillPending };
         }
 
+        function ensureOutsideBatamState(row) {
+            if (!row._outsideBatamState || typeof row._outsideBatamState !== 'object') {
+                row._outsideBatamState = {
+                    detected: Boolean(row.outsideBatam),
+                    pending: Boolean(row.outsideBatam),
+                    resolution: null,
+                    originalAddress: String(row.address || ''),
+                    reason: String(row.outsideBatamReason || '')
+                };
+            } else if (row.outsideBatam && row._outsideBatamState.resolution !== 'keep') {
+                row._outsideBatamState.detected = true;
+                row._outsideBatamState.pending = true;
+                row._outsideBatamState.reason ||= String(row.outsideBatamReason || '');
+            }
+            return row._outsideBatamState;
+        }
+
+        function isOutsideBatamPending(row) {
+            return Boolean(ensureOutsideBatamState(row).pending);
+        }
+
+        function getPendingOutsideBatamCount() {
+            return uploadedFilesManager.reduce((total, file) => total + file.rows.filter(isOutsideBatamPending).length, 0);
+        }
+
+        function keepOutsideBatamRow(fileId, rowId) {
+            const managed = findManagedRow(fileId, rowId);
+            if (!managed || !isOutsideBatamPending(managed.row)) return false;
+            const address = String(managed.row.address || '').trim();
+            if (!window.confirm(`Pastikan alamat berikut memang masih berada di Kota Batam:
+
+${address || '(alamat kosong)'}
+
+Tandai sebagai AI salah deteksi dan tetap lanjutkan data ini?`)) return false;
+
+            const state = ensureOutsideBatamState(managed.row);
+            state.pending = false;
+            state.resolution = 'keep';
+            state.resolvedAt = new Date().toISOString();
+            managed.row.outsideBatam = false;
+            updateInterface();
+            if (typeof window.showToast === 'function') window.showToast('Keputusan disimpan: alamat dinyatakan masih berada di Kota Batam.', 'success');
+            return true;
+        }
+
+        function deleteOutsideBatamRow(fileId, rowId) {
+            const managed = findManagedRow(fileId, rowId);
+            if (!managed || !isOutsideBatamPending(managed.row)) return false;
+            const label = managed.row.name || managed.row.noSurat || 'baris ini';
+            const address = String(managed.row.address || '').trim();
+            if (!window.confirm(`Hapus data “${label}” karena alamat penerima memang di luar Kota Batam?
+
+${address || '(alamat kosong)'}
+
+Baris ini tidak akan ikut diekspor.`)) return false;
+
+            managed.file.rows = managed.file.rows.filter(item => ensureRowIdentity(item) !== String(rowId));
+            if (managed.file.rows.length === 0) {
+                uploadedFilesManager = uploadedFilesManager.filter(item => String(item.id) !== String(fileId));
+            }
+            updateInterface();
+            if (typeof window.showToast === 'function') window.showToast('Baris alamat luar Kota Batam telah dihapus.', 'success');
+            return true;
+        }
+
         function getAiPdfManagedFiles() {
             return uploadedFilesManager.filter(file => file && (file.source === 'AI PDF' || /\.pdf$/i.test(String(file.name || ''))));
         }
@@ -1124,6 +1189,10 @@
         window.commitReviewCorrection = commitReviewCorrection;
         window.syncManagedRowFromInput = syncManagedRowFromInput;
         window.getPendingReviewCount = getPendingReviewCount;
+        window.getPendingOutsideBatamCount = getPendingOutsideBatamCount;
+        window.keepOutsideBatamRow = keepOutsideBatamRow;
+        window.deleteOutsideBatamRow = deleteOutsideBatamRow;
+        window.deleteFileFromQueue = deleteFileFromQueue;
         window.deleteDataRow = deleteDataRow;
 
         function updateInterface() {
@@ -1136,11 +1205,12 @@
                     file.rows.forEach(row => {
                         ensureRowIdentity(row);
                         ensureRowReviewState(row);
+                        ensureOutsideBatamState(row);
                     });
                     fileQueueDiv.innerHTML += `
                         <div class="file-item">
                             <span style="font-weight:600;">📄 ${escapeAttribute(file.name)} (${file.rows.length} Baris)</span>
-                            <button class="btn-delete-file" type="button" onclick="deleteFileFromQueue(${JSON.stringify(file.id)})">Hapus</button>
+                            <button class="btn-delete-file" type="button" data-action="delete-file" data-file-id="${escapeAttribute(file.id)}">Hapus</button>
                         </div>`;
                 });
             }
@@ -1174,6 +1244,8 @@
                     counter++;
                     const rowId = ensureRowIdentity(item);
                     ensureRowReviewState(item);
+                    const outsideState = ensureOutsideBatamState(item);
+                    const outsidePending = Boolean(outsideState.pending);
                     const tr = document.createElement('tr');
                     tr.dataset.fileId = String(file.id);
                     tr.dataset.rowId = rowId;
@@ -1181,7 +1253,8 @@
                     const needsReview = rowNeedsReview(item);
                     tr.dataset.needsReview = String(needsReview);
                     tr.classList.toggle('needs-review', needsReview);
-                    tr.classList.toggle('outside-batam', Boolean(item.outsideBatam));
+                    tr.dataset.outsideBatamPending = String(outsidePending);
+                    tr.classList.toggle('outside-batam', outsidePending);
 
                     const reviewClass = field => isFieldReviewPending(item, field) ? ' needs-review-field' : '';
                     const reviewAttributes = field => {
@@ -1212,9 +1285,13 @@
                         ${insColumn}
                         <td><input type="text" class="table-input val-address${reviewClass('address')}"${reviewAttributes('address')} value="${escapeAttribute(item.address || '')}"></td>
                         <td class="row-action-cell">
-                            <span class="outside-batam-badge" ${item.outsideBatam ? '' : 'hidden'}>Luar Batam</span>
-                            <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>No. ${counter} · Perlu dicek</span>
-                            <button class="row-delete-button" type="button" aria-label="Hapus baris ${counter}" title="Hapus baris" onclick='deleteDataRow(${JSON.stringify(file.id)}, ${JSON.stringify(rowId)})'>
+                            <span class="outside-batam-badge" ${outsidePending ? '' : 'hidden'} title="${escapeAttribute(outsideState.reason || 'AI mendeteksi alamat penerima di luar Kota Batam.')}">Alamat luar Kota Batam</span>
+                            <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>No. ${counter} · Teks perlu dicek</span>
+                            <div class="outside-batam-row-actions" ${outsidePending ? '' : 'hidden'}>
+                                <button class="outside-batam-keep-row" type="button" data-action="keep-outside-batam" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">AI salah deteksi</button>
+                                <button class="outside-batam-delete-row" type="button" data-action="delete-outside-batam" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">Hapus</button>
+                            </div>
+                            <button class="row-delete-button" type="button" aria-label="Hapus baris ${counter}" title="Hapus baris" data-action="delete-row" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>
                                 <span>Hapus</span>
                             </button>
@@ -1233,6 +1310,14 @@
             const rows = document.querySelectorAll('#resultTable tbody tr');
             if (rows.length === 0 || rows[0].querySelector('input') === null) {
                 alert("Tidak ada data untuk diekspor."); return;
+            }
+
+            const unresolvedOutsideRows = Array.from(document.querySelectorAll('#resultTable tbody tr[data-outside-batam-pending="true"]'));
+            if (unresolvedOutsideRows.length > 0) {
+                const numbers = unresolvedOutsideRows.map(row => row.dataset.rowNumber).filter(Boolean).slice(0, 8).join(', ');
+                alert(`Masih ada ${unresolvedOutsideRows.length} alamat penerima yang terdeteksi di luar Kota Batam${numbers ? ` pada No. ${numbers}` : ''}. Pilih “Hapus” jika benar di luar Batam, atau “AI salah deteksi — tetap lanjutkan” jika alamat sebenarnya masih Kota Batam.`);
+                unresolvedOutsideRows[0].scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                return;
             }
 
             const unresolvedReviewInputs = Array.from(document.querySelectorAll('#resultTable tbody tr input[data-review-pending="true"]'));

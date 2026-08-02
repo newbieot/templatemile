@@ -25,8 +25,8 @@
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-16.2">
-  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260802-16.2">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260802-16.4">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260802-16.4">
 </head>
 <body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
@@ -190,8 +190,8 @@
             <div class="ai-config-body">
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-                <p>Cloudflare Worker menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16</span>
+                <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.4</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -272,6 +272,23 @@
           <input id="excelInput" type="file" accept=".pdf,.xlsx,.xls,.csv" multiple hidden>
           <div class="file-queue-header"><span>Berkas diproses</span><span id="fileCountInline">0 berkas</span></div>
           <div class="file-queue-container" id="fileQueue" aria-live="polite"></div>
+
+          <section class="ai-run-summary" id="aiRunSummary" aria-live="polite" hidden>
+            <div class="ai-run-summary__head">
+              <div>
+                <span class="ai-run-summary__kicker">Statistik pemrosesan terakhir</span>
+                <strong id="aiRunSummaryTitle">Pemrosesan AI selesai</strong>
+              </div>
+              <span class="ai-run-summary__sync" id="aiMetricsSyncStatus">Menunggu pencatatan</span>
+            </div>
+            <div class="ai-run-summary__grid">
+              <div><span>Durasi</span><strong id="aiRunDuration">—</strong></div>
+              <div><span>Data penerima</span><strong id="aiRunRows">—</strong></div>
+              <div><span>Rata-rata</span><strong id="aiRunPerRow">—</strong></div>
+              <div><span>Halaman PDF</span><strong id="aiRunPages">—</strong></div>
+            </div>
+            <p id="aiRunSummaryNote">Statistik tidak memuat nama, alamat, nomor telepon, atau isi dokumen pelanggan.</p>
+          </section>
         </section>
 
         <section class="privacy-note">
@@ -300,7 +317,8 @@
             <div class="summary-item"><span>Berkas</span><strong id="fileCount">0</strong></div>
             <div class="summary-item"><span>Mode</span><strong id="modeSummary">Corporate</strong></div>
             <div class="summary-item"><span>Asuransi</span><strong id="insuranceSummary">Off</strong></div>
-            <div class="summary-item summary-item--review"><span>Perlu dicek</span><strong id="reviewCount">0</strong></div>
+            <div class="summary-item summary-item--outside"><span>Luar Kota Batam</span><strong id="outsideBatamCount">0</strong></div>
+            <div class="summary-item summary-item--review"><span>Teks perlu dicek</span><strong id="reviewCount">0</strong></div>
             <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu berkas sumber</div>
           </div>
 
@@ -317,14 +335,30 @@
             </div>
           </div>
 
+          <div class="outside-batam-alert" id="outsideBatamAlert" hidden>
+            <span class="outside-batam-alert-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
+            </span>
+            <div class="outside-batam-alert-copy">
+              <span class="outside-batam-required-label">Keputusan alamat wajib</span><span class="outside-batam-location-badge" id="outsideBatamLocationBadge" hidden></span>
+              <strong id="outsideBatamAlertTitle">Alamat penerima di luar Kota Batam terdeteksi</strong>
+              <p id="outsideBatamActionHint">Untuk setiap alamat yang ditandai, pilih salah satu: hapus baris jika alamat memang di luar Kota Batam, atau pilih “AI salah deteksi — tetap lanjutkan” jika alamat sebenarnya masih berada di Kota Batam.</p>
+            </div>
+            <div class="outside-batam-alert-actions">
+              <button class="button button--outside-open" id="openOutsideBatamButton" type="button">Buka alamat</button>
+              <button class="button button--outside-keep" id="keepOutsideBatamButton" type="button">AI salah deteksi — tetap lanjutkan</button>
+              <button class="button button--outside-delete" id="deleteOutsideBatamButton" type="button">Hapus baris</button>
+            </div>
+          </div>
+
           <div class="review-alert" id="reviewAlert" hidden>
             <span class="review-alert-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
             </span>
             <div class="review-alert-copy">
               <span class="review-required-label">Koreksi wajib</span><span class="review-location-badge" id="reviewLocationBadge" hidden></span>
-              <strong id="reviewAlertTitle">Ada data yang wajib dikoreksi</strong>
-              <p id="reviewActionHint">Sel kuning wajib diperbaiki. Ganti atau hapus seluruh frasa “perlu dicek”, selesaikan teksnya, lalu klik tombol centang. Mengetik atau berpindah kolom tidak akan menandainya selesai.</p>
+              <strong id="reviewAlertTitle">Ada teks yang wajib dikoreksi</strong>
+              <p id="reviewActionHint">Peringatan ini khusus teks hasil AI yang meragukan. Sel kuning wajib diperbaiki. Ganti atau hapus seluruh frasa “perlu dicek”, selesaikan teksnya, lalu klik tombol centang. Mengetik atau berpindah kolom tidak akan menandainya selesai.</p>
             </div>
             <div class="review-alert-actions">
               <button class="button button--review" id="openReviewButton" type="button">Buka koreksi</button>
@@ -364,6 +398,11 @@
         <span class="modal-step" id="aiProgressStep">Menyiapkan PDF</span>
         <h3 id="aiProgressTitle">AI sedang bekerja</h3>
         <p id="aiProgressMessage">PDF sedang disiapkan untuk ekstraksi.</p>
+      </div>
+      <div class="ai-progress-stopwatch" aria-live="off">
+        <span>Waktu berjalan</span>
+        <strong id="aiElapsedTime">00:00.0</strong>
+        <small id="aiElapsedRate">Rata-rata per data dihitung setelah proses selesai</small>
       </div>
       <div class="ai-progress-track" aria-hidden="true"><span id="aiProgressBar"></span></div>
       <div class="ai-progress-meta"><span id="aiProgressPercent">0%</span><span id="aiProgressUsage">Token akan tampil setelah respons</span></div>
@@ -417,10 +456,10 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260802-16.2" defer></script>
-  <script src="/assets/js/ai-pdf-v16.js?v=20260802-16.2" defer></script>
-  <script src="/assets/js/ui.js?v=20260802-16.2" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260802-16.2" defer></script>
-  <script src="/assets/js/session-v16.js?v=20260802-16.2" defer></script>
+  <script src="/assets/js/app-core.js?v=20260802-16.4" defer></script>
+  <script src="/assets/js/ai-pdf-v16.js?v=20260802-16.4" defer></script>
+  <script src="/assets/js/ui.js?v=20260802-16.4" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260802-16.4" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260802-16.4" defer></script>
 </body>
 </html>

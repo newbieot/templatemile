@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.2
+# mile.posnew.com Secure Gateway v16.4
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -35,10 +35,12 @@ Tambahkan sebagai **Secret**:
 1. `COSMOS_API_KEY`
 2. `FIREBASE_WEB_API_KEY`
 3. `MILE_SESSION_SECRET`
+4. `GOOGLE_SHEETS_WEBHOOK_SECRET`
 
-Opsional sebagai Text atau Secret:
+Tambahkan sebagai **Plaintext**:
 
-4. `MILE_ALLOWED_EMAILS`
+5. `MILE_ALLOWED_EMAILS`
+6. `GOOGLE_SHEETS_WEBHOOK_URL`
 
 Nilai awal:
 
@@ -87,6 +89,24 @@ Di Firebase Console:
 4. Pastikan akun `ikhsan@posnew.com` tersedia dan memiliki password.
 5. Jangan aktifkan pendaftaran publik pada website.
 
+
+## Statistik pemrosesan AI dan Google Sheets
+
+Versi v16.4 menampilkan stopwatch selama PDF diproses dan menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
+
+Data yang dicatat: waktu server, email pengguna dari session, versi aplikasi, status, jumlah file, jumlah halaman, model AI, ukuran chunk, concurrency, durasi detik, jumlah data, detik per data, jumlah data perlu dicek, jumlah alamat luar Kota Batam, dan kategori error. Nama penerima, alamat, nomor telepon, serta isi PDF tidak dikirim ke Google Sheets.
+
+Cloudflare Pages variables:
+
+```text
+GOOGLE_SHEETS_WEBHOOK_URL=https://script.google.com/macros/s/.../exec
+GOOGLE_SHEETS_WEBHOOK_SECRET=<nilai acak yang sama dengan MILE_METRICS_SECRET di Apps Script>
+```
+
+Setelah mengubah variables/secrets, lakukan deployment ulang. Health check harus menampilkan `metricsConfigured: true`.
+
+Panduan lengkap ada di `GOOGLE-SHEETS-SETUP.md`.
+
 ## Instalasi
 
 1. Ekstrak ZIP ke folder biasa.
@@ -116,10 +136,11 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260802-16.2",
+  "version": "20260802-16.4",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,
+  "metricsConfigured": true,
   "serverSideGate": true
 }
 ```
@@ -136,7 +157,7 @@ Uji melalui Incognito:
 
 ## Cloudflare Access
 
-Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.2 dan AI dipastikan berfungsi:
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.4 dan AI dipastikan berfungsi:
 
 1. Zero Trust → Access controls → Applications → mile.posnew.com.
 2. Tambahkan policy `Bypass`.
@@ -162,6 +183,13 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/ai-pdf-v16.js` — alur PDF AI berbasis session.
 
 
-## Pembaruan v16.2
+## Pembaruan v16.4
 
-Mempertahankan perbaikan redirect Cloudflare Pages v16.1 dan menyeragamkan nama aplikasi menjadi `mile.posnew.com`. Semua penyebutan sistem operasional tujuan kini menggunakan istilah `Mile App`.
+- Proses AI memeriksa apakah alamat penerima jelas berada di luar Kota Batam.
+- Kode pos `294xx` dan nama wilayah/kawasan Batam diperlakukan sebagai bukti alamat lokal agar AI tidak mudah salah menandai.
+- Peringatan **Alamat luar Kota Batam** dipisahkan sepenuhnya dari **Teks perlu dicek**.
+- Alamat luar Kota Batam tidak dapat langsung diekspor. Pengguna wajib memilih salah satu:
+  1. **Hapus baris**, bila alamat memang di luar Kota Batam; atau
+  2. **AI salah deteksi — tetap lanjutkan**, bila alamat telah dipastikan masih berada di Kota Batam.
+- Ringkasan, warna, status, badge, dan pesan ekspor dibedakan agar kedua jenis masalah tidak membingungkan.
+- Tombol tindakan pada tabel memakai event listener dan tidak bergantung pada inline JavaScript.

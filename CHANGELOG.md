@@ -1,5 +1,25 @@
 # Changelog
 
+## v16.4 — Stopwatch dan statistik Google Sheets
+
+- Menambahkan stopwatch live selama PDF dirender, dikirim ke AI, diverifikasi, dan dimasukkan ke tabel.
+- Menampilkan total durasi, jumlah data, detik per data, dan jumlah halaman setelah proses.
+- Menambahkan endpoint session-protected `/api/metrics/ai`.
+- Mencatat statistik sukses, gagal, dan dibatalkan ke Google Sheets melalui Apps Script.
+- Email pengguna diambil dari session server, bukan input browser.
+- Log tidak memuat nama, alamat, nomor telepon, atau isi dokumen pelanggan.
+- Health check menampilkan `metricsConfigured` tanpa membuka URL atau secret.
+
+
+## v16.3 — Validasi wajib alamat luar Kota Batam
+
+- AI dan verifikasi kedua menilai alamat penerima luar Kota Batam secara eksplisit.
+- Kode pos 294xx dan nama wilayah Batam mencegah salah tandai alamat lokal.
+- Alamat luar Batam memiliki alur keputusan terpisah dari teks “PERLU DICEK”.
+- Ekspor dikunci sampai pengguna memilih: hapus baris, atau nyatakan AI salah deteksi dan lanjutkan.
+- Pesan, badge, ringkasan, warna, dan status dibedakan agar tidak membingungkan.
+- Tombol aksi tabel dinamis memakai event listener, bukan inline handler.
+
 ## v16.2 — Branding dan terminologi
 
 - Nama aplikasi pada antarmuka diubah menjadi `mile.posnew.com`.

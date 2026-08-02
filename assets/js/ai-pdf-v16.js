@@ -28,6 +28,8 @@
   const activeControllers = new Set();
   let cancelled = false;
   let lastSuccessfulTransport = '';
+  let stopwatchInterval = 0;
+  let stopwatchStartedAt = 0;
 
   const $ = id => document.getElementById(id);
 
@@ -142,7 +144,9 @@
       if (status) {
         status.dataset.healthChecked = 'true';
         status.classList.toggle('is-ready', configured);
-        status.textContent = configured ? 'AI siap digunakan' : 'Konfigurasi server belum lengkap';
+        status.textContent = configured
+          ? (data?.metricsConfigured ? 'AI siap · log statistik aktif' : 'AI siap · log statistik belum aktif')
+          : 'Konfigurasi server belum lengkap';
       }
       if (!configured && showFeedback) {
         setFeedback('Konfigurasi Secure Gateway belum lengkap. Pastikan COSMOS_API_KEY, FIREBASE_WEB_API_KEY, dan MILE_SESSION_SECRET tersedia di Cloudflare Variables and Secrets, lalu deploy ulang.', 'error');
@@ -194,6 +198,122 @@
     const minutes = Math.floor(value / 60);
     const rest = value % 60;
     return rest ? `${minutes} menit ${rest} detik` : `${minutes} menit`;
+  }
+
+  function formatPreciseDuration(seconds) {
+    const value = Math.max(0, Number(seconds) || 0);
+    if (value < 60) return `${value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} detik`;
+    const minutes = Math.floor(value / 60);
+    const rest = value - minutes * 60;
+    return `${minutes} menit ${rest.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} detik`;
+  }
+
+  function formatStopwatch(seconds) {
+    const value = Math.max(0, Number(seconds) || 0);
+    const minutes = Math.floor(value / 60);
+    const rest = value - minutes * 60;
+    const secondsText = rest.toFixed(1).padStart(4, '0');
+    return `${String(minutes).padStart(2, '0')}:${secondsText}`;
+  }
+
+  function updateStopwatch(seconds, totalRows = 0) {
+    if ($('aiElapsedTime')) $('aiElapsedTime').textContent = formatStopwatch(seconds);
+    if ($('aiElapsedRate')) {
+      $('aiElapsedRate').textContent = totalRows > 0
+        ? `${(seconds / totalRows).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik per data`
+        : 'Rata-rata per data dihitung setelah proses selesai';
+    }
+  }
+
+  function startStopwatch(startedAt) {
+    window.clearInterval(stopwatchInterval);
+    stopwatchStartedAt = startedAt;
+    updateStopwatch(0, 0);
+    stopwatchInterval = window.setInterval(() => {
+      if (!stopwatchStartedAt) return;
+      updateStopwatch((performance.now() - stopwatchStartedAt) / 1000, 0);
+    }, 100);
+  }
+
+  function stopStopwatch(elapsedSeconds, totalRows = 0) {
+    window.clearInterval(stopwatchInterval);
+    stopwatchInterval = 0;
+    stopwatchStartedAt = 0;
+    updateStopwatch(elapsedSeconds, totalRows);
+  }
+
+  function setMetricsSyncStatus(message, type = '') {
+    const node = $('aiMetricsSyncStatus');
+    if (!node) return;
+    node.textContent = message;
+    node.classList.toggle('is-success', type === 'success');
+    node.classList.toggle('is-error', type === 'error');
+  }
+
+  function showProcessingSummary(metrics) {
+    const summary = $('aiRunSummary');
+    if (!summary) return;
+    summary.hidden = false;
+    summary.dataset.status = metrics.status || '';
+    if ($('aiRunSummaryTitle')) {
+      $('aiRunSummaryTitle').textContent =
+        metrics.status === 'SUCCESS' ? 'Pemrosesan AI selesai' :
+        metrics.status === 'CANCELLED' ? 'Pemrosesan AI dibatalkan' :
+        'Pemrosesan AI belum berhasil';
+    }
+    if ($('aiRunDuration')) $('aiRunDuration').textContent = formatPreciseDuration(metrics.durationSeconds);
+    if ($('aiRunRows')) $('aiRunRows').textContent = `${Number(metrics.totalRows || 0).toLocaleString('id-ID')} data`;
+    if ($('aiRunPerRow')) {
+      $('aiRunPerRow').textContent = metrics.totalRows > 0
+        ? `${(metrics.durationSeconds / metrics.totalRows).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data`
+        : '—';
+    }
+    if ($('aiRunPages')) $('aiRunPages').textContent = `${Number(metrics.pageCount || 0).toLocaleString('id-ID')} halaman`;
+    if ($('aiRunSummaryNote')) {
+      const detail = metrics.status === 'SUCCESS'
+        ? `${metrics.reviewCount} data perlu dicek · ${metrics.outsideBatamCount} alamat luar Kota Batam.`
+        : (metrics.message || 'Proses tidak menghasilkan data.');
+      $('aiRunSummaryNote').textContent = `${detail} Log hanya menyimpan metrik, tanpa nama, alamat, telepon, atau isi dokumen.`;
+    }
+    setMetricsSyncStatus('Menyimpan ke Google Sheets…');
+  }
+
+  async function submitProcessingMetrics(metrics) {
+    showProcessingSummary(metrics);
+    let timeout = 0;
+    try {
+      const controller = new AbortController();
+      timeout = window.setTimeout(() => controller.abort(), 16000);
+      const response = await fetch('/api/metrics/ai', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(metrics),
+        signal: controller.signal
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok !== true) {
+        throw new Error(data?.error?.message || `HTTP ${response.status}`);
+      }
+      setMetricsSyncStatus('Tersimpan di Google Sheets', 'success');
+      return true;
+    } catch (error) {
+      const message = error?.name === 'AbortError'
+        ? 'Google Sheets timeout'
+        : 'Gagal dicatat ke Google Sheets';
+      setMetricsSyncStatus(message, 'error');
+      return false;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  function reviewRowCount(rows) {
+    return rows.filter(row => Boolean(row?.needsVerification || (Array.isArray(row?.aiReviewFields) && row.aiReviewFields.length))).length;
+  }
+
+  function outsideBatamRowCount(rows) {
+    return rows.filter(row => Boolean(row?.outsideBatam)).length;
   }
 
   function sleep(ms) {
@@ -430,10 +550,12 @@ ATURAN UMUM:
 7. nomor_hp diisi hanya bila nomor telepon/HP/WhatsApp penerima benar-benar terlihat. Terima pola 08..., +62..., atau label HP/TEL/WA. Jangan mengambil kode pos, nomor cabang, nomor transaksi, atau kode mandiri sebagai nomor HP. Jika tidak ada, isi string kosong.
 8. nomor_surat diisi hanya bila nomor surat/referensi benar-benar terlihat. Jika tidak ada, isi string kosong. Setiap halaman boleh memiliki kombinasi berbeda: ada HP saja, nomor surat saja, keduanya, atau tidak keduanya.
 9. Baris kode mandiri 5–8 digit seperti 000000 yang berdiri sendiri di antara alamat jalan dan wilayah tidak dibutuhkan: abaikan. Jangan mengubahnya menjadi kata rekaan seperti DONGDOI/DONGD01/OOOOOO. Jangan membuang kode pos 5 digit yang merupakan bagian alamat, dan jangan membuang nomor surat nyata yang memiliki huruf atau pemisah / atau -.
-10. di_luar_batam=true hanya jika alamat jelas berada di luar Kota Batam.
-11. confidence adalah keyakinan 0–1. Scan buram/dot-matrix tidak boleh diberi confidence tinggi jika masih ada huruf meragukan.
-12. raw_lines berisi baris teks penting setelah header/footer dan kode mandiri yang tidak diperlukan dibuang, urut dari atas ke bawah.
-13. Halaman yang diproses: ${startPage} sampai ${endPage}.`;
+10. Penentuan di_luar_batam hanya berdasarkan ALAMAT PENERIMA, bukan alamat pengirim, header, nama kantor, atau lokasi cabang.
+11. di_luar_batam=true jika kota/kabupaten tujuan jelas bukan Kota Batam, atau terdapat kode pos 5 digit yang jelas bukan kelompok 294xx. di_luar_batam=false jika alamat menyebut BATAM/KOTA BATAM, wilayah kecamatan atau kawasan Batam, atau kode pos 294xx. Tidak adanya kata “BATAM” saja tidak cukup untuk menandai luar Batam.
+12. Jika lokasi kota tidak cukup jelas, jangan menebak luar Batam: gunakan di_luar_batam=false dan tandai alamat_penerima di perlu_dicek_fields bila teks alamatnya meragukan.
+13. confidence adalah keyakinan 0–1. Scan buram/dot-matrix tidak boleh diberi confidence tinggi jika masih ada huruf meragukan.
+14. raw_lines berisi baris teks penting setelah header/footer dan kode mandiri yang tidak diperlukan dibuang, urut dari atas ke bawah.
+15. Halaman yang diproses: ${startPage} sampai ${endPage}.`;
   }
 
   function buildVerificationPrompt(startPage, endPage, draftRows, options = {}) {
@@ -453,6 +575,7 @@ Aturan audit:
 - Abaikan CABANG/CARRIAGE/245 BATAM dan footer transaksi.
 - Abaikan kode mandiri 5–8 digit seperti 000000 yang berdiri sendiri. Jangan menebaknya sebagai DONGDOI/DONGD01/OOOOOO. Kode pos dan nomor surat nyata tetap dipertahankan.
 - Cocokkan setiap karakter dengan gambar; gunakan PERLU DICEK jika tidak pasti.
+- Audit di_luar_batam dari alamat penerima saja. True hanya bila kota/kabupaten jelas bukan Kota Batam atau kode pos jelas bukan 294xx. Alamat dengan BATAM, wilayah Batam, atau kode pos 294xx harus false. Jika lokasi tidak jelas, false dan tandai alamat_penerima sebagai perlu dicek bila teksnya meragukan.
 - Pastikan urutan halaman benar.
 - Jangan tampilkan penjelasan atau reasoning.`;
   }
@@ -820,6 +943,30 @@ Aturan audit:
     return value.replace(new RegExp(`\\s*,?\\s*${zip}\\b`), `, BATAM ${zip}`);
   }
 
+
+  const BATAM_AREA_PATTERN = /\b(?:BATAM|BATAM\s+KOTA|BELIAN|BENGKONG|BATU\s+AMPAR|BATU\s+AJI|BULANG|GALANG|LUBUK\s+BAJA|NONGSA|SAGULUNG|SEKUPANG|SEI\s+BEDUK|SUNGAI\s+BEDUK|TIBAN|BALOI|NAGOYA|JODOH|KABIL|MUKA\s+KUNING|TANJUNG\s+UNCANG|BARELANG|PIAYU|TEMBESI|PUNGGUR|TELUK\s+TERING)\b/i;
+
+  function classifyOutsideBatam(address, aiFlag) {
+    const value = normalizeAddressPunctuation(address).toUpperCase();
+    const printedZip = extractPrintedZip(value);
+
+    // Bukti lokal yang kuat selalu mengalahkan salah deteksi AI.
+    if (/^294\d{2}$/.test(printedZip) || BATAM_AREA_PATTERN.test(value)) {
+      return { outside: false, reason: '' };
+    }
+
+    // Kode pos tercetak di luar kelompok Kota Batam merupakan bukti yang jelas.
+    if (/^\d{5}$/.test(printedZip) && !/^294\d{2}$/.test(printedZip)) {
+      return { outside: true, reason: `Kode pos ${printedZip} bukan kelompok kode pos Kota Batam (294xx).` };
+    }
+
+    if (normalizeBoolean(aiFlag)) {
+      return { outside: true, reason: 'AI membaca kota/kabupaten tujuan berada di luar Kota Batam.' };
+    }
+
+    return { outside: false, reason: '' };
+  }
+
   function parseBniStructure(rawLines, fallback) {
     let lines = normalizeRawLines(rawLines)
       .filter(line => !isAdministrativeLine(line));
@@ -904,7 +1051,11 @@ Aturan audit:
       const cleanedRawLines = rawLines.filter(line => !isIgnoredBniStandaloneCode(line));
 
       const page = Number(pick(item, ['page', 'halaman', 'page_number'], pageOffset + index + 1)) || pageOffset + index + 1;
-      const outsideBatam = normalizeBoolean(pick(item, ['di_luar_batam', 'luar_batam', 'outside_batam'], false));
+      const outsideAssessment = classifyOutsideBatam(
+        address,
+        pick(item, ['di_luar_batam', 'luar_batam', 'outside_batam'], false)
+      );
+      const outsideBatam = outsideAssessment.outside;
       let aiReviewFields = normalizeReviewFields(pick(item, ['perlu_dicek_fields', 'review_fields', 'uncertain_fields'], []));
       if (containsReviewMarker(noSurat) && !aiReviewFields.includes('nomor_surat')) aiReviewFields.push('nomor_surat');
       if (containsReviewMarker(phone) && !aiReviewFields.includes('nomor_hp')) aiReviewFields.push('nomor_hp');
@@ -917,7 +1068,8 @@ Aturan audit:
       const row = {
         senderName: '', noSurat, name, phone: phone || '0', zip, address,
         act: 0.2, p: 10, l: 10, t: 10, cw: '0.20',
-        outsideBatam, sourcePage: page, aiConfidence, aiReviewFields,
+        outsideBatam, outsideBatamReason: outsideAssessment.reason,
+        sourcePage: page, aiConfidence, aiReviewFields,
         rawLines: cleanedRawLines, bniMode: false
       };
       row.needsVerification = looksSuspiciousRow(row);
@@ -1018,13 +1170,17 @@ Aturan audit:
 
     cancelled = false;
     let pdf = null;
+    let pageCount = 0;
+    let completedRowCount = 0;
     const totalUsage = { input: 0, output: 0 };
     const startedAt = performance.now();
+    startStopwatch(startedAt);
     try {
       setProgress(2, 'Membaca PDF', `Membuka ${file.name}…`);
       const bytes = await fileToArrayBuffer(file);
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+      pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
       if (pdf.numPages > 150) showToast('PDF besar terdeteksi. Biarkan tab tetap terbuka sampai proses selesai.', 'info');
 
@@ -1143,8 +1299,30 @@ Aturan audit:
       const mergedRows = results.flat().filter(Boolean);
       if (!mergedRows.length) throw new Error('AI tidak menemukan data penerima pada PDF ini.');
       mergedRows.sort((a, b) => Number(a.sourcePage || 0) - Number(b.sourcePage || 0));
+      completedRowCount = mergedRows.length;
       const elapsed = (performance.now() - startedAt) / 1000;
-      setProgress(98, 'Menyiapkan tabel', `${mergedRows.length} baris hasil ekstraksi sedang dimasukkan ke tabel. Waktu proses ${formatDuration(elapsed)}.`, formatUsage(totalUsage));
+      stopStopwatch(elapsed, mergedRows.length);
+      setProgress(
+        98,
+        'Menyiapkan tabel',
+        `${mergedRows.length} baris hasil ekstraksi sedang dimasukkan ke tabel. Total ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`,
+        formatUsage(totalUsage)
+      );
+
+      const metrics = {
+        status: 'SUCCESS',
+        fileCount: 1,
+        pageCount,
+        model: config.model,
+        chunkSize: config.pagesPerRequest,
+        concurrency: config.concurrency,
+        durationSeconds: Number(elapsed.toFixed(3)),
+        totalRows: mergedRows.length,
+        reviewCount: reviewRowCount(mergedRows),
+        outsideBatamCount: outsideBatamRowCount(mergedRows),
+        message: ''
+      };
+      void submitProcessingMetrics(metrics);
 
       const itemType = $('itemType')?.value || 'DOKUMEN';
       if (itemType === 'PAKET') {
@@ -1154,16 +1332,32 @@ Aturan audit:
       } else {
         core.uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: mergedRows, source: 'AI PDF' });
         core.updateInterface();
-        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatDuration(elapsed)}. Periksa semua sel kuning sebelum ekspor.`, formatUsage(totalUsage));
+        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Selesaikan keputusan alamat luar Kota Batam dan koreksi teks bertanda kuning sebelum ekspor.`, formatUsage(totalUsage));
         window.setTimeout(hideProgress, 1200);
-        showToast(`${mergedRows.length} baris berhasil dibaca dari PDF dalam ${formatDuration(elapsed)}.`, 'success');
+        showToast(`${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, 'success');
         core.processNextInQueue();
       }
     } catch (error) {
       if (error?.name !== 'AbortError') cancelled = true;
+      const elapsed = Math.max(0, (performance.now() - startedAt) / 1000);
+      stopStopwatch(elapsed, completedRowCount);
+      const failedMetrics = {
+        status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED',
+        fileCount: 1,
+        pageCount,
+        model: config?.model || '',
+        chunkSize: config?.pagesPerRequest || 1,
+        concurrency: config?.concurrency || 1,
+        durationSeconds: Number(elapsed.toFixed(3)),
+        totalRows: completedRowCount,
+        reviewCount: 0,
+        outsideBatamCount: 0,
+        message: error?.name === 'AbortError' ? 'Dibatalkan pengguna' : String(error?.message || 'Kesalahan pemrosesan').slice(0, 240)
+      };
+      void submitProcessingMetrics(failedMetrics);
       hideProgress();
-      if (error?.name === 'AbortError') showToast('Proses PDF dibatalkan.', 'info');
-      else showToast(`Gagal memproses PDF: ${error.message}`, 'error');
+      if (error?.name === 'AbortError') showToast(`Proses PDF dibatalkan setelah ${formatPreciseDuration(elapsed)}.`, 'info');
+      else showToast(`Gagal memproses PDF setelah ${formatPreciseDuration(elapsed)}: ${error.message}`, 'error');
       core.processNextInQueue();
     } finally {
       activeControllers.forEach(controller => controller.abort());
@@ -1204,7 +1398,7 @@ Aturan audit:
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildPrompt, buildVerificationPrompt, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildPrompt, buildVerificationPrompt, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, reviewRowCount, outsideBatamRowCount }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

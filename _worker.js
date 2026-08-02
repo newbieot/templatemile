@@ -1,9 +1,11 @@
-const APP_VERSION = '20260802-16.2';
+const APP_VERSION = '20260802-16.4';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
 const MAX_REQUEST_BYTES = 28 * 1024 * 1024;
 const MAX_AUTH_BODY_BYTES = 16 * 1024;
+const MAX_METRICS_BODY_BYTES = 12 * 1024;
+const METRICS_TIMEOUT_MS = 15000;
 const SESSION_COOKIE = '__Host-mile_session';
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
@@ -290,6 +292,113 @@ async function handleLogout(request) {
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() });
 }
 
+
+function configuredMetrics(env) {
+  const webhookUrl = String(env?.GOOGLE_SHEETS_WEBHOOK_URL || '').trim();
+  const webhookSecret = String(env?.GOOGLE_SHEETS_WEBHOOK_SECRET || '').trim();
+  let validUrl = false;
+  try {
+    const url = new URL(webhookUrl);
+    validUrl = url.protocol === 'https:' &&
+      (url.hostname === 'script.google.com' || url.hostname.endsWith('.googleusercontent.com')) &&
+      /\/exec(?:$|[?#])/.test(url.pathname + url.search + url.hash);
+  } catch (_) {}
+  return {
+    webhookUrl: validUrl ? webhookUrl : '',
+    webhookSecret: webhookSecret.length >= 24 ? webhookSecret : ''
+  };
+}
+
+function clampMetricNumber(value, min, max, decimals = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  const bounded = Math.min(max, Math.max(min, number));
+  const factor = 10 ** decimals;
+  return Math.round(bounded * factor) / factor;
+}
+
+function safeMetricText(value, maxLength = 240) {
+  return String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, maxLength);
+}
+
+async function handleMetrics(request, env, session) {
+  if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
+  if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
+  if (!sameOriginRequest(request)) return json({ error: { message: 'Permintaan lintas situs ditolak.' } }, 403);
+
+  const metricsConfig = configuredMetrics(env);
+  if (!metricsConfig.webhookUrl || !metricsConfig.webhookSecret) {
+    return json({ error: { message: 'Pencatatan Google Sheets belum dikonfigurasi.' } }, 503);
+  }
+
+  let input;
+  try {
+    input = await readJson(request, MAX_METRICS_BODY_BYTES);
+  } catch (error) {
+    const status = error.message === 'PAYLOAD_TOO_LARGE' ? 413 : 400;
+    return json({ error: { message: status === 413 ? 'Payload statistik terlalu besar.' : 'Body statistik harus berupa JSON valid.' } }, status);
+  }
+
+  const status = safeMetricText(input?.status, 24).toUpperCase();
+  const allowedStatuses = new Set(['SUCCESS', 'FAILED', 'CANCELLED', 'PARTIAL']);
+  if (!allowedStatuses.has(status)) {
+    return json({ error: { message: 'Status statistik tidak valid.' } }, 400);
+  }
+
+  const payload = {
+    token: metricsConfig.webhookSecret,
+    userEmail: session.email,
+    appVersion: APP_VERSION,
+    status,
+    fileCount: clampMetricNumber(input?.fileCount, 1, 20),
+    pageCount: clampMetricNumber(input?.pageCount, 0, 3000),
+    model: safeMetricText(input?.model, 80),
+    chunkSize: clampMetricNumber(input?.chunkSize, 1, 20),
+    concurrency: clampMetricNumber(input?.concurrency, 1, 12),
+    durationSeconds: clampMetricNumber(input?.durationSeconds, 0, 86400, 3),
+    totalRows: clampMetricNumber(input?.totalRows, 0, 100000),
+    reviewCount: clampMetricNumber(input?.reviewCount, 0, 100000),
+    outsideBatamCount: clampMetricNumber(input?.outsideBatamCount, 0, 100000),
+    message: safeMetricText(input?.message, 400)
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort('metrics-timeout'), METRICS_TIMEOUT_MS);
+  try {
+    const upstream = await fetch(metricsConfig.webhookUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        accept: 'application/json'
+      },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+      signal: controller.signal
+    });
+    const responseText = await upstream.text();
+    let output = {};
+    try { output = JSON.parse(responseText || '{}'); } catch (_) {}
+
+    if (!upstream.ok || output?.ok !== true) {
+      const message = safeMetricText(output?.error || output?.message || `Google Sheets HTTP ${upstream.status}`, 240);
+      return json({ error: { message: `Statistik belum tersimpan: ${message}` } }, 502);
+    }
+
+    return json({
+      ok: true,
+      logged: true,
+      secondsPerRow: Number.isFinite(Number(output?.secondsPerRow)) ? Number(output.secondsPerRow) : null
+    });
+  } catch (error) {
+    const message = error?.name === 'AbortError'
+      ? 'Google Sheets tidak merespons dalam batas waktu.'
+      : 'Cloudflare Pages tidak dapat menghubungi Google Sheets.';
+    return json({ error: { message } }, 502);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function conciseHtmlError(text, status) {
   const title = String(text || '').match(/<title>([^<]+)<\/title>/i)?.[1]?.trim();
   if (title) return `${title} (HTTP ${status})`;
@@ -356,7 +465,7 @@ async function handleProxy(request, env, session) {
       'x-mile-request-id': upstream.headers.get('x-request-id') || upstream.headers.get('request-id') || ''
     });
   } catch (error) {
-    return json({ error: { message: `Cloudflare Worker tidak dapat menghubungi CosmosHub: ${error?.message || 'kesalahan jaringan'}` } }, 502);
+    return json({ error: { message: `Cloudflare Pages Function tidak dapat menghubungi CosmosHub: ${error?.message || 'kesalahan jaringan'}` } }, 502);
   }
 }
 
@@ -394,6 +503,7 @@ export default {
         cosmosConfigured: Boolean(String(env?.COSMOS_API_KEY || '').trim()),
         firebaseConfigured: Boolean(String(env?.FIREBASE_WEB_API_KEY || '').trim()),
         sessionConfigured: Boolean(configuredSessionSecret(env)),
+        metricsConfigured: Boolean(configuredMetrics(env).webhookUrl && configuredMetrics(env).webhookSecret),
         serverSideGate: true
       });
     }
@@ -410,6 +520,7 @@ export default {
     }
 
     if (url.pathname === '/api/ai-proxy') return handleProxy(request, env, session);
+    if (url.pathname === '/api/metrics/ai') return handleMetrics(request, env, session);
 
     if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/login' || url.pathname === '/login.html') {
       // Fetch extensionless asset routes. Cloudflare Pages redirects /index.html to /

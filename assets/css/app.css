@@ -487,3 +487,67 @@ tbody tr.outside-batam td{background-image:linear-gradient(rgba(254,242,242,.55)
 
 .ai-server-build{display:inline-flex;align-items:center;white-space:nowrap;margin-left:auto;padding:.35rem .55rem;border-radius:999px;background:#ecfdf3;border:1px solid #b7ebc9;color:#15803d;font-size:.62rem;font-weight:850;letter-spacing:.02em}
 @media(max-width:640px){.ai-server-build{margin-left:0}}
+
+
+/* v16.3 — keputusan alamat luar Kota Batam dipisahkan dari koreksi teks AI */
+.summary-item--outside strong{color:var(--muted)}
+.summary-item--outside.has-outside{background:#fff1f2}
+.summary-item--outside.has-outside strong{color:#b42318;font-size:1rem}
+.outside-batam-alert{display:flex;align-items:center;gap:.8rem;margin:0 18px 12px;padding:.78rem;border:1px solid #f1a5a5;border-radius:12px;color:#7f1d1d;background:#fff1f2}
+.outside-batam-alert[hidden]{display:none}
+.outside-batam-alert-icon{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto;border-radius:10px;color:#b42318;background:#fee2e2}
+.outside-batam-alert-icon svg{width:20px}
+.outside-batam-alert-copy{min-width:0;flex:1}
+.outside-batam-alert-copy strong{display:block;font-size:.74rem}
+.outside-batam-alert-copy p{margin:.2rem 0 0;font-size:.63rem;line-height:1.5}
+.outside-batam-required-label{display:inline-flex;margin:0 .38rem .28rem 0;padding:.18rem .4rem;border-radius:999px;color:#fff;background:#b42318;font-size:.5rem;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+.outside-batam-location-badge{display:inline-flex;margin-bottom:.28rem;padding:.18rem .4rem;border:1px solid #f5b5b5;border-radius:999px;color:#991b1b;background:#fff;font-size:.52rem;font-weight:850}
+.outside-batam-location-badge[hidden]{display:none}
+.outside-batam-alert-actions{display:flex;align-items:center;gap:.45rem;flex:0 0 auto}
+.button--outside-open{color:#7f1d1d;background:#fff;border:1px solid #f1a5a5}
+.button--outside-keep{color:#fff;background:#1d4ed8;border:1px solid #1d4ed8}
+.button--outside-delete{color:#fff;background:#b42318;border:1px solid #b42318}
+body.is-mandatory-outside-batam .outside-batam-alert{position:sticky;top:0;z-index:36;border-color:#dc2626;background:#fff1f2;box-shadow:0 10px 28px rgba(127,29,29,.18)}
+body.is-mandatory-outside-batam .outside-batam-alert::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;border-radius:12px 0 0 12px;background:#dc2626}
+tbody tr.outside-batam td{background-image:none!important;background:#fff7f7!important;box-shadow:inset 0 1px 0 rgba(220,38,38,.18),inset 0 -1px 0 rgba(220,38,38,.18)}
+tbody tr.outside-batam td:first-child{color:#991b1b!important;background:#fee2e2!important;box-shadow:inset 4px 0 0 #dc2626}
+tbody tr.outside-batam td.row-action-cell{background:#fff1f2!important}
+.outside-batam-badge{color:#991b1b;background:#fee2e2;border:1px solid #fecaca}
+.outside-batam-row-actions{display:grid;gap:.25rem;margin:.18rem 0 .38rem}
+.outside-batam-row-actions[hidden]{display:none}
+.outside-batam-row-actions button{width:100%;padding:.3rem .4rem;border-radius:7px;font-size:.53rem;font-weight:850;cursor:pointer}
+.outside-batam-keep-row{color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe}
+.outside-batam-delete-row{color:#991b1b;background:#fff;border:1px solid #fecaca}
+@media (max-width:980px){
+  .outside-batam-alert{align-items:flex-start;flex-wrap:wrap;margin-inline:14px}
+  .outside-batam-alert-copy{width:calc(100% - 50px)}
+  .outside-batam-alert-actions{width:100%;display:grid;grid-template-columns:1fr}
+  .outside-batam-alert-actions .button{width:100%}
+}
+
+/* v16.4 — stopwatch and Google Sheets processing metrics */
+.ai-progress-stopwatch{display:grid;grid-template-columns:1fr auto;gap:.18rem .8rem;align-items:center;margin:0 0 14px;padding:12px 14px;border:1px solid #d7e0ef;border-radius:13px;background:#f8fafc;text-align:left}
+.ai-progress-stopwatch>span{color:var(--muted);font-size:.64rem;font-weight:750;text-transform:uppercase;letter-spacing:.08em}
+.ai-progress-stopwatch>strong{grid-row:1/3;grid-column:2;color:var(--navy-950);font-size:1.32rem;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.ai-progress-stopwatch>small{color:var(--muted);font-size:.61rem;line-height:1.35}
+.ai-run-summary{margin-top:12px;padding:14px;border:1px solid #cfe2d7;border-radius:14px;background:linear-gradient(145deg,#f3fbf6,#fff);box-shadow:var(--shadow-sm)}
+.ai-run-summary[hidden]{display:none!important}
+.ai-run-summary__head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.ai-run-summary__head>div{display:flex;flex-direction:column;gap:.15rem}
+.ai-run-summary__kicker{color:var(--success);font-size:.59rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.ai-run-summary__head strong{color:var(--navy-950);font-size:.78rem}
+.ai-run-summary__sync{flex:0 0 auto;padding:.34rem .52rem;border-radius:999px;color:#715b00;background:#fff6cc;font-size:.57rem;font-weight:800;white-space:nowrap}
+.ai-run-summary__sync.is-success{color:var(--success);background:var(--success-soft)}
+.ai-run-summary__sync.is-error{color:var(--danger);background:#fff0f0}
+.ai-run-summary__grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:11px}
+.ai-run-summary__grid>div{min-width:0;padding:9px 10px;border:1px solid #e1e8f1;border-radius:10px;background:#fff}
+.ai-run-summary__grid span,.ai-run-summary__grid strong{display:block}
+.ai-run-summary__grid span{color:var(--muted);font-size:.56rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em}
+.ai-run-summary__grid strong{margin-top:.22rem;color:var(--navy-950);font-size:.73rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ai-run-summary p{margin:9px 1px 0;color:var(--muted);font-size:.59rem;line-height:1.45}
+@media(max-width:620px){
+  .ai-progress-stopwatch{grid-template-columns:1fr auto;padding:11px 12px}
+  .ai-run-summary__head{align-items:stretch;flex-direction:column;gap:.55rem}
+  .ai-run-summary__sync{align-self:flex-start}
+  .ai-run-summary__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

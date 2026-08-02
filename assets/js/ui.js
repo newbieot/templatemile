@@ -15,6 +15,7 @@
   let lastReviewInputCount = 0;
   let mandatoryReviewFocusTimer = null;
   let activeReviewEditor = null;
+  let lastOutsideBatamCount = 0;
 
   function getDataRows() {
     return Array.from(document.querySelectorAll('#resultTable tbody tr'))
@@ -23,6 +24,20 @@
 
   function getRowCount() {
     return getDataRows().length;
+  }
+
+  function getOutsideBatamRows() {
+    return getDataRows().filter(row => row.dataset.outsideBatamPending === 'true');
+  }
+
+  function getOutsideBatamLocation(row) {
+    const rowNumber = String(row?.dataset?.rowNumber || row?.querySelector?.('.row-number-cell')?.textContent || '?').trim();
+    const address = String(row?.querySelector?.('.val-address')?.value || '').trim();
+    return { rowNumber, address, label: `No. ${rowNumber}` };
+  }
+
+  function getCurrentOutsideBatamRow() {
+    return getOutsideBatamRows()[0] || null;
   }
 
   function hasReviewMarker(value) {
@@ -185,10 +200,12 @@
     }, smooth ? 260 : 30);
   }
 
-  function applyMandatoryReviewMode(reviewInputCount) {
+  function applyMandatoryReviewMode(reviewInputCount, outsideBatamCount = 0) {
     const active = reviewInputCount > 0;
+    const outsideActive = outsideBatamCount > 0;
     document.body.classList.toggle('is-mandatory-review', active);
-    document.querySelector('.preview-card')?.classList.toggle('is-review-required', active);
+    document.body.classList.toggle('is-mandatory-outside-batam', outsideActive);
+    document.querySelector('.preview-card')?.classList.toggle('is-review-required', active || outsideActive);
 
     // Tidak ada field atau baris yang dikunci. Pengguna bebas mengoreksi dengan tenang;
     // yang dibatasi hanya ekspor sampai seluruh koreksi wajib diselesaikan.
@@ -233,6 +250,56 @@
     }
 
     lastReviewInputCount = reviewInputCount;
+  }
+
+  function refreshOutsideBatamState() {
+    const rows = getOutsideBatamRows();
+    const count = rows.length;
+    const summary = document.getElementById('outsideBatamCount');
+    const alert = document.getElementById('outsideBatamAlert');
+    const title = document.getElementById('outsideBatamAlertTitle');
+    const hint = document.getElementById('outsideBatamActionHint');
+    const locationBadge = document.getElementById('outsideBatamLocationBadge');
+    const openButton = document.getElementById('openOutsideBatamButton');
+    const keepButton = document.getElementById('keepOutsideBatamButton');
+    const deleteButton = document.getElementById('deleteOutsideBatamButton');
+    const current = rows[0] || null;
+
+    if (summary) {
+      summary.textContent = String(count);
+      summary.closest('.summary-item')?.classList.toggle('has-outside', count > 0);
+    }
+    if (alert) alert.hidden = count === 0;
+
+    if (current) {
+      const locations = rows.map(row => getOutsideBatamLocation(row).rowNumber);
+      const visible = locations.slice(0, 8).join(', ');
+      const remaining = Math.max(0, locations.length - 8);
+      const currentInfo = getOutsideBatamLocation(current);
+      if (title) title.textContent = `Alamat luar Kota Batam terdeteksi pada No. ${visible}${remaining ? ` dan ${remaining} nomor lainnya` : ''}`;
+      if (locationBadge) { locationBadge.textContent = currentInfo.label; locationBadge.hidden = false; }
+      if (hint) hint.textContent = `${currentInfo.label}: “${currentInfo.address || '(alamat kosong)'}”. Hapus baris jika alamat memang di luar Kota Batam. Pilih “AI salah deteksi — tetap lanjutkan” hanya jika Anda sudah memastikan alamat tersebut sebenarnya masih berada di Kota Batam.`;
+      if (openButton) openButton.textContent = `Buka alamat ${currentInfo.label}`;
+      if (keepButton) keepButton.disabled = false;
+      if (deleteButton) deleteButton.disabled = false;
+    } else {
+      if (locationBadge) locationBadge.hidden = true;
+      if (openButton) openButton.textContent = 'Buka alamat';
+      if (keepButton) keepButton.disabled = true;
+      if (deleteButton) deleteButton.disabled = true;
+    }
+
+    if (count > 0 && lastOutsideBatamCount === 0) {
+      window.setTimeout(() => {
+        if (!getCurrentOutsideBatamRow()) return;
+        document.getElementById('outsideBatamAlert')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        showToast('Alamat penerima di luar Kota Batam terdeteksi. Tentukan apakah baris dihapus atau AI salah mendeteksi.', 'error');
+      }, 120);
+    } else if (count === 0 && lastOutsideBatamCount > 0) {
+      showToast('Semua keputusan alamat luar Kota Batam sudah diselesaikan.', 'success');
+    }
+    lastOutsideBatamCount = count;
+    return { outsideBatamCount: count };
   }
 
   function refreshReviewState() {
@@ -299,7 +366,7 @@
     updateReviewActionState();
     if (reviewCursor >= reviewInputCount) reviewCursor = -1;
 
-    applyMandatoryReviewMode(reviewInputCount);
+    applyMandatoryReviewMode(reviewInputCount, getOutsideBatamRows().length);
     scheduleMandatoryReviewFocus(reviewInputCount);
 
     return { reviewRowCount, reviewInputCount };
@@ -387,9 +454,35 @@
   }
 
   window.showToast = showToast;
+  window.refreshOutsideBatamState = refreshOutsideBatamState;
   window.refreshReviewState = refreshReviewState;
   window.updateReviewActionState = updateReviewActionState;
   window.alert = message => showToast(message, /gagal|wajib|tidak ada|error|format|perlu dicek|koreksi/i.test(String(message)) ? 'error' : 'info');
+
+  window.focusCurrentOutsideBatamIssue = function focusCurrentOutsideBatamIssue() {
+    const row = getCurrentOutsideBatamRow();
+    if (!row) return showToast('Tidak ada lagi alamat luar Kota Batam yang menunggu keputusan.', 'success');
+    row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    window.setTimeout(() => {
+      const addressInput = row.querySelector('.val-address');
+      addressInput?.focus({ preventScroll: true });
+      addressInput?.select?.();
+    }, 260);
+  };
+
+  window.keepCurrentOutsideBatamIssue = function keepCurrentOutsideBatamIssue() {
+    const row = getCurrentOutsideBatamRow();
+    if (!row) return showToast('Tidak ada alamat luar Kota Batam yang menunggu keputusan.', 'success');
+    if (typeof window.keepOutsideBatamRow !== 'function') return showToast('Fungsi keputusan alamat belum tersedia.', 'error');
+    window.keepOutsideBatamRow(row.dataset.fileId, row.dataset.rowId);
+  };
+
+  window.deleteCurrentOutsideBatamIssue = function deleteCurrentOutsideBatamIssue() {
+    const row = getCurrentOutsideBatamRow();
+    if (!row) return showToast('Tidak ada alamat luar Kota Batam yang menunggu keputusan.', 'success');
+    if (typeof window.deleteOutsideBatamRow !== 'function') return showToast('Fungsi hapus alamat belum tersedia.', 'error');
+    window.deleteOutsideBatamRow(row.dataset.fileId, row.dataset.rowId);
+  };
 
   window.focusCurrentReviewIssue = function focusCurrentReviewIssue() {
     const inputs = getReviewInputs();
@@ -479,6 +572,7 @@
     const fileTotal = typeof uploadedFilesManager !== 'undefined' && Array.isArray(uploadedFilesManager) ? uploadedFilesManager.length : 0;
     const mode = document.getElementById('clientMode')?.value || 'KORPORAT';
     const insured = Boolean(document.getElementById('useInsurance')?.checked);
+    const { outsideBatamCount } = refreshOutsideBatamState();
     const { reviewRowCount } = refreshReviewState();
 
     const recordCount = document.getElementById('recordCount');
@@ -497,18 +591,26 @@
     if (modeSummary) modeSummary.textContent = modeLabels[mode] || mode;
     if (insuranceSummary) insuranceSummary.textContent = insured ? 'Aktif' : 'Nonaktif';
     if (exportButton) {
-      exportButton.disabled = rowCount === 0 || reviewRowCount > 0;
-      exportButton.title = reviewRowCount > 0 ? 'Koreksi semua tulisan “perlu dicek” sebelum ekspor.' : '';
+      exportButton.disabled = rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0;
+      exportButton.title = outsideBatamCount > 0
+        ? 'Selesaikan semua keputusan alamat luar Kota Batam sebelum ekspor.'
+        : reviewRowCount > 0
+          ? 'Koreksi semua teks “perlu dicek” sebelum ekspor.'
+          : '';
     }
     if (clearButton) clearButton.disabled = rowCount === 0 && fileTotal === 0;
     if (previewCard) previewCard.classList.toggle('has-data', rowCount > 0);
 
     if (status) {
       status.classList.remove('is-ready', 'is-busy', 'is-warning');
-      if (reviewRowCount > 0) {
+      if (outsideBatamCount > 0) {
+        status.classList.add('is-warning');
+        const nums = getOutsideBatamRows().slice(0, 4).map(row => getOutsideBatamLocation(row).rowNumber).join(', ');
+        status.innerHTML = `<span class="status-dot"></span>Keputusan alamat luar Batam No. ${nums}${outsideBatamCount > 4 ? '…' : ''}`;
+      } else if (reviewRowCount > 0) {
         status.classList.add('is-warning');
         const nums = getPendingReviewRowNumbers().slice(0, 4).join(', ');
-        status.innerHTML = `<span class="status-dot"></span>Perlu koreksi No. ${nums}${reviewRowCount > 4 ? '…' : ''}`;
+        status.innerHTML = `<span class="status-dot"></span>Koreksi teks No. ${nums}${reviewRowCount > 4 ? '…' : ''}`;
       } else if (rowCount > 0) {
         status.classList.add('is-ready');
         status.innerHTML = '<span class="status-dot"></span>Siap diperiksa dan diekspor';
@@ -530,7 +632,7 @@
       steps[1].classList.add('is-active');
     }
     if (rowCount > 0 && steps[2]) steps[2].classList.add('is-active');
-    if (rowCount > 0 && reviewRowCount === 0 && steps[3]) steps[3].classList.add('is-active');
+    if (rowCount > 0 && outsideBatamCount === 0 && reviewRowCount === 0 && steps[3]) steps[3].classList.add('is-active');
   }
 
   const coreUpdateInterface = window.updateInterface;

@@ -3,15 +3,24 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.2...
+echo Memeriksa mile.posnew.com Secure Gateway v16.4...
 
-findstr /c:"20260802-16.2" "_worker.js" >nul && echo [OK] Worker v16.2 || (echo [GAGAL] Worker bukan v16.2 & set "FAIL=1")
+findstr /c:"20260802-16.4" "_worker.js" >nul && echo [OK] Worker v16.4 || (echo [GAGAL] Worker bukan v16.4 & set "FAIL=1")
 findstr /c:"serverSideGate: true" "_worker.js" >nul && echo [OK] Gate sisi server aktif || (echo [GAGAL] Gate sisi server tidak ditemukan & set "FAIL=1")
 findstr /c:"FIREBASE_WEB_API_KEY" "_worker.js" >nul && echo [OK] Firebase key dibaca dari Cloudflare Secret || (echo [GAGAL] Binding Firebase tidak ditemukan & set "FAIL=1")
 findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session HMAC server aktif || (echo [GAGAL] Session secret tidak ditemukan & set "FAIL=1")
 findstr /c:"Masuk ke workspace" "index.html" >nul && echo [OK] Halaman login tersedia || (echo [GAGAL] Halaman login tidak ditemukan & set "FAIL=1")
 findstr /c:"Pengaturan transaksi" "app.html" >nul && echo [OK] HTML inti dipisahkan dari login || (echo [GAGAL] app.html tidak ditemukan & set "FAIL=1")
 findstr /c:"ai-pdf-v16.js" "app.html" >nul && echo [OK] AI PDF v16 dimuat || (echo [GAGAL] AI PDF v16 tidak dimuat & set "FAIL=1")
+findstr /c:"outsideBatamAlert" "app.html" >nul && echo [OK] Alert alamat luar Kota Batam tersedia || (echo [GAGAL] Alert alamat luar Kota Batam tidak ditemukan & set "FAIL=1")
+findstr /c:"classifyOutsideBatam" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Klasifikasi alamat luar Kota Batam aktif || (echo [GAGAL] Klasifikasi alamat luar Kota Batam tidak ditemukan & set "FAIL=1")
+findstr /c:"AI salah deteksi" "assets\js\app-core.js" >nul && echo [OK] Keputusan salah deteksi tersedia || (echo [GAGAL] Alur keputusan alamat tidak ditemukan & set "FAIL=1")
+
+
+findstr /c:"/api/metrics/ai" "_worker.js" >nul && echo [OK] Endpoint statistik AI aktif || (echo [GAGAL] Endpoint statistik tidak ditemukan & set "FAIL=1")
+findstr /c:"GOOGLE_SHEETS_WEBHOOK_SECRET" "_worker.js" >nul && echo [OK] Secret Google Sheets dibaca dari Cloudflare || (echo [GAGAL] Binding Google Sheets tidak ditemukan & set "FAIL=1")
+findstr /c:"aiElapsedTime" "app.html" >nul && echo [OK] Stopwatch UI tersedia || (echo [GAGAL] Stopwatch UI tidak ditemukan & set "FAIL=1")
+findstr /c:"submitProcessingMetrics" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Pencatatan metrik dari browser aktif || (echo [GAGAL] Pengiriman metrik tidak ditemukan & set "FAIL=1")
 
 if exist "assets\js\firebase-auth-v16.js" (
   echo [GAGAL] File Firebase client lama masih ada
