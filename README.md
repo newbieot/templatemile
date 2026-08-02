@@ -81,3 +81,6 @@ Hasil PDF AI menyediakan editor No Ref massal untuk seluruh baris PDF. Kolom NO 
 ## Cloudflare Secret setup
 
 Production requires an encrypted Pages secret named `COSMOS_API_KEY`. The browser sends only the AI request body to `/api/ai-proxy`; `_worker.js` adds the server-side Authorization header.
+
+## Runtime secret requirement (v15)
+`COSMOS_API_KEY` must be configured as a runtime Secret for the Production Pages environment. A Build secret is only available during the build and is not accessible to `_worker.js` at runtime.

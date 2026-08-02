@@ -475,11 +475,6 @@
                 
                 let rIns = parseFloat(row['harga_barang']) || 0;
 
-                // Override BNI (Agar REK KORAN tampil di preview jika menggunakan file MileApp lama)
-                if (mode === 'KORPORAT' && templateVal === 'BNI') {
-                    rRef = "REK KORAN";
-                }
-
                 if (rName || rAddress) {
                     const recipient = splitRecipientAndAddress(rName, rAddress);
                     extractedRows.push({
@@ -627,11 +622,6 @@
                         let cleanRef = cleanReference(rawRef);
                         let cleanSenderName = cleanReference(rawSenderName); 
 
-                        // Terapkan Override BNI di awal, agar tabel web langsung menampilkan REK KORAN
-                        if (mode === 'KORPORAT' && templateVal === 'BNI') {
-                            cleanRef = "REK KORAN";
-                        }
-                        
                         let targetZipCode = getZipCodeFromAddress(cleanAddr, templateVal);
                         
                         let parsedW = parseFloat(String(rawWeight).replace(',', '.')) || "";
@@ -1034,6 +1024,79 @@
             return { resolved: true, pending: false, reason: 'changed', rowStillPending };
         }
 
+        function getAiPdfManagedFiles() {
+            return uploadedFilesManager.filter(file => file && (file.source === 'AI PDF' || /\.pdf$/i.test(String(file.name || ''))));
+        }
+
+        function updateBulkPdfReferenceEditor() {
+            const editor = document.getElementById('bulkPdfReferenceEditor');
+            const hint = document.getElementById('bulkPdfReferenceHint');
+            if (!editor) return;
+            const pdfFiles = getAiPdfManagedFiles();
+            const rowTotal = pdfFiles.reduce((total, file) => total + (Array.isArray(file.rows) ? file.rows.length : 0), 0);
+            editor.hidden = rowTotal === 0;
+            if (hint && rowTotal > 0) {
+                hint.textContent = `Nilai akan diterapkan ke ${rowTotal} baris dari ${pdfFiles.length} PDF hasil AI.`;
+            }
+        }
+
+        function setPdfReferenceForAllRows(rawValue) {
+            const pdfFiles = getAiPdfManagedFiles();
+            const rows = pdfFiles.flatMap(file => Array.isArray(file.rows) ? file.rows : []);
+            if (!rows.length) {
+                if (typeof window.showToast === 'function') window.showToast('Belum ada hasil PDF AI yang dapat diperbarui.', 'error');
+                else alert('Belum ada hasil PDF AI yang dapat diperbarui.');
+                return;
+            }
+
+            const value = cleanReference(rawValue);
+            rows.forEach(row => {
+                const states = ensureRowReviewState(row);
+                row.noSurat = value;
+                const state = states.noSurat;
+                if (state?.pending) {
+                    state.pending = false;
+                    state.dirty = false;
+                    state.resolvedValue = value;
+                }
+            });
+            updateInterface();
+            if (typeof window.showToast === 'function') {
+                window.showToast(value ? `No Ref “${value}” diterapkan ke ${rows.length} baris PDF.` : `No Ref dikosongkan pada ${rows.length} baris PDF.`, 'success');
+            }
+        }
+
+        function applyPdfReferenceToAllRows() {
+            const input = document.getElementById('bulkPdfReferenceValue');
+            const value = String(input?.value || '').trim();
+            if (!value) {
+                if (typeof window.showToast === 'function') window.showToast('Isi No Ref terlebih dahulu, atau gunakan tombol “Kosongkan semua”.', 'error');
+                else alert('Isi No Ref terlebih dahulu.');
+                input?.focus();
+                return;
+            }
+            const pdfFiles = getAiPdfManagedFiles();
+            const rowTotal = pdfFiles.reduce((total, file) => total + (Array.isArray(file.rows) ? file.rows.length : 0), 0);
+            if (!window.confirm(`Terapkan No Ref “${value.toUpperCase()}” ke seluruh ${rowTotal} baris hasil PDF?`)) return;
+            setPdfReferenceForAllRows(value);
+        }
+
+        function clearPdfReferenceForAllRows() {
+            const pdfFiles = getAiPdfManagedFiles();
+            const rowTotal = pdfFiles.reduce((total, file) => total + (Array.isArray(file.rows) ? file.rows.length : 0), 0);
+            if (!rowTotal) {
+                if (typeof window.showToast === 'function') window.showToast('Belum ada hasil PDF AI yang dapat diperbarui.', 'error');
+                return;
+            }
+            if (!window.confirm(`Kosongkan No Ref pada seluruh ${rowTotal} baris hasil PDF?`)) return;
+            const input = document.getElementById('bulkPdfReferenceValue');
+            if (input) input.value = '';
+            setPdfReferenceForAllRows('');
+        }
+
+        window.applyPdfReferenceToAllRows = applyPdfReferenceToAllRows;
+        window.clearPdfReferenceForAllRows = clearPdfReferenceForAllRows;
+
         function deleteFileFromQueue(id) {
             const file = uploadedFilesManager.find(item => String(item.id) === String(id));
             if (!file) return;
@@ -1082,6 +1145,8 @@
                 });
             }
 
+            updateBulkPdfReferenceEditor();
+
             const useInsurance = document.getElementById('useInsurance').checked;
             const thead = document.querySelector('#resultTable thead');
             thead.innerHTML = `
@@ -1112,6 +1177,7 @@
                     const tr = document.createElement('tr');
                     tr.dataset.fileId = String(file.id);
                     tr.dataset.rowId = rowId;
+                    tr.dataset.rowNumber = String(counter);
                     const needsReview = rowNeedsReview(item);
                     tr.dataset.needsReview = String(needsReview);
                     tr.classList.toggle('needs-review', needsReview);
@@ -1147,7 +1213,7 @@
                         <td><input type="text" class="table-input val-address${reviewClass('address')}"${reviewAttributes('address')} value="${escapeAttribute(item.address || '')}"></td>
                         <td class="row-action-cell">
                             <span class="outside-batam-badge" ${item.outsideBatam ? '' : 'hidden'}>Luar Batam</span>
-                            <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>Perlu dicek</span>
+                            <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>No. ${counter} · Perlu dicek</span>
                             <button class="row-delete-button" type="button" aria-label="Hapus baris ${counter}" title="Hapus baris" onclick='deleteDataRow(${JSON.stringify(file.id)}, ${JSON.stringify(rowId)})'>
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>
                                 <span>Hapus</span>
@@ -1252,11 +1318,6 @@
 
                 let dSenderName = cleanReference(tr.querySelector('.val-senderName').value);
                 let dNoSurat = cleanReference(tr.querySelector('.val-noSurat').value);
-                
-                // Override Ref No khusus BNI (Backup jika user mengganti di tabel)
-                if (mode === 'KORPORAT' && template === 'BNI') {
-                    dNoSurat = "REK KORAN";
-                }
                 
                 let dName = cleanRecipientName(tr.querySelector('.val-name').value);
                 let dPhone = cleanPhoneNumber(tr.querySelector('.val-phone').value);

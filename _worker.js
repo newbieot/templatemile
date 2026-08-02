@@ -40,12 +40,12 @@ async function handleProxy(request, env) {
     return json({ error: { message: 'Body harus berupa JSON valid.' } }, 400);
   }
 
-  const apiKey = String(env.COSMOS_API_KEY || '').trim();
+  const apiKey = String(env?.COSMOS_API_KEY || '').trim();
   const body = input?.body;
   const model = String(body?.model || '').trim();
 
   if (!apiKey) {
-    return json({ error: { message: 'COSMOS_API_KEY belum dikonfigurasi pada Cloudflare Pages.' } }, 503);
+    return json({ error: { message: 'COSMOS_API_KEY belum tersedia pada runtime Cloudflare Pages. Secret yang hanya ditambahkan pada Build variables tidak dapat dibaca oleh Worker.' } }, 503);
   }
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return json({ error: { message: 'Payload API tidak valid.' } }, 400);
@@ -105,7 +105,7 @@ export default {
     }
 
     if (url.pathname === '/api/health') {
-      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-14', cosmosConfigured: Boolean(env.COSMOS_API_KEY) });
+      return json({ ok: true, service: 'mile-cosmos-proxy', version: '20260802-15', cosmosConfigured: Boolean(String(env?.COSMOS_API_KEY || '').trim()), secretScope: String(env?.COSMOS_API_KEY || '').trim() ? 'runtime' : 'missing' });
     }
 
     if (url.pathname === '/api/ai-proxy') {

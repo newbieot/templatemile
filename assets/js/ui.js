@@ -36,6 +36,31 @@
     return Array.from(document.querySelectorAll('#resultTable tbody tr input[data-review-pending="true"]'));
   }
 
+  const reviewFieldLabels = [
+    ['val-senderName', 'Pengirim'],
+    ['val-noSurat', 'No Ref/Surat'],
+    ['val-name', 'Nama Penerima'],
+    ['val-phone', 'Nomor HP'],
+    ['val-zip', 'Kode Pos'],
+    ['val-cw', 'Berat'],
+    ['val-p', 'Panjang'],
+    ['val-l', 'Lebar'],
+    ['val-t', 'Tinggi'],
+    ['val-ins-harga', 'Nilai Barang'],
+    ['val-address', 'Alamat']
+  ];
+
+  function getReviewLocation(input) {
+    const row = input?.closest?.('tr');
+    const rowNumber = String(row?.dataset?.rowNumber || row?.querySelector?.('.row-number-cell')?.textContent || '?').trim();
+    const field = reviewFieldLabels.find(([className]) => input?.classList?.contains(className))?.[1] || 'Data';
+    return { rowNumber, field, label: `No. ${rowNumber} · ${field}` };
+  }
+
+  function getPendingReviewRowNumbers() {
+    return Array.from(new Set(getReviewInputs().map(input => getReviewLocation(input).rowNumber))).filter(Boolean);
+  }
+
   function selectReviewMarker(input) {
     const value = String(input.value ?? '');
     const match = /\bPERLU\s+(?:DI\s*)?CEK\b/i.exec(value);
@@ -197,7 +222,7 @@
         activeReviewEditor = target;
         focusReviewInput(target, { smooth: true, select: true });
         updateReviewActionState();
-        showToast('Koreksi bagian bertanda kuning sampai selesai, lalu klik tombol centang untuk menyimpan dan lanjut.', 'error');
+        showToast(`Koreksi ${getReviewLocation(target).label} sampai selesai, lalu klik tombol centang.`, 'error');
       }, 180);
     }
 
@@ -252,6 +277,7 @@
     const reviewAlert = document.getElementById('reviewAlert');
     const reviewAlertTitle = document.getElementById('reviewAlertTitle');
     const openReviewButton = document.getElementById('openReviewButton');
+    const locationBadge = document.getElementById('reviewLocationBadge');
 
     if (reviewCount) {
       reviewCount.textContent = String(reviewRowCount);
@@ -259,9 +285,17 @@
     }
     if (reviewAlert) reviewAlert.hidden = reviewRowCount === 0;
     if (reviewAlertTitle && reviewRowCount > 0) {
-      reviewAlertTitle.textContent = `${reviewRowCount} baris memiliki ${reviewInputCount} bagian yang wajib dikoreksi`;
+      const numbers = getPendingReviewRowNumbers();
+      const visible = numbers.slice(0, 8).join(', ');
+      const remaining = Math.max(0, numbers.length - 8);
+      reviewAlertTitle.textContent = `Wajib dikoreksi pada No. ${visible}${remaining ? ` dan ${remaining} nomor lainnya` : ''}`;
     }
-    if (openReviewButton) openReviewButton.disabled = reviewInputCount === 0;
+    if (openReviewButton) {
+      openReviewButton.disabled = reviewInputCount === 0;
+      const first = getReviewInputs()[0];
+      openReviewButton.textContent = first ? `Buka ${getReviewLocation(first).label}` : 'Buka koreksi';
+    }
+    if (locationBadge && !getActivePendingReviewInput()) locationBadge.hidden = true;
     updateReviewActionState();
     if (reviewCursor >= reviewInputCount) reviewCursor = -1;
 
@@ -286,6 +320,7 @@
   function updateReviewActionState() {
     const button = document.getElementById('completeReviewButton');
     const hint = document.getElementById('reviewActionHint');
+    const locationBadge = document.getElementById('reviewLocationBadge');
     const active = getActivePendingReviewInput();
 
     document.querySelectorAll('#resultTable .is-active-review-editor').forEach(input => {
@@ -297,11 +332,14 @@
         button.disabled = true;
         button.textContent = '✓ Tandai selesai & lanjut';
       }
-      if (hint) hint.textContent = 'Pilih bagian bertanda kuning, perbaiki teksnya, lalu klik tombol centang.';
+      if (hint) hint.textContent = 'Pilih bagian bertanda kuning. Nomor urutnya akan selalu ditampilkan di sini dan pada kolom NO yang tetap terlihat.';
+      if (locationBadge) locationBadge.hidden = true;
       return;
     }
 
     active.classList.add('is-active-review-editor');
+    const location = getReviewLocation(active);
+    if (locationBadge) { locationBadge.textContent = location.label; locationBadge.hidden = false; }
     const currentValue = String(active.value ?? '').trim();
     const originalValue = String(active.dataset.reviewOriginal ?? '').trim();
     const changed = currentValue !== '' && currentValue !== originalValue;
@@ -321,13 +359,13 @@
     }
     if (hint) {
       if (!currentValue) {
-        hint.textContent = 'Kolom tidak boleh kosong. Masukkan hasil koreksi yang benar.';
+        hint.textContent = `${location.label}: kolom tidak boleh kosong. Masukkan hasil koreksi yang benar.`;
       } else if (!changed) {
-        hint.textContent = 'Silakan ubah teks yang meragukan. Mengetik tidak akan memindahkan fokus.';
+        hint.textContent = `${location.label}: silakan ubah teks yang meragukan. Mengetik tidak akan memindahkan fokus.`;
       } else if (markerStillPresent) {
-        hint.textContent = 'Koreksi belum selesai karena frasa “perlu dicek” masih ada. Ganti atau hapus frasa tersebut terlebih dahulu.';
+        hint.textContent = `${location.label}: frasa “perlu dicek” masih ada. Ganti atau hapus frasa tersebut terlebih dahulu.`;
       } else {
-        hint.textContent = 'Perubahan siap disimpan. Klik tombol centang untuk menandai selesai dan lanjut.';
+        hint.textContent = `${location.label}: perubahan siap disimpan. Klik tombol centang untuk menandai selesai dan lanjut.`;
       }
     }
   }
@@ -431,7 +469,7 @@
     const next = remaining[Math.min(currentIndex, remaining.length - 1)];
     activeReviewEditor = next;
     reviewCursor = remaining.indexOf(next);
-    showToast('Koreksi disimpan. Silakan perbaiki bagian berikutnya.', 'success');
+    showToast(`Koreksi disimpan. Lanjut ke ${getReviewLocation(next).label}.`, 'success');
     focusReviewInput(next, { smooth: true, select: true });
     updateReviewActionState();
   };
@@ -469,7 +507,8 @@
       status.classList.remove('is-ready', 'is-busy', 'is-warning');
       if (reviewRowCount > 0) {
         status.classList.add('is-warning');
-        status.innerHTML = `<span class="status-dot"></span>${reviewRowCount} baris perlu dikoreksi`;
+        const nums = getPendingReviewRowNumbers().slice(0, 4).join(', ');
+        status.innerHTML = `<span class="status-dot"></span>Perlu koreksi No. ${nums}${reviewRowCount > 4 ? '…' : ''}`;
       } else if (rowCount > 0) {
         status.classList.add('is-ready');
         status.innerHTML = '<span class="status-dot"></span>Siap diperiksa dan diekspor';
