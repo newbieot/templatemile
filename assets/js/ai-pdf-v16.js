@@ -11,13 +11,13 @@
   };
   const SPEED_PRESETS = {
     medium: { pagesPerRequest: 5, concurrency: 2, verification: 'all', label: 'Sedang' },
-    fast: { pagesPerRequest: 10, concurrency: 5, verification: 'smart', label: 'Cepat' },
+    fast: { pagesPerRequest: 15, concurrency: 5, verification: 'smart', label: 'Cepat' },
     custom: { verification: 'smart', label: 'Kustom' }
   };
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v16-5';
+  const STORAGE_KEY = 'mile-ai-config-v16-6';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -48,7 +48,7 @@
     const model = String($('aiModel')?.value || 'gemini-3.6-flash').trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
-    const pagesPerRequest = Math.max(1, Math.min(10, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const pagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
     const concurrency = Math.max(1, Math.min(5, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
     const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
@@ -74,7 +74,7 @@
     if ($('aiModel')) $('aiModel').value = 'gemini-3.6-flash';
     try {
       // Hapus konfigurasi model versi lama agar Claude Opus tidak terbawa.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -106,7 +106,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: '10 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default baru untuk Gemini 3.6 Flash.',
+      fast: '15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default untuk Gemini 3.6 Flash.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;

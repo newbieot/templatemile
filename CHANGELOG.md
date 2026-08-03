@@ -1,5 +1,15 @@
 # Changelog
 
+## v16.6 — Default 15 halaman, opsi 20 halaman
+
+- Mempertahankan 5 jalur paralel sebagai default.
+- Mengubah preset Cepat dari 10 menjadi 15 halaman per permintaan.
+- Mempertahankan opsi 10 halaman sebagai pilihan stabil untuk dokumen sulit.
+- Menambahkan opsi 20 halaman untuk dokumen bersih atau pengujian eksperimental.
+- Menaikkan batas halaman per permintaan di JavaScript menjadi 20.
+- Mengganti storage key agar konfigurasi 10 halaman dari v16.5 tidak terbawa.
+- Mempertahankan stopwatch, statistik Google Sheets, autentikasi, validasi luar Batam, dan seluruh fitur v16.5.
+
 ## v16.5 — Lima jalur sebagai default
 
 - Menghapus pilihan 6 jalur dan preset Turbo.

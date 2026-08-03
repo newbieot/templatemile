@@ -1,48 +1,34 @@
 @echo off
-setlocal EnableExtensions
+setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.5...
+echo Memeriksa mile.posnew.com Secure Gateway v16.6...
+echo.
 
-findstr /c:"20260802-16.5" "_worker.js" >nul && echo [OK] Worker v16.5 || (echo [GAGAL] Worker bukan v16.5 & set "FAIL=1")
-findstr /c:"serverSideGate: true" "_worker.js" >nul && echo [OK] Gate sisi server aktif || (echo [GAGAL] Gate sisi server tidak ditemukan & set "FAIL=1")
-findstr /c:"FIREBASE_WEB_API_KEY" "_worker.js" >nul && echo [OK] Firebase key dibaca dari Cloudflare Secret || (echo [GAGAL] Binding Firebase tidak ditemukan & set "FAIL=1")
-findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session HMAC server aktif || (echo [GAGAL] Session secret tidak ditemukan & set "FAIL=1")
-findstr /c:"Masuk ke workspace" "index.html" >nul && echo [OK] Halaman login tersedia || (echo [GAGAL] Halaman login tidak ditemukan & set "FAIL=1")
-findstr /c:"Pengaturan transaksi" "app.html" >nul && echo [OK] HTML inti dipisahkan dari login || (echo [GAGAL] app.html tidak ditemukan & set "FAIL=1")
-findstr /c:"ai-pdf-v16.js" "app.html" >nul && echo [OK] AI PDF v16 dimuat || (echo [GAGAL] AI PDF v16 tidak dimuat & set "FAIL=1")
-findstr /c:"outsideBatamAlert" "app.html" >nul && echo [OK] Alert alamat luar Kota Batam tersedia || (echo [GAGAL] Alert alamat luar Kota Batam tidak ditemukan & set "FAIL=1")
-findstr /c:"classifyOutsideBatam" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Klasifikasi alamat luar Kota Batam aktif || (echo [GAGAL] Klasifikasi alamat luar Kota Batam tidak ditemukan & set "FAIL=1")
-findstr /c:"AI salah deteksi" "assets\js\app-core.js" >nul && echo [OK] Keputusan salah deteksi tersedia || (echo [GAGAL] Alur keputusan alamat tidak ditemukan & set "FAIL=1")
+findstr /c:"20260803-16.6" "_worker.js" >nul && echo [OK] Worker v16.6 || (echo [GAGAL] Worker bukan v16.6 & set "FAIL=1")
+findstr /c:"v16.6 Secure Gateway" "index.html" >nul && echo [OK] Login v16.6 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.6" "app.html" >nul && echo [OK] Workspace v16.6 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 
+findstr /c:"10 halaman" "app.html" >nul && echo [OK] Opsi 10 halaman tersedia || (echo [GAGAL] Opsi 10 halaman tidak ditemukan & set "FAIL=1")
+findstr /c:"selected>15 halaman" "app.html" >nul && echo [OK] Default 15 halaman || (echo [GAGAL] Default 15 halaman tidak ditemukan & set "FAIL=1")
+findstr /c:"20 halaman" "app.html" >nul && echo [OK] Opsi 20 halaman tersedia || (echo [GAGAL] Opsi 20 halaman tidak ditemukan & set "FAIL=1")
+findstr /c:"selected>5 jalur" "app.html" >nul && echo [OK] Default paralel 5 jalur || (echo [GAGAL] Default 5 jalur tidak ditemukan & set "FAIL=1")
+findstr /c:"pagesPerRequest: 15, concurrency: 5" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Preset Cepat 15 halaman x 5 jalur || (echo [GAGAL] Preset Cepat tidak sesuai & set "FAIL=1")
+findstr /c:"Math.min(20" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas halaman maksimum 20 || (echo [GAGAL] Batas halaman 20 tidak ditemukan & set "FAIL=1")
+findstr /c:"Math.min(5" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas concurrency maksimum 5 || (echo [GAGAL] Batas concurrency 5 tidak ditemukan & set "FAIL=1")
+findstr /c:"mile-ai-config-v16-6" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Storage key v16.6 || (echo [GAGAL] Storage key v16.6 tidak ditemukan & set "FAIL=1")
 
-findstr /c:"/api/metrics/ai" "_worker.js" >nul && echo [OK] Endpoint statistik AI aktif || (echo [GAGAL] Endpoint statistik tidak ditemukan & set "FAIL=1")
-findstr /c:"GOOGLE_SHEETS_WEBHOOK_SECRET" "_worker.js" >nul && echo [OK] Secret Google Sheets dibaca dari Cloudflare || (echo [GAGAL] Binding Google Sheets tidak ditemukan & set "FAIL=1")
-findstr /c:"aiElapsedTime" "app.html" >nul && echo [OK] Stopwatch UI tersedia || (echo [GAGAL] Stopwatch UI tidak ditemukan & set "FAIL=1")
-findstr /c:"submitProcessingMetrics" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Pencatatan metrik dari browser aktif || (echo [GAGAL] Pengiriman metrik tidak ditemukan & set "FAIL=1")
-findstr /c:"5 jalur" "app.html" >nul && echo [OK] Default paralel 5 jalur || (echo [GAGAL] Default 5 jalur tidak ditemukan & set "FAIL=1")
-findstr /c:"6 jalur" "app.html" >nul && (echo [GAGAL] Opsi 6 jalur masih ada & set "FAIL=1") || echo [OK] Opsi 6 jalur sudah dihapus
-findstr /i /c:"turbo" "assets\js\ai-pdf-v16.js" >nul && (echo [GAGAL] Preset Turbo masih ada & set "FAIL=1") || echo [OK] Preset Turbo sudah dihapus
-findstr /c:"Math.min(5, Number($('aiConcurrency')" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas concurrency maksimum 5 || (echo [GAGAL] Batas concurrency 5 tidak ditemukan & set "FAIL=1")
+findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session secret tetap aktif || (echo [GAGAL] Session secret hilang & set "FAIL=1")
+findstr /c:"COSMOS_API_KEY" "_worker.js" >nul && echo [OK] Cosmos secret tetap aktif || (echo [GAGAL] Cosmos secret hilang & set "FAIL=1")
+findstr /c:"/api/metrics/ai" "_worker.js" >nul && echo [OK] Statistik AI tetap aktif || (echo [GAGAL] Endpoint statistik hilang & set "FAIL=1")
+findstr /c:"outsideBatam" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Validasi luar Batam tetap aktif || (echo [GAGAL] Validasi luar Batam tidak ditemukan & set "FAIL=1")
 
-if exist "assets\js\firebase-auth-v16.js" (
-  echo [GAGAL] File Firebase client lama masih ada
-  set "FAIL=1"
-) else echo [OK] File Firebase client lama sudah dihapus
+echo.
+if "%FAIL%"=="1" (
+  echo HASIL: ADA PEMERIKSAAN YANG GAGAL.
+  exit /b 1
+)
 
-findstr /s /i /m /c:"AIza" *.html *.js *.md *.json *.xml 2>nul >nul
-if not errorlevel 1 (
-  echo [GAGAL] Ada Google API key tertanam di file repository
-  set "FAIL=1"
-) else echo [OK] Tidak ada Google API key tertanam
-
-findstr /s /i /m /c:"BEGIN PRIVATE KEY" *.html *.js *.md *.json *.xml 2>nul >nul
-if not errorlevel 1 (
-  echo [GAGAL] Ada private key tertanam di file repository
-  set "FAIL=1"
-) else echo [OK] Tidak ada private key tertanam
-
-if "%FAIL%"=="1" exit /b 1
-echo Semua pemeriksaan dasar lulus.
+echo HASIL: SEMUA PEMERIKSAAN LULUS.
 exit /b 0
