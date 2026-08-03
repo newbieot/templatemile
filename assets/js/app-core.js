@@ -211,6 +211,7 @@
             const wrapItemType = document.getElementById('wrapItemType');
             const tariffInput = document.getElementById('tariffCode');
             const itemInput = document.getElementById('itemType');
+            const serviceSelect = document.getElementById('serviceCode');
             const cbInsurance = document.getElementById('useInsurance');
             const wrapPindahDest = document.getElementById('wrapPindahDest');
 
@@ -280,6 +281,7 @@
             const sNameInput = document.getElementById('senderName');
             const tariffInput = document.getElementById('tariffCode');
             const itemInput = document.getElementById('itemType');
+            const serviceSelect = document.getElementById('serviceCode');
 
             if (mode !== 'KORPORAT') return;
 
@@ -311,6 +313,12 @@
                     custIdInput.value = "FINTOYOTA02294A";
                     sNameInput.value = "PT TOYOTA ASTRA FINANCE";
                     tariffInput.value = "";
+                } else if (template === 'JACCS_MPM') {
+                    custIdInput.value = "FINMPMJKT04120A";
+                    sNameInput.value = "PT JACCS MPM FINANCE INDONESIA";
+                    tariffInput.value = "868523";
+                    tariffInput.readOnly = true;
+                    if (serviceSelect) serviceSelect.value = "PKH";
                 } else if (template === 'POLRES') {
                     custIdInput.value = "LNPOLRES01294A";
                     sNameInput.value = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
@@ -1350,6 +1358,13 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             if (mode === 'KORPORAT') {
                 finalCustomerId = cleanArtifacts(document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
+
+                // Template JACCS MPM wajib memakai identitas pelanggan dan sub service resmi.
+                // Nilai ditetapkan kembali saat ekspor agar tidak dapat kosong/berubah karena input atau file sumber.
+                if (template === 'JACCS_MPM') {
+                    finalCustomerId = "FINMPMJKT04120A";
+                    finalTariffCode = "868523";
+                }
                 
                 if (template === 'MANUAL') {
                     baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
@@ -1360,6 +1375,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     destZoneCodeGlobal = "29100";
                 } else if (template === 'TOYOTA') {
                     baseSenderName = "PT TOYOTA ASTRA FINANCE";
+                } else if (template === 'JACCS_MPM') {
+                    baseSenderName = "PT JACCS MPM FINANCE INDONESIA";
                 } else if (template === 'POLRES') {
                     baseSenderName = "SATLANTAS POLRESTA BARELANG POLDA KEPULAUAN RIAU";
                 } else if (template === 'BNI') {
@@ -1435,6 +1452,10 @@ Baris ini tidak akan ikut diekspor.`)) return false;
 
                 if (mode === 'KORPORAT' && template === 'PN_BATAM') {
                     senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
+                    senderAddrFinal = baseSenderName;
+                    senderPhoneFinal = "0";
+                } else if (mode === 'KORPORAT' && template === 'JACCS_MPM') {
+                    senderNameFinal = "PT JACCS MPM FINANCE INDONESIA";
                     senderAddrFinal = baseSenderName;
                     senderPhoneFinal = "0";
                 } else if (mode === 'KORPORAT') {

@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.6
+# mile.posnew.com Secure Gateway v16.7
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -92,7 +92,7 @@ Di Firebase Console:
 
 ## Statistik pemrosesan AI dan Google Sheets
 
-Versi v16.6 menampilkan stopwatch selama PDF diproses dan menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
+Versi v16.7 menampilkan stopwatch selama PDF diproses dan menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
 
 Data yang dicatat: waktu server, email pengguna dari session, versi aplikasi, status, jumlah file, jumlah halaman, model AI, ukuran chunk, concurrency, durasi detik, jumlah data, detik per data, jumlah data perlu dicek, jumlah alamat luar Kota Batam, dan kategori error. Nama penerima, alamat, nomor telepon, serta isi PDF tidak dikirim ke Google Sheets.
 
@@ -136,7 +136,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260803-16.6",
+  "version": "20260803-16.7",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,
@@ -157,7 +157,7 @@ Uji melalui Incognito:
 
 ## Cloudflare Access
 
-Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.6 dan AI dipastikan berfungsi:
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.7 dan AI dipastikan berfungsi:
 
 1. Zero Trust → Access controls → Applications → mile.posnew.com.
 2. Tambahkan policy `Bypass`.
@@ -183,7 +183,7 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/ai-pdf-v16.js` — alur PDF AI berbasis session.
 
 
-## Pembaruan v16.6
+## Pembaruan v16.7
 
 - Preset Cepat sekarang memakai **15 halaman per permintaan × 5 jalur paralel**.
 - Pilihan **10 halaman** tetap tersedia untuk dokumen sulit atau berukuran besar.
@@ -200,3 +200,14 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
   2. **AI salah deteksi — tetap lanjutkan**, bila alamat telah dipastikan masih berada di Kota Batam.
 - Ringkasan, warna, status, badge, dan pesan ekspor dibedakan agar kedua jenis masalah tidak membingungkan.
 - Tombol tindakan pada tabel memakai event listener dan tidak bergantung pada inline JavaScript.
+
+## Template PT JACCS MPM Finance Indonesia
+
+Pilih **PT JACCS MPM Finance Indonesia · FINMPMJKT04120A** pada Template pelanggan. Hasil workbook selalu memakai:
+
+- `customer_code`: `FINMPMJKT04120A`
+- `origin_data_customer_name`: `PT JACCS MPM FINANCE INDONESIA`
+- `connote_sub_service_code`: `868523`
+- `service_code`: default `PKH`, atau `PE` apabila pengguna memilih layanan PE
+
+Nilai identitas pelanggan dan sub service ditetapkan ulang pada saat ekspor agar tidak kosong atau berubah oleh data sumber.

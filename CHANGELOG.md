@@ -1,6 +1,15 @@
 # Changelog
 
-## v16.6 — Default 15 halaman, opsi 20 halaman
+## v16.7 — Template PT JACCS MPM Finance Indonesia
+
+- Menambahkan template pelanggan `PT JACCS MPM FINANCE INDONESIA`.
+- `customer_code` selalu `FINMPMJKT04120A`.
+- `origin_data_customer_name` selalu `PT JACCS MPM FINANCE INDONESIA`.
+- `connote_sub_service_code` selalu `868523`.
+- `service_code` default `PKH`, tetapi mengikuti pilihan pengguna menjadi `PE` jika layanan PE dipilih.
+- Nilai wajib JACCS MPM ditegakkan kembali saat ekspor agar tidak kosong atau tertimpa data sumber.
+
+## v16.7 — Default 15 halaman, opsi 20 halaman
 
 - Mempertahankan 5 jalur paralel sebagai default.
 - Mengubah preset Cepat dari 10 menjadi 15 halaman per permintaan.

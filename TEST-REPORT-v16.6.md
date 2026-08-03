@@ -1,4 +1,4 @@
-# Test Report — mile.posnew.com v16.6
+# Test Report — mile.posnew.com v16.7
 
 Tanggal pengujian: 3 Agustus 2026
 
@@ -12,7 +12,7 @@ Tanggal pengujian: 3 Agustus 2026
 
 ## Pemeriksaan otomatis
 
-- Versi Worker dan asset konsisten `20260803-16.6`: lulus.
+- Versi Worker dan asset konsisten `20260803-16.7`: lulus.
 - `app.html` memiliki opsi halaman 10, 15, dan 20: lulus.
 - Hanya opsi 15 yang ditandai `selected`: lulus.
 - Opsi 5 jalur tetap `selected`: lulus.
