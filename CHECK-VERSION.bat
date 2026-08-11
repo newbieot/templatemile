@@ -3,12 +3,12 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.7...
+echo Memeriksa mile.posnew.com Secure Gateway v16.8...
 echo.
 
-findstr /c:"20260803-16.7" "_worker.js" >nul && echo [OK] Worker v16.7 || (echo [GAGAL] Worker bukan v16.7 & set "FAIL=1")
-findstr /c:"v16.7 Secure Gateway" "index.html" >nul && echo [OK] Login v16.7 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.7" "app.html" >nul && echo [OK] Workspace v16.7 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"20260811-16.8" "_worker.js" >nul && echo [OK] Worker v16.8 || (echo [GAGAL] Worker bukan v16.8 & set "FAIL=1")
+findstr /c:"v16.8 Secure Gateway" "index.html" >nul && echo [OK] Login v16.8 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.8" "app.html" >nul && echo [OK] Workspace v16.8 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 
 findstr /c:"10 halaman" "app.html" >nul && echo [OK] Opsi 10 halaman tersedia || (echo [GAGAL] Opsi 10 halaman tidak ditemukan & set "FAIL=1")
 findstr /c:"selected>15 halaman" "app.html" >nul && echo [OK] Default 15 halaman || (echo [GAGAL] Default 15 halaman tidak ditemukan & set "FAIL=1")
@@ -28,6 +28,11 @@ findstr /c:"COSMOS_API_KEY" "_worker.js" >nul && echo [OK] Cosmos secret tetap a
 findstr /c:"/api/metrics/ai" "_worker.js" >nul && echo [OK] Statistik AI tetap aktif || (echo [GAGAL] Endpoint statistik hilang & set "FAIL=1")
 findstr /c:"outsideBatam" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Validasi luar Batam tetap aktif || (echo [GAGAL] Validasi luar Batam tidak ditemukan & set "FAIL=1")
 
+findstr /c:"INDASTRADAI01294A" "assets\js\app-core.js" >nul && echo [OK] ID pelanggan ASTRA || (echo [GAGAL] ID pelanggan ASTRA tidak ditemukan & set "FAIL=1")
+findstr /c:"INDTEMPO01294A" "assets\js\app-core.js" >nul && echo [OK] ID pelanggan INDTEMPO || (echo [GAGAL] ID pelanggan INDTEMPO tidak ditemukan & set "FAIL=1")
+findstr /c:"915552" "assets\js\app-core.js" >nul && echo [OK] Tarif khusus Bank Syariah Negara || (echo [GAGAL] Tarif 915552 tidak ditemukan & set "FAIL=1")
+findstr /c:"FATAL: ID Pelanggan kosong" "assets\js\app-core.js" >nul && echo [OK] Fatal guard customer_code || (echo [GAGAL] Fatal guard customer_code tidak ditemukan & set "FAIL=1")
+
 echo.
 if "%FAIL%"=="1" (
   echo HASIL: ADA PEMERIKSAAN YANG GAGAL.
@@ -36,3 +41,4 @@ if "%FAIL%"=="1" (
 
 echo HASIL: SEMUA PEMERIKSAAN LULUS.
 exit /b 0
+

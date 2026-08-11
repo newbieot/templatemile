@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.8 — Proteksi ID Pelanggan & template INDTEMPO
+
+- Memperbaiki bug ASTRA DAIHATSU MOTOR BATAM: `customer_code` sekarang selalu `INDASTRADAI01294A` saat ekspor.
+- Semua template pelanggan preset kini memakai satu konfigurasi sebagai sumber `customer_code`; nilai tidak lagi bergantung pada input UI tersembunyi.
+- Menambahkan fatal guard: ekspor korporat dibatalkan jika ada `customer_code` kosong atau tidak sesuai preset.
+- Menambahkan template `INDTEMPO01294A`; Nama Pengirim wajib diisi.
+- Menambahkan pilihan tarif khusus Bank Syariah Negara Cabang Batam: jika Ya, `connote_sub_service_code=915552`, `service_code=PKH`, dan `Jenis_Barang=DOKUMEN`.
+
 ## v16.7 — Template PT JACCS MPM Finance Indonesia
 
 - Menambahkan template pelanggan `PT JACCS MPM FINANCE INDONESIA`.
