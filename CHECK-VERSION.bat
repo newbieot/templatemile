@@ -3,12 +3,12 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.8...
+echo Memeriksa mile.posnew.com Secure Gateway v16.9...
 echo.
 
-findstr /c:"20260811-16.8" "_worker.js" >nul && echo [OK] Worker v16.8 || (echo [GAGAL] Worker bukan v16.8 & set "FAIL=1")
-findstr /c:"v16.8 Secure Gateway" "index.html" >nul && echo [OK] Login v16.8 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.8" "app.html" >nul && echo [OK] Workspace v16.8 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"20260812-16.9" "_worker.js" >nul && echo [OK] Worker v16.9 || (echo [GAGAL] Worker bukan v16.9 & set "FAIL=1")
+findstr /c:"v16.9 Secure Gateway" "index.html" >nul && echo [OK] Login v16.9 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.9" "app.html" >nul && echo [OK] Workspace v16.9 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 
 findstr /c:"10 halaman" "app.html" >nul && echo [OK] Opsi 10 halaman tersedia || (echo [GAGAL] Opsi 10 halaman tidak ditemukan & set "FAIL=1")
 findstr /c:"selected>15 halaman" "app.html" >nul && echo [OK] Default 15 halaman || (echo [GAGAL] Default 15 halaman tidak ditemukan & set "FAIL=1")
@@ -17,7 +17,13 @@ findstr /c:"selected>5 jalur" "app.html" >nul && echo [OK] Default paralel 5 jal
 findstr /c:"pagesPerRequest: 15, concurrency: 5" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Preset Cepat 15 halaman x 5 jalur || (echo [GAGAL] Preset Cepat tidak sesuai & set "FAIL=1")
 findstr /c:"Math.min(20" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas halaman maksimum 20 || (echo [GAGAL] Batas halaman 20 tidak ditemukan & set "FAIL=1")
 findstr /c:"Math.min(5" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas concurrency maksimum 5 || (echo [GAGAL] Batas concurrency 5 tidak ditemukan & set "FAIL=1")
-findstr /c:"mile-ai-config-v16-6" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Storage key konfigurasi AI dipertahankan || (echo [GAGAL] Storage key konfigurasi AI dipertahankan tidak ditemukan & set "FAIL=1")
+findstr /c:"mile-ai-config-v16-9" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Storage key konfigurasi AI v16.9 || (echo [GAGAL] Storage key konfigurasi AI v16.9 tidak ditemukan & set "FAIL=1")
+findstr /c:"aiNetworkMode" "app.html" >nul && echo [OK] Profil koneksi adaptif tersedia || (echo [GAGAL] Profil koneksi adaptif tidak ditemukan & set "FAIL=1")
+findstr /c:"xhr.upload.onprogress" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Progres unggah aktual tersedia || (echo [GAGAL] Progres unggah aktual tidak ditemukan & set "FAIL=1")
+findstr /c:"waitUntilOnline" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Pemulihan koneksi tersedia || (echo [GAGAL] Pemulihan koneksi tidak ditemukan & set "FAIL=1")
+if exist "assets\vendor\pdfjs\pdf.min.js" (echo [OK] PDF.js lokal tersedia) else (echo [GAGAL] PDF.js lokal tidak ditemukan & set "FAIL=1")
+if exist "assets\vendor\pdfjs\pdf.worker.min.js" (echo [OK] PDF worker lokal tersedia) else (echo [GAGAL] PDF worker lokal tidak ditemukan & set "FAIL=1")
+if exist "assets\vendor\sheetjs\xlsx.full.min.js" (echo [OK] SheetJS lokal tersedia) else (echo [GAGAL] SheetJS lokal tidak ditemukan & set "FAIL=1")
 findstr /c:"JACCS_MPM" "app.html" >nul && echo [OK] Template JACCS MPM tersedia || (echo [GAGAL] Template JACCS MPM tidak ditemukan & set "FAIL=1")
 findstr /c:"FINMPMJKT04120A" "assets\js\app-core.js" >nul && echo [OK] Customer code JACCS MPM || (echo [GAGAL] Customer code JACCS MPM tidak ditemukan & set "FAIL=1")
 findstr /c:"PT JACCS MPM FINANCE INDONESIA" "assets\js\app-core.js" >nul && echo [OK] Nama pelanggan JACCS MPM || (echo [GAGAL] Nama pelanggan JACCS MPM tidak ditemukan & set "FAIL=1")
@@ -41,4 +47,3 @@ if "%FAIL%"=="1" (
 
 echo HASIL: SEMUA PEMERIKSAAN LULUS.
 exit /b 0
-

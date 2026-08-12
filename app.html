@@ -24,9 +24,8 @@
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="preconnect" href="https://cdn.sheetjs.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260811-16.8">
-  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260811-16.8">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260812-16.9">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260812-16.9">
 </head>
 <body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
@@ -204,7 +203,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.8</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.9</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -234,13 +233,22 @@
                   <span class="field-hint">Mode otomatis memakai profil akurat dan cepat. Tidak ada lagi mode khusus BNI; pembersihan KEPADA YTH, kode mandiri, dan artefak OCR berlaku otomatis untuk semua dokumen.</span>
                 </div>
                 <div class="form-group full-width">
+                  <label for="aiNetworkMode">Profil koneksi internet</label>
+                  <div class="select-shell"><select id="aiNetworkMode">
+                    <option value="auto" selected>Otomatis · rekomendasi</option>
+                    <option value="unstable">Internet tidak stabil · hemat data</option>
+                    <option value="normal">Internet stabil · kecepatan penuh</option>
+                  </select></div>
+                  <span class="field-hint" id="aiNetworkModeHint">Auto menyesuaikan ukuran kelompok, jumlah jalur, dan ukuran gambar agar unggahan lebih stabil.</span>
+                </div>
+                <div class="form-group full-width">
                   <label for="aiSpeedPreset">Preset kecepatan</label>
                   <div class="select-shell"><select id="aiSpeedPreset">
                     <option value="medium">Sedang · audit penuh</option>
-                    <option value="fast" selected>Cepat · 5 jalur rekomendasi</option>
+                    <option value="fast" selected>Cepat · hingga 5 jalur</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default untuk Gemini 3.6 Flash.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Profil koneksi dapat membatasi nilai ini sementara.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -419,6 +427,17 @@
       </div>
       <div class="ai-progress-track" aria-hidden="true"><span id="aiProgressBar"></span></div>
       <div class="ai-progress-meta"><span id="aiProgressPercent">0%</span><span id="aiProgressUsage">Token akan tampil setelah respons</span></div>
+      <div class="ai-transfer-panel" aria-live="polite">
+        <div class="ai-transfer-head"><span id="aiTransferStatus">Belum ada data yang dikirim</span><strong id="aiTransferPercent">0%</strong></div>
+        <div class="ai-transfer-track"><span id="aiTransferBar"></span></div>
+      </div>
+      <div class="ai-progress-status-grid">
+        <div><span>Halaman siap</span><strong id="aiProgressPages">0/0</strong></div>
+        <div><span>Kelompok selesai</span><strong id="aiProgressChunks">0/0</strong></div>
+        <div><span>Koneksi</span><strong id="aiProgressNetwork">Memeriksa…</strong></div>
+        <div class="ai-progress-activity"><span>Aktivitas</span><strong id="aiProgressActivity">Menyiapkan proses</strong></div>
+      </div>
+      <p class="ai-progress-note">Jangan tutup atau muat ulang tab. Jika internet terputus, sistem akan menunggu dan mencoba lagi otomatis.</p>
       <div class="modal-actions"><button id="cancelAiProcess" class="button button--ghost" type="button">Batalkan</button></div>
     </div>
   </div>
@@ -467,12 +486,12 @@
   </footer>
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-  <script src="/assets/js/app-core.js?v=20260811-16.8" defer></script>
-  <script src="/assets/js/ai-pdf-v16.js?v=20260811-16.8" defer></script>
-  <script src="/assets/js/ui.js?v=20260811-16.8" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260811-16.8" defer></script>
-  <script src="/assets/js/session-v16.js?v=20260811-16.8" defer></script>
+  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260812-16.9" defer></script>
+  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260812-16.9" defer></script>
+  <script src="/assets/js/app-core.js?v=20260812-16.9" defer></script>
+  <script src="/assets/js/ai-pdf-v16.js?v=20260812-16.9" defer></script>
+  <script src="/assets/js/ui.js?v=20260812-16.9" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260812-16.9" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260812-16.9" defer></script>
 </body>
 </html>

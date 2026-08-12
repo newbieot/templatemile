@@ -17,7 +17,10 @@
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const MAX_RETRIES = 3;
-  const STORAGE_KEY = 'mile-ai-config-v16-6';
+  const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
+  const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
+  const HEALTH_TIMEOUT_MS = 15 * 1000;
+  const STORAGE_KEY = 'mile-ai-config-v16-9';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -29,6 +32,14 @@
   let lastSuccessfulTransport = '';
   let stopwatchInterval = 0;
   let stopwatchStartedAt = 0;
+  let progressHeartbeatInterval = 0;
+  let progressHideTimeout = 0;
+  let progressActivityAt = 0;
+  let progressWaitingSince = 0;
+  let progressActivityLabel = 'Menyiapkan proses';
+  let lastHealthLatencyMs = 0;
+  let lastHealthCheckedAt = 0;
+  let lastHealthConfigured = false;
 
   const $ = id => document.getElementById(id);
 
@@ -48,17 +59,79 @@
     const model = String($('aiModel')?.value || 'gemini-3.6-flash').trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
-    const pagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
-    const concurrency = Math.max(1, Math.min(5, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
+    const requestedPagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const requestedConcurrency = Math.max(1, Math.min(5, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
+    const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : 'auto';
+    const networkProfile = resolveNetworkProfile(networkMode);
+    const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
+    const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
     const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
-    return { provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy, pagesPerRequest, concurrency };
+    return {
+      provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy,
+      pagesPerRequest, concurrency, requestedPagesPerRequest, requestedConcurrency,
+      networkMode, networkProfile
+    };
+  }
+
+  function connectionSignals() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return {
+      online: navigator.onLine !== false,
+      available: Boolean(connection),
+      saveData: Boolean(connection?.saveData),
+      effectiveType: String(connection?.effectiveType || '').toLowerCase(),
+      downlink: Number(connection?.downlink || 0),
+      rtt: Number(connection?.rtt || 0)
+    };
+  }
+
+  function resolveNetworkProfile(mode = 'auto') {
+    const signals = connectionSignals();
+    const profiles = {
+      unstable: {
+        key: 'unstable', label: 'Hemat data', maxPagesPerRequest: 4, maxConcurrency: 1,
+        maxImageSide: 1850, jpegQuality: 0.80
+      },
+      balanced: {
+        key: 'balanced', label: 'Adaptif aman', maxPagesPerRequest: 6, maxConcurrency: 2,
+        maxImageSide: 2150, jpegQuality: 0.85
+      },
+      normal: {
+        key: 'normal', label: 'Normal cepat', maxPagesPerRequest: 20, maxConcurrency: 5,
+        maxImageSide: Infinity, jpegQuality: 1
+      }
+    };
+
+    if (mode === 'unstable' || !signals.online) return profiles.unstable;
+    if (mode === 'normal') return profiles.normal;
+
+    const clearlySlow = signals.saveData ||
+      ['slow-2g', '2g', '3g'].includes(signals.effectiveType) ||
+      (signals.downlink > 0 && signals.downlink < 2) ||
+      signals.rtt >= 650 ||
+      lastHealthLatencyMs >= 1400;
+    if (clearlySlow) return profiles.unstable;
+
+    const clearlyFast = signals.available &&
+      ['4g', '5g'].includes(signals.effectiveType) &&
+      (!signals.downlink || signals.downlink >= 5) &&
+      (!signals.rtt || signals.rtt < 350) &&
+      (!lastHealthLatencyMs || lastHealthLatencyMs < 700);
+    if (clearlyFast) return profiles.normal;
+
+    // Firefox desktop belum menyediakan Network Information API. Dalam kondisi
+    // itu Auto memilih profil paling aman; pengguna berkoneksi cepat tetap dapat
+    // memilih "Internet stabil" untuk membuka batas 15 halaman × 5 jalur.
+    if (!signals.available) return profiles.unstable;
+    return profiles.balanced;
   }
 
   function saveNonSecretConfig() {
     try {
       const cfg = {
         accuracyMode: $('aiAccuracyMode')?.value || DEFAULT_ACCURACY_MODE,
+        networkMode: $('aiNetworkMode')?.value || 'auto',
         speedPreset: $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET,
         pagesPerRequest: $('aiPagesPerRequest')?.value || String(SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest),
         concurrency: $('aiConcurrency')?.value || String(SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)
@@ -74,16 +147,18 @@
     if ($('aiModel')) $('aiModel').value = 'gemini-3.6-flash';
     try {
       // Hapus konfigurasi model versi lama agar Claude Opus tidak terbawa.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
+        if ($('aiNetworkMode')) $('aiNetworkMode').value = 'auto';
         if ($('aiSpeedPreset')) $('aiSpeedPreset').value = DEFAULT_SPEED_PRESET;
         applySpeedPreset(DEFAULT_SPEED_PRESET, false);
         return;
       }
       const cfg = JSON.parse(raw);
       if ($('aiAccuracyMode') && IMAGE_PROFILES[cfg.accuracyMode]) $('aiAccuracyMode').value = cfg.accuracyMode;
+      if ($('aiNetworkMode') && ['auto', 'unstable', 'normal'].includes(cfg.networkMode)) $('aiNetworkMode').value = cfg.networkMode;
       if ($('aiSpeedPreset') && SPEED_PRESETS[cfg.speedPreset]) $('aiSpeedPreset').value = cfg.speedPreset;
       if ($('aiPagesPerRequest') && cfg.pagesPerRequest) $('aiPagesPerRequest').value = String(cfg.pagesPerRequest);
       if ($('aiConcurrency') && cfg.concurrency) $('aiConcurrency').value = String(cfg.concurrency);
@@ -112,6 +187,21 @@
     hint.textContent = descriptions[presetName] || descriptions.custom;
   }
 
+  function updateNetworkModeHint() {
+    const hint = $('aiNetworkModeHint');
+    if (!hint) return;
+    const mode = $('aiNetworkMode')?.value || 'auto';
+    const profile = resolveNetworkProfile(mode);
+    const signals = connectionSignals();
+    const offlineText = signals.online ? '' : ' Internet sedang terputus.';
+    const descriptions = {
+      auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Browser yang tidak dapat mengukur kualitas jaringan akan memakai batas aman.`,
+      unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
+      normal: 'Mode cepat mempertahankan pengaturan halaman dan jalur yang dipilih. Gunakan hanya pada koneksi stabil.'
+    };
+    hint.textContent = `${descriptions[mode] || descriptions.auto}${offlineText}`;
+  }
+
   function markSpeedPresetCustom() {
     const pages = Number($('aiPagesPerRequest')?.value || 0);
     const concurrency = Number($('aiConcurrency')?.value || 0);
@@ -132,13 +222,29 @@
 
   async function checkServerConfiguration({ showFeedback = false } = {}) {
     const status = $('aiConfigStatus');
+    if (lastHealthConfigured && Date.now() - lastHealthCheckedAt < 60 * 1000) {
+      updateNetworkModeHint();
+      return true;
+    }
+    const controller = new AbortController();
+    const startedAt = performance.now();
+    let healthTimedOut = false;
+    const timeout = window.setTimeout(() => {
+      healthTimedOut = true;
+      controller.abort();
+    }, HEALTH_TIMEOUT_MS);
+    activeControllers.add(controller);
     try {
       const response = await fetch('/api/health', {
         headers: { accept: 'application/json' },
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: controller.signal
       });
+      lastHealthLatencyMs = Math.max(1, performance.now() - startedAt);
       const data = await response.json();
       const configured = Boolean(response.ok && data?.cosmosConfigured && data?.firebaseConfigured && data?.sessionConfigured && data?.serverSideGate);
+      lastHealthCheckedAt = Date.now();
+      lastHealthConfigured = configured;
       if (status) {
         status.dataset.healthChecked = 'true';
         status.classList.toggle('is-ready', configured);
@@ -149,15 +255,27 @@
       if (!configured && showFeedback) {
         setFeedback('Konfigurasi Secure Gateway belum lengkap. Pastikan COSMOS_API_KEY, FIREBASE_WEB_API_KEY, dan MILE_SESSION_SECRET tersedia di Cloudflare Variables and Secrets, lalu deploy ulang.', 'error');
       }
+      updateNetworkModeHint();
       return configured;
-    } catch (_) {
+    } catch (error) {
+      lastHealthLatencyMs = Math.max(1, performance.now() - startedAt);
+      lastHealthConfigured = false;
       if (status) {
         status.dataset.healthChecked = 'true';
         status.classList.remove('is-ready');
-        status.textContent = 'Server belum terhubung';
+        status.textContent = navigator.onLine === false ? 'Internet terputus' : 'Server belum terhubung';
       }
-      if (showFeedback) setFeedback('Health check server tidak dapat dibaca. Muat ulang halaman setelah deployment selesai.', 'error');
+      if (showFeedback) {
+        const message = healthTimedOut || error?.name === 'AbortError'
+          ? 'Pemeriksaan server melewati 15 detik. Koneksi sedang sangat lambat atau terputus; coba lagi setelah sinyal membaik.'
+          : 'Server tidak dapat dijangkau. Periksa koneksi internet lalu coba lagi.';
+        setFeedback(message, 'error');
+      }
+      updateNetworkModeHint();
       return false;
+    } finally {
+      window.clearTimeout(timeout);
+      activeControllers.delete(controller);
     }
   }
 
@@ -180,9 +298,77 @@
     if ($('aiProgressUsage')) $('aiProgressUsage').textContent = usage || 'Token akan tampil setelah respons';
   }
 
+  function markProgressActivity(label, { waiting = false } = {}) {
+    progressActivityAt = performance.now();
+    progressActivityLabel = label || 'Proses berjalan';
+    progressWaitingSince = waiting ? (progressWaitingSince || performance.now()) : 0;
+    if ($('aiProgressActivity')) $('aiProgressActivity').textContent = progressActivityLabel;
+  }
+
+  function setTransferProgress(percent, label, { waiting = false, error = false } = {}) {
+    const safe = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    const track = $('aiTransferBar')?.parentElement;
+    if ($('aiTransferBar')) $('aiTransferBar').style.width = `${safe}%`;
+    if ($('aiTransferPercent')) $('aiTransferPercent').textContent = waiting ? 'AI bekerja' : `${safe}%`;
+    if ($('aiTransferStatus')) $('aiTransferStatus').textContent = label || 'Menunggu pengiriman';
+    track?.classList.toggle('is-waiting', waiting);
+    track?.classList.toggle('is-error', error);
+    markProgressActivity(label, { waiting });
+  }
+
+  function setProgressStats({ renderedPages, totalPages, completedChunks, totalChunks } = {}) {
+    if ($('aiProgressPages') && Number.isFinite(renderedPages) && Number.isFinite(totalPages)) {
+      $('aiProgressPages').textContent = `${renderedPages}/${totalPages}`;
+    }
+    if ($('aiProgressChunks') && Number.isFinite(completedChunks) && Number.isFinite(totalChunks)) {
+      $('aiProgressChunks').textContent = `${completedChunks}/${totalChunks}`;
+    }
+  }
+
+  function refreshProgressHeartbeat() {
+    const signals = connectionSignals();
+    const networkNode = $('aiProgressNetwork');
+    if (networkNode) {
+      const mode = $('aiNetworkMode')?.value || 'auto';
+      const profile = resolveNetworkProfile(mode);
+      networkNode.textContent = signals.online ? profile.label : 'Terputus';
+      networkNode.classList.toggle('is-offline', !signals.online);
+    }
+
+    const activityNode = $('aiProgressActivity');
+    if (!activityNode) return;
+    if (!signals.online) {
+      activityNode.textContent = 'Menunggu internet tersambung kembali';
+      return;
+    }
+    if (progressWaitingSince) {
+      activityNode.textContent = `AI masih bekerja · ${formatDuration((performance.now() - progressWaitingSince) / 1000)}`;
+      return;
+    }
+    const age = progressActivityAt ? (performance.now() - progressActivityAt) / 1000 : 0;
+    activityNode.textContent = age < 2 ? progressActivityLabel : `${progressActivityLabel} · ${formatDuration(age)} lalu`;
+  }
+
+  function startProgressHeartbeat() {
+    window.clearInterval(progressHeartbeatInterval);
+    progressActivityAt = performance.now();
+    progressWaitingSince = 0;
+    refreshProgressHeartbeat();
+    progressHeartbeatInterval = window.setInterval(refreshProgressHeartbeat, 1000);
+  }
+
+  function stopProgressHeartbeat() {
+    window.clearInterval(progressHeartbeatInterval);
+    progressHeartbeatInterval = 0;
+    progressWaitingSince = 0;
+  }
+
   function hideProgress() {
+    window.clearTimeout(progressHideTimeout);
+    progressHideTimeout = 0;
     const modal = $('aiProgressModal');
     if (modal) modal.style.display = 'none';
+    stopProgressHeartbeat();
   }
 
   function formatUsage(total) {
@@ -196,6 +382,13 @@
     const minutes = Math.floor(value / 60);
     const rest = value % 60;
     return rest ? `${minutes} menit ${rest} detik` : `${minutes} menit`;
+  }
+
+  function formatBytes(bytes) {
+    const value = Math.max(0, Number(bytes) || 0);
+    if (value < 1024) return `${Math.round(value)} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toLocaleString('id-ID', { maximumFractionDigits: 1 })} KB`;
+    return `${(value / (1024 * 1024)).toLocaleString('id-ID', { maximumFractionDigits: 1 })} MB`;
   }
 
   function formatPreciseDuration(seconds) {
@@ -224,13 +417,16 @@
   }
 
   function startStopwatch(startedAt) {
+    window.clearTimeout(progressHideTimeout);
+    progressHideTimeout = 0;
     window.clearInterval(stopwatchInterval);
     stopwatchStartedAt = startedAt;
     updateStopwatch(0, 0);
+    startProgressHeartbeat();
     stopwatchInterval = window.setInterval(() => {
       if (!stopwatchStartedAt) return;
       updateStopwatch((performance.now() - stopwatchStartedAt) / 1000, 0);
-    }, 100);
+    }, 500);
   }
 
   function stopStopwatch(elapsedSeconds, totalRows = 0) {
@@ -238,6 +434,7 @@
     stopwatchInterval = 0;
     stopwatchStartedAt = 0;
     updateStopwatch(elapsedSeconds, totalRows);
+    stopProgressHeartbeat();
   }
 
   function setMetricsSyncStatus(message, type = '') {
@@ -318,11 +515,53 @@
     return new Promise(resolve => window.setTimeout(resolve, ms));
   }
 
-  function fileToArrayBuffer(file) {
-    return file.arrayBuffer ? file.arrayBuffer() : new Promise((resolve, reject) => {
+  async function cancellableSleep(ms) {
+    const deadline = performance.now() + Math.max(0, ms);
+    while (performance.now() < deadline) {
+      if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+      await sleep(Math.min(300, deadline - performance.now()));
+    }
+  }
+
+  async function waitUntilOnline(label = 'permintaan AI') {
+    while (navigator.onLine === false) {
+      if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+      const current = Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 1);
+      setProgress(current, 'Menunggu koneksi internet', `${label} akan dilanjutkan otomatis setelah internet tersambung kembali.`, $('aiProgressUsage')?.textContent || '');
+      setTransferProgress(0, 'Internet terputus · menunggu tersambung kembali', { error: true });
+      await cancellableSleep(1000);
+    }
+  }
+
+  function yieldToBrowser() {
+    return new Promise(resolve => {
+      if (document.hidden || typeof window.requestAnimationFrame !== 'function') {
+        window.setTimeout(resolve, 0);
+        return;
+      }
+      window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
+    });
+  }
+
+  function fileToArrayBuffer(file, onProgress = () => {}) {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error || new Error('Gagal membaca PDF.'));
+      activeControllers.add(reader);
+      reader.onprogress = event => {
+        if (event.lengthComputable) onProgress(event.loaded, event.total);
+      };
+      reader.onload = () => {
+        activeControllers.delete(reader);
+        resolve(reader.result);
+      };
+      reader.onerror = () => {
+        activeControllers.delete(reader);
+        reject(reader.error || new Error('Gagal membaca PDF.'));
+      };
+      reader.onabort = () => {
+        activeControllers.delete(reader);
+        reject(new DOMException('Proses dibatalkan pengguna.', 'AbortError'));
+      };
       reader.readAsArrayBuffer(file);
     });
   }
@@ -483,12 +722,16 @@
     return url;
   }
 
-  async function renderPageToImage(page, accuracyMode = DEFAULT_ACCURACY_MODE, speedPreset = DEFAULT_SPEED_PRESET) {
+  async function renderPageToImage(page, accuracyMode = DEFAULT_ACCURACY_MODE, speedPreset = DEFAULT_SPEED_PRESET, networkProfile = null) {
     const baseProfile = IMAGE_PROFILES[accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
     const profile = { ...baseProfile };
     if (speedPreset === 'fast') {
       profile.maxSide = Math.min(profile.maxSide, 2450);
       profile.jpegQuality = Math.min(profile.jpegQuality, 0.90);
+    }
+    if (networkProfile) {
+      profile.maxSide = Math.min(profile.maxSide, Number(networkProfile.maxImageSide) || profile.maxSide);
+      profile.jpegQuality = Math.min(profile.jpegQuality, Number(networkProfile.jpegQuality) || profile.jpegQuality);
     }
     const viewportBase = page.getViewport({ scale: 1 });
     const initialTarget = Math.min(profile.maxSide * 1.18, 3400);
@@ -501,6 +744,7 @@
     sourceContext.fillStyle = '#ffffff';
     sourceContext.fillRect(0, 0, sourceCanvas.width, sourceCanvas.height);
     await page.render({ canvasContext: sourceContext, viewport }).promise;
+    await yieldToBrowser();
 
     const fullBounds = findContentBounds(sourceContext, sourceCanvas.width, sourceCanvas.height);
     const detailBounds = profile.verify === 'none'
@@ -519,6 +763,7 @@
       : fullUrl;
 
     sourceCanvas.width = sourceCanvas.height = 1;
+    await yieldToBrowser();
     return { originalUrl, fullUrl, detailUrl };
   }
 
@@ -643,28 +888,111 @@ Aturan audit:
     return payload;
   }
 
-  async function callViaProxy(config, body) {
-    const controller = new AbortController();
-    activeControllers.add(controller);
-    try {
-      const response = await fetch('/api/ai-proxy', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'same-origin',
-        signal: controller.signal,
-        body: JSON.stringify({ body })
-      });
-      return await parseApiResponse(response, 'proxy Cloudflare');
-    } catch (error) {
-      if (!error.transport) error.transport = 'proxy Cloudflare';
-      throw error;
-    } finally {
-      activeControllers.delete(controller);
-    }
+  async function callViaProxy(config, body, onTransport = () => {}) {
+    onTransport({ phase: 'encoding', loaded: 0, total: 0 });
+    await yieldToBrowser();
+    const requestBody = JSON.stringify({ body });
+    const totalBytes = new Blob([requestBody]).size;
+    onTransport({ phase: 'ready', loaded: 0, total: totalBytes });
+    await yieldToBrowser();
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let settled = false;
+      let uploadStalled = false;
+      let stallTimeout = 0;
+
+      const clearStallTimeout = () => {
+        window.clearTimeout(stallTimeout);
+        stallTimeout = 0;
+      };
+      const armStallTimeout = () => {
+        clearStallTimeout();
+        stallTimeout = window.setTimeout(() => {
+          uploadStalled = true;
+          xhr.abort();
+        }, UPLOAD_STALL_TIMEOUT_MS);
+      };
+      const cleanup = () => {
+        if (settled) return false;
+        settled = true;
+        clearStallTimeout();
+        activeControllers.delete(xhr);
+        return true;
+      };
+      const fail = error => {
+        if (!cleanup()) return;
+        if (!error.transport) error.transport = 'proxy Cloudflare';
+        reject(error);
+      };
+
+      xhr.open('POST', '/api/ai-proxy', true);
+      xhr.withCredentials = true;
+      xhr.timeout = REQUEST_TIMEOUT_MS;
+      xhr.setRequestHeader('content-type', 'application/json');
+      xhr.setRequestHeader('accept', 'application/json');
+
+      xhr.upload.onloadstart = () => {
+        onTransport({ phase: 'uploading', loaded: 0, total: totalBytes });
+        armStallTimeout();
+      };
+      xhr.upload.onprogress = event => {
+        const total = event.lengthComputable && event.total ? event.total : totalBytes;
+        onTransport({ phase: 'uploading', loaded: event.loaded, total });
+        armStallTimeout();
+      };
+      xhr.upload.onload = () => {
+        clearStallTimeout();
+        onTransport({ phase: 'waiting', loaded: totalBytes, total: totalBytes });
+      };
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState >= 2 && !settled) {
+          clearStallTimeout();
+          onTransport({ phase: 'waiting', loaded: totalBytes, total: totalBytes });
+        }
+      };
+      xhr.onload = () => {
+        if (!xhr.status) {
+          const error = new Error('Server tidak mengembalikan status HTTP. Koneksi kemungkinan terputus.');
+          fail(error);
+          return;
+        }
+        if (!cleanup()) return;
+        const headers = new Headers({ 'content-type': xhr.getResponseHeader('content-type') || 'application/json' });
+        const response = new Response(xhr.responseText || '', { status: xhr.status, statusText: xhr.statusText, headers });
+        parseApiResponse(response, 'proxy Cloudflare').then(payload => {
+          onTransport({ phase: 'complete', loaded: totalBytes, total: totalBytes });
+          resolve(payload);
+        }, reject);
+      };
+      xhr.onerror = () => {
+        const error = new Error(navigator.onLine === false
+          ? 'Koneksi internet terputus saat mengirim data ke AI.'
+          : 'Koneksi ke server terputus sebelum respons AI selesai.');
+        fail(error);
+      };
+      xhr.ontimeout = () => {
+        const error = new Error('Permintaan AI melewati batas 6 menit dan akan dicoba ulang.');
+        error.status = 408;
+        fail(error);
+      };
+      xhr.onabort = () => {
+        if (uploadStalled) {
+          const error = new Error('Unggahan tidak bergerak selama 45 detik. Sistem akan mencoba ulang otomatis.');
+          error.status = 408;
+          fail(error);
+          return;
+        }
+        fail(new DOMException('Proses dibatalkan pengguna.', 'AbortError'));
+      };
+
+      activeControllers.add(xhr);
+      xhr.send(requestBody);
+    });
   }
 
-  async function callCosmos(config, body) {
-    return callViaProxy(config, body);
+  async function callCosmos(config, body, onTransport) {
+    return callViaProxy(config, body, onTransport);
   }
 
   function isRetryable(error) {
@@ -673,12 +1001,14 @@ Aturan audit:
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
   }
 
-  async function callProxyWithRetry(config, body, label = '') {
+  async function callProxyWithRetry(config, body, label = '', hooks = {}) {
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+      await waitUntilOnline(label);
       try {
-        const payload = await callCosmos(config, body);
+        hooks.onAttempt?.(attempt, MAX_RETRIES);
+        const payload = await callCosmos(config, body, event => hooks.onTransport?.({ ...event, attempt, maxAttempts: MAX_RETRIES }));
         // Validasi JSON di sini agar respons terpotong juga dicoba ulang.
         parseRows(payload, config.protocol);
         return payload;
@@ -687,13 +1017,15 @@ Aturan audit:
         if (!isRetryable(error) && !/JSON valid|array rows|teks hasil/i.test(String(error.message || ''))) throw error;
         if (attempt >= MAX_RETRIES) break;
         const delay = [1800, 4200, 8500][attempt - 1] || 8500;
+        hooks.onRetry?.({ attempt, nextAttempt: attempt + 1, maxAttempts: MAX_RETRIES, delay, error });
         setProgress(
           Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10),
           `Mencoba ulang ${label}`,
           `Percobaan ${attempt + 1}/${MAX_RETRIES} dimulai dalam ${formatDuration(delay / 1000)}.`,
           $('aiProgressUsage')?.textContent || ''
         );
-        await sleep(delay + Math.floor(Math.random() * 700));
+        setTransferProgress(0, `Koneksi terganggu · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`, { error: true });
+        await cancellableSleep(delay + Math.floor(Math.random() * 700));
       }
     }
     throw lastError || new Error('Permintaan AI gagal setelah beberapa kali percobaan.');
@@ -1146,37 +1478,53 @@ Aturan audit:
       alert('Aplikasi mile.posnew.com belum siap. Muat ulang halaman.');
       return;
     }
+    cancelled = false;
+    const startedAt = performance.now();
+    startStopwatch(startedAt);
+    setProgress(1, 'Memeriksa berkas dan koneksi', 'Validasi PDF dan layanan AI sedang dilakukan…');
+    setTransferProgress(0, 'Belum ada data yang dikirim');
+    setProgressStats({ renderedPages: 0, totalPages: 0, completedChunks: 0, totalChunks: 0 });
+
     let config;
     try {
-      const configured = await checkServerConfiguration({ showFeedback: true });
-      if (!configured) throw new Error('Layanan AI belum siap karena COSMOS_API_KEY belum aktif pada runtime Cloudflare.');
-      config = getConfig();
-      saveNonSecretConfig();
       if (!file || file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) throw new Error('Berkas bukan PDF.');
       if (file.size > MAX_PDF_BYTES) throw new Error('Ukuran PDF melebihi 120 MB. Kompres PDF lalu coba lagi.');
       if (typeof window.pdfjsLib === 'undefined') throw new Error('Library pembaca PDF gagal dimuat. Periksa koneksi lalu muat ulang halaman.');
+      const configured = await checkServerConfiguration({ showFeedback: true });
+      if (!configured) {
+        if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+        throw new Error('Layanan AI belum dapat dijangkau. Periksa sinyal internet atau konfigurasi server lalu coba lagi.');
+      }
+      config = getConfig();
+      saveNonSecretConfig();
     } catch (error) {
+      const elapsed = Math.max(0, (performance.now() - startedAt) / 1000);
+      stopStopwatch(elapsed, 0);
+      hideProgress();
       $('aiConfigPanel')?.setAttribute('open', '');
-      showToast(error.message, 'error');
+      showToast(error?.name === 'AbortError' ? 'Proses PDF dibatalkan.' : error.message, error?.name === 'AbortError' ? 'info' : 'error');
       core.processNextInQueue();
       return;
     }
 
-    cancelled = false;
     let pdf = null;
     let pageCount = 0;
     let completedRowCount = 0;
     const totalUsage = { input: 0, output: 0 };
-    const startedAt = performance.now();
-    startStopwatch(startedAt);
     try {
       setProgress(2, 'Membaca PDF', `Membuka ${file.name}…`);
-      const bytes = await fileToArrayBuffer(file);
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      setTransferProgress(0, `Membaca ${formatBytes(file.size)} dari perangkat`);
+      const bytes = await fileToArrayBuffer(file, (loaded, total) => {
+        const ratio = total ? loaded / total : 0;
+        setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
+        setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260812-16.9';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
       if (pdf.numPages > 150) showToast('PDF besar terdeteksi. Biarkan tab tetap terbuka sampai proses selesai.', 'info');
+      setTransferProgress(0, 'PDF siap · belum mengirim gambar halaman');
 
       config = {
         ...config,
@@ -1190,46 +1538,99 @@ Aturan audit:
       }
 
       const results = new Array(chunks.length);
+      const chunkStates = chunks.map(() => ({ progress: 0, phase: 'Menunggu', waiting: false }));
       let nextChunkIndex = 0;
       let completedChunks = 0;
+      let renderedPages = 0;
       let rowsFound = 0;
       let firstCompletedAt = 0;
 
-      const updateParallelProgress = (chunk, phase = 'AI') => {
+      const updateParallelProgress = (chunk, chunkIndex, phase = 'AI') => {
+        const state = chunkStates[chunkIndex];
+        if (state) state.phase = phase;
         const elapsed = (performance.now() - startedAt) / 1000;
         const throughput = completedChunks ? completedChunks / Math.max(1, elapsed) : 0;
         const remainingChunks = Math.max(0, chunks.length - completedChunks);
         const eta = throughput ? ` · estimasi sisa ${formatDuration(remainingChunks / throughput)}` : '';
-        const percent = 5 + (completedChunks / Math.max(1, chunks.length)) * 90;
+        const aggregate = chunkStates.reduce((sum, item) => sum + Number(item.progress || 0), 0) / Math.max(1, chunkStates.length);
+        const percent = 5 + aggregate * 90;
         setProgress(
           percent,
           `${phase} halaman ${chunk.start}–${chunk.end}`,
-          `${completedChunks}/${chunks.length} kelompok selesai · ${rowsFound} baris ditemukan${eta}`,
+          `${renderedPages}/${pdf.numPages} halaman siap · ${completedChunks}/${chunks.length} kelompok selesai · ${rowsFound} baris ditemukan${eta}`,
           formatUsage(totalUsage)
         );
+        setProgressStats({ renderedPages, totalPages: pdf.numPages, completedChunks, totalChunks: chunks.length });
       };
+
+      const makeTransportHooks = (chunk, chunkIndex, label, startWeight, waitWeight, completeWeight) => ({
+        onAttempt(attempt, maxAttempts) {
+          chunkStates[chunkIndex].waiting = false;
+          chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, startWeight);
+          setTransferProgress(0, `${label} halaman ${chunk.start}–${chunk.end} · percobaan ${attempt}/${maxAttempts}`);
+          updateParallelProgress(chunk, chunkIndex, label);
+        },
+        onTransport(event) {
+          const total = Number(event.total || 0);
+          const ratio = total ? Math.max(0, Math.min(1, Number(event.loaded || 0) / total)) : 0;
+          if (event.phase === 'encoding') {
+            chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, startWeight);
+            setTransferProgress(0, `Mengemas gambar halaman ${chunk.start}–${chunk.end}`);
+          } else if (event.phase === 'ready') {
+            setTransferProgress(0, `${formatBytes(total)} siap dikirim untuk halaman ${chunk.start}–${chunk.end}`);
+          } else if (event.phase === 'uploading') {
+            chunkStates[chunkIndex].waiting = false;
+            chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, startWeight + (waitWeight - startWeight) * ratio);
+            setTransferProgress(ratio * 100, `Mengunggah ${formatBytes(event.loaded)} dari ${formatBytes(total)} · halaman ${chunk.start}–${chunk.end}`);
+          } else if (event.phase === 'waiting') {
+            chunkStates[chunkIndex].waiting = true;
+            chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, waitWeight);
+            setTransferProgress(100, `Upload halaman ${chunk.start}–${chunk.end} selesai · menunggu respons AI`, { waiting: true });
+          } else if (event.phase === 'complete') {
+            chunkStates[chunkIndex].waiting = false;
+            chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, completeWeight);
+            setTransferProgress(100, `Respons AI halaman ${chunk.start}–${chunk.end} diterima`);
+          }
+          updateParallelProgress(chunk, chunkIndex, label);
+        },
+        onRetry({ nextAttempt, maxAttempts, delay }) {
+          chunkStates[chunkIndex].waiting = false;
+          setTransferProgress(0, `Jaringan terganggu · percobaan ${nextAttempt}/${maxAttempts} dalam ${formatDuration(delay / 1000)}`, { error: true });
+          updateParallelProgress(chunk, chunkIndex, `Menyiapkan retry ${nextAttempt}/${maxAttempts}`);
+        }
+      });
 
       async function processChunk(chunk, chunkIndex) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-        updateParallelProgress(chunk, 'Menyiapkan gambar');
+        chunkStates[chunkIndex].progress = 0.01;
+        updateParallelProgress(chunk, chunkIndex, 'Menyiapkan gambar');
         const images = [];
+        const pagesInChunk = chunk.end - chunk.start + 1;
         for (let pageNumber = chunk.start; pageNumber <= chunk.end; pageNumber++) {
           if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+          markProgressActivity(`Merender halaman ${pageNumber}/${pdf.numPages}`);
+          updateParallelProgress(chunk, chunkIndex, `Merender halaman ${pageNumber}`);
           const page = await pdf.getPage(pageNumber);
           try {
-            const rendered = await renderPageToImage(page, config.accuracyMode, config.speedPreset);
+            const rendered = await renderPageToImage(page, config.accuracyMode, config.speedPreset, config.networkProfile);
             images.push({
               page: pageNumber,
               originalUrl: rendered.originalUrl,
               url: rendered.fullUrl,
               detailUrl: rendered.detailUrl
             });
+            renderedPages++;
+            const renderedInChunk = pageNumber - chunk.start + 1;
+            chunkStates[chunkIndex].progress = 0.03 + (renderedInChunk / pagesInChunk) * 0.22;
+            updateParallelProgress(chunk, chunkIndex, `Gambar halaman ${pageNumber} siap`);
+            await yieldToBrowser();
           } finally {
             page.cleanup();
           }
         }
 
-        updateParallelProgress(chunk, 'Ekstraksi pertama');
+        chunkStates[chunkIndex].progress = 0.27;
+        updateParallelProgress(chunk, chunkIndex, 'Ekstraksi pertama');
         const extractionImages = images.map(image => ({
           page: image.page,
           label: `HALAMAN ${image.page}`,
@@ -1242,7 +1643,12 @@ Aturan audit:
           extractionImages,
           Math.max(3600, (chunk.end - chunk.start + 1) * 1150)
         );
-        const payload = await callProxyWithRetry(config, body, `halaman ${chunk.start}–${chunk.end}`);
+        const payload = await callProxyWithRetry(
+          config,
+          body,
+          `halaman ${chunk.start}–${chunk.end}`,
+          makeTransportHooks(chunk, chunkIndex, 'Ekstraksi pertama', 0.28, 0.53, 0.62)
+        );
         let usage = getUsage(payload, config.protocol);
         totalUsage.input += Number(usage.input || 0);
         totalUsage.output += Number(usage.output || 0);
@@ -1250,7 +1656,8 @@ Aturan audit:
         let normalized = normalizeRows(parseRows(payload, config.protocol), template, chunk.start - 1, config);
 
         if (shouldVerifyChunk(config, normalized)) {
-          updateParallelProgress(chunk, 'Verifikasi akurasi');
+          chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, 0.66);
+          updateParallelProgress(chunk, chunkIndex, 'Verifikasi akurasi');
           const verificationImages = images.map(image => ({
             page: image.page,
             label: `HALAMAN ${image.page} — ZOOM AUDIT`,
@@ -1263,7 +1670,12 @@ Aturan audit:
             verificationImages,
             Math.max(3600, (chunk.end - chunk.start + 1) * 1150)
           );
-          const verifiedPayload = await callProxyWithRetry(config, verificationBody, `verifikasi halaman ${chunk.start}–${chunk.end}`);
+          const verifiedPayload = await callProxyWithRetry(
+            config,
+            verificationBody,
+            `verifikasi halaman ${chunk.start}–${chunk.end}`,
+            makeTransportHooks(chunk, chunkIndex, 'Verifikasi akurasi', 0.68, 0.85, 0.93)
+          );
           usage = getUsage(verifiedPayload, config.protocol);
           totalUsage.input += Number(usage.input || 0);
           totalUsage.output += Number(usage.output || 0);
@@ -1273,8 +1685,10 @@ Aturan audit:
         results[chunkIndex] = normalized;
         rowsFound += normalized.length;
         completedChunks++;
+        chunkStates[chunkIndex].waiting = false;
+        chunkStates[chunkIndex].progress = 1;
         if (!firstCompletedAt) firstCompletedAt = performance.now();
-        updateParallelProgress(chunk, 'Selesai');
+        updateParallelProgress(chunk, chunkIndex, 'Selesai');
       }
 
       async function worker() {
@@ -1287,8 +1701,15 @@ Aturan audit:
       }
 
       const workerCount = Math.min(config.concurrency, chunks.length);
-      setProgress(5, 'Memulai pemrosesan paralel', `${chunks.length} kelompok halaman diproses dengan ${workerCount} jalur paralel · preset ${SPEED_PRESETS[config.speedPreset]?.label || 'Kustom'}.`, formatUsage(totalUsage));
+      const limitedByNetwork = config.pagesPerRequest !== config.requestedPagesPerRequest || config.concurrency !== config.requestedConcurrency;
+      const networkExplanation = limitedByNetwork
+        ? `Profil ${config.networkProfile.label} membatasi sementara menjadi ${config.pagesPerRequest} halaman × ${workerCount} jalur agar stabil.`
+        : `Profil ${config.networkProfile.label} memakai ${config.pagesPerRequest} halaman × ${workerCount} jalur.`;
+      setProgress(5, 'Memulai pemrosesan adaptif', `${chunks.length} kelompok disiapkan. ${networkExplanation}`, formatUsage(totalUsage));
+      setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
+      setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
       await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      setTransferProgress(100, 'Semua respons AI telah diterima');
 
       const mergedRows = results.flat().filter(Boolean);
       if (!mergedRows.length) throw new Error('AI tidak menemukan data penerima pada PDF ini.');
@@ -1327,7 +1748,7 @@ Aturan audit:
         core.uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: mergedRows, source: 'AI PDF' });
         core.updateInterface();
         setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Selesaikan keputusan alamat luar Kota Batam dan koreksi teks bertanda kuning sebelum ekspor.`, formatUsage(totalUsage));
-        window.setTimeout(hideProgress, 1200);
+        progressHideTimeout = window.setTimeout(hideProgress, 1200);
         showToast(`${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, 'success');
         core.processNextInQueue();
       }
@@ -1362,6 +1783,7 @@ Aturan audit:
 
   function cancelProcess() {
     cancelled = true;
+    setTransferProgress(0, 'Membatalkan proses…');
     activeControllers.forEach(controller => controller.abort());
     activeControllers.clear();
   }
@@ -1369,6 +1791,7 @@ Aturan audit:
   function bind() {
     loadNonSecretConfig();
     updateSpeedPresetHint();
+    updateNetworkModeHint();
     ['aiModel', 'aiAccuracyMode'].forEach(id => {
       $(id)?.addEventListener('change', saveNonSecretConfig);
       $(id)?.addEventListener('input', saveNonSecretConfig);
@@ -1378,12 +1801,28 @@ Aturan audit:
       if (preset !== 'custom') applySpeedPreset(preset);
       else { updateSpeedPresetHint(); saveNonSecretConfig(); }
     });
+    $('aiNetworkMode')?.addEventListener('change', () => {
+      updateNetworkModeHint();
+      saveNonSecretConfig();
+    });
     ['aiPagesPerRequest', 'aiConcurrency'].forEach(id => {
       $(id)?.addEventListener('change', markSpeedPresetCustom);
       $(id)?.addEventListener('input', markSpeedPresetCustom);
     });
     $('testAiConnection')?.addEventListener('click', testConnection);
     $('cancelAiProcess')?.addEventListener('click', cancelProcess);
+    window.addEventListener('online', () => {
+      updateNetworkModeHint();
+      refreshProgressHeartbeat();
+      showToast('Internet tersambung kembali. Proses akan dilanjutkan otomatis.', 'success');
+    });
+    window.addEventListener('offline', () => {
+      updateNetworkModeHint();
+      refreshProgressHeartbeat();
+      showToast('Internet terputus. Jangan tutup tab; sistem akan menunggu dan mencoba ulang.', 'info');
+    });
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    connection?.addEventListener?.('change', updateNetworkModeHint);
     refreshConfigStatus();
     checkServerConfiguration();
   }
@@ -1392,7 +1831,7 @@ Aturan audit:
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildPrompt, buildVerificationPrompt, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, reviewRowCount, outsideBatamRowCount }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildPrompt, buildVerificationPrompt, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

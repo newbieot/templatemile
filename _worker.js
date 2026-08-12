@@ -1,4 +1,4 @@
-const APP_VERSION = '20260811-16.8';
+const APP_VERSION = '20260812-16.9';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -6,6 +6,8 @@ const MAX_REQUEST_BYTES = 28 * 1024 * 1024;
 const MAX_AUTH_BODY_BYTES = 16 * 1024;
 const MAX_METRICS_BODY_BYTES = 12 * 1024;
 const METRICS_TIMEOUT_MS = 15000;
+const AI_UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000;
+const PRIVATE_ASSET_CACHE = 'private, max-age=86400, stale-while-revalidate=604800';
 const SESSION_COOKIE = '__Host-mile_session';
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
@@ -31,12 +33,12 @@ function securityHeaders(extra = {}) {
     'cross-origin-resource-policy': 'same-origin',
     'content-security-policy': [
       "default-src 'self'",
-      "script-src 'self' https://cdn.sheetjs.com https://cdnjs.cloudflare.com",
+      "script-src 'self'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "connect-src 'self'",
       "font-src 'self' data:",
-      "worker-src 'self' blob: https://cdnjs.cloudflare.com",
+      "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'none'",
@@ -427,6 +429,15 @@ async function handleProxy(request, env, session) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: { message: 'Payload API tidak valid.' } }, 400);
   if (!ALLOWED_MODELS.has(model)) return json({ error: { message: `Model CosmosHub tidak diizinkan: ${model || '(kosong)'}.` } }, 400);
 
+  const upstreamController = new AbortController();
+  let upstreamTimedOut = false;
+  const abortUpstream = () => upstreamController.abort();
+  const upstreamTimeout = setTimeout(() => {
+    upstreamTimedOut = true;
+    upstreamController.abort();
+  }, AI_UPSTREAM_TIMEOUT_MS);
+  request.signal?.addEventListener?.('abort', abortUpstream, { once: true });
+
   try {
     const upstream = await fetch(COSMOS_ENDPOINT, {
       method: 'POST',
@@ -436,6 +447,7 @@ async function handleProxy(request, env, session) {
         accept: 'application/json'
       },
       body: JSON.stringify(body),
+      signal: upstreamController.signal,
       redirect: 'follow'
     });
 
@@ -465,7 +477,17 @@ async function handleProxy(request, env, session) {
       'x-mile-request-id': upstream.headers.get('x-request-id') || upstream.headers.get('request-id') || ''
     });
   } catch (error) {
-    return json({ error: { message: `Cloudflare Pages Function tidak dapat menghubungi CosmosHub: ${error?.message || 'kesalahan jaringan'}` } }, 502);
+    const timedOut = upstreamTimedOut && !request.signal?.aborted;
+    return json({
+      error: {
+        message: timedOut
+          ? 'CosmosHub tidak memberi respons dalam 5 menit. Permintaan aman untuk dicoba ulang.'
+          : `Cloudflare Pages Function tidak dapat menghubungi CosmosHub: ${error?.message || 'kesalahan jaringan'}`
+      }
+    }, timedOut ? 504 : 502);
+  } finally {
+    clearTimeout(upstreamTimeout);
+    request.signal?.removeEventListener?.('abort', abortUpstream);
   }
 }
 
@@ -550,7 +572,8 @@ export default {
         const acceptsHtml = request.headers.get('accept')?.includes('text/html');
         return acceptsHtml ? redirect('/') : json({ error: { message: 'Autentikasi diperlukan.' } }, 401);
       }
-      return assetResponse(request, env, url.pathname);
+      const cacheControl = url.pathname.startsWith('/assets/') ? PRIVATE_ASSET_CACHE : 'no-store, max-age=0';
+      return assetResponse(request, env, url.pathname, cacheControl);
     }
 
     if (!session) return redirect('/');

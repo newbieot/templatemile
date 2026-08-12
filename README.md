@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.8
+# mile.posnew.com Secure Gateway v16.9
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -92,7 +92,7 @@ Di Firebase Console:
 
 ## Statistik pemrosesan AI dan Google Sheets
 
-Versi v16.8 menampilkan stopwatch selama PDF diproses dan menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
+Versi v16.9 menampilkan progres rinci dan stopwatch selama PDF diproses, lalu menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
 
 Data yang dicatat: waktu server, email pengguna dari session, versi aplikasi, status, jumlah file, jumlah halaman, model AI, ukuran chunk, concurrency, durasi detik, jumlah data, detik per data, jumlah data perlu dicek, jumlah alamat luar Kota Batam, dan kategori error. Nama penerima, alamat, nomor telepon, serta isi PDF tidak dikirim ke Google Sheets.
 
@@ -136,7 +136,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260811-16.8",
+  "version": "20260812-16.9",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,
@@ -157,7 +157,7 @@ Uji melalui Incognito:
 
 ## Cloudflare Access
 
-Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.8 dan AI dipastikan berfungsi:
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.9 dan AI dipastikan berfungsi:
 
 1. Zero Trust → Access controls → Applications → mile.posnew.com.
 2. Tambahkan policy `Bypass`.
@@ -182,6 +182,16 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
 - `assets/js/ai-pdf-v16.js` — alur PDF AI berbasis session.
 
+
+## Pembaruan v16.9
+
+- Menambahkan profil koneksi **Otomatis**, **Internet tidak stabil**, dan **Internet stabil**.
+- Profil Auto membatasi ukuran kelompok dan jumlah jalur ketika kualitas jaringan buruk atau tidak dapat diukur, sehingga browser tidak lagi mencoba merender hingga 75 halaman sekaligus.
+- Menampilkan progres pembacaan PDF, halaman siap, kelompok selesai, ukuran dan persentase unggah aktual, status online/offline, serta durasi tunggu respons AI.
+- Menunggu koneksi kembali ketika browser offline, melakukan retry otomatis, menghentikan unggahan yang benar-benar macet setelah 45 detik, dan memberi batas maksimum respons AI 6 menit di browser / 5 menit di gateway.
+- Memberi jeda render antarpages agar browser sempat menggambar UI dan tidak tampak freeze.
+- Menyimpan PDF.js dan SheetJS sebagai aset lokal versi tetap; halaman tidak lagi bergantung pada CDN untuk menjalankan pembaca PDF/Excel.
+- Aset aplikasi memakai cache browser privat selama satu hari dengan `stale-while-revalidate`, sedangkan HTML dan API tetap `no-store`.
 
 ## Pembaruan v16.8
 

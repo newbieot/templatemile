@@ -1,5 +1,17 @@
 # Changelog
 
+## v16.9 — Koneksi lambat, progres aktual, dan pemulihan otomatis
+
+- Menambahkan profil koneksi Auto, Internet tidak stabil, dan Internet stabil.
+- Auto memakai batas konservatif bila browser tidak dapat membaca kualitas jaringan; mode hemat data membatasi 4 halaman × 1 jalur.
+- Menambahkan progres pembacaan file lokal dan progres unggah aktual berbasis byte untuk setiap kelompok halaman.
+- Menampilkan jumlah halaman siap, kelompok selesai, status koneksi, aktivitas terakhir, serta durasi nyata ketika AI masih bekerja.
+- Menunggu internet kembali saat offline, retry otomatis hingga tiga kali, deteksi unggahan macet 45 detik, timeout browser 6 menit, dan timeout upstream gateway 5 menit.
+- Menambahkan jeda render agar main thread sempat memperbarui tampilan dan tab tidak terlihat freeze.
+- Mencegah timer penutup dari PDF sebelumnya menyembunyikan modal progres PDF berikutnya pada antrean multi-file.
+- Memindahkan PDF.js dan SheetJS menjadi aset lokal yang dapat dicache privat oleh browser.
+- Mempertahankan seluruh validasi template pelanggan dan guard ekspor dari v16.8.
+
 ## v16.8 — Proteksi ID Pelanggan & template INDTEMPO
 
 - Memperbaiki bug ASTRA DAIHATSU MOTOR BATAM: `customer_code` sekarang selalu `INDASTRADAI01294A` saat ekspor.
