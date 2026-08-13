@@ -10,7 +10,6 @@
 
   byId('clientMode')?.addEventListener('change', () => invoke('handleModeChange'));
   byId('corporateTemplate')?.addEventListener('change', () => invoke('handleTemplateChange'));
-  byId('tempoBankSyariahTariff')?.addEventListener('change', () => invoke('handleTempoBankSyariahChange'));
   byId('useInsurance')?.addEventListener('change', () => invoke('updateInterface'));
 
   const fileInput = byId('excelInput');

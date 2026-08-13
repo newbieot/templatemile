@@ -1,5 +1,14 @@
 # Changelog
 
+## v16.10 — Template FINBSN dan cache deployment
+
+- Mengganti template `INDTEMPO01294A` menjadi `FINBSN01294A` untuk Bank Syariah Nasional KC Batam.
+- Mengunci nama pelanggan `BANK SYARIAH NASIONAL KC BATAM`, layanan `PKH`, tarif `915616`, dan jenis kiriman `DOKUMEN` dari konfigurasi preset sampai tahap ekspor.
+- Menghapus pertanyaan khusus Bank Syariah Negara Cabang Batam beserta seluruh event dan logika tarif lamanya.
+- Memvalidasi `customer_code` pada setiap baris dan setiap sel worksheet sebelum file Excel disimpan; ekspor dibatalkan bila ID kosong atau berubah.
+- Mengubah HTML dan API menjadi `no-store`, memakai URL aset versi `20260813-16.10`, serta memberi cache panjang `immutable` hanya pada aset yang memiliki identitas versi.
+- Menambahkan header `x-mile-app-version` untuk memeriksa versi yang sedang disajikan Cloudflare Pages.
+
 ## v16.9 — Koneksi lambat, progres aktual, dan pemulihan otomatis
 
 - Menambahkan profil koneksi Auto, Internet tidak stabil, dan Internet stabil.

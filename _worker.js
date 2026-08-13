@@ -1,4 +1,4 @@
-const APP_VERSION = '20260812-16.9';
+const APP_VERSION = '20260813-16.10';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -7,7 +7,7 @@ const MAX_AUTH_BODY_BYTES = 16 * 1024;
 const MAX_METRICS_BODY_BYTES = 12 * 1024;
 const METRICS_TIMEOUT_MS = 15000;
 const AI_UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000;
-const PRIVATE_ASSET_CACHE = 'private, max-age=86400, stale-while-revalidate=604800';
+const VERSIONED_ASSET_CACHE = 'private, max-age=31536000, immutable';
 const SESSION_COOKIE = '__Host-mile_session';
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
@@ -55,6 +55,7 @@ function json(data, status = 200, extraHeaders = {}) {
     headers: securityHeaders({
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store, max-age=0',
+      'cloudflare-cdn-cache-control': 'no-store',
       ...extraHeaders
     })
   });
@@ -65,7 +66,8 @@ function redirect(location, status = 302) {
     status,
     headers: securityHeaders({
       location,
-      'cache-control': 'no-store, max-age=0'
+      'cache-control': 'no-store, max-age=0',
+      'cloudflare-cdn-cache-control': 'no-store'
     })
   });
 }
@@ -499,6 +501,12 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
   headers.set('cache-control', cacheControl);
+  headers.set('x-mile-app-version', APP_VERSION);
+  if (/\bno-store\b/i.test(cacheControl)) {
+    headers.set('cloudflare-cdn-cache-control', 'no-store');
+  } else {
+    headers.delete('cloudflare-cdn-cache-control');
+  }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -553,7 +561,10 @@ export default {
     }
 
     if (PUBLIC_ASSETS.has(url.pathname)) {
-      return assetResponse(request, env, url.pathname, 'public, max-age=3600');
+      const cacheControl = url.pathname.startsWith('/assets/')
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=3600';
+      return assetResponse(request, env, url.pathname, cacheControl);
     }
 
     // Canonicalize protected HTML internally instead of returning Pages' automatic
@@ -572,7 +583,7 @@ export default {
         const acceptsHtml = request.headers.get('accept')?.includes('text/html');
         return acceptsHtml ? redirect('/') : json({ error: { message: 'Autentikasi diperlukan.' } }, 401);
       }
-      const cacheControl = url.pathname.startsWith('/assets/') ? PRIVATE_ASSET_CACHE : 'no-store, max-age=0';
+      const cacheControl = url.pathname.startsWith('/assets/') ? VERSIONED_ASSET_CACHE : 'no-store, max-age=0';
       return assetResponse(request, env, url.pathname, cacheControl);
     }
 

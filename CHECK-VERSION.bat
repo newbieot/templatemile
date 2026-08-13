@@ -3,12 +3,12 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.9...
+echo Memeriksa mile.posnew.com Secure Gateway v16.10...
 echo.
 
-findstr /c:"20260812-16.9" "_worker.js" >nul && echo [OK] Worker v16.9 || (echo [GAGAL] Worker bukan v16.9 & set "FAIL=1")
-findstr /c:"v16.9 Secure Gateway" "index.html" >nul && echo [OK] Login v16.9 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.9" "app.html" >nul && echo [OK] Workspace v16.9 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"20260813-16.10" "_worker.js" >nul && echo [OK] Worker v16.10 || (echo [GAGAL] Worker bukan v16.10 & set "FAIL=1")
+findstr /c:"v16.10 Secure Gateway" "index.html" >nul && echo [OK] Login v16.10 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.10" "app.html" >nul && echo [OK] Workspace v16.10 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 
 findstr /c:"10 halaman" "app.html" >nul && echo [OK] Opsi 10 halaman tersedia || (echo [GAGAL] Opsi 10 halaman tidak ditemukan & set "FAIL=1")
 findstr /c:"selected>15 halaman" "app.html" >nul && echo [OK] Default 15 halaman || (echo [GAGAL] Default 15 halaman tidak ditemukan & set "FAIL=1")
@@ -17,7 +17,7 @@ findstr /c:"selected>5 jalur" "app.html" >nul && echo [OK] Default paralel 5 jal
 findstr /c:"pagesPerRequest: 15, concurrency: 5" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Preset Cepat 15 halaman x 5 jalur || (echo [GAGAL] Preset Cepat tidak sesuai & set "FAIL=1")
 findstr /c:"Math.min(20" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas halaman maksimum 20 || (echo [GAGAL] Batas halaman 20 tidak ditemukan & set "FAIL=1")
 findstr /c:"Math.min(5" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Batas concurrency maksimum 5 || (echo [GAGAL] Batas concurrency 5 tidak ditemukan & set "FAIL=1")
-findstr /c:"mile-ai-config-v16-9" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Storage key konfigurasi AI v16.9 || (echo [GAGAL] Storage key konfigurasi AI v16.9 tidak ditemukan & set "FAIL=1")
+findstr /c:"mile-ai-config-v16-9" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Konfigurasi AI v16.9 tetap kompatibel || (echo [GAGAL] Storage key konfigurasi AI tidak ditemukan & set "FAIL=1")
 findstr /c:"aiNetworkMode" "app.html" >nul && echo [OK] Profil koneksi adaptif tersedia || (echo [GAGAL] Profil koneksi adaptif tidak ditemukan & set "FAIL=1")
 findstr /c:"xhr.upload.onprogress" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Progres unggah aktual tersedia || (echo [GAGAL] Progres unggah aktual tidak ditemukan & set "FAIL=1")
 findstr /c:"waitUntilOnline" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Pemulihan koneksi tersedia || (echo [GAGAL] Pemulihan koneksi tidak ditemukan & set "FAIL=1")
@@ -35,9 +35,22 @@ findstr /c:"/api/metrics/ai" "_worker.js" >nul && echo [OK] Statistik AI tetap a
 findstr /c:"outsideBatam" "assets\js\ai-pdf-v16.js" >nul && echo [OK] Validasi luar Batam tetap aktif || (echo [GAGAL] Validasi luar Batam tidak ditemukan & set "FAIL=1")
 
 findstr /c:"INDASTRADAI01294A" "assets\js\app-core.js" >nul && echo [OK] ID pelanggan ASTRA || (echo [GAGAL] ID pelanggan ASTRA tidak ditemukan & set "FAIL=1")
-findstr /c:"INDTEMPO01294A" "assets\js\app-core.js" >nul && echo [OK] ID pelanggan INDTEMPO || (echo [GAGAL] ID pelanggan INDTEMPO tidak ditemukan & set "FAIL=1")
-findstr /c:"915552" "assets\js\app-core.js" >nul && echo [OK] Tarif khusus Bank Syariah Negara || (echo [GAGAL] Tarif 915552 tidak ditemukan & set "FAIL=1")
+findstr /c:"FINBSN01294A" "assets\js\app-core.js" >nul && echo [OK] ID pelanggan BSN Batam || (echo [GAGAL] ID pelanggan FINBSN01294A tidak ditemukan & set "FAIL=1")
+findstr /c:"BANK SYARIAH NASIONAL KC BATAM" "assets\js\app-core.js" >nul && echo [OK] Nama pelanggan BSN Batam || (echo [GAGAL] Nama pelanggan BSN Batam tidak ditemukan & set "FAIL=1")
+findstr /c:"915616" "assets\js\app-core.js" >nul && echo [OK] Kode tarif BSN Batam || (echo [GAGAL] Kode tarif 915616 tidak ditemukan & set "FAIL=1")
+findstr /c:"lockService: true" "assets\js\app-core.js" >nul && echo [OK] Kode layanan BSN dikunci || (echo [GAGAL] Penguncian kode layanan tidak ditemukan & set "FAIL=1")
+findstr /c:"lockItemType: true" "assets\js\app-core.js" >nul && echo [OK] Jenis kiriman BSN dikunci || (echo [GAGAL] Penguncian jenis kiriman tidak ditemukan & set "FAIL=1")
+findstr /c:"kolom customer_code pada worksheet kosong" "assets\js\app-core.js" >nul && echo [OK] Guard customer_code tingkat worksheet || (echo [GAGAL] Guard worksheet customer_code tidak ditemukan & set "FAIL=1")
 findstr /c:"FATAL: ID Pelanggan kosong" "assets\js\app-core.js" >nul && echo [OK] Fatal guard customer_code || (echo [GAGAL] Fatal guard customer_code tidak ditemukan & set "FAIL=1")
+
+findstr /c:"INDTEMPO01294A" "app.html" "assets\js\app-core.js" "assets\js\events-v16.js" >nul
+if not errorlevel 1 (echo [GAGAL] Template INDTEMPO lama masih aktif & set "FAIL=1") else (echo [OK] Template INDTEMPO lama sudah dihapus)
+findstr /c:"tempoBankSyariahTariff" "app.html" "assets\js\app-core.js" "assets\js\events-v16.js" >nul
+if not errorlevel 1 (echo [GAGAL] Kontrol pertanyaan Bank Syariah lama masih aktif & set "FAIL=1") else (echo [OK] Pertanyaan Bank Syariah lama sudah dihapus)
+
+findstr /c:"Cloudflare-CDN-Cache-Control: no-store" "_headers" >nul && echo [OK] HTML tidak dicache Cloudflare || (echo [GAGAL] Header no-store Cloudflare tidak ditemukan & set "FAIL=1")
+findstr /c:"VERSIONED_ASSET_CACHE" "_worker.js" >nul && echo [OK] Cache aset berbasis versi aktif || (echo [GAGAL] Cache aset berbasis versi tidak ditemukan & set "FAIL=1")
+findstr /c:"x-mile-app-version" "_worker.js" >nul && echo [OK] Header versi deployment aktif || (echo [GAGAL] Header versi deployment tidak ditemukan & set "FAIL=1")
 
 echo.
 if "%FAIL%"=="1" (

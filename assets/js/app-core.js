@@ -90,7 +90,17 @@
             ASTRA: Object.freeze({ customerId: 'INDASTRADAI01294A', senderName: 'ASTRA DAIHATSU MOTOR BATAM' }),
             OJK: Object.freeze({ customerId: 'LNOJK02294A', senderName: 'KANTOR PUSAT OTORITAS JASA KEUANGAN' }),
             BP_BATAM: Object.freeze({ customerId: 'LNBPBATAM02294A', senderName: 'BP BATAM' }),
-            INDTEMPO: Object.freeze({ customerId: 'INDTEMPO01294A', senderNameRequired: true })
+            BSN_BATAM: Object.freeze({
+                customerId: 'FINBSN01294A',
+                senderName: 'BANK SYARIAH NASIONAL KC BATAM',
+                lockSenderName: true,
+                tariffCode: '915616',
+                lockTariff: true,
+                defaultServiceCode: 'PKH',
+                lockService: true,
+                defaultItemType: 'DOKUMEN',
+                lockItemType: true
+            })
         });
 
         function getCorporateTemplatePreset(template) {
@@ -107,6 +117,18 @@
             for (const [template, preset] of Object.entries(corporateTemplatePresets)) {
                 if (!preset.customerId || !String(preset.customerId).trim()) {
                     throw new Error(`Konfigurasi fatal: ID Pelanggan template ${template} kosong.`);
+                }
+                if (preset.lockSenderName && !String(preset.senderName || '').trim()) {
+                    throw new Error(`Konfigurasi fatal: Nama Pelanggan template ${template} kosong.`);
+                }
+                if (preset.lockTariff && !String(preset.tariffCode || '').trim()) {
+                    throw new Error(`Konfigurasi fatal: Kode Tarif template ${template} kosong.`);
+                }
+                if (preset.lockService && !String(preset.defaultServiceCode || '').trim()) {
+                    throw new Error(`Konfigurasi fatal: Kode Layanan template ${template} kosong.`);
+                }
+                if (preset.lockItemType && !String(preset.defaultItemType || '').trim()) {
+                    throw new Error(`Konfigurasi fatal: Jenis Kiriman template ${template} kosong.`);
                 }
             }
         }
@@ -252,10 +274,8 @@
             const serviceSelect = document.getElementById('serviceCode');
             const cbInsurance = document.getElementById('useInsurance');
             const wrapPindahDest = document.getElementById('wrapPindahDest');
-            const wrapTempoBankSyariah = document.getElementById('wrapTempoBankSyariah');
 
             // Reset Disabled Status for Safety
-            if (wrapTempoBankSyariah && mode !== 'KORPORAT') wrapTempoBankSyariah.style.display = 'none';
             itemInput.disabled = false;
             serviceSelect.disabled = false;
             cbInsurance.disabled = false;
@@ -312,39 +332,6 @@
         }
 
         // LOGIKA PENYEMBUNYIAN KARTU PENGIRIM BERDASARKAN TEMPLATE
-        function handleTempoBankSyariahChange() {
-            const template = document.getElementById('corporateTemplate')?.value;
-            const mode = document.getElementById('clientMode')?.value;
-            if (mode !== 'KORPORAT' || template !== 'INDTEMPO') return;
-
-            const specialSelect = document.getElementById('tempoBankSyariahTariff');
-            const tariffInput = document.getElementById('tariffCode');
-            const serviceSelect = document.getElementById('serviceCode');
-            const itemInput = document.getElementById('itemType');
-            const isSpecial = specialSelect?.value === 'YES';
-
-            serviceSelect.disabled = false;
-            itemInput.disabled = false;
-            tariffInput.readOnly = false;
-
-            if (isSpecial) {
-                tariffInput.value = '915552';
-                tariffInput.readOnly = true;
-                serviceSelect.value = 'PKH';
-                serviceSelect.disabled = true;
-                itemInput.value = 'DOKUMEN';
-                itemInput.disabled = true;
-            } else if (specialSelect?.value === 'NO') {
-                // Bukan tarif khusus: pengguna dapat memakai tarif lain/publish.
-                if (tariffInput.value === '915552') tariffInput.value = '';
-            } else {
-                tariffInput.value = '';
-            }
-
-            updateInterface();
-        }
-
-        // LOGIKA PENYEMBUNYIAN KARTU PENGIRIM BERDASARKAN TEMPLATE
         function handleTemplateChange() {
             const template = document.getElementById('corporateTemplate').value;
             const mode = document.getElementById('clientMode').value;
@@ -353,8 +340,6 @@
             const wrapSPhone = document.getElementById('wrapSenderPhone');
             const wrapSAddr = document.getElementById('wrapSenderAddress');
             const wrapCustId = document.getElementById('wrapCustomerId');
-            const wrapTempoBankSyariah = document.getElementById('wrapTempoBankSyariah');
-            const tempoBankSyariahTariff = document.getElementById('tempoBankSyariahTariff');
             const custIdInput = document.getElementById('customerId');
             const sNameInput = document.getElementById('senderName');
             const tariffInput = document.getElementById('tariffCode');
@@ -372,7 +357,6 @@
             itemInput.disabled = false;
             wrapSPhone.style.display = 'none';
             wrapSAddr.style.display = 'none';
-            if (wrapTempoBankSyariah) wrapTempoBankSyariah.style.display = 'none';
 
             if (template === 'MANUAL') {
                 cardPengirim.style.display = 'block';
@@ -381,7 +365,6 @@
                 custIdInput.value = '';
                 sNameInput.value = '';
                 tariffInput.value = '';
-                if (tempoBankSyariahTariff) tempoBankSyariahTariff.value = '';
             } else {
                 const preset = getCorporateTemplatePreset(template);
                 if (!preset) {
@@ -399,21 +382,11 @@
                 tariffInput.readOnly = Boolean(preset.lockTariff);
                 if (preset.defaultServiceCode) serviceSelect.value = preset.defaultServiceCode;
                 if (preset.defaultItemType) itemInput.value = preset.defaultItemType;
-
-                if (template === 'INDTEMPO') {
-                    cardPengirim.style.display = 'block';
-                    wrapCustId.style.display = 'block';
-                    wrapSName.style.display = 'block';
-                    sNameInput.value = '';
-                    sNameInput.placeholder = 'Wajib diisi oleh pengirim';
-                    sNameInput.required = true;
-                    if (wrapTempoBankSyariah) wrapTempoBankSyariah.style.display = 'block';
-                    if (tempoBankSyariahTariff) tempoBankSyariahTariff.value = '';
-                    handleTempoBankSyariahChange();
-                } else {
-                    cardPengirim.style.display = 'none';
-                    sNameInput.placeholder = 'Nama perusahaan atau pengirim';
-                }
+                serviceSelect.disabled = Boolean(preset.lockService);
+                itemInput.disabled = Boolean(preset.lockItemType);
+                sNameInput.readOnly = Boolean(preset.lockSenderName);
+                cardPengirim.style.display = 'none';
+                sNameInput.placeholder = 'Nama perusahaan atau pengirim';
             }
 
             applyPNBatamServiceDefault();
@@ -1418,6 +1391,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             let baseSenderAddress = "";
             let serviceCode = document.getElementById('serviceCode').value.toUpperCase();
             let itemType = document.getElementById('itemType').value.toUpperCase();
+            let activeCorporatePreset = null;
             
             const paymentType = (mode === 'KORPORAT' || mode === 'PINDAH') ? "INVOICE" : "CASH"; 
             
@@ -1425,7 +1399,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             let destZipCodeGlobal = "";
 
             if (mode === 'KORPORAT') {
-                const preset = getCorporateTemplatePreset(template);
+                activeCorporatePreset = getCorporateTemplatePreset(template);
+                const preset = activeCorporatePreset;
                 finalCustomerId = resolveCorporateCustomerId(template, document.getElementById('customerId').value);
                 finalTariffCode = document.getElementById('tariffCode').value.trim().toUpperCase();
 
@@ -1435,10 +1410,12 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 }
 
                 if (preset) {
-                    // Semua preset mengunci ID Pelanggan dari konfigurasi, termasuk ASTRA dan INDTEMPO.
+                    // Semua preset mengunci ID Pelanggan dari konfigurasi, termasuk ASTRA dan BSN Batam.
                     // Field UI tidak pernah menjadi sumber kebenaran customer_code untuk template preset.
                     finalCustomerId = preset.customerId;
                     if (preset.tariffCode && preset.lockTariff) finalTariffCode = preset.tariffCode;
+                    if (preset.defaultServiceCode && preset.lockService) serviceCode = preset.defaultServiceCode;
+                    if (preset.defaultItemType && preset.lockItemType) itemType = preset.defaultItemType;
                     if (preset.destinationZoneCode) destZoneCodeGlobal = preset.destinationZoneCode;
                     baseSenderName = preset.senderName || '';
                 } else {
@@ -1449,27 +1426,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     alert('FATAL: ID Pelanggan kosong. Ekspor dibatalkan agar kiriman invoice tidak terbaca sebagai kiriman ritel.');
                     document.getElementById('customerId')?.focus();
                     return;
-                }
-
-                if (template === 'INDTEMPO') {
-                    baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
-                    if (!baseSenderName) {
-                        alert('Nama Pengirim wajib diisi untuk ID Pelanggan INDTEMPO01294A.');
-                        document.getElementById('senderName')?.focus();
-                        return;
-                    }
-
-                    const specialTariffChoice = document.getElementById('tempoBankSyariahTariff')?.value || '';
-                    if (!specialTariffChoice) {
-                        alert('Pilih apakah kiriman ini menggunakan tarif Bank Syariah Negara Cabang Batam.');
-                        document.getElementById('tempoBankSyariahTariff')?.focus();
-                        return;
-                    }
-                    if (specialTariffChoice === 'YES') {
-                        finalTariffCode = '915552';
-                        serviceCode = 'PKH';
-                        itemType = 'DOKUMEN';
-                    }
                 }
             } else if (mode === 'RITEL') {
                 finalCustomerId = ""; 
@@ -1539,7 +1495,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     senderNameFinal = "PT JACCS MPM FINANCE INDONESIA";
                     senderAddrFinal = baseSenderName;
                     senderPhoneFinal = "0";
-                } else if (mode === 'KORPORAT' && template === 'INDTEMPO') {
+                } else if (mode === 'KORPORAT' && activeCorporatePreset?.lockSenderName) {
                     senderNameFinal = baseSenderName;
                     senderAddrFinal = baseSenderName.includes('BATAM') ? baseSenderName : `${baseSenderName} BATAM`;
                     senderPhoneFinal = "0";
@@ -1599,9 +1555,25 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     return;
                 }
 
-                const preset = getCorporateTemplatePreset(template);
+                const preset = activeCorporatePreset;
                 if (preset && finalExportRows.some(row => row.customer_code !== preset.customerId)) {
                     alert('FATAL: ID Pelanggan hasil ekspor tidak sesuai template. File dibatalkan.');
+                    return;
+                }
+                if (preset?.lockSenderName && finalExportRows.some(row => row.origin_data_customer_name !== preset.senderName)) {
+                    alert('FATAL: Nama Pelanggan hasil ekspor tidak sesuai template. File dibatalkan.');
+                    return;
+                }
+                if (preset?.lockTariff && finalExportRows.some(row => row.connote_sub_service_code !== preset.tariffCode)) {
+                    alert('FATAL: Kode Tarif hasil ekspor tidak sesuai template. File dibatalkan.');
+                    return;
+                }
+                if (preset?.lockService && finalExportRows.some(row => row.service_code !== preset.defaultServiceCode)) {
+                    alert('FATAL: Kode Layanan hasil ekspor tidak sesuai template. File dibatalkan.');
+                    return;
+                }
+                if (preset?.lockItemType && finalExportRows.some(row => row.Jenis_Barang !== preset.defaultItemType)) {
+                    alert('FATAL: Jenis Kiriman hasil ekspor tidak sesuai template. File dibatalkan.');
                     return;
                 }
             }
@@ -1622,6 +1594,21 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             }
 
             const worksheet = XLSX.utils.json_to_sheet(finalExportRows, { header: exportHeaders });
+
+            // Guard sampai tingkat worksheet: customer_code harus benar-benar tertulis
+            // pada setiap sel Excel, bukan hanya tersedia di objek sebelum konversi.
+            if (mode === 'KORPORAT') {
+                const customerCodeColumn = exportHeaders.indexOf('customer_code');
+                for (let rowIndex = 1; rowIndex <= finalExportRows.length; rowIndex++) {
+                    const cell = worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: customerCodeColumn })];
+                    const writtenCustomerId = String(cell?.v || '').trim();
+                    if (!writtenCustomerId || (activeCorporatePreset && writtenCustomerId !== activeCorporatePreset.customerId)) {
+                        alert('FATAL: kolom customer_code pada worksheet kosong atau tidak sesuai template. File tidak dibuat.');
+                        return;
+                    }
+                }
+            }
+
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
             

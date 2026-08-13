@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.9
+# mile.posnew.com Secure Gateway v16.10
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -92,7 +92,7 @@ Di Firebase Console:
 
 ## Statistik pemrosesan AI dan Google Sheets
 
-Versi v16.9 menampilkan progres rinci dan stopwatch selama PDF diproses, lalu menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
+Versi v16.10 menampilkan progres rinci dan stopwatch selama PDF diproses, lalu menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
 
 Data yang dicatat: waktu server, email pengguna dari session, versi aplikasi, status, jumlah file, jumlah halaman, model AI, ukuran chunk, concurrency, durasi detik, jumlah data, detik per data, jumlah data perlu dicek, jumlah alamat luar Kota Batam, dan kategori error. Nama penerima, alamat, nomor telepon, serta isi PDF tidak dikirim ke Google Sheets.
 
@@ -136,7 +136,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260812-16.9",
+  "version": "20260813-16.10",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,
@@ -157,7 +157,7 @@ Uji melalui Incognito:
 
 ## Cloudflare Access
 
-Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.9 dan AI dipastikan berfungsi:
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.10 dan AI dipastikan berfungsi:
 
 1. Zero Trust → Access controls → Applications → mile.posnew.com.
 2. Tambahkan policy `Bypass`.
@@ -182,6 +182,22 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
 - `assets/js/ai-pdf-v16.js` — alur PDF AI berbasis session.
 
+
+## Pembaruan v16.10
+
+- Mengganti template lama `INDTEMPO01294A` dengan **Bank Syariah Nasional KC Batam · `FINBSN01294A`**.
+- Template baru selalu memakai nama pelanggan `BANK SYARIAH NASIONAL KC BATAM`, layanan `PKH`, tarif `915616`, dan jenis kiriman `DOKUMEN`.
+- Menghapus pertanyaan “Apakah kiriman Bank Syariah Negara Cabang Batam?”.
+- Menambahkan validasi berlapis pada data baris dan worksheet sehingga ekspor dibatalkan bila `customer_code` kosong atau tidak persis `FINBSN01294A`.
+- HTML dan API memakai `no-store`; aset statis memakai URL versi `20260813-16.10` dan cache `immutable`. Setiap rilis wajib mengganti versi URL aset agar browser langsung mengambil berkas baru setelah deploy.
+- Respons aplikasi mengirim header `x-mile-app-version`, sehingga versi aktif dapat diperiksa melalui Developer Tools atau `curl`.
+
+### Mencegah versi lama setelah push GitHub
+
+1. Jalankan `CHECK-VERSION.bat`, lalu commit dan push seluruh file yang berubah bersama-sama.
+2. Tunggu deployment Cloudflare Pages berstatus **Success**, kemudian buka `/api/health` dan pastikan versi `20260813-16.10`.
+3. Jangan membuat Cache Rule yang mengabaikan query string untuk `/assets/*`; penanda `?v=20260813-16.10` adalah identitas aset rilis ini.
+4. Jika domain masih pernah menerima cache HTML dari aturan lama, lakukan **Caching → Configuration → Purge Everything** satu kali setelah deployment v16.10.
 
 ## Pembaruan v16.9
 
