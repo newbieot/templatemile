@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.11 */
+/* mile.posnew.com AI PDF runtime v16.12 */
 (() => {
   'use strict';
 
@@ -17,11 +17,12 @@
   };
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
+  const DEFAULT_NETWORK_MODE = 'normal';
   const MAX_RETRIES = 3;
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-v16-9';
+  const STORAGE_KEY = 'mile-ai-config-v16-12';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -62,7 +63,7 @@
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
     const requestedPagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
     const requestedConcurrency = Math.max(1, Math.min(5, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
-    const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : 'auto';
+    const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
     const networkProfile = resolveNetworkProfile(networkMode);
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
     const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
@@ -87,7 +88,7 @@
     };
   }
 
-  function resolveNetworkProfile(mode = 'auto') {
+  function resolveNetworkProfile(mode = DEFAULT_NETWORK_MODE) {
     const signals = connectionSignals();
     const profiles = {
       unstable: {
@@ -132,7 +133,7 @@
     try {
       const cfg = {
         accuracyMode: $('aiAccuracyMode')?.value || DEFAULT_ACCURACY_MODE,
-        networkMode: $('aiNetworkMode')?.value || 'auto',
+        networkMode: $('aiNetworkMode')?.value || DEFAULT_NETWORK_MODE,
         speedPreset: $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET,
         pagesPerRequest: $('aiPagesPerRequest')?.value || String(SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest),
         concurrency: $('aiConcurrency')?.value || String(SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)
@@ -147,12 +148,12 @@
     // Pengguna tetap dapat mengganti model selama sesi berjalan.
     if ($('aiModel')) $('aiModel').value = 'gemini-3.7-flash';
     try {
-      // Hapus konfigurasi model versi lama agar Claude Opus tidak terbawa.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6'].forEach(key => sessionStorage.removeItem(key));
+      // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
-        if ($('aiNetworkMode')) $('aiNetworkMode').value = 'auto';
+        if ($('aiNetworkMode')) $('aiNetworkMode').value = DEFAULT_NETWORK_MODE;
         if ($('aiSpeedPreset')) $('aiSpeedPreset').value = DEFAULT_SPEED_PRESET;
         applySpeedPreset(DEFAULT_SPEED_PRESET, false);
         return;
@@ -191,14 +192,14 @@
   function updateNetworkModeHint() {
     const hint = $('aiNetworkModeHint');
     if (!hint) return;
-    const mode = $('aiNetworkMode')?.value || 'auto';
+    const mode = $('aiNetworkMode')?.value || DEFAULT_NETWORK_MODE;
     const profile = resolveNetworkProfile(mode);
     const signals = connectionSignals();
     const offlineText = signals.online ? '' : ' Internet sedang terputus.';
     const descriptions = {
-      auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Browser yang tidak dapat mengukur kualitas jaringan akan memakai batas aman.`,
+      auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode cepat mempertahankan pengaturan halaman dan jalur yang dipilih. Gunakan hanya pada koneksi stabil.'
+      normal: 'Default aktif: 15 halaman × 5 jalur. Pengaturan tidak akan diturunkan otomatis ke mode hemat data.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${offlineText}`;
   }
@@ -330,7 +331,7 @@
     const signals = connectionSignals();
     const networkNode = $('aiProgressNetwork');
     if (networkNode) {
-      const mode = $('aiNetworkMode')?.value || 'auto';
+      const mode = $('aiNetworkMode')?.value || DEFAULT_NETWORK_MODE;
       const profile = resolveNetworkProfile(mode);
       networkNode.textContent = signals.online ? profile.label : 'Terputus';
       networkNode.classList.toggle('is-offline', !signals.online);
@@ -1520,7 +1521,7 @@ Aturan audit:
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260815-16.11';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260815-16.12';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);

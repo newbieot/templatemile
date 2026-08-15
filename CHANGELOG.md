@@ -1,5 +1,12 @@
 # Changelog
 
+## v16.12 — Default 15 halaman × 5 jalur
+
+- Menjadikan profil koneksi **Normal cepat** sebagai default sehingga proses memakai preset 15 halaman × 5 jalur tanpa otomatis turun ke mode hemat data.
+- Mempertahankan mode Otomatis dan Hemat data sebagai pilihan manual untuk kondisi koneksi yang benar-benar lambat.
+- Mengganti storage key menjadi `mile-ai-config-v16-12` dan membersihkan konfigurasi lama agar default Auto/Hemat data tidak terbawa dari sesi sebelumnya.
+- Mengganti bundle AI menjadi `ai-pdf-v16-12.js` dan identitas aset menjadi `20260815-16.12` agar rilis baru langsung dimuat setelah deployment.
+
 ## v16.11 — Gemini 3.7 Flash dan identitas cache baru
 
 - Menambahkan `gemini-3.7-flash` pada allowlist browser dan Cloudflare Worker.
