@@ -1,4 +1,4 @@
-# Setup Google Sheets — Statistik AI mile.posnew.com v16.12
+# Setup Google Sheets — Statistik AI mile.posnew.com v16.13
 
 ## 1. Spreadsheet
 

@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.12
+# mile.posnew.com Secure Gateway v16.13
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -92,7 +92,7 @@ Di Firebase Console:
 
 ## Statistik pemrosesan AI dan Google Sheets
 
-Versi v16.12 menampilkan progres rinci dan stopwatch selama PDF diproses, lalu menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
+Versi v16.13 menampilkan progres rinci dan stopwatch selama PDF diproses, lalu menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
 
 Data yang dicatat: waktu server, email pengguna dari session, versi aplikasi, status, jumlah file, jumlah halaman, model AI, ukuran chunk, concurrency, durasi detik, jumlah data, detik per data, jumlah data perlu dicek, jumlah alamat luar Kota Batam, dan kategori error. Nama penerima, alamat, nomor telepon, serta isi PDF tidak dikirim ke Google Sheets.
 
@@ -136,7 +136,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260815-16.12",
+  "version": "20260815-16.13",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,
@@ -157,7 +157,7 @@ Uji melalui Incognito:
 
 ## Cloudflare Access
 
-Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.12 dan AI dipastikan berfungsi:
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.13 dan AI dipastikan berfungsi:
 
 1. Zero Trust → Access controls → Applications → mile.posnew.com.
 2. Tambahkan policy `Bypass`.
@@ -180,7 +180,25 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/login-v16.js` — form login tanpa Firebase key.
 - `assets/js/session-v16.js` — status akun dan logout.
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
-- `assets/js/ai-pdf-v16-12.js` — alur PDF AI dengan default Gemini 3.7 Flash dan profil 15 halaman × 5 jalur.
+- `assets/js/ai-pdf-v16-13.js` — alur PDF AI dengan default Gemini 3.7 Flash, profil 15 halaman × 5 jalur, dan Smart Efficiency.
+
+
+## Pembaruan v16.13
+
+- Default tetap **15 halaman per permintaan × 5 jalur paralel** dengan profil **Normal cepat**; mode hemat data tidak menjadi default.
+- Text layer PDF asli dipakai pada halaman yang lolos validasi penerima/alamat. Halaman scan atau text layer yang meragukan tetap memakai pembacaan gambar.
+- Pass pertama memakai gambar maksimal 1900 px. Hanya halaman hilang, ganda, atau meragukan yang diaudit ulang dengan gambar hingga 2600 px.
+- JSON hasil dibuat lebih ringkas: `confidence` dan salinan teks penuh tidak diminta; `raw_lines` hanya boleh muncul maksimal tiga baris pada halaman yang meragukan.
+- Batas output token menyesuaikan jumlah halaman. Respons JSON terpotong dicoba diperbaiki tanpa mengirim ulang seluruh gambar sebelum melakukan retry penuh.
+- Jeda rate limit 429 dibuat lebih aman, sementara hasil audit hanya mengganti halaman yang memang diaudit.
+- Bundle AI memakai nama baru `ai-pdf-v16-13.js`; seluruh URL aset memakai versi `20260815-16.13` agar browser dan Cloudflare mengambil rilis baru.
+
+### Mencegah versi lama setelah push GitHub
+
+1. Jalankan `CHECK-VERSION.bat`, lalu commit dan push seluruh file yang berubah bersama-sama.
+2. Tunggu deployment Cloudflare Pages berstatus **Success**, kemudian buka `/api/health` dan pastikan versi `20260815-16.13`.
+3. Pastikan Cache Rule Cloudflare tidak mengabaikan query string untuk `/assets/*`; bundle AI juga memakai path baru agar tidak tertukar dengan rilis sebelumnya.
+4. Bila domain masih menyajikan HTML dari aturan cache lama, lakukan **Caching → Configuration → Purge Everything** satu kali setelah deployment.
 
 
 ## Pembaruan v16.12

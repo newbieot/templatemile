@@ -1,5 +1,14 @@
 # Changelog
 
+## v16.13 — Smart Efficiency tanpa mengurangi default kecepatan
+
+- Mempertahankan Gemini 3.7 Flash serta default **15 halaman × 5 jalur** pada profil Normal cepat.
+- Mengutamakan text layer PDF yang lolos validasi dan memakai gambar 1900 px untuk pass pertama.
+- Mengaudit ulang hanya halaman hilang, ganda, atau meragukan menggunakan gambar hingga 2600 px, lalu menggabungkan hasil per halaman agar baris bersih tidak berubah.
+- Meringkas schema JSON, membatasi `raw_lines` pada bagian meragukan, serta menyesuaikan batas output token berdasarkan jumlah halaman.
+- Memperbaiki JSON terpotong melalui permintaan teks ringan sebelum retry penuh dan memperpanjang jeda khusus rate limit 429.
+- Mengganti bundle AI menjadi `ai-pdf-v16-13.js` dan identitas aset menjadi `20260815-16.13` untuk memutus cache lama.
+
 ## v16.12 — Default 15 halaman × 5 jalur
 
 - Menjadikan profil koneksi **Normal cepat** sebagai default sehingga proses memakai preset 15 halaman × 5 jalur tanpa otomatis turun ke mode hemat data.

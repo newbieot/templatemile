@@ -24,8 +24,8 @@
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260815-16.12">
-  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260815-16.12">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260815-16.13">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260815-16.13">
 </head>
 <body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
@@ -192,7 +192,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.12</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.13</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -220,7 +220,7 @@
                     <option value="accurate">Dokumen umum · maksimum akurasi</option>
                     <option value="fast">Dokumen umum · paling cepat</option>
                   </select></div>
-                  <span class="field-hint">Mode otomatis memakai profil akurat dan cepat. Tidak ada lagi mode khusus BNI; pembersihan KEPADA YTH, kode mandiri, dan artefak OCR berlaku otomatis untuk semua dokumen.</span>
+                  <span class="field-hint">Smart Efficiency membaca text layer PDF bila aman, memakai gambar ringan pada tahap pertama, lalu mengaudit hanya halaman yang hilang atau meragukan dengan resolusi tinggi.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiNetworkMode">Profil koneksi internet</label>
@@ -238,7 +238,7 @@
                     <option value="fast" selected>Cepat · hingga 5 jalur</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Mode Hemat data hanya membatasi nilai ini bila dipilih manual.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">Default 15 halaman × 5 jalur. Audit kedua hanya mengirim halaman yang meragukan sehingga token dan waktu tetap hemat.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -476,12 +476,12 @@
   </footer>
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
-  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260815-16.12" defer></script>
-  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260815-16.12" defer></script>
-  <script src="/assets/js/app-core.js?v=20260815-16.12" defer></script>
-  <script src="/assets/js/ai-pdf-v16-12.js?v=20260815-16.12" defer></script>
-  <script src="/assets/js/ui.js?v=20260815-16.12" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260815-16.12" defer></script>
-  <script src="/assets/js/session-v16.js?v=20260815-16.12" defer></script>
+  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260815-16.13" defer></script>
+  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260815-16.13" defer></script>
+  <script src="/assets/js/app-core.js?v=20260815-16.13" defer></script>
+  <script src="/assets/js/ai-pdf-v16-13.js?v=20260815-16.13" defer></script>
+  <script src="/assets/js/ui.js?v=20260815-16.13" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260815-16.13" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260815-16.13" defer></script>
 </body>
 </html>

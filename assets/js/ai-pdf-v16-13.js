@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.12 */
+/* mile.posnew.com AI PDF runtime v16.13 — Smart Efficiency */
 (() => {
   'use strict';
 
@@ -18,11 +18,19 @@
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const DEFAULT_NETWORK_MODE = 'normal';
+  const FIRST_PASS_MAX_SIDE = 1900;
+  const AUDIT_MAX_SIDE = 2600;
+  const FIRST_PASS_JPEG_QUALITY = 0.84;
+  const AUDIT_JPEG_QUALITY = 0.91;
+  const MIN_TEXT_SOURCE_CHARS = 80;
+  const MAX_TEXT_SOURCE_CHARS = 3200;
+  const MAX_JSON_REPAIR_CHARS = 48000;
+  const SMART_CONFIDENCE_THRESHOLD = 0.82;
   const MAX_RETRIES = 3;
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-v16-12';
+  const STORAGE_KEY = 'mile-ai-config-v16-13';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -149,7 +157,7 @@
     if ($('aiModel')) $('aiModel').value = 'gemini-3.7-flash';
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -724,19 +732,25 @@
     return url;
   }
 
-  async function renderPageToImage(page, accuracyMode = DEFAULT_ACCURACY_MODE, speedPreset = DEFAULT_SPEED_PRESET, networkProfile = null) {
+  async function renderPageToImage(page, accuracyMode = DEFAULT_ACCURACY_MODE, speedPreset = DEFAULT_SPEED_PRESET, networkProfile = null, audit = false) {
     const baseProfile = IMAGE_PROFILES[accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
     const profile = { ...baseProfile };
-    if (speedPreset === 'fast') {
-      profile.maxSide = Math.min(profile.maxSide, 2450);
-      profile.jpegQuality = Math.min(profile.jpegQuality, 0.90);
-    }
-    if (networkProfile) {
-      profile.maxSide = Math.min(profile.maxSide, Number(networkProfile.maxImageSide) || profile.maxSide);
-      profile.jpegQuality = Math.min(profile.jpegQuality, Number(networkProfile.jpegQuality) || profile.jpegQuality);
-    }
+    const networkMaxSide = Number(networkProfile?.maxImageSide);
+    const networkQuality = Number(networkProfile?.jpegQuality);
+    const maxSideLimit = Number.isFinite(networkMaxSide) && networkMaxSide > 0 ? networkMaxSide : Infinity;
+    const qualityLimit = Number.isFinite(networkQuality) && networkQuality > 0 ? networkQuality : 1;
+    const firstPassMaxSide = Math.min(
+      profile.maxSide,
+      speedPreset === 'fast' ? FIRST_PASS_MAX_SIDE : profile.maxSide,
+      maxSideLimit
+    );
+    const auditTarget = accuracyMode === 'accurate' ? 2800 : AUDIT_MAX_SIDE;
+    const auditMaxSide = Math.min(Math.max(profile.maxSide, auditTarget), maxSideLimit);
+    const firstPassQuality = Math.min(profile.jpegQuality, speedPreset === 'fast' ? FIRST_PASS_JPEG_QUALITY : profile.jpegQuality, qualityLimit);
+    const auditQuality = Math.min(Math.max(profile.jpegQuality, AUDIT_JPEG_QUALITY), qualityLimit);
     const viewportBase = page.getViewport({ scale: 1 });
-    const initialTarget = Math.min(profile.maxSide * 1.18, 3400);
+    const renderMaxSide = audit ? auditMaxSide : firstPassMaxSide;
+    const initialTarget = Math.min(renderMaxSide * 1.12, 3400);
     const scale = Math.min(4.5, Math.max(1.7, initialTarget / Math.max(viewportBase.width, viewportBase.height)));
     const viewport = page.getViewport({ scale });
     const sourceCanvas = document.createElement('canvas');
@@ -749,40 +763,104 @@
     await yieldToBrowser();
 
     const fullBounds = findContentBounds(sourceContext, sourceCanvas.width, sourceCanvas.height);
-    const detailBounds = profile.verify === 'none'
+    const detailBounds = !audit || profile.verify === 'none'
       ? fullBounds
       : findPrimaryTextBounds(sourceContext, sourceCanvas.width, sourceCanvas.height, fullBounds);
 
-    // Satu gambar utama beresolusi tinggi cukup untuk model vision modern.
-    // Ini mengurangi ukuran payload dan penggunaan token dibanding mode BNI lama.
-    const fullUrl = encodeCrop(sourceCanvas, fullBounds, profile.maxSide, profile.jpegQuality, true);
+    // Pass pertama benar-benar dirender lebih ringan. Gambar audit resolusi tinggi
+    // baru dibuat bila halaman tersebut masuk daftar pemeriksaan selektif.
+    const fullUrl = encodeCrop(
+      sourceCanvas,
+      fullBounds,
+      audit ? auditMaxSide : firstPassMaxSide,
+      audit ? auditQuality : firstPassQuality,
+      true
+    );
     const originalUrl = fullUrl;
-    const detailUrl = (
+    const detailDiffers = (
       detailBounds.x !== fullBounds.x || detailBounds.y !== fullBounds.y ||
       detailBounds.w !== fullBounds.w || detailBounds.h !== fullBounds.h
-    )
-      ? encodeCrop(sourceCanvas, detailBounds, profile.maxSide, profile.jpegQuality, true)
-      : fullUrl;
+    );
+    const detailUrl = audit && detailDiffers
+      ? encodeCrop(sourceCanvas, detailBounds, auditMaxSide, auditQuality, true)
+      : (audit ? fullUrl : '');
 
     sourceCanvas.width = sourceCanvas.height = 1;
     await yieldToBrowser();
-    return { originalUrl, fullUrl, detailUrl };
+    return { originalUrl, fullUrl, detailUrl, firstPassMaxSide, auditMaxSide };
+  }
+
+  function textContentToLines(textContent) {
+    const items = Array.isArray(textContent?.items) ? textContent.items : [];
+    const positioned = [];
+    const unpositioned = [];
+    for (const item of items) {
+      const value = String(item?.str || '').replace(/\s+/g, ' ').trim();
+      if (!value) continue;
+      const x = Number(item?.transform?.[4]);
+      const y = Number(item?.transform?.[5]);
+      if (Number.isFinite(x) && Number.isFinite(y)) positioned.push({ value, x, y });
+      else unpositioned.push(value);
+    }
+
+    const groups = [];
+    positioned.sort((a, b) => b.y - a.y || a.x - b.x).forEach(item => {
+      let group = groups[groups.length - 1];
+      if (!group || Math.abs(group.y - item.y) > 2.5) {
+        group = { y: item.y, items: [] };
+        groups.push(group);
+      }
+      group.items.push(item);
+    });
+
+    const lines = groups.map(group => group.items
+      .sort((a, b) => a.x - b.x)
+      .map(item => item.value)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    ).filter(Boolean);
+    if (!lines.length && unpositioned.length) lines.push(unpositioned.join(' ').replace(/\s+/g, ' ').trim());
+    return lines;
+  }
+
+  function extractUsablePdfText(textContent) {
+    const lines = textContentToLines(textContent);
+    if (!lines.length) return '';
+    const fullText = lines.join('\n').replace(/\u0000/g, ' ').trim();
+    const alphaNumericCount = (fullText.match(/[A-Z0-9]/gi) || []).length;
+    const recipientAnchor = lines.findIndex(line => /\b(?:KEPADA|YTH\.?|ATTN\.?|JL\.?|JALAN|RUKO|PERUM(?:AHAN)?|KOMP(?:LEK)?|KAVLING|GEDUNG|BLOK|BATAM)\b/i.test(line));
+    if (fullText.length < MIN_TEXT_SOURCE_CHARS || alphaNumericCount < 45) return '';
+    // Tanpa penanda penerima/alamat, text layer berisiko hanya berisi header atau
+    // metadata tersembunyi. Gunakan gambar agar hasil tidak dikorbankan demi hemat token.
+    if (recipientAnchor < 0) return '';
+
+    const candidateLines = recipientAnchor >= 0
+      ? lines.slice(Math.max(0, recipientAnchor - 3), recipientAnchor + 24)
+      : lines;
+    let compact = '';
+    for (const line of candidateLines) {
+      const next = compact ? `${compact}\n${line}` : line;
+      if (next.length > MAX_TEXT_SOURCE_CHARS) break;
+      compact = next;
+    }
+    return compact.length >= MIN_TEXT_SOURCE_CHARS ? compact : '';
   }
 
   function buildPrompt(startPage, endPage, options = {}) {
     return `Tolong ubah dokumen ini menjadi data terstruktur untuk Excel.
-Kolom: No, Nama Penerima, Alamat Penerima, Nomor HP, Nomor Surat.
+Kolom: Nama Penerima, Alamat Penerima, Nomor HP, Nomor Surat.
 Urutan data mengikuti urutan halaman dokumen.
 Tandai nomor urut yang alamatnya jelas berada di luar Kota Batam.
 Jangan menebak tulisan yang tidak terbaca; beri keterangan literal "PERLU DICEK" tepat pada bagian yang meragukan.
 
-Baca setiap halaman secara mandiri. Jika tersedia versi zoom/kontras, cocokkan huruf demi huruf sebelum menjawab. Jangan tampilkan proses berpikir.
+Baca setiap halaman secara mandiri. Sumber dapat berupa gambar atau TEKS PDF ASLI. Teks PDF asli lebih diprioritaskan karena berasal langsung dari dokumen. Jangan tampilkan proses berpikir.
 
 Kembalikan HANYA JSON valid tanpa markdown dan tanpa penjelasan:
-{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
+{"rows":[{"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 
 ATURAN UMUM:
-1. Setiap gambar diberi label HALAMAN. Gunakan nomor halaman pada label; jangan menukar atau menggabungkan isi antarhalaman.
+1. Setiap sumber diberi label HALAMAN. Gunakan nomor halaman pada label; jangan menukar atau menggabungkan isi antarhalaman.
 2. Hapus salam pembuka dari nama: "KEPADA YTH", "KEPADA YANG TERHORMAT", "YTH.", "ATTN", dan variasinya.
 3. Jangan memasukkan alamat ke kolom nama. Baris yang mulai dengan JL/JALAN, RUKO, PERUM/PERUMAHAN, KOMP/KOMPLEK, KAVLING, GEDUNG, BLOK, KAMPUNG, atau nama wilayah adalah alamat.
 4. Abaikan header seperti CABANG/CARRIAGE/245 BATAM serta footer TGL TRANS, TGL VALUTA, NO DOKUMEN, dan URAIAN MUTASI.
@@ -794,19 +872,20 @@ ATURAN UMUM:
 10. Penentuan di_luar_batam hanya berdasarkan ALAMAT PENERIMA, bukan alamat pengirim, header, nama kantor, atau lokasi cabang.
 11. di_luar_batam=true jika kota/kabupaten tujuan jelas bukan Kota Batam, atau terdapat kode pos 5 digit yang jelas bukan kelompok 294xx. di_luar_batam=false jika alamat menyebut BATAM/KOTA BATAM, wilayah kecamatan atau kawasan Batam, atau kode pos 294xx. Tidak adanya kata “BATAM” saja tidak cukup untuk menandai luar Batam.
 12. Jika lokasi kota tidak cukup jelas, jangan menebak luar Batam: gunakan di_luar_batam=false dan tandai alamat_penerima di perlu_dicek_fields bila teks alamatnya meragukan.
-13. confidence adalah keyakinan 0–1. Scan buram/dot-matrix tidak boleh diberi confidence tinggi jika masih ada huruf meragukan.
-14. raw_lines berisi baris teks penting setelah header/footer dan kode mandiri yang tidak diperlukan dibuang, urut dari atas ke bawah.
-15. Halaman yang diproses: ${startPage} sampai ${endPage}.`;
+13. Jangan sertakan confidence, reasoning, atau salinan seluruh teks. Untuk halaman meragukan saja, raw_lines boleh ditambahkan dan maksimal 3 baris yang benar-benar diperlukan sebagai bukti pemeriksaan.
+14. Halaman yang diproses: ${startPage} sampai ${endPage}. Pastikan setiap halaman menghasilkan satu baris kecuali halaman benar-benar kosong.`;
   }
 
   function buildVerificationPrompt(startPage, endPage, draftRows, options = {}) {
-    return `Baca ulang gambar halaman ${startPage}–${endPage} secara INDEPENDEN terlebih dahulu, baru bandingkan dengan draft. Jangan sekadar menyetujui draft karena draft dapat salah.
+    const pages = [...new Set((options.pages || draftRows.map(row => row?.page)).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+    const pageLabel = pages.length ? pages.join(', ') : `${startPage}–${endPage}`;
+    return `Baca ulang HANYA gambar halaman ${pageLabel} secara INDEPENDEN terlebih dahulu, baru bandingkan dengan draft. Jangan sekadar menyetujui draft karena draft dapat salah. Kembalikan hanya halaman audit tersebut.
 
 DRAFT:
 ${JSON.stringify({ rows: draftRows })}
 
 Kembalikan HANYA JSON valid:
-{"rows":[{"no":1,"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[],"confidence":0.95,"raw_lines":["..."]}]}
+{"rows":[{"page":${pages[0] || startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 
 Aturan audit:
 - Hapus KEPADA YTH/YTH/ATTN dari nama.
@@ -817,20 +896,34 @@ Aturan audit:
 - Abaikan kode mandiri 5–8 digit seperti 000000 yang berdiri sendiri. Jangan menebaknya sebagai DONGDOI/DONGD01/OOOOOO. Kode pos dan nomor surat nyata tetap dipertahankan.
 - Cocokkan setiap karakter dengan gambar; gunakan PERLU DICEK jika tidak pasti.
 - Audit di_luar_batam dari alamat penerima saja. True hanya bila kota/kabupaten jelas bukan Kota Batam atau kode pos jelas bukan 294xx. Alamat dengan BATAM, wilayah Batam, atau kode pos 294xx harus false. Jika lokasi tidak jelas, false dan tandai alamat_penerima sebagai perlu dicek bila teksnya meragukan.
-- Pastikan urutan halaman benar.
+- Pastikan nomor dan urutan halaman audit benar. Jangan mengembalikan halaman yang tidak diminta.
+- Jangan sertakan confidence atau salinan seluruh teks. raw_lines opsional, maksimal 3 baris, hanya bila masih ada field meragukan.
 - Jangan tampilkan penjelasan atau reasoning.`;
   }
 
-  function buildApiBody(config, prompt, images, maxTokens = 7000) {
+  function extractionTokenLimit(pageCount) {
+    return Math.max(2400, Math.min(7000, 1800 + Math.max(1, Number(pageCount) || 1) * 340));
+  }
+
+  function verificationTokenLimit(pageCount) {
+    return Math.max(1800, Math.min(5200, 1400 + Math.max(1, Number(pageCount) || 1) * 280));
+  }
+
+  function buildApiBody(config, prompt, sources, maxTokens = 5000) {
     const content = [{ type: 'text', text: prompt }];
-    images.forEach((image, index) => {
-      const page = Number(image?.page || image?.pageNumber || index + 1);
-      const url = typeof image === 'string' ? image : image?.url || image?.dataUrl;
-      const label = typeof image === 'string'
+    sources.forEach((source, index) => {
+      const page = Number(source?.page || source?.pageNumber || index + 1);
+      const url = typeof source === 'string' ? source : source?.url || source?.dataUrl;
+      const text = typeof source === 'object' ? String(source?.text || '').trim() : '';
+      const label = typeof source === 'string'
         ? `HALAMAN ${page}`
-        : (image?.label || `HALAMAN ${page}`);
-      content.push({ type: 'text', text: label });
-      content.push({ type: 'image_url', image_url: { url } });
+        : (source?.label || `HALAMAN ${page}`);
+      if (text) {
+        content.push({ type: 'text', text: `${label}\nTEKS PDF ASLI:\n${text}` });
+      } else if (url) {
+        content.push({ type: 'text', text: label });
+        content.push({ type: 'image_url', image_url: { url } });
+      }
     });
 
     return {
@@ -845,6 +938,27 @@ Aturan audit:
           content: 'Anda adalah operator entri data yang sangat teliti. Utamakan kesetiaan pada gambar, pemisahan kolom yang benar, dan tandai ketidakpastian; jangan berhalusinasi.'
         },
         { role: 'user', content }
+      ]
+    };
+  }
+
+  function buildJsonRepairBody(config, rawText, maxTokens = 2600) {
+    const clipped = String(rawText || '').slice(0, MAX_JSON_REPAIR_CHARS);
+    return {
+      model: config.model,
+      stream: false,
+      temperature: 0,
+      top_p: 0.1,
+      max_tokens: Math.max(1200, Math.min(7000, Number(maxTokens) || 2600)),
+      messages: [
+        {
+          role: 'system',
+          content: 'Anda memperbaiki sintaks JSON terpotong. Jangan mengubah nilai, menebak, menambah baris, atau menjelaskan.'
+        },
+        {
+          role: 'user',
+          content: `Perbaiki teks berikut menjadi JSON valid dengan bentuk {"rows":[...]}. Pertahankan semua baris dan nilai yang masih tersedia. Tutup string, objek, dan array yang terpotong. Kembalikan HANYA JSON.\n\n${clipped}`
+        }
       ]
     };
   }
@@ -1011,14 +1125,38 @@ Aturan audit:
       try {
         hooks.onAttempt?.(attempt, MAX_RETRIES);
         const payload = await callCosmos(config, body, event => hooks.onTransport?.({ ...event, attempt, maxAttempts: MAX_RETRIES }));
-        // Validasi JSON di sini agar respons terpotong juga dicoba ulang.
-        parseRows(payload, config.protocol);
-        return payload;
+        try {
+          // Validasi JSON di sini agar respons terpotong bisa diperbaiki atau dicoba ulang.
+          parseRows(payload, config.protocol);
+          return payload;
+        } catch (parseError) {
+          let rawText = '';
+          try { rawText = extractTextFromResponse(payload, config.protocol); } catch (_) {}
+          if (!rawText || rawText.length > MAX_JSON_REPAIR_CHARS) throw parseError;
+
+          hooks.onRepair?.({ attempt, maxAttempts: MAX_RETRIES, error: parseError });
+          const repairedPayload = await callCosmos(
+            config,
+            buildJsonRepairBody(config, rawText, Math.min(7000, Math.max(1600, Math.ceil(rawText.length / 3.6) + 400))),
+            event => hooks.onTransport?.({ ...event, attempt, maxAttempts: MAX_RETRIES, repair: true })
+          );
+          parseRows(repairedPayload, config.protocol);
+          const originalUsage = readBaseUsage(payload, config.protocol);
+          const existingExtra = repairedPayload?._mileAdditionalUsage || {};
+          repairedPayload._mileAdditionalUsage = {
+            input: Number(existingExtra.input || 0) + Number(originalUsage.input || 0),
+            output: Number(existingExtra.output || 0) + Number(originalUsage.output || 0)
+          };
+          repairedPayload._mileJsonRepaired = true;
+          return repairedPayload;
+        }
       } catch (error) {
         lastError = error;
         if (!isRetryable(error) && !/JSON valid|array rows|teks hasil/i.test(String(error.message || ''))) throw error;
         if (attempt >= MAX_RETRIES) break;
-        const delay = [1800, 4200, 8500][attempt - 1] || 8500;
+        const delay = Number(error?.status) === 429
+          ? ([8000, 18000][attempt - 1] || 18000)
+          : ([1800, 4200, 8500][attempt - 1] || 8500);
         hooks.onRetry?.({ attempt, nextAttempt: attempt + 1, maxAttempts: MAX_RETRIES, delay, error });
         setProgress(
           Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10),
@@ -1352,7 +1490,7 @@ Aturan audit:
 
   function looksSuspiciousRow(row) {
     if (!row.name || !row.address) return true;
-    if (row.aiConfidence < 0.92) return true;
+    if (row.aiConfidence < SMART_CONFIDENCE_THRESHOLD) return true;
     if (row.aiReviewFields.length) return true;
     if (containsReviewMarker(`${row.name} ${row.address} ${row.noSurat}`)) return true;
     if (/^\s*(?:KEPADA|YTH|ATTN)\b/i.test(row.name)) return true;
@@ -1364,6 +1502,10 @@ Aturan audit:
 
   function normalizeRows(aiRows, template, pageOffset = 0, options = {}) {
     const core = window.__mileCore;
+    const expectedPages = Array.isArray(options.expectedPages)
+      ? options.expectedPages.map(Number).filter(Number.isFinite)
+      : [];
+    const expectedPageSet = new Set(expectedPages);
     return aiRows.map((item, index) => {
       let name = normalizeAIText(pick(item, ['nama_penerima', 'nama', 'name', 'penerima']), 'name');
       let address = normalizeAIText(pick(item, ['alamat_penerima', 'alamat', 'address', 'destination_address']), 'address');
@@ -1378,7 +1520,9 @@ Aturan audit:
       if (/^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(noSurat) || isIgnoredBniStandaloneCode(noSurat)) noSurat = '';
       const cleanedRawLines = rawLines.filter(line => !isIgnoredBniStandaloneCode(line));
 
-      const page = Number(pick(item, ['page', 'halaman', 'page_number'], pageOffset + index + 1)) || pageOffset + index + 1;
+      const fallbackPage = expectedPages[index] || pageOffset + index + 1;
+      const parsedPage = Number(pick(item, ['page', 'halaman', 'page_number'], fallbackPage)) || fallbackPage;
+      const page = expectedPageSet.size && !expectedPageSet.has(parsedPage) ? fallbackPage : parsedPage;
       const outsideAssessment = classifyOutsideBatam(
         address,
         pick(item, ['di_luar_batam', 'luar_batam', 'outside_batam'], false)
@@ -1390,7 +1534,13 @@ Aturan audit:
       if (containsReviewMarker(name) && !aiReviewFields.includes('nama_penerima')) aiReviewFields.push('nama_penerima');
       if (containsReviewMarker(address) && !aiReviewFields.includes('alamat_penerima')) aiReviewFields.push('alamat_penerima');
 
-      const aiConfidence = clampConfidence(pick(item, ['confidence', 'keyakinan', 'score'], 0.75));
+      const rawConfidence = pick(item, ['confidence', 'keyakinan', 'score'], null);
+      const hasConfidence = rawConfidence !== null && rawConfidence !== '';
+      // Prompt ringkas tidak lagi meminta confidence. Baris bersih dianggap mantap;
+      // penanda PERLU DICEK/review_fields tetap memicu audit selektif.
+      const aiConfidence = hasConfidence
+        ? clampConfidence(rawConfidence)
+        : (aiReviewFields.length ? 0.74 : 0.95);
       const printedZip = extractPrintedZip(address);
       const zip = printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411');
       const row = {
@@ -1406,38 +1556,83 @@ Aturan audit:
   }
 
   function rowsForVerification(rows) {
-    return rows.map((row, index) => ({
-      no: index + 1,
+    return rows.map(row => ({
       page: row.sourcePage,
       nama_penerima: row.name,
       alamat_penerima: row.address,
       nomor_hp: row.phone === '0' ? '' : row.phone,
       nomor_surat: row.noSurat,
       di_luar_batam: row.outsideBatam,
-      perlu_dicek_fields: row.aiReviewFields,
-      confidence: row.aiConfidence,
-      raw_lines: row.rawLines || []
+      perlu_dicek_fields: row.aiReviewFields
     }));
   }
 
-  function shouldVerifyChunk(config, rows) {
+  function verificationPages(config, rows, expectedPages = []) {
     const profile = IMAGE_PROFILES[config.accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
-    const policy = config.verificationPolicy || profile.verify;
-    if (policy === 'all') return true;
-    if (policy === 'none') return false;
-    if (!rows.length) return true;
-    const averageConfidence = rows.reduce((sum, row) => sum + Number(row.aiConfidence || 0), 0) / rows.length;
-    const threshold = 0.92;
-    return averageConfidence < threshold || rows.some(row => row.needsVerification);
+    const policy = ['all', 'none'].includes(profile.verify)
+      ? profile.verify
+      : (config.verificationPolicy || profile.verify);
+    const expected = [...new Set((expectedPages.length ? expectedPages : rows.map(row => row.sourcePage))
+      .map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
+    if (policy === 'none') return [];
+    if (policy === 'all') return expected;
+
+    const rowsByPage = new Map();
+    rows.forEach(row => {
+      const page = Number(row.sourcePage);
+      if (!Number.isFinite(page)) return;
+      const list = rowsByPage.get(page) || [];
+      list.push(row);
+      rowsByPage.set(page, list);
+    });
+
+    const audit = new Set();
+    expected.forEach(page => {
+      const pageRows = rowsByPage.get(page) || [];
+      if (pageRows.length !== 1 || pageRows.some(row => row.needsVerification || looksSuspiciousRow(row))) audit.add(page);
+    });
+    return [...audit].sort((a, b) => a - b);
   }
 
-  function getUsage(payload, protocol) {
+  function shouldVerifyChunk(config, rows, expectedPages = []) {
+    return verificationPages(config, rows, expectedPages).length > 0;
+  }
+
+  function mergeVerifiedRows(originalRows, verifiedRows, auditedPages = []) {
+    const audited = new Set(auditedPages.map(Number).filter(Number.isFinite));
+    const verifiedByPage = new Map();
+    verifiedRows.forEach(row => {
+      const page = Number(row.sourcePage);
+      if (!audited.has(page)) return;
+      const list = verifiedByPage.get(page) || [];
+      list.push(row);
+      verifiedByPage.set(page, list);
+    });
+
+    const merged = originalRows.filter(row => !audited.has(Number(row.sourcePage)) || !verifiedByPage.has(Number(row.sourcePage)));
+    auditedPages.forEach(page => {
+      const replacements = verifiedByPage.get(Number(page));
+      if (replacements?.length) merged.push(...replacements);
+    });
+    return merged.sort((a, b) => Number(a.sourcePage || 0) - Number(b.sourcePage || 0));
+  }
+
+  function readBaseUsage(payload, protocol) {
     if (protocol === 'anthropic') {
       return { input: payload?.usage?.input_tokens || 0, output: payload?.usage?.output_tokens || 0 };
     }
     return {
       input: payload?.usage?.prompt_tokens || payload?.usage?.input_tokens || 0,
       output: payload?.usage?.completion_tokens || payload?.usage?.output_tokens || 0
+    };
+  }
+
+  function getUsage(payload, protocol) {
+    const base = readBaseUsage(payload, protocol);
+    const extra = payload?._mileAdditionalUsage || {};
+    return {
+      input: Number(base.input || 0) + Number(extra.input || 0),
+      output: Number(base.output || 0) + Number(extra.output || 0)
     };
   }
 
@@ -1521,7 +1716,7 @@ Aturan audit:
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260815-16.12';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260815-16.13';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
@@ -1575,7 +1770,10 @@ Aturan audit:
         onTransport(event) {
           const total = Number(event.total || 0);
           const ratio = total ? Math.max(0, Math.min(1, Number(event.loaded || 0) / total)) : 0;
-          if (event.phase === 'encoding') {
+          if (event.repair && event.phase === 'encoding') {
+            chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, startWeight);
+            setTransferProgress(0, `Memperbaiki format JSON halaman ${chunk.start}–${chunk.end} tanpa mengirim ulang gambar`);
+          } else if (event.phase === 'encoding') {
             chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, startWeight);
             setTransferProgress(0, `Mengemas gambar halaman ${chunk.start}–${chunk.end}`);
           } else if (event.phase === 'ready') {
@@ -1599,32 +1797,45 @@ Aturan audit:
           chunkStates[chunkIndex].waiting = false;
           setTransferProgress(0, `Jaringan terganggu · percobaan ${nextAttempt}/${maxAttempts} dalam ${formatDuration(delay / 1000)}`, { error: true });
           updateParallelProgress(chunk, chunkIndex, `Menyiapkan retry ${nextAttempt}/${maxAttempts}`);
+        },
+        onRepair() {
+          setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });
+          updateParallelProgress(chunk, chunkIndex, 'Memperbaiki JSON');
         }
       });
 
       async function processChunk(chunk, chunkIndex) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
         chunkStates[chunkIndex].progress = 0.01;
-        updateParallelProgress(chunk, chunkIndex, 'Menyiapkan gambar');
-        const images = [];
+        updateParallelProgress(chunk, chunkIndex, 'Menyiapkan sumber');
+        const pageSources = [];
         const pagesInChunk = chunk.end - chunk.start + 1;
+        const expectedPages = Array.from({ length: pagesInChunk }, (_, index) => chunk.start + index);
         for (let pageNumber = chunk.start; pageNumber <= chunk.end; pageNumber++) {
           if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-          markProgressActivity(`Merender halaman ${pageNumber}/${pdf.numPages}`);
-          updateParallelProgress(chunk, chunkIndex, `Merender halaman ${pageNumber}`);
+          markProgressActivity(`Membaca halaman ${pageNumber}/${pdf.numPages}`);
+          updateParallelProgress(chunk, chunkIndex, `Membaca halaman ${pageNumber}`);
           const page = await pdf.getPage(pageNumber);
           try {
-            const rendered = await renderPageToImage(page, config.accuracyMode, config.speedPreset, config.networkProfile);
-            images.push({
-              page: pageNumber,
-              originalUrl: rendered.originalUrl,
-              url: rendered.fullUrl,
-              detailUrl: rendered.detailUrl
-            });
+            let pdfText = '';
+            try { pdfText = extractUsablePdfText(await page.getTextContent()); } catch (_) {}
+            if (pdfText) {
+              pageSources.push({ page: pageNumber, text: pdfText, sourceType: 'text' });
+            } else {
+              updateParallelProgress(chunk, chunkIndex, `Merender halaman ${pageNumber}`);
+              const rendered = await renderPageToImage(page, config.accuracyMode, config.speedPreset, config.networkProfile);
+              pageSources.push({
+                page: pageNumber,
+                originalUrl: rendered.originalUrl,
+                url: rendered.fullUrl,
+                detailUrl: rendered.detailUrl,
+                sourceType: 'image'
+              });
+            }
             renderedPages++;
             const renderedInChunk = pageNumber - chunk.start + 1;
             chunkStates[chunkIndex].progress = 0.03 + (renderedInChunk / pagesInChunk) * 0.22;
-            updateParallelProgress(chunk, chunkIndex, `Gambar halaman ${pageNumber} siap`);
+            updateParallelProgress(chunk, chunkIndex, `${pdfText ? 'Teks PDF' : 'Gambar'} halaman ${pageNumber} siap`);
             await yieldToBrowser();
           } finally {
             page.cleanup();
@@ -1633,17 +1844,18 @@ Aturan audit:
 
         chunkStates[chunkIndex].progress = 0.27;
         updateParallelProgress(chunk, chunkIndex, 'Ekstraksi pertama');
-        const extractionImages = images.map(image => ({
-          page: image.page,
-          label: `HALAMAN ${image.page}`,
-          url: image.url
+        const extractionSources = pageSources.map(source => ({
+          page: source.page,
+          label: `HALAMAN ${source.page}`,
+          text: source.text || '',
+          url: source.url || ''
         }));
 
         const body = buildApiBody(
           config,
           buildPrompt(chunk.start, chunk.end, config),
-          extractionImages,
-          Math.max(3600, (chunk.end - chunk.start + 1) * 1150)
+          extractionSources,
+          extractionTokenLimit(pagesInChunk)
         );
         const payload = await callProxyWithRetry(
           config,
@@ -1655,33 +1867,65 @@ Aturan audit:
         totalUsage.input += Number(usage.input || 0);
         totalUsage.output += Number(usage.output || 0);
         const template = $('corporateTemplate')?.value || 'MANUAL';
-        let normalized = normalizeRows(parseRows(payload, config.protocol), template, chunk.start - 1, config);
+        let normalized = normalizeRows(
+          parseRows(payload, config.protocol),
+          template,
+          chunk.start - 1,
+          { ...config, expectedPages }
+        );
 
-        if (shouldVerifyChunk(config, normalized)) {
+        const auditPages = verificationPages(config, normalized, expectedPages);
+        if (auditPages.length) {
           chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, 0.66);
-          updateParallelProgress(chunk, chunkIndex, 'Verifikasi akurasi');
-          const verificationImages = images.map(image => ({
-            page: image.page,
-            label: `HALAMAN ${image.page} — ZOOM AUDIT`,
-            url: image.detailUrl || image.url
-          }));
+          updateParallelProgress(chunk, chunkIndex, `Audit selektif ${auditPages.length} halaman`);
+          const verificationImages = [];
+          for (const pageNumber of auditPages) {
+            const source = pageSources.find(item => item.page === pageNumber);
+            if (!source) continue;
+            if (!source.detailUrl) {
+              const page = await pdf.getPage(pageNumber);
+              try {
+                const rendered = await renderPageToImage(page, config.accuracyMode, config.speedPreset, config.networkProfile, true);
+                source.originalUrl = rendered.originalUrl;
+                source.url = rendered.fullUrl;
+                source.detailUrl = rendered.detailUrl;
+              } finally {
+                page.cleanup();
+              }
+            }
+            verificationImages.push({
+              page: source.page,
+              label: `HALAMAN ${source.page} — ZOOM AUDIT`,
+              url: source.detailUrl || source.url
+            });
+          }
+
+          const draftRows = rowsForVerification(
+            normalized.filter(row => auditPages.includes(Number(row.sourcePage)))
+          );
 
           const verificationBody = buildApiBody(
             config,
-            buildVerificationPrompt(chunk.start, chunk.end, rowsForVerification(normalized), config),
+            buildVerificationPrompt(chunk.start, chunk.end, draftRows, { ...config, pages: auditPages }),
             verificationImages,
-            Math.max(3600, (chunk.end - chunk.start + 1) * 1150)
+            verificationTokenLimit(auditPages.length)
           );
           const verifiedPayload = await callProxyWithRetry(
             config,
             verificationBody,
-            `verifikasi halaman ${chunk.start}–${chunk.end}`,
-            makeTransportHooks(chunk, chunkIndex, 'Verifikasi akurasi', 0.68, 0.85, 0.93)
+            `audit halaman ${auditPages.join(', ')}`,
+            makeTransportHooks(chunk, chunkIndex, 'Audit selektif', 0.68, 0.85, 0.93)
           );
           usage = getUsage(verifiedPayload, config.protocol);
           totalUsage.input += Number(usage.input || 0);
           totalUsage.output += Number(usage.output || 0);
-          normalized = normalizeRows(parseRows(verifiedPayload, config.protocol), template, chunk.start - 1, config);
+          const verifiedRows = normalizeRows(
+            parseRows(verifiedPayload, config.protocol),
+            template,
+            chunk.start - 1,
+            { ...config, expectedPages: auditPages }
+          );
+          normalized = mergeVerifiedRows(normalized, verifiedRows, auditPages);
         }
 
         results[chunkIndex] = normalized;
@@ -1833,7 +2077,7 @@ Aturan audit:
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildPrompt, buildVerificationPrompt, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, extractUsablePdfText, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);
