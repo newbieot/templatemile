@@ -239,6 +239,7 @@
             get currentFileName() { return currentFileName; },
             set tempExtractedRows(value) { tempExtractedRows = value; },
             getZipCodeFromAddress,
+            resolveZipCode,
             cleanArtifacts,
             cleanRecipientName,
             cleanAddressArtifacts,
@@ -390,7 +391,7 @@
             }
 
             applyPNBatamServiceDefault();
-            // Update tabel agar kodeposnya ter-refresh sesuai database
+            // Perbarui tampilan dan data kode pos otomatis sesuai database dua tingkat.
             updateInterface();
         }
 
@@ -888,6 +889,17 @@
             return defaultZip;
         }
 
+        function resolveZipCode(address, template, currentZip = '') {
+            // Tier 1: pertahankan kode pos yang benar-benar tercetak pada alamat.
+            const printedZipCodes = String(address || '').match(/\b\d{5}\b/g) || [];
+            const printedZip = printedZipCodes.find(code => /^(?:29|28)\d{3}$/.test(code)) || printedZipCodes[0];
+            if (printedZip) return printedZip;
+
+            // Tier 2: kelurahan → kecamatan → fallback kota dari database lokal.
+            const mappedZip = getZipCodeFromAddress(address, template);
+            return mappedZip || String(currentZip || '').trim() || (template === 'MENSA' ? '29111' : '29411');
+        }
+
         function containsReviewMarker(value) {
             return /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(String(value ?? ''));
         }
@@ -909,8 +921,15 @@
         }
 
         const reviewFieldKeys = Object.freeze([
-            'senderName', 'noSurat', 'name', 'phone', 'zip', 'cw', 'p', 'l', 't', 'insHarga', 'address'
+            'senderName', 'noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'
         ]);
+
+        function getActiveReviewFieldKeys() {
+            const isPackage = document.getElementById('itemType')?.value === 'PAKET';
+            return isPackage
+                ? reviewFieldKeys
+                : reviewFieldKeys.filter(field => !['cw', 'p', 'l', 't'].includes(field));
+        }
 
         function ensureRowReviewState(row) {
             if (!row._reviewState || typeof row._reviewState !== 'object') {
@@ -951,12 +970,12 @@
         }
 
         function rowNeedsReview(row) {
-            return reviewFieldKeys.some(field => isFieldReviewPending(row, field));
+            return getActiveReviewFieldKeys().some(field => isFieldReviewPending(row, field));
         }
 
         function getPendingReviewCount() {
             return uploadedFilesManager.reduce((total, file) => total + file.rows.reduce((rowTotal, row) => {
-                return rowTotal + reviewFieldKeys.filter(field => isFieldReviewPending(row, field)).length;
+                return rowTotal + getActiveReviewFieldKeys().filter(field => isFieldReviewPending(row, field)).length;
             }, 0), 0);
         }
 
@@ -972,7 +991,6 @@
             'val-noSurat': 'noSurat',
             'val-name': 'name',
             'val-phone': 'phone',
-            'val-zip': 'zip',
             'val-cw': 'cw',
             'val-p': 'p',
             'val-l': 'l',
@@ -998,6 +1016,10 @@
 
             const previousValue = String(context.row[context.field] ?? '');
             context.row[context.field] = input.value;
+            if (context.field === 'address') {
+                const template = document.getElementById('corporateTemplate')?.value || 'MANUAL';
+                context.row.zip = resolveZipCode(input.value, template, context.row.zip);
+            }
             const states = ensureRowReviewState(context.row);
             let reviewState = states[context.field] || null;
             const currentValue = String(input.value ?? '');
@@ -1268,19 +1290,21 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             updateBulkPdfReferenceEditor();
 
             const useInsurance = document.getElementById('useInsurance').checked;
+            const isPackage = document.getElementById('itemType')?.value === 'PAKET';
+            const resultTable = document.getElementById('resultTable');
+            resultTable?.classList.toggle('is-document-review', !isPackage);
+            resultTable?.classList.toggle('is-package-review', isPackage);
             const thead = document.querySelector('#resultTable thead');
             thead.innerHTML = `
                 <tr>
                     <th style="width: 3%; text-align: center;">NO</th>
                     <th style="width: 12%;">PENGIRIM</th>
                     <th style="width: 11%;">REF/SURAT</th>
-                    <th style="width: 14%;">PENERIMA</th>
+                    <th style="width: 17%;">NAMA PENERIMA</th>
+                    <th style="width: 28%;">ALAMAT</th>
                     <th style="width: 9%;">NO HP</th>
-                    <th style="width: 7%;">KODEPOS</th>
-                    <th style="width: 7%;">BERAT(KG)</th>
-                    <th style="width: 8%;">PxLxT</th>
+                    ${isPackage ? '<th style="width: 7%;">BERAT(KG)</th><th style="width: 8%;">PxLxT</th>' : ''}
                     ${useInsurance ? '<th style="width: 9%;">NILAI BRG(Rp)</th>' : ''}
-                    <th style="width: 15%;">ALAMAT</th>
                     <th class="action-column-heading" style="width: 8%; text-align:center;">AKSI</th>
                 </tr>
             `;
@@ -1316,14 +1340,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     };
                     let insValue = item.insHarga !== undefined ? item.insHarga : 0;
                     let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga${reviewClass('insHarga')}"${reviewAttributes('insHarga')} value="${escapeAttribute(insValue)}" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
-
-                    tr.innerHTML = `
-                        <td class="row-number-cell" style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
-                        <td><input type="text" class="table-input val-senderName${reviewClass('senderName')}"${reviewAttributes('senderName')} value="${escapeAttribute(item.senderName || '')}"></td>
-                        <td><input type="text" class="table-input val-noSurat${reviewClass('noSurat')}"${reviewAttributes('noSurat')} value="${escapeAttribute(item.noSurat || '')}"></td>
-                        <td><input type="text" class="table-input val-name${reviewClass('name')}"${reviewAttributes('name')} value="${escapeAttribute(item.name || '')}"></td>
-                        <td><input type="text" class="table-input val-phone${reviewClass('phone')}"${reviewAttributes('phone')} value="${escapeAttribute(item.phone || '')}"></td>
-                        <td><input type="text" class="table-input val-zip${reviewClass('zip')}"${reviewAttributes('zip')} style="font-weight:bold; color:#d32f2f;" value="${escapeAttribute(item.zip || '')}"></td>
+                    let packageColumns = isPackage ? `
                         <td><input type="text" class="table-input val-cw${reviewClass('cw')}"${reviewAttributes('cw')} style="font-weight:bold; color:#0277bd;" value="${escapeAttribute(item.cw || '0.20')}"></td>
                         <td>
                             <div class="dim-box">
@@ -1331,9 +1348,17 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                                 <input type="text" class="val-l${reviewClass('l')}"${reviewAttributes('l')} value="${escapeAttribute(item.l || 10)}">x
                                 <input type="text" class="val-t${reviewClass('t')}"${reviewAttributes('t')} value="${escapeAttribute(item.t || 10)}">
                             </div>
-                        </td>
-                        ${insColumn}
+                        </td>` : '';
+
+                    tr.innerHTML = `
+                        <td class="row-number-cell" style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
+                        <td><input type="text" class="table-input val-senderName${reviewClass('senderName')}"${reviewAttributes('senderName')} value="${escapeAttribute(item.senderName || '')}"></td>
+                        <td><input type="text" class="table-input val-noSurat${reviewClass('noSurat')}"${reviewAttributes('noSurat')} value="${escapeAttribute(item.noSurat || '')}"></td>
+                        <td><input type="text" class="table-input val-name${reviewClass('name')}"${reviewAttributes('name')} value="${escapeAttribute(item.name || '')}"></td>
                         <td><input type="text" class="table-input val-address${reviewClass('address')}"${reviewAttributes('address')} value="${escapeAttribute(item.address || '')}"></td>
+                        <td><input type="text" class="table-input val-phone${reviewClass('phone')}"${reviewAttributes('phone')} value="${escapeAttribute(item.phone || '')}"></td>
+                        ${packageColumns}
+                        ${insColumn}
                         <td class="row-action-cell">
                             <span class="outside-batam-badge" ${outsidePending ? '' : 'hidden'} title="${escapeAttribute(outsideState.reason || 'AI mendeteksi alamat penerima di luar Kota Batam.')}">Alamat luar Kota Batam</span>
                             <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>No. ${counter} · Teks perlu dicek</span>
@@ -1352,7 +1377,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             });
 
             if (counter === 0) {
-                tbody.innerHTML = `<tr><td colspan="${useInsurance ? 11 : 10}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.</td></tr>`;
+                const columnCount = 7 + (isPackage ? 2 : 0) + (useInsurance ? 1 : 0);
+                tbody.innerHTML = `<tr><td colspan="${columnCount}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.</td></tr>`;
             }
         }
 
@@ -1454,26 +1480,29 @@ Baris ini tidak akan ikut diekspor.`)) return false;
 
             rows.forEach((tr, index) => {
                 if (validationFailed) return;
+                const managedRow = findManagedRow(tr.dataset.fileId, tr.dataset.rowId)?.row || {};
 
                 let dSenderName = cleanReference(tr.querySelector('.val-senderName').value);
                 let dNoSurat = cleanReference(tr.querySelector('.val-noSurat').value);
                 
                 let dName = cleanRecipientName(tr.querySelector('.val-name').value);
                 let dPhone = cleanPhoneNumber(tr.querySelector('.val-phone').value);
-                let dZip = cleanArtifacts(tr.querySelector('.val-zip').value); 
                 let dAddress = cleanAddressArtifacts(tr.querySelector('.val-address').value);
+                let dZip = resolveZipCode(dAddress, template, managedRow.zip);
+                managedRow.zip = dZip;
                 
                 // Override khusus Barang Pindah
                 if (mode === 'PINDAH') {
                     dZip = destZipCodeGlobal;
                 }
 
-                let dWeightStr = tr.querySelector('.val-cw').value.replace(',', '.');
+                const weightInput = tr.querySelector('.val-cw');
+                let dWeightStr = String(weightInput?.value ?? managedRow.cw ?? '0.20').replace(',', '.');
                 let dWeight = parseFloat(dWeightStr) || 0.2;
 
-                let dP = parseFloat(tr.querySelector('.val-p').value) || 10;
-                let dL = parseFloat(tr.querySelector('.val-l').value) || 10;
-                let dT = parseFloat(tr.querySelector('.val-t').value) || 10;
+                let dP = parseFloat(tr.querySelector('.val-p')?.value ?? managedRow.p) || 10;
+                let dL = parseFloat(tr.querySelector('.val-l')?.value ?? managedRow.l) || 10;
+                let dT = parseFloat(tr.querySelector('.val-t')?.value ?? managedRow.t) || 10;
 
                 let dHargaBarang = 0;
                 if (useInsurance) {

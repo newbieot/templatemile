@@ -55,14 +55,13 @@
     ['val-senderName', 'Pengirim'],
     ['val-noSurat', 'No Ref/Surat'],
     ['val-name', 'Nama Penerima'],
+    ['val-address', 'Alamat'],
     ['val-phone', 'Nomor HP'],
-    ['val-zip', 'Kode Pos'],
     ['val-cw', 'Berat'],
     ['val-p', 'Panjang'],
     ['val-l', 'Lebar'],
     ['val-t', 'Tinggi'],
-    ['val-ins-harga', 'Nilai Barang'],
-    ['val-address', 'Alamat']
+    ['val-ins-harga', 'Nilai Barang']
   ];
 
   function getReviewLocation(input) {

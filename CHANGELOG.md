@@ -1,5 +1,15 @@
 # Changelog
 
+## v16.14 — Scan-first dan Periksa hasil yang lebih ringkas
+
+- Memperlakukan semua PDF sebagai hasil scan CamScanner dan melewati pembacaan text layer PDF sepenuhnya.
+- Mempertahankan render gambar 1900 px pada pass pertama serta audit selektif hingga 2600 px untuk halaman yang hilang, ganda, atau meragukan.
+- Mempertahankan Gemini 3.7 Flash serta default **15 halaman × 5 jalur**.
+- Memindahkan Alamat tepat ke kanan Nama Penerima pada tabel Periksa hasil.
+- Menyembunyikan Kode Pos dari tabel dan mengisinya otomatis melalui angka yang terbaca atau pemetaan alamat dua tingkat.
+- Menyembunyikan Berat dan PxLxT untuk jenis kiriman Dokumen, sambil mempertahankan nilai baku ekspor 0,2 kg dan 10 × 10 × 10 cm.
+- Mengganti bundle AI menjadi `ai-pdf-v16-14.js` dan identitas aset menjadi `20260816-16.14` untuk memutus cache lama.
+
 ## v16.13 — Smart Efficiency tanpa mengurangi default kecepatan
 
 - Mempertahankan Gemini 3.7 Flash serta default **15 halaman × 5 jalur** pada profil Normal cepat.

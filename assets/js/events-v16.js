@@ -11,6 +11,7 @@
   byId('clientMode')?.addEventListener('change', () => invoke('handleModeChange'));
   byId('corporateTemplate')?.addEventListener('change', () => invoke('handleTemplateChange'));
   byId('useInsurance')?.addEventListener('change', () => invoke('updateInterface'));
+  byId('itemType')?.addEventListener('change', () => invoke('updateInterface'));
 
   const fileInput = byId('excelInput');
   byId('dropzone')?.addEventListener('click', () => fileInput?.click());

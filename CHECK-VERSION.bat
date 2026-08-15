@@ -3,14 +3,14 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.13...
+echo Memeriksa mile.posnew.com Secure Gateway v16.14...
 echo.
 
-findstr /c:"20260815-16.13" "_worker.js" >nul && echo [OK] Worker v16.13 || (echo [GAGAL] Worker bukan v16.13 & set "FAIL=1")
-findstr /c:"v16.13 Secure Gateway" "index.html" >nul && echo [OK] Login v16.13 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.13" "app.html" >nul && echo [OK] Workspace v16.13 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"20260816-16.14" "_worker.js" >nul && echo [OK] Worker v16.14 || (echo [GAGAL] Worker bukan v16.14 & set "FAIL=1")
+findstr /c:"v16.14 Secure Gateway" "index.html" >nul && echo [OK] Login v16.14 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.14" "app.html" >nul && echo [OK] Workspace v16.14 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.7 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.7 Flash menjadi default || (echo [GAGAL] Default Gemini 3.7 Flash tidak ditemukan & set "FAIL=1")
-findstr /c:"gemini-3.7-flash" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Gemini 3.7 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.7 browser tidak ditemukan & set "FAIL=1")
+findstr /c:"gemini-3.7-flash" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Gemini 3.7 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.7 browser tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.7-flash" "_worker.js" >nul && echo [OK] Gemini 3.7 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.7 gateway tidak ditemukan & set "FAIL=1")
 findstr /c:"Gemini 3.6 Flash" "app.html" >nul && echo [OK] Gemini 3.6 tetap tersedia sebagai fallback || (echo [GAGAL] Fallback Gemini 3.6 tidak ditemukan & set "FAIL=1")
 
@@ -18,20 +18,25 @@ findstr /c:"10 halaman" "app.html" >nul && echo [OK] Opsi 10 halaman tersedia ||
 findstr /c:"selected>15 halaman" "app.html" >nul && echo [OK] Default 15 halaman || (echo [GAGAL] Default 15 halaman tidak ditemukan & set "FAIL=1")
 findstr /c:"20 halaman" "app.html" >nul && echo [OK] Opsi 20 halaman tersedia || (echo [GAGAL] Opsi 20 halaman tidak ditemukan & set "FAIL=1")
 findstr /c:"selected>5 jalur" "app.html" >nul && echo [OK] Default paralel 5 jalur || (echo [GAGAL] Default 5 jalur tidak ditemukan & set "FAIL=1")
-findstr /c:"pagesPerRequest: 15, concurrency: 5" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Preset Cepat 15 halaman x 5 jalur || (echo [GAGAL] Preset Cepat tidak sesuai & set "FAIL=1")
-findstr /c:"DEFAULT_NETWORK_MODE = 'normal'" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Profil normal menjadi default || (echo [GAGAL] Default profil normal tidak ditemukan & set "FAIL=1")
+findstr /c:"pagesPerRequest: 15, concurrency: 5" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Preset Cepat 15 halaman x 5 jalur || (echo [GAGAL] Preset Cepat tidak sesuai & set "FAIL=1")
+findstr /c:"DEFAULT_NETWORK_MODE = 'normal'" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Profil normal menjadi default || (echo [GAGAL] Default profil normal tidak ditemukan & set "FAIL=1")
 findstr /c:"Default aktif: 15 halaman" "app.html" >nul && echo [OK] UI menegaskan default 15 halaman x 5 jalur || (echo [GAGAL] Keterangan default 15 x 5 tidak ditemukan & set "FAIL=1")
-findstr /c:"Math.min(20" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Batas halaman maksimum 20 || (echo [GAGAL] Batas halaman 20 tidak ditemukan & set "FAIL=1")
-findstr /c:"Math.min(5" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Batas concurrency maksimum 5 || (echo [GAGAL] Batas concurrency 5 tidak ditemukan & set "FAIL=1")
-findstr /c:"mile-ai-config-v16-13" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Konfigurasi lama tidak terbawa || (echo [GAGAL] Storage key konfigurasi baru tidak ditemukan & set "FAIL=1")
+findstr /c:"Math.min(20" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Batas halaman maksimum 20 || (echo [GAGAL] Batas halaman 20 tidak ditemukan & set "FAIL=1")
+findstr /c:"Math.min(5" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Batas concurrency maksimum 5 || (echo [GAGAL] Batas concurrency 5 tidak ditemukan & set "FAIL=1")
+findstr /c:"mile-ai-config-v16-14" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Konfigurasi lama tidak terbawa || (echo [GAGAL] Storage key konfigurasi baru tidak ditemukan & set "FAIL=1")
 findstr /c:"aiNetworkMode" "app.html" >nul && echo [OK] Pilihan profil koneksi tersedia || (echo [GAGAL] Profil koneksi tidak ditemukan & set "FAIL=1")
-findstr /c:"xhr.upload.onprogress" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Progres unggah aktual tersedia || (echo [GAGAL] Progres unggah aktual tidak ditemukan & set "FAIL=1")
-findstr /c:"waitUntilOnline" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Pemulihan koneksi tersedia || (echo [GAGAL] Pemulihan koneksi tidak ditemukan & set "FAIL=1")
-findstr /c:"extractUsablePdfText" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Text layer PDF hemat token aktif || (echo [GAGAL] Text layer PDF tidak ditemukan & set "FAIL=1")
-findstr /c:"verificationPages" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Audit halaman selektif aktif || (echo [GAGAL] Audit selektif tidak ditemukan & set "FAIL=1")
-findstr /c:"mergeVerifiedRows" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Hasil audit selektif digabung aman || (echo [GAGAL] Penggabungan audit tidak ditemukan & set "FAIL=1")
-findstr /c:"extractionTokenLimit" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Batas token dinamis aktif || (echo [GAGAL] Batas token dinamis tidak ditemukan & set "FAIL=1")
-findstr /c:"buildJsonRepairBody" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Perbaikan JSON hemat retry aktif || (echo [GAGAL] Perbaikan JSON tidak ditemukan & set "FAIL=1")
+findstr /c:"xhr.upload.onprogress" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Progres unggah aktual tersedia || (echo [GAGAL] Progres unggah aktual tidak ditemukan & set "FAIL=1")
+findstr /c:"waitUntilOnline" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Pemulihan koneksi tersedia || (echo [GAGAL] Pemulihan koneksi tidak ditemukan & set "FAIL=1")
+findstr /c:"HASIL SCAN CAMSCANNER" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Mode scan CamScanner aktif || (echo [GAGAL] Mode scan CamScanner tidak ditemukan & set "FAIL=1")
+findstr /c:"verificationPages" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Audit halaman selektif aktif || (echo [GAGAL] Audit selektif tidak ditemukan & set "FAIL=1")
+findstr /c:"mergeVerifiedRows" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Hasil audit selektif digabung aman || (echo [GAGAL] Penggabungan audit tidak ditemukan & set "FAIL=1")
+findstr /c:"extractionTokenLimit" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Batas token dinamis aktif || (echo [GAGAL] Batas token dinamis tidak ditemukan & set "FAIL=1")
+findstr /c:"buildJsonRepairBody" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Perbaikan JSON hemat retry aktif || (echo [GAGAL] Perbaikan JSON tidak ditemukan & set "FAIL=1")
+findstr /c:"getTextContent" "assets\js\ai-pdf-v16-14.js" >nul
+if not errorlevel 1 (echo [GAGAL] Pembacaan text layer masih aktif & set "FAIL=1") else (echo [OK] Text layer dilewati untuk semua scan)
+findstr /c:"NAMA PENERIMA" "assets\js\app-core.js" >nul && echo [OK] Header Nama Penerima tersedia || (echo [GAGAL] Header Nama Penerima hilang & set "FAIL=1")
+findstr /c:"is-document-review" "assets\js\app-core.js" >nul && echo [OK] Tabel Dokumen tanpa dimensi aktif || (echo [GAGAL] Mode tabel Dokumen tidak ditemukan & set "FAIL=1")
+findstr /c:"resolveZipCode" "assets\js\app-core.js" >nul && echo [OK] Kode pos otomatis dua tingkat aktif || (echo [GAGAL] Kode pos otomatis tidak ditemukan & set "FAIL=1")
 if exist "assets\vendor\pdfjs\pdf.min.js" (echo [OK] PDF.js lokal tersedia) else (echo [GAGAL] PDF.js lokal tidak ditemukan & set "FAIL=1")
 if exist "assets\vendor\pdfjs\pdf.worker.min.js" (echo [OK] PDF worker lokal tersedia) else (echo [GAGAL] PDF worker lokal tidak ditemukan & set "FAIL=1")
 if exist "assets\vendor\sheetjs\xlsx.full.min.js" (echo [OK] SheetJS lokal tersedia) else (echo [GAGAL] SheetJS lokal tidak ditemukan & set "FAIL=1")
@@ -43,9 +48,10 @@ findstr /c:"868523" "assets\js\app-core.js" >nul && echo [OK] Sub service JACCS 
 findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session secret tetap aktif || (echo [GAGAL] Session secret hilang & set "FAIL=1")
 findstr /c:"COSMOS_API_KEY" "_worker.js" >nul && echo [OK] Cosmos secret tetap aktif || (echo [GAGAL] Cosmos secret hilang & set "FAIL=1")
 findstr /c:"/api/metrics/ai" "_worker.js" >nul && echo [OK] Statistik AI tetap aktif || (echo [GAGAL] Endpoint statistik hilang & set "FAIL=1")
-findstr /c:"outsideBatam" "assets\js\ai-pdf-v16-13.js" >nul && echo [OK] Validasi luar Batam tetap aktif || (echo [GAGAL] Validasi luar Batam tidak ditemukan & set "FAIL=1")
+findstr /c:"outsideBatam" "assets\js\ai-pdf-v16-14.js" >nul && echo [OK] Validasi luar Batam tetap aktif || (echo [GAGAL] Validasi luar Batam tidak ditemukan & set "FAIL=1")
 
 if exist "assets\js\ai-pdf-v16-12.js" (echo [GAGAL] Bundle AI lama v16.12 masih ada & set "FAIL=1") else (echo [OK] Bundle AI lama v16.12 sudah dihapus)
+if exist "assets\js\ai-pdf-v16-13.js" (echo [GAGAL] Bundle AI lama v16.13 masih ada & set "FAIL=1") else (echo [OK] Bundle AI lama v16.13 sudah dihapus)
 
 findstr /c:"INDASTRADAI01294A" "assets\js\app-core.js" >nul && echo [OK] ID pelanggan ASTRA || (echo [GAGAL] ID pelanggan ASTRA tidak ditemukan & set "FAIL=1")
 findstr /c:"FINBSN01294A" "assets\js\app-core.js" >nul && echo [OK] ID pelanggan BSN Batam || (echo [GAGAL] ID pelanggan FINBSN01294A tidak ditemukan & set "FAIL=1")
