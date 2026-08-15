@@ -1,5 +1,14 @@
 # Changelog
 
+## v16.15 — Koreksi wajib dan pengirim dari pengaturan awal
+
+- Menghapus Pengirim dari tabel Periksa hasil dan selalu memakai nilai pengirim dari template atau pengaturan awal saat ekspor.
+- Menghapus pemetaan pengirim pengganti dari impor spreadsheet.
+- Mendeteksi `PERLU DICEK` walaupun menempel pada angka/huruf atau tidak memakai spasi.
+- Mengunci ekspor memakai status koreksi pada data internal sehingga penanda tidak dapat lolos hanya karena tampilan tidak memperbarui hitungan.
+- Mewajibkan alamat luar Kota Batam benar-benar diubah dan divalidasi sebagai wilayah Batam sebelum dapat disimpan; baris tujuan luar Batam tetap dapat dihapus.
+- Mengganti bundle AI menjadi `ai-pdf-v16-15.js` dan identitas aset menjadi `20260816-16.15` untuk memutus cache lama.
+
 ## v16.14 — Scan-first dan Periksa hasil yang lebih ringkas
 
 - Memperlakukan semua PDF sebagai hasil scan CamScanner dan melewati pembacaan text layer PDF sepenuhnya.

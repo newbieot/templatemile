@@ -240,6 +240,7 @@
             set tempExtractedRows(value) { tempExtractedRows = value; },
             getZipCodeFromAddress,
             resolveZipCode,
+            isClearlyBatamAddress,
             cleanArtifacts,
             cleanRecipientName,
             cleanAddressArtifacts,
@@ -498,7 +499,6 @@
             let extractedRows = [];
 
             jsonData.forEach(row => {
-                let rSender = row['origin_data_customer_name'] || "";
                 let rRef = row['ref_no'] || row['koli_data_koli_description'] || "";
                 let rName = row['destination_data_customer_name'] || "";
                 let rPhone = row['destination_data_customer_phone'] || "0";
@@ -529,7 +529,6 @@
                 if (rName || rAddress) {
                     const recipient = splitRecipientAndAddress(rName, rAddress);
                     extractedRows.push({
-                        senderName: cleanReference(rSender),
                         noSurat: /^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(cleanReference(rRef)) ? "" : cleanReference(rRef),
                         name: recipient.name,
                         phone: cleanPhoneNumber(rPhone),
@@ -565,7 +564,7 @@
             // Kosongkan form ketik custom setiap kali modal terbuka
             document.getElementById('customRef').value = "";
 
-            const selects = ['mapName', 'mapAddress', 'mapPhone', 'mapRef', 'mapSenderName', 'mapWeight', 'mapP', 'mapL', 'mapT'];
+            const selects = ['mapName', 'mapAddress', 'mapPhone', 'mapRef', 'mapWeight', 'mapP', 'mapL', 'mapT'];
             selects.forEach(id => {
                 const el = document.getElementById(id);
                 el.innerHTML = '<option value="-1">-- KOSONG / ABAIKAN --</option>';
@@ -622,8 +621,6 @@
             const idxAddr = parseInt(document.getElementById('mapAddress').value);
             const idxPhone = parseInt(document.getElementById('mapPhone').value);
             const idxRef = parseInt(document.getElementById('mapRef').value);
-            const idxSenderName = parseInt(document.getElementById('mapSenderName').value);
-            
             const customRefVal = document.getElementById('customRef').value.trim().toUpperCase();
             
             const idxWeight = parseInt(document.getElementById('mapWeight').value);
@@ -656,8 +653,6 @@
                         let rawName = idxName !== -1 ? row[idxName] : "";
                         let rawAddr = idxAddr !== -1 ? row[idxAddr] : "";
                         let rawPhone = idxPhone !== -1 ? row[idxPhone] : "0";
-                        let rawSenderName = idxSenderName !== -1 ? row[idxSenderName] : "";
-                        
                         // Menimpa nilai mapping Ref jika user mengetik di kotak custom text
                         let rawRef = customRefVal !== "" ? customRefVal : (idxRef !== -1 ? row[idxRef] : "");
                         
@@ -671,8 +666,6 @@
                         let cleanAddr = recipient.address;
                         let cleanPhone = cleanPhoneNumber(rawPhone);
                         let cleanRef = cleanReference(rawRef);
-                        let cleanSenderName = cleanReference(rawSenderName); 
-
                         let targetZipCode = getZipCodeFromAddress(cleanAddr, templateVal);
                         
                         let parsedW = parseFloat(String(rawWeight).replace(',', '.')) || "";
@@ -680,10 +673,9 @@
                         let parsedL = parseFloat(String(rawL).replace(',', '.')) || "";
                         let parsedT = parseFloat(String(rawT).replace(',', '.')) || "";
 
-                        if (!cleanName && !cleanAddr && !cleanRef && !cleanSenderName) continue;
+                        if (!cleanName && !cleanAddr && !cleanRef) continue;
 
                         extractedRows.push({ 
-                            senderName: cleanSenderName, 
                             noSurat: cleanRef, 
                             name: cleanName, 
                             phone: cleanPhone, 
@@ -901,7 +893,9 @@
         }
 
         function containsReviewMarker(value) {
-            return /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(String(value ?? ''));
+            // Tanpa batas kata: hasil OCR dapat menempelkan penanda ke nomor/huruf,
+            // misalnya "1070PERLU DICEK47" atau "PERLUDICEK".
+            return /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(value ?? ''));
         }
 
         function ensureRowIdentity(row) {
@@ -921,7 +915,7 @@
         }
 
         const reviewFieldKeys = Object.freeze([
-            'senderName', 'noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'
+            'noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'
         ]);
 
         function getActiveReviewFieldKeys() {
@@ -987,7 +981,6 @@
         }
 
         const fieldClassMap = Object.freeze({
-            'val-senderName': 'senderName',
             'val-noSurat': 'noSurat',
             'val-name': 'name',
             'val-phone': 'phone',
@@ -1019,6 +1012,12 @@
             if (context.field === 'address') {
                 const template = document.getElementById('corporateTemplate')?.value || 'MANUAL';
                 context.row.zip = resolveZipCode(input.value, template, context.row.zip);
+                const outsideState = ensureOutsideBatamState(context.row);
+                if (outsideState.detected && outsideState.resolution === 'corrected' && !isClearlyBatamAddress(input.value)) {
+                    outsideState.pending = true;
+                    outsideState.resolution = null;
+                    context.row.outsideBatam = true;
+                }
             }
             const states = ensureRowReviewState(context.row);
             let reviewState = states[context.field] || null;
@@ -1121,23 +1120,52 @@
             return uploadedFilesManager.reduce((total, file) => total + file.rows.filter(isOutsideBatamPending).length, 0);
         }
 
+        function normalizeAddressForComparison(address) {
+            return String(address || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+        }
+
+        function isClearlyBatamAddress(address) {
+            const upper = String(address || '').toUpperCase();
+            const printedZipCodes = upper.match(/\b\d{5}\b/g) || [];
+            if (printedZipCodes.some(code => !/^294\d{2}$/.test(code))) return false;
+            if (printedZipCodes.some(code => /^294\d{2}$/.test(code))) return true;
+            if (/\b(?:KOTA\s+)?BATAM\b/.test(upper)) return true;
+            return [...batamKelurahanMapping, ...batamKecamatanMapping]
+                .some(item => upper.includes(item.keyword));
+        }
+
         function keepOutsideBatamRow(fileId, rowId) {
             const managed = findManagedRow(fileId, rowId);
             if (!managed || !isOutsideBatamPending(managed.row)) return false;
+            const state = ensureOutsideBatamState(managed.row);
             const address = String(managed.row.address || '').trim();
-            if (!window.confirm(`Pastikan alamat berikut memang masih berada di Kota Batam:
+            const originalAddress = String(state.originalAddress || '').trim();
+
+            if (!address) {
+                window.alert('Alamat penerima wajib diisi sebelum koreksi dapat disimpan.');
+                return false;
+            }
+            if (normalizeAddressForComparison(address) === normalizeAddressForComparison(originalAddress)) {
+                window.alert('Alamat luar Kota Batam belum diperbaiki. Ubah alamatnya terlebih dahulu, lalu simpan koreksi.');
+                return false;
+            }
+            if (!isClearlyBatamAddress(address)) {
+                window.alert('Alamat hasil koreksi belum menunjukkan wilayah Kota Batam. Lengkapi nama wilayah Batam atau kode pos 294xx, atau hapus baris jika tujuan memang di luar Batam.');
+                return false;
+            }
+            if (!window.confirm(`Simpan alamat yang sudah diperbaiki sebagai alamat Kota Batam?
 
 ${address || '(alamat kosong)'}
 
-Tandai sebagai AI salah deteksi dan tetap lanjutkan data ini?`)) return false;
+Pastikan nama wilayah dan kode posnya sudah benar.`)) return false;
 
-            const state = ensureOutsideBatamState(managed.row);
             state.pending = false;
-            state.resolution = 'keep';
+            state.resolution = 'corrected';
             state.resolvedAt = new Date().toISOString();
+            state.correctedAddress = address;
             managed.row.outsideBatam = false;
             updateInterface();
-            if (typeof window.showToast === 'function') window.showToast('Keputusan disimpan: alamat dinyatakan masih berada di Kota Batam.', 'success');
+            if (typeof window.showToast === 'function') window.showToast('Koreksi alamat Kota Batam berhasil disimpan.', 'success');
             return true;
         }
 
@@ -1192,9 +1220,13 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 row.noSurat = value;
                 const state = states.noSurat;
                 if (state?.pending) {
-                    state.pending = false;
-                    state.dirty = false;
-                    state.resolvedValue = value;
+                    const corrected = Boolean(value.trim()) &&
+                        !containsReviewMarker(value) &&
+                        value.trim() !== String(state.originalValue || '').trim();
+                    state.pending = !corrected;
+                    state.dirty = corrected ? false : value.trim() !== String(state.originalValue || '').trim();
+                    if (corrected) state.resolvedValue = value;
+                    else delete state.resolvedValue;
                 }
             });
             updateInterface();
@@ -1298,11 +1330,10 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             thead.innerHTML = `
                 <tr>
                     <th style="width: 3%; text-align: center;">NO</th>
-                    <th style="width: 12%;">PENGIRIM</th>
-                    <th style="width: 11%;">REF/SURAT</th>
-                    <th style="width: 17%;">NAMA PENERIMA</th>
-                    <th style="width: 28%;">ALAMAT</th>
-                    <th style="width: 9%;">NO HP</th>
+                    <th style="width: 13%;">REF/SURAT</th>
+                    <th style="width: 20%;">NAMA PENERIMA</th>
+                    <th style="width: 36%;">ALAMAT</th>
+                    <th style="width: 10%;">NO HP</th>
                     ${isPackage ? '<th style="width: 7%;">BERAT(KG)</th><th style="width: 8%;">PxLxT</th>' : ''}
                     ${useInsurance ? '<th style="width: 9%;">NILAI BRG(Rp)</th>' : ''}
                     <th class="action-column-heading" style="width: 8%; text-align:center;">AKSI</th>
@@ -1352,7 +1383,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
 
                     tr.innerHTML = `
                         <td class="row-number-cell" style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
-                        <td><input type="text" class="table-input val-senderName${reviewClass('senderName')}"${reviewAttributes('senderName')} value="${escapeAttribute(item.senderName || '')}"></td>
                         <td><input type="text" class="table-input val-noSurat${reviewClass('noSurat')}"${reviewAttributes('noSurat')} value="${escapeAttribute(item.noSurat || '')}"></td>
                         <td><input type="text" class="table-input val-name${reviewClass('name')}"${reviewAttributes('name')} value="${escapeAttribute(item.name || '')}"></td>
                         <td><input type="text" class="table-input val-address${reviewClass('address')}"${reviewAttributes('address')} value="${escapeAttribute(item.address || '')}"></td>
@@ -1363,7 +1393,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                             <span class="outside-batam-badge" ${outsidePending ? '' : 'hidden'} title="${escapeAttribute(outsideState.reason || 'AI mendeteksi alamat penerima di luar Kota Batam.')}">Alamat luar Kota Batam</span>
                             <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>No. ${counter} · Teks perlu dicek</span>
                             <div class="outside-batam-row-actions" ${outsidePending ? '' : 'hidden'}>
-                                <button class="outside-batam-keep-row" type="button" data-action="keep-outside-batam" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">AI salah deteksi</button>
+                                <button class="outside-batam-keep-row" type="button" data-action="keep-outside-batam" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">Simpan koreksi alamat</button>
                                 <button class="outside-batam-delete-row" type="button" data-action="delete-outside-batam" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">Hapus</button>
                             </div>
                             <button class="row-delete-button" type="button" aria-label="Hapus baris ${counter}" title="Hapus baris" data-action="delete-row" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">
@@ -1377,7 +1407,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             });
 
             if (counter === 0) {
-                const columnCount = 7 + (isPackage ? 2 : 0) + (useInsurance ? 1 : 0);
+                const columnCount = 6 + (isPackage ? 2 : 0) + (useInsurance ? 1 : 0);
                 tbody.innerHTML = `<tr><td colspan="${columnCount}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.</td></tr>`;
             }
         }
@@ -1388,21 +1418,25 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 alert("Tidak ada data untuk diekspor."); return;
             }
 
+            document.querySelectorAll('#resultTable tbody tr input').forEach(input => syncManagedRowFromInput(input));
+
+            const pendingOutsideCount = getPendingOutsideBatamCount();
             const unresolvedOutsideRows = Array.from(document.querySelectorAll('#resultTable tbody tr[data-outside-batam-pending="true"]'));
-            if (unresolvedOutsideRows.length > 0) {
+            if (pendingOutsideCount > 0) {
                 const numbers = unresolvedOutsideRows.map(row => row.dataset.rowNumber).filter(Boolean).slice(0, 8).join(', ');
-                alert(`Masih ada ${unresolvedOutsideRows.length} alamat penerima yang terdeteksi di luar Kota Batam${numbers ? ` pada No. ${numbers}` : ''}. Pilih “Hapus” jika benar di luar Batam, atau “AI salah deteksi — tetap lanjutkan” jika alamat sebenarnya masih Kota Batam.`);
-                unresolvedOutsideRows[0].scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                alert(`Masih ada ${pendingOutsideCount} alamat penerima yang terdeteksi di luar Kota Batam${numbers ? ` pada No. ${numbers}` : ''}. Perbaiki alamat sampai jelas menunjukkan Kota Batam lalu simpan koreksinya, atau hapus baris jika tujuan memang di luar Batam.`);
+                unresolvedOutsideRows[0]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
                 return;
             }
 
+            const pendingReviewCount = getPendingReviewCount();
             const unresolvedReviewInputs = Array.from(document.querySelectorAll('#resultTable tbody tr input[data-review-pending="true"]'));
-            if (unresolvedReviewInputs.length > 0) {
-                alert(`Masih ada ${unresolvedReviewInputs.length} bagian bertuliskan “perlu dicek”. Koreksi seluruhnya sebelum ekspor.`);
+            if (pendingReviewCount > 0) {
+                alert(`Masih ada ${pendingReviewCount} bagian bertuliskan “perlu dicek”. Setiap bagian wajib diubah, tidak boleh kosong, tidak boleh masih memuat “perlu dicek”, dan harus ditandai selesai sebelum ekspor.`);
                 const firstIssue = unresolvedReviewInputs[0];
-                firstIssue.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-                firstIssue.focus({ preventScroll: true });
-                firstIssue.select?.();
+                firstIssue?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                firstIssue?.focus({ preventScroll: true });
+                firstIssue?.select?.();
                 return;
             }
 
@@ -1475,6 +1509,12 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 }
             }
 
+            if (!String(baseSenderName || '').trim()) {
+                alert('Nama pengirim pada pengaturan awal wajib diisi sebelum ekspor.');
+                document.getElementById('senderName')?.focus();
+                return;
+            }
+
             let finalExportRows = [];
             let validationFailed = false;
 
@@ -1482,7 +1522,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 if (validationFailed) return;
                 const managedRow = findManagedRow(tr.dataset.fileId, tr.dataset.rowId)?.row || {};
 
-                let dSenderName = cleanReference(tr.querySelector('.val-senderName').value);
                 let dNoSurat = cleanReference(tr.querySelector('.val-noSurat').value);
                 
                 let dName = cleanRecipientName(tr.querySelector('.val-name').value);
@@ -1517,7 +1556,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
                 if (mode === 'KORPORAT' && template === 'PN_BATAM') {
-                    senderNameFinal = dSenderName ? dSenderName : cleanArtifacts(dNoSurat); 
+                    senderNameFinal = baseSenderName;
                     senderAddrFinal = baseSenderName;
                     senderPhoneFinal = "0";
                 } else if (mode === 'KORPORAT' && template === 'JACCS_MPM') {
@@ -1529,12 +1568,12 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     senderAddrFinal = baseSenderName.includes('BATAM') ? baseSenderName : `${baseSenderName} BATAM`;
                     senderPhoneFinal = "0";
                 } else if (mode === 'KORPORAT') {
-                    senderNameFinal = dSenderName ? dSenderName : baseSenderName;
+                    senderNameFinal = baseSenderName;
                     senderAddrFinal = baseSenderName;
                     if (!senderAddrFinal.includes("BATAM") && template !== 'POLRES') { senderAddrFinal += " BATAM"; }
                     senderPhoneFinal = "0";
                 } else if (mode === 'RITEL' || mode === 'PINDAH') {
-                    senderNameFinal = dSenderName ? dSenderName : baseSenderName;
+                    senderNameFinal = baseSenderName;
                     senderAddrFinal = baseSenderAddress;
                     senderPhoneFinal = baseSenderPhone;
                 }

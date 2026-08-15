@@ -44,7 +44,7 @@
     if (typeof window.containsReviewMarker === 'function') {
       return window.containsReviewMarker(value);
     }
-    return /\bPERLU\s+(?:DI\s*)?CEK\b/i.test(String(value ?? ''));
+    return /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(value ?? ''));
   }
 
   function getReviewInputs() {
@@ -52,7 +52,6 @@
   }
 
   const reviewFieldLabels = [
-    ['val-senderName', 'Pengirim'],
     ['val-noSurat', 'No Ref/Surat'],
     ['val-name', 'Nama Penerima'],
     ['val-address', 'Alamat'],
@@ -77,7 +76,7 @@
 
   function selectReviewMarker(input) {
     const value = String(input.value ?? '');
-    const match = /\bPERLU\s+(?:DI\s*)?CEK\b/i.exec(value);
+    const match = /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.exec(value);
     if (match && typeof input.setSelectionRange === 'function') {
       input.setSelectionRange(match.index, match.index + match[0].length);
       return;
@@ -87,7 +86,6 @@
 
   function getExpandedColumnMinimum(input) {
     if (input.classList.contains('val-address')) return 680;
-    if (input.classList.contains('val-senderName')) return 520;
     if (input.classList.contains('val-name')) return 480;
     if (input.classList.contains('val-noSurat')) return 460;
     return 380;
@@ -277,8 +275,9 @@
       const currentInfo = getOutsideBatamLocation(current);
       if (title) title.textContent = `Alamat luar Kota Batam terdeteksi pada No. ${visible}${remaining ? ` dan ${remaining} nomor lainnya` : ''}`;
       if (locationBadge) { locationBadge.textContent = currentInfo.label; locationBadge.hidden = false; }
-      if (hint) hint.textContent = `${currentInfo.label}: “${currentInfo.address || '(alamat kosong)'}”. Hapus baris jika alamat memang di luar Kota Batam. Pilih “AI salah deteksi — tetap lanjutkan” hanya jika Anda sudah memastikan alamat tersebut sebenarnya masih berada di Kota Batam.`;
+      if (hint) hint.textContent = `${currentInfo.label}: “${currentInfo.address || '(alamat kosong)'}”. Alamat wajib diperbaiki hingga jelas menunjukkan Kota Batam, lalu simpan koreksinya. Hapus baris jika tujuan memang di luar Kota Batam.`;
       if (openButton) openButton.textContent = `Buka alamat ${currentInfo.label}`;
+      if (keepButton) keepButton.textContent = 'Simpan alamat yang sudah diperbaiki';
       if (keepButton) keepButton.disabled = false;
       if (deleteButton) deleteButton.disabled = false;
     } else {
@@ -292,7 +291,7 @@
       window.setTimeout(() => {
         if (!getCurrentOutsideBatamRow()) return;
         document.getElementById('outsideBatamAlert')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        showToast('Alamat penerima di luar Kota Batam terdeteksi. Tentukan apakah baris dihapus atau AI salah mendeteksi.', 'error');
+        showToast('Alamat luar Kota Batam terdeteksi. Perbaiki alamat sampai valid untuk Batam atau hapus barisnya.', 'error');
       }, 120);
     } else if (count === 0 && lastOutsideBatamCount > 0) {
       showToast('Semua keputusan alamat luar Kota Batam sudah diselesaikan.', 'success');
@@ -318,7 +317,7 @@
         }
         const markerStillPresent = typeof window.containsReviewMarker === 'function'
           ? window.containsReviewMarker(input.value)
-          : /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(String(input.value ?? ''));
+          : /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(input.value ?? ''));
         if (markerStillPresent) input.dataset.reviewPending = 'true';
 
         const needsReview = input.dataset.reviewPending === 'true';
@@ -411,7 +410,7 @@
     const changed = currentValue !== '' && currentValue !== originalValue;
     const markerStillPresent = typeof window.containsReviewMarker === 'function'
       ? window.containsReviewMarker(currentValue)
-      : /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(currentValue);
+      : /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(currentValue);
     const canConfirm = changed && !markerStillPresent;
     active.dataset.reviewDirty = String(changed);
     active.classList.toggle('is-review-dirty', changed);
@@ -523,7 +522,7 @@
     }
     const markerStillPresent = typeof window.containsReviewMarker === 'function'
       ? window.containsReviewMarker(currentValue)
-      : /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(currentValue);
+      : /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(currentValue);
     if (markerStillPresent) {
       showToast('Koreksi belum selesai. Ganti atau hapus seluruh frasa “perlu dicek”, lalu klik centang.', 'error');
       input.focus();
@@ -592,7 +591,7 @@
     if (exportButton) {
       exportButton.disabled = rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0;
       exportButton.title = outsideBatamCount > 0
-        ? 'Selesaikan semua keputusan alamat luar Kota Batam sebelum ekspor.'
+        ? 'Perbaiki atau hapus semua alamat luar Kota Batam sebelum ekspor.'
         : reviewRowCount > 0
           ? 'Koreksi semua teks “perlu dicek” sebelum ekspor.'
           : '';

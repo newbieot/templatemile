@@ -24,8 +24,8 @@
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260816-16.14">
-  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260816-16.14">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260816-16.15">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260816-16.15">
 </head>
 <body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
@@ -192,7 +192,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.14</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.15</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -313,7 +313,7 @@
           <div class="preview-toolbar">
             <div class="preview-title">
               <span class="section-index">05</span>
-              <div><h2>Periksa hasil</h2><p>Nama dan alamat berdampingan agar koreksi lebih cepat.</p></div>
+              <div><h2>Periksa hasil</h2><p>No Ref/Surat tetap dapat diedit; nama dan alamat berdampingan agar koreksi lebih cepat.</p></div>
             </div>
             <div class="preview-actions">
               <button id="clearDataButton" class="button button--ghost" type="button" disabled>
@@ -353,11 +353,11 @@
             <div class="outside-batam-alert-copy">
               <span class="outside-batam-required-label">Keputusan alamat wajib</span><span class="outside-batam-location-badge" id="outsideBatamLocationBadge" hidden></span>
               <strong id="outsideBatamAlertTitle">Alamat penerima di luar Kota Batam terdeteksi</strong>
-              <p id="outsideBatamActionHint">Untuk setiap alamat yang ditandai, pilih salah satu: hapus baris jika alamat memang di luar Kota Batam, atau pilih “AI salah deteksi — tetap lanjutkan” jika alamat sebenarnya masih berada di Kota Batam.</p>
+              <p id="outsideBatamActionHint">Setiap alamat yang ditandai wajib diperbaiki hingga jelas menunjukkan Kota Batam, lalu simpan koreksinya. Hapus baris jika tujuan memang di luar Kota Batam.</p>
             </div>
             <div class="outside-batam-alert-actions">
               <button class="button button--outside-open" id="openOutsideBatamButton" type="button">Buka alamat</button>
-              <button class="button button--outside-keep" id="keepOutsideBatamButton" type="button">AI salah deteksi — tetap lanjutkan</button>
+              <button class="button button--outside-keep" id="keepOutsideBatamButton" type="button">Simpan alamat yang sudah diperbaiki</button>
               <button class="button button--outside-delete" id="deleteOutsideBatamButton" type="button">Hapus baris</button>
             </div>
           </div>
@@ -378,7 +378,7 @@
           </div>
 
           <div class="table-help">
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk mengoreksi data. Kode pos dihitung otomatis dengan algoritma dua tingkat. Berat dan dimensi hanya ditampilkan untuk Paket.</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk mengoreksi data. Pengirim otomatis mengikuti pengaturan awal. Kode pos dihitung otomatis dengan algoritma dua tingkat. Berat dan dimensi hanya ditampilkan untuk Paket.</span>
           </div>
 
           <div class="table-container" role="region" aria-label="Editable recipient data" tabindex="0">
@@ -439,7 +439,6 @@
         <div class="form-group"><label for="mapName">Nama penerima <em>Wajib</em></label><div class="select-shell"><select id="mapName"></select></div></div>
         <div class="form-group"><label for="mapAddress">Alamat penerima <em>Wajib</em></label><div class="select-shell"><select id="mapAddress"></select></div></div>
         <div class="form-group"><label for="mapPhone">Nomor HP <span>Opsional</span></label><div class="select-shell"><select id="mapPhone"></select></div></div>
-        <div class="form-group"><label for="mapSenderName">Nama pengirim pengganti <span>Opsional</span></label><div class="select-shell"><select id="mapSenderName"></select></div></div>
         <div class="form-group full-width"><label for="mapRef">Referensi / surat / deskripsi <span>Opsional</span></label><div class="split-field"><div class="select-shell"><select id="mapRef"></select></div><input id="customRef" type="text" placeholder="Atau isi satu nilai untuk semua baris"></div></div>
       </div>
       <div class="optional-mapping">
@@ -476,12 +475,12 @@
   </footer>
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
-  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260816-16.14" defer></script>
-  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260816-16.14" defer></script>
-  <script src="/assets/js/app-core.js?v=20260816-16.14" defer></script>
-  <script src="/assets/js/ai-pdf-v16-14.js?v=20260816-16.14" defer></script>
-  <script src="/assets/js/ui.js?v=20260816-16.14" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260816-16.14" defer></script>
-  <script src="/assets/js/session-v16.js?v=20260816-16.14" defer></script>
+  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260816-16.15" defer></script>
+  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260816-16.15" defer></script>
+  <script src="/assets/js/app-core.js?v=20260816-16.15" defer></script>
+  <script src="/assets/js/ai-pdf-v16-15.js?v=20260816-16.15" defer></script>
+  <script src="/assets/js/ui.js?v=20260816-16.15" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260816-16.15" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260816-16.15" defer></script>
 </body>
 </html>

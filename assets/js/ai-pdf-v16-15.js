@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.14 — Scan-First Two-Tier */
+/* mile.posnew.com AI PDF runtime v16.15 — Forced Review Scan-First */
 (() => {
   'use strict';
 
@@ -28,7 +28,7 @@
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-v16-14';
+  const STORAGE_KEY = 'mile-ai-config-v16-15';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -155,7 +155,7 @@
     if ($('aiModel')) $('aiModel').value = 'gemini-3.7-flash';
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -1243,7 +1243,7 @@ Aturan audit:
   }
 
   function containsReviewMarker(value) {
-    return /\bPERLU\s*(?:DI\s*)?CEK\b/i.test(String(value || ''));
+    return /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(value || ''));
   }
 
   function normalizeRawLines(value) {
@@ -1482,7 +1482,7 @@ Aturan audit:
       const printedZip = extractPrintedZip(address);
       const zip = printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411');
       const row = {
-        senderName: '', noSurat, name, phone: phone || '0', zip, address,
+        noSurat, name, phone: phone || '0', zip, address,
         act: 0.2, p: 10, l: 10, t: 10, cw: '0.20',
         outsideBatam, outsideBatamReason: outsideAssessment.reason,
         sourcePage: page, aiConfidence, aiReviewFields,
@@ -1654,7 +1654,7 @@ Aturan audit:
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260816-16.14';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260816-16.15';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
