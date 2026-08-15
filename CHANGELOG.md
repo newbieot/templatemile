@@ -1,5 +1,12 @@
 # Changelog
 
+## v16.11 — Gemini 3.7 Flash dan identitas cache baru
+
+- Menambahkan `gemini-3.7-flash` pada allowlist browser dan Cloudflare Worker.
+- Menjadikan Gemini 3.7 Flash sebagai model default untuk pemrosesan PDF.
+- Mempertahankan Gemini 3.6 Flash sebagai pilihan fallback.
+- Mengganti bundle AI menjadi `ai-pdf-v16-11.js`, serta mengganti versi aplikasi dan seluruh URL aset menjadi `20260815-16.11` agar browser dan Cloudflare mengambil berkas rilis baru setelah deployment.
+
 ## v16.10 — Template FINBSN dan cache deployment
 
 - Mengganti template `INDTEMPO01294A` menjadi `FINBSN01294A` untuk Bank Syariah Nasional KC Batam.

@@ -1,3 +1,4 @@
+/* mile.posnew.com AI PDF runtime v16.11 */
 (() => {
   'use strict';
 
@@ -25,7 +26,7 @@
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
-    'gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro'
+    'gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro'
   ]);
   const activeControllers = new Set();
   let cancelled = false;
@@ -56,7 +57,7 @@
 
   function getConfig() {
     const protocol = 'openai';
-    const model = String($('aiModel')?.value || 'gemini-3.6-flash').trim();
+    const model = String($('aiModel')?.value || 'gemini-3.7-flash').trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
     const requestedPagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
@@ -142,9 +143,9 @@
   }
 
   function loadNonSecretConfig() {
-    // Model selalu kembali ke default Gemini 3.6 Flash saat halaman dimuat.
+    // Model selalu kembali ke default Gemini 3.7 Flash saat halaman dimuat.
     // Pengguna tetap dapat mengganti model selama sesi berjalan.
-    if ($('aiModel')) $('aiModel').value = 'gemini-3.6-flash';
+    if ($('aiModel')) $('aiModel').value = 'gemini-3.7-flash';
     try {
       // Hapus konfigurasi model versi lama agar Claude Opus tidak terbawa.
       ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6'].forEach(key => sessionStorage.removeItem(key));
@@ -181,7 +182,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: '15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default untuk Gemini 3.6 Flash.',
+      fast: '15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default untuk Gemini 3.7 Flash.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -1519,7 +1520,7 @@ Aturan audit:
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260813-16.10';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260815-16.11';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
