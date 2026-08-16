@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.17
+# mile.posnew.com Secure Gateway v16.18
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -92,7 +92,7 @@ Di Firebase Console:
 
 ## Statistik pemrosesan AI dan Google Sheets
 
-Versi v16.17 menampilkan progres rinci dan stopwatch selama PDF diproses, lalu menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
+Versi v16.18 menampilkan progres rinci dan stopwatch selama PDF diproses, lalu menyimpan satu baris statistik untuk setiap PDF melalui endpoint terlindungi `/api/metrics/ai`.
 
 Data yang dicatat: waktu server, email pengguna dari session, versi aplikasi, status, jumlah file, jumlah halaman, model AI, ukuran chunk, concurrency, durasi detik, jumlah data, detik per data, jumlah data perlu dicek, jumlah alamat luar Kota Batam, dan kategori error. Nama penerima, alamat, nomor telepon, serta isi PDF tidak dikirim ke Google Sheets.
 
@@ -157,7 +157,7 @@ Uji melalui Incognito:
 
 ## Cloudflare Access
 
-Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.17 dan AI dipastikan berfungsi:
+Pertahankan Cloudflare Access selama pengujian awal. Setelah login v16.18 dan AI dipastikan berfungsi:
 
 1. Zero Trust → Access controls → Applications → mile.posnew.com.
 2. Tambahkan policy `Bypass`.
@@ -183,7 +183,7 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/ai-pdf-v16-18.js` — alur PDF AI scan-first dengan default Gemini 3.7 Flash, profil 15 halaman × 5 jalur, dan audit selektif.
 
 
-## Pembaruan v16.17
+## Pembaruan v16.18
 
 - Seluruh **nilai data** string dibersihkan lagi tepat sebelum Excel dibuat. Karakter yang diperbolehkan hanya huruf, angka, spasi, serta `. / - ( )`.
 - Karakter lain seperti koma, garis bawah, titik dua, ampersand, tanda kutip, simbol formula, dan emoji diubah menjadi spasi lalu spasi berlebih dirapikan.

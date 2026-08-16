@@ -4,7 +4,7 @@ set "SOURCE=%~dp0"
 set "TARGET=%USERPROFILE%\Documents\GitHub\templatemile"
 
 echo =====================================================
-echo  mile.posnew.com Secure Gateway v16.17 - Installer
+echo  mile.posnew.com Secure Gateway v16.18 - Installer
 ECHO =====================================================
 echo Sumber : %SOURCE%
 echo Target : %TARGET%
@@ -47,6 +47,6 @@ if errorlevel 1 (
 )
 
 echo.
-echo [BERHASIL] Secure Gateway v16.17 sudah dipasang ke repository lokal.
+echo [BERHASIL] Secure Gateway v16.18 sudah dipasang ke repository lokal.
 echo Berikutnya buka GitHub Desktop, periksa perubahan, Commit to main, lalu Push origin.
 pause
