@@ -836,10 +836,28 @@
             return sanitizeExcelText(str).toUpperCase();
         }
 
-        function cleanRecipientName(text) {
-            return cleanArtifacts(text)
-                .replace(/^\s*(?:KEPADA\s+(?:YANG\s+TERHORMAT|YTH)|YTH|ATTN)\.?\s*[:,.\-]?\s*/i, '')
+        function isRecipientMachineCode(token) {
+            const compact = String(token || '')
+                .normalize('NFKC')
+                .replace(/^[([{]+|[)\]},.;:]+$/g, '')
+                .replace(/[\s/_.-]+/g, '');
+            if (compact.length < 8) return false;
+            return /\p{L}/u.test(compact) && /\d/u.test(compact) && (compact.match(/\d/g) || []).length >= 3;
+        }
+
+        function stripRecipientMachineCodes(text) {
+            return String(text || '')
+                .split(/\s+/)
+                .filter(token => token && !isRecipientMachineCode(token))
+                .join(' ')
+                .replace(/\s+/g, ' ')
                 .trim();
+        }
+
+        function cleanRecipientName(text) {
+            return stripRecipientMachineCodes(cleanArtifacts(text)
+                .replace(/^\s*(?:KEPADA\s+(?:YANG\s+TERHORMAT|YTH)|YTH|ATTN)\.?\s*[:,.\-]?\s*/i, '')
+                .trim());
         }
 
         function cleanAddressArtifacts(text) {
