@@ -169,3 +169,10 @@
 - Mengimplementasikan `response_format: { type: "json_object" }` di API body untuk memastikan model ringan seperti Gemini 3.7 Flash mengembalikan format JSON yang valid.
 - Menekan token output AI dengan membuang whitespace dan markdown tak relevan dari *system instruction*.
 - Bundle AI memakai nama baru `ai-pdf-v16-18.js` dan identitas versi Cloudflare dinaikkan ke `20260819-16.18`.
+
+## Update v16.18.1
+- Mengubah prompt AI pada `ai-pdf-v16-18.js` agar AI lebih agresif menangkap kode referensi/resi/surat ke dalam kolom `nomor_surat`.
+- Memperketat filter instruksi AI untuk membuang kombinasi angka dan huruf panjang secara acak yang sebelumnya salah terdeteksi sebagai nama penerima.
+
+## Update v16.18.2
+- Mengupdate instruksi pada AI agar proaktif menangkap `PERIHAL SURAT` (subject) di dalam kolom `nomor_surat` (tidak hanya berupa angka/nomor).

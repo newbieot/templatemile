@@ -795,13 +795,12 @@ Kembalikan HANYA JSON valid tanpa markdown, tanpa penjelasan, dan TANPA whitespa
 
 Aturan:
 1. Urutan sesuai urutan halaman dokumen (halaman ${startPage} - ${endPage}).
-2. Hapus salam seperti "KEPADA YTH", "ATTN" dari nama.
-3. Jangan campur alamat ke nama. JL, RUKO, BLOK, PERUM, dll masuk ke alamat.
-4. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
-5. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
-6. nomor_surat: Hanya diisi bila nomor surat/referensi benar-benar tercetak.
-7. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
-8. perlu_dicek_fields: array string berisi nama kolom ("nama_penerima", "alamat_penerima", dll) jika Anda meragukan hasil bacaan.
+2. nama_penerima: Hapus "KEPADA YTH", "ATTN". HAPUS kombinasi angka/huruf panjang acak (seperti resi mesin) dari nama. Nama biasanya hanya terdiri dari huruf. Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
+3. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
+4. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
+5. nomor_surat: TANGKAP AKTIF Nomor Surat, Referensi, ID Pesanan, Resi, atau bahkan PERIHAL SURAT (subject). Ini tidak harus berupa angka, jika ada teks perihal surat atau kode referensi, masukkan ke sini, jangan dikosongkan.
+6. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
+7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.
 
 Format Wajib:
 {"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
@@ -821,7 +820,8 @@ Kembalikan HANYA JSON perbaikan tanpa markdown dan whitespace berlebih:
 {"rows":[{"page":${pages[0] || startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 
 Aturan:
-- Hapus KEPADA YTH dari nama, jangan campur alamat ke nama.
+- nama_penerima: Hapus KEPADA YTH. Pastikan BERSIH dari kombinasi angka/huruf acak panjang (resi). Jangan campur alamat.
+- nomor_surat: EKSTRAK semua kode referensi, surat, pesanan, ATAU PERIHAL SURAT (subject). Tidak harus angka, jangan kosongkan jika ada hal/perihal/referensi.
 - Abaikan CABANG BATAM, kode mandiri 5-8 digit.
 - di_luar_batam: true bila jelas bukan Kota Batam / 294xx.
 - Gunakan PERLU DICEK bila tak pasti dan tambahkan ke perlu_dicek_fields.
