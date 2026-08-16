@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.16 — REF/SURAT sebagai pengirim PN Batam
+
+- Menjadikan REF/SURAT setiap baris sebagai `origin_data_customer_name` khusus template Pengadilan Negeri Batam.
+- Membatalkan ekspor PN Batam apabila ada REF/SURAT kosong.
+- Mempertahankan sumber pengirim dari template/pengaturan awal untuk semua template lainnya.
+- Mempertahankan tabel tanpa kolom Pengirim serta seluruh guard koreksi wajib v16.15.
+- Mengganti bundle AI menjadi `ai-pdf-v16-16.js` dan identitas aset menjadi `20260816-16.16` untuk memutus cache lama.
+
 ## v16.15 — Koreksi wajib dan pengirim dari pengaturan awal
 
 - Menghapus Pengirim dari tabel Periksa hasil dan selalu memakai nilai pengirim dari template atau pengaturan awal saat ekspor.

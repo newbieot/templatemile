@@ -1556,7 +1556,12 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
                 if (mode === 'KORPORAT' && template === 'PN_BATAM') {
-                    senderNameFinal = baseSenderName;
+                    if (!dNoSurat) {
+                        alert(`No Ref/Surat pada Baris ke-${index + 1} wajib diisi karena menjadi Nama Pengirim untuk Pengadilan Negeri Batam.`);
+                        validationFailed = true;
+                        return;
+                    }
+                    senderNameFinal = dNoSurat;
                     senderAddrFinal = baseSenderName;
                     senderPhoneFinal = "0";
                 } else if (mode === 'KORPORAT' && template === 'JACCS_MPM') {
