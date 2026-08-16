@@ -136,7 +136,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260816-16.17",
+  "version": "20260819-16.18",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,
@@ -180,7 +180,7 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/login-v16.js` — form login tanpa Firebase key.
 - `assets/js/session-v16.js` — status akun dan logout.
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
-- `assets/js/ai-pdf-v16-17.js` — alur PDF AI scan-first dengan default Gemini 3.7 Flash, profil 15 halaman × 5 jalur, dan audit selektif.
+- `assets/js/ai-pdf-v16-18.js` — alur PDF AI scan-first dengan default Gemini 3.7 Flash, profil 15 halaman × 5 jalur, dan audit selektif.
 
 
 ## Pembaruan v16.17
@@ -190,12 +190,12 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - Setelah konversi ke worksheet, setiap sel data diperiksa ulang. Ekspor dibatalkan bila ada karakter terlarang yang lolos.
 - Header template Mile App tetap memakai nama schema aslinya (termasuk underscore) agar file tetap dapat diimpor; aturan karakter ketat berlaku pada isi/nilai sel data.
 - Perlindungan identik diterapkan pada aplikasi utama dan halaman beta.
-- Bundle AI memakai nama baru `ai-pdf-v16-17.js`; seluruh URL aset memakai identitas `20260816-16.17` agar browser dan Cloudflare mengambil rilis baru.
+- Bundle AI memakai nama baru `ai-pdf-v16-18.js`; seluruh URL aset memakai identitas `20260819-16.18` agar browser dan Cloudflare mengambil rilis baru.
 
 ### Mencegah versi lama setelah push GitHub
 
 1. Jalankan `CHECK-VERSION.bat`, lalu commit dan push seluruh file yang berubah bersama-sama.
-2. Tunggu deployment Cloudflare Pages berstatus **Success**, kemudian buka `/api/health` dan pastikan versi `20260816-16.17`.
+2. Tunggu deployment Cloudflare Pages berstatus **Success**, kemudian buka `/api/health` dan pastikan versi `20260819-16.18`.
 3. Pastikan Cache Rule Cloudflare tidak mengabaikan query string untuk `/assets/*`; bundle AI memakai path baru agar tidak tertukar dengan rilis sebelumnya.
 4. Bila domain masih menyajikan HTML dari aturan cache lama, lakukan **Caching → Configuration → Purge Everything** satu kali setelah deployment.
 
