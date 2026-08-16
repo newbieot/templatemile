@@ -2,7 +2,10 @@
 
 ## v16.19 — Perihal surat dan pembersihan nama penerima
 
-- Memprioritaskan isi setelah label `PERIHAL`, `HAL`, atau `SUBJECT` sebagai nilai `REF/SURAT`; labelnya tidak ikut disimpan.
+- Memprioritaskan nomor surat resmi setelah label `NOMOR`, `NOMOR SURAT`, `NO. SURAT`, atau `REF` sebagai nilai `REF/SURAT`.
+- Menormalkan spasi OCR pada nomor resmi, misalnya `3166 /PAN.01.W32-U2/HK2. 4/VII/2026` menjadi `3166/PAN.01.W32-U2/HK2.4/VII/2026`.
+- Mempertahankan nomor resmi terstruktur ketika zoom audit AI hanya melihat jenis/perihal surat dan tidak lagi melihat kepala surat.
+- Memakai isi setelah label `PERIHAL`, `HAL`, atau `SUBJECT` sebagai fallback bila nomor surat resmi tidak tersedia; labelnya tidak ikut disimpan.
 - Menambahkan contoh eksplisit agar `Surat Pemberitahuan (SP1)` serta `Penagihan dan Peringatan Terakhir` dapat masuk ke kolom `REF/SURAT`.
 - Menghapus token kode/resi panjang campuran huruf-angka dari nama penerima melalui prompt AI dan pengaman lokal sebelum data masuk tabel maupun Excel.
 - Menjamin `FAHRUDIN 0028C20250400784` disimpan sebagai `FAHRUDIN`.

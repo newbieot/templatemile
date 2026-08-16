@@ -90,7 +90,15 @@ assert.equal(normalizeOne({
   alamat_penerima: 'JL MERDEKA BATAM 29444',
   nomor_surat: '123/ABC',
   perihal: 'Penagihan dan Peringatan Terakhir'
-}).noSurat, 'PENAGIHAN DAN PERINGATAN TERAKHIR');
+}).noSurat, '123/ABC');
+
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'PT BATAM INDAH PERTIWI',
+  alamat_penerima: 'KOMPLEK RUKO DC MALL NOMOR 12.A SEI JODOH KOTA BATAM 29432',
+  nomor_surat: 'Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026',
+  perihal: 'Panggilan Sidang'
+}).noSurat, '3166/PAN.01.W32-U2/HK2.4/VII/2026');
 
 assert.equal(normalizeOne({
   page: 1,
@@ -113,6 +121,17 @@ assert.equal(normalizeOne({
   raw_lines: ['Perihal:', 'Penagihan dan Peringatan Terakhir']
 }).noSurat, 'PENAGIHAN DAN PERINGATAN TERAKHIR');
 
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'PT BATAM INDAH PERTIWI',
+  alamat_penerima: 'KOMPLEK RUKO DC MALL NOMOR 12.A SEI JODOH KOTA BATAM 29432',
+  raw_lines: [
+    'Nomor : 3166 /PAN.01.W32-U2/HK2. 4/VII/2026',
+    'Jenis Surat',
+    'No. 261/Pdt.G/2026/PN Btm'
+  ]
+}).noSurat, '3166/PAN.01.W32-U2/HK2.4/VII/2026');
+
 const originalRow = normalizeOne({
   page: 1,
   nama_penerima: 'FAHRUDIN',
@@ -130,9 +149,27 @@ assert.equal(
   'SURAT PEMBERITAHUAN (SP1)'
 );
 
+const officialNumberRow = normalizeOne({
+  page: 1,
+  nama_penerima: 'PT BATAM INDAH PERTIWI',
+  alamat_penerima: 'KOMPLEK RUKO DC MALL NOMOR 12.A SEI JODOH KOTA BATAM 29432',
+  nomor_surat: '3166/PAN.01.W32-U2/HK2.4/VII/2026'
+});
+const verifiedWithDocumentType = normalizeOne({
+  page: 1,
+  nama_penerima: 'PT BATAM INDAH PERTIWI',
+  alamat_penerima: 'KOMPLEK RUKO DC MALL NOMOR 12.A SEI JODOH KOTA BATAM 29432',
+  nomor_surat: 'Panggilan Sidang'
+});
+assert.equal(
+  ai.mergeVerifiedRows([officialNumberRow], [verifiedWithDocumentType], [1])[0].noSurat,
+  '3166/PAN.01.W32-U2/HK2.4/VII/2026'
+);
+
 const prompt = ai.buildPrompt(1, 1);
 assert.match(prompt, /FAHRUDIN 0028C20250400784/);
 assert.match(prompt, /Perihal: Surat Pemberitahuan \(SP1\)/);
 assert.match(prompt, /Penagihan dan Peringatan Terakhir/);
+assert.match(prompt, /3166\/PAN\.01\.W32-U2\/HK2\.4\/VII\/2026/);
 
-console.log('PASS ai-pdf-v16-19: perihal dan pembersihan nama penerima');
+console.log('PASS ai-pdf-v16-19: nomor resmi, perihal, dan pembersihan nama penerima');

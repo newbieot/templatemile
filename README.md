@@ -185,8 +185,9 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 
 ## Pembaruan v16.19
 
-- Isi setelah label **PERIHAL**, **HAL**, atau **SUBJECT** diprioritaskan untuk kolom **REF/SURAT**. Kata label tidak ikut disimpan.
-- Bila perihal tidak ditemukan, AI tetap memakai Nomor Surat, Referensi, ID Pesanan, atau Resi sebagai fallback.
+- Nomor surat resmi setelah label **NOMOR**, **NOMOR SURAT**, **NO. SURAT**, atau **REF** diprioritaskan untuk kolom **REF/SURAT**.
+- Spasi OCR di sekitar titik, garis miring, dan tanda hubung pada nomor resmi dirapikan. Contoh `3166 /PAN.01.W32-U2/HK2. 4/VII/2026` menjadi `3166/PAN.01.W32-U2/HK2.4/VII/2026`.
+- Bila nomor resmi tidak ditemukan, AI memakai isi setelah label **PERIHAL**, **HAL**, atau **SUBJECT** tanpa menyimpan kata labelnya.
 - Token kode/resi panjang yang mencampur angka dan huruf dihapus dari Nama Penerima oleh AI dan diperiksa ulang secara lokal. Contoh: `FAHRUDIN 0028C20250400784` menjadi `FAHRUDIN`.
 - Bundle AI memakai path baru `ai-pdf-v16-19.js`; seluruh URL aset memakai identitas `20260819-16.19` agar Cloudflare dan browser tidak memakai cache rilis lama.
 

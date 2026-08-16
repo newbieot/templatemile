@@ -798,7 +798,7 @@ Aturan:
 2. nama_penerima: Hapus "KEPADA YTH", "ATTN", dan SETIAP kode/resi panjang yang mencampur huruf dengan angka. Contoh wajib: "FAHRUDIN 0028C20250400784" menjadi "FAHRUDIN". Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
 3. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
 4. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
-5. nomor_surat: Cari label PERIHAL, HAL, atau SUBJECT terlebih dahulu. Jika ada, isi kolom ini dengan TEKS SETELAH LABEL dan dahulukan dari nomor/ref lain. Contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)"; "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Jangan ikutkan kata label. Hanya jika perihal tidak ada, gunakan Nomor Surat, Referensi, ID Pesanan, atau Resi. Nilai boleh berupa teks dan tidak boleh dikosongkan bila salah satu data tersebut tercetak.
+5. nomor_surat: PRIORITAS PERTAMA adalah nomor surat resmi setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh pada kepala surat "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara di bagian Jenis Surat bila nomor kepala surat tersedia. Jika nomor surat resmi tidak ada, gunakan isi setelah label PERIHAL/HAL/SUBJECT tanpa kata label; contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)" dan "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Setelah itu barulah gunakan ID Pesanan atau Resi. Nilai boleh berupa teks.
 6. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
 7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.
 
@@ -821,7 +821,7 @@ Kembalikan HANYA JSON perbaikan tanpa markdown dan whitespace berlebih:
 
 Aturan:
 - nama_penerima: Hapus KEPADA YTH dan setiap kode/resi panjang campuran huruf-angka. Contoh "FAHRUDIN 0028C20250400784" wajib menjadi "FAHRUDIN". Jangan campur alamat.
-- nomor_surat: PRIORITASKAN isi setelah label PERIHAL/HAL/SUBJECT dan jangan ikutkan labelnya. Contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)". Jika perihal tidak ada, barulah gunakan nomor surat/referensi/pesanan/resi.
+- nomor_surat: PRIORITASKAN nomor surat resmi pada kepala surat setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara pada Jenis Surat bila nomor kepala surat ada. PERIHAL/HAL/SUBJECT hanya menjadi fallback jika nomor resmi tidak ada.
 - Abaikan CABANG BATAM, kode mandiri 5-8 digit.
 - di_luar_batam: true bila jelas bukan Kota Batam / 294xx.
 - Gunakan PERLU DICEK bila tak pasti dan tambahkan ke perlu_dicek_fields.
@@ -1207,6 +1207,31 @@ ${clipped}`
       .trim();
   }
 
+  function stripOfficialReferenceLabel(value) {
+    return String(value ?? '')
+      .replace(/^\s*(?:(?:NOMOR|NO\.?)\s*(?:SURAT)?|REF(?:ERENSI)?|REFERENCE)(?![A-Z0-9])\s*[:#-]?\s*/i, '')
+      .trim();
+  }
+
+  function compactOfficialReference(value) {
+    const raw = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (!isStructuredOfficialReference(raw)) return raw;
+    return raw
+      .replace(/\s*([/.])\s*/g, '$1')
+      .replace(/\s*-\s*/g, '-')
+      .trim();
+  }
+
+  function isStructuredOfficialReference(value) {
+    const raw = stripOfficialReferenceLabel(value);
+    const separatorCount = (raw.match(/[/.]/g) || []).length;
+    return /^\d+\s*[/.]/.test(raw) || (/\d/.test(raw) && separatorCount >= 2);
+  }
+
+  function normalizeOfficialReference(value) {
+    return normalizeAIText(compactOfficialReference(stripOfficialReferenceLabel(value)), 'reference');
+  }
+
   function normalizeAIText(value, kind = 'text') {
     let raw = stripCommonArtifacts(value, kind);
     if (!raw) return '';
@@ -1288,11 +1313,16 @@ ${clipped}`
   }
 
   function isReferenceLine(line) {
-    return /^(?:(?:PERIHAL(?:\s+SURAT)?|HAL|SUBJECT)|(?:NO\.?\s*)?(?:SURAT|REF(?:ERENSI)?|REFERENCE|NOMOR\s+SURAT))\b/i.test(String(line || '').trim());
+    return /^(?:(?:NOMOR|NO\.?)\s*(?:SURAT)?|REF(?:ERENSI)?|REFERENCE|PERIHAL(?:\s+SURAT)?|HAL|SUBJECT)\b/i.test(String(line || '').trim());
   }
 
   function extractReferenceFromLines(lines) {
     const normalizedLines = normalizeRawLines(lines);
+    for (const line of normalizedLines) {
+      if (!/^(?:NOMOR(?:\s+SURAT)?|NO\.?\s+SURAT|REF(?:ERENSI)?|REFERENCE)(?![A-Z0-9])/i.test(line)) continue;
+      const normalized = normalizeOfficialReference(line);
+      if (normalized) return normalized;
+    }
     for (let index = 0; index < normalizedLines.length; index++) {
       const line = normalizedLines[index];
       if (!/^(?:PERIHAL(?:\s+SURAT)?|HAL|SUBJECT)\b/i.test(line)) continue;
@@ -1304,12 +1334,6 @@ ${clipped}`
           : ''
       );
       const normalized = normalizeAIText(candidate, 'reference');
-      if (normalized) return normalized;
-    }
-    for (const line of normalizedLines) {
-      if (!isReferenceLine(line)) continue;
-      const candidate = line.replace(/^(?:NO\.?\s*)?(?:SURAT|REF(?:ERENSI)?|REFERENCE|NOMOR\s+SURAT)\s*[:#.-]?\s*/i, '').trim();
-      const normalized = normalizeBniReference(candidate);
       if (normalized) return normalized;
     }
     return '';
@@ -1482,9 +1506,12 @@ ${clipped}`
       let address = normalizeAIText(pick(item, ['alamat_penerima', 'alamat', 'address', 'destination_address']), 'address');
       const rawLines = normalizeRawLines(pick(item, ['raw_lines', 'baris_mentah', 'lines', 'transcription'], []));
       const subject = pick(item, ['perihal_surat', 'perihal', 'hal', 'subject'], '');
-      const directReference = pick(item, ['nomor_surat', 'no_surat', 'surat', 'ref', 'reference'], '');
-      let noSurat = normalizeAIText(subject, 'reference') ||
-        normalizeAIText(directReference, 'reference') ||
+      const directReferenceValues = ['nomor_resmi', 'nomor_surat_resmi', 'nomor', 'nomor_surat', 'no_surat', 'surat', 'ref', 'reference']
+        .map(key => item?.[key])
+        .filter(value => value !== undefined && value !== null && String(value).trim());
+      const directReference = directReferenceValues.find(isStructuredOfficialReference) || directReferenceValues[0] || '';
+      let noSurat = normalizeOfficialReference(directReference) ||
+        normalizeAIText(subject, 'reference') ||
         extractReferenceFromLines(rawLines);
       let phone = normalizeAIPhone(pick(item, ['nomor_hp', 'no_hp', 'phone', 'telepon', 'telp', 'whatsapp', 'wa']), rawLines);
 
@@ -1586,7 +1613,9 @@ ${clipped}`
       if (!audited.has(page)) return;
       const list = verifiedByPage.get(page) || [];
       const original = originalByPage.get(page);
-      list.push(!row.noSurat && original?.noSurat ? { ...row, noSurat: original.noSurat } : row);
+      const preserveOfficialReference = original?.noSurat && isStructuredOfficialReference(original.noSurat) && !isStructuredOfficialReference(row.noSurat);
+      const preserveMissingReference = !row.noSurat && original?.noSurat;
+      list.push(preserveOfficialReference || preserveMissingReference ? { ...row, noSurat: original.noSurat } : row);
       verifiedByPage.set(page, list);
     });
 
@@ -2050,7 +2079,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);
