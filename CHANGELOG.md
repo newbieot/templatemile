@@ -6,7 +6,7 @@
 - Menghapus koma, garis bawah, tanda kutip, ampersand, simbol formula, emoji, dan karakter khusus lain dari data hasil ekspor.
 - Memeriksa ulang setiap sel data setelah worksheet dibentuk dan membatalkan ekspor bila karakter terlarang masih ditemukan.
 - Menerapkan perlindungan yang sama pada aplikasi utama dan halaman beta; header baku Mile App tetap dipertahankan.
-- Mengganti bundle AI menjadi `ai-pdf-v16-17.js` dan identitas aset menjadi `20260816-16.17` untuk memutus cache lama.
+- Mengganti bundle AI menjadi `ai-pdf-v16-18.js` dan identitas aset menjadi `20260816-16.17` untuk memutus cache lama.
 
 ## v16.16 — REF/SURAT sebagai pengirim PN Batam
 
@@ -163,3 +163,9 @@
 - Menghapus seluruh Firebase API key dari repository.
 - Menambahkan CSP, anti-frame, no-store, origin check, dan pesan error generik.
 - Mempertahankan default Gemini 3.6 Flash serta fungsi PDF v15.
+
+## v16.18 — Optimasi Prompt dan Efisiensi Token Gemini 3.7 Flash
+- Merapikan dan memadatkan instruksi di `buildPrompt` dan `buildVerificationPrompt` agar lebih langsung pada tujuan.
+- Mengimplementasikan `response_format: { type: "json_object" }` di API body untuk memastikan model ringan seperti Gemini 3.7 Flash mengembalikan format JSON yang valid.
+- Menekan token output AI dengan membuang whitespace dan markdown tak relevan dari *system instruction*.
+- Bundle AI memakai nama baru `ai-pdf-v16-18.js` dan identitas versi Cloudflare dinaikkan ke `20260819-16.18`.
