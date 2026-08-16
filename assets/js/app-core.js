@@ -247,6 +247,9 @@
             splitRecipientAndAddress,
             cleanReference,
             cleanPhoneNumber,
+            sanitizeExcelText,
+            sanitizeExcelRowValues,
+            hasForbiddenExcelCharacters,
             updateInterface: () => updateInterface(),
             processNextInQueue: () => processNextInQueue(),
             showWeightModal: () => showWeightModal()
@@ -801,10 +804,36 @@
             processNextInQueue();
         }
 
+        // Nilai data Excel hanya boleh memuat huruf, angka, spasi, dan lima
+        // karakter yang disetujui: titik, garis miring, tanda hubung, serta kurung.
+        // Header schema Mile App tidak diproses karena nama kolomnya wajib tetap baku.
+        const FORBIDDEN_EXCEL_CHARACTER_PATTERN = /[^\p{L}\p{N}\s./()\-]/gu;
+        const FORBIDDEN_EXCEL_CHARACTER_TEST = /[^\p{L}\p{N}\s./()\-]/u;
+
+        function sanitizeExcelText(value) {
+            if (value === null || value === undefined) return "";
+            return String(value)
+                .normalize('NFKC')
+                .replace(FORBIDDEN_EXCEL_CHARACTER_PATTERN, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function hasForbiddenExcelCharacters(value) {
+            return typeof value === 'string' && FORBIDDEN_EXCEL_CHARACTER_TEST.test(value);
+        }
+
+        function sanitizeExcelRowValues(row) {
+            return Object.fromEntries(Object.entries(row).map(([key, value]) => [
+                key,
+                typeof value === 'string' ? sanitizeExcelText(value) : value
+            ]));
+        }
+
         function cleanArtifacts(text) {
             if (!text) return "";
-            let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
-            return str.replace(/[^A-Za-z0-9\s.,]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+            const str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
+            return sanitizeExcelText(str).toUpperCase();
         }
 
         function cleanRecipientName(text) {
@@ -833,8 +862,8 @@
 
         function cleanReference(text) { 
             if (!text) return "";
-            let str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
-            return str.replace(/[^A-Za-z0-9\s/\-.,_]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+            const str = String(text).replace(/pdf\s*\+?\s*\d*/gi, '');
+            return sanitizeExcelText(str).toUpperCase();
         }
 
         function cleanPhoneNumber(phone) {
@@ -1651,6 +1680,17 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 }
             }
 
+            // Batas akhir ekspor: bersihkan SEMUA nilai string, termasuk nilai
+            // preset/konstanta yang tidak melewati input Periksa hasil.
+            finalExportRows = finalExportRows.map(sanitizeExcelRowValues);
+            const invalidSanitizedValue = finalExportRows
+                .flatMap((row, rowIndex) => Object.entries(row).map(([column, value]) => ({ rowIndex, column, value })))
+                .find(cell => hasForbiddenExcelCharacters(cell.value));
+            if (invalidSanitizedValue) {
+                alert(`FATAL: karakter terlarang masih ditemukan pada data Excel baris ${invalidSanitizedValue.rowIndex + 1}, kolom ${invalidSanitizedValue.column}. File tidak dibuat.`);
+                return;
+            }
+
             const exportHeaders = [
                 "connote_code", "customer_code", "origin_data_customer_name", "origin_data_customer_phone", 
                 "origin_data_customer_address", "origin_data_customer_zip_code", "origin_data_zone_code", 
@@ -1667,6 +1707,18 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             }
 
             const worksheet = XLSX.utils.json_to_sheet(finalExportRows, { header: exportHeaders });
+
+            // Verifikasi ulang hasil konversi aktual. Baris header dilewati karena
+            // underscore adalah bagian wajib dari schema impor Mile App.
+            for (let rowIndex = 1; rowIndex <= finalExportRows.length; rowIndex++) {
+                for (let columnIndex = 0; columnIndex < exportHeaders.length; columnIndex++) {
+                    const cell = worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })];
+                    if (hasForbiddenExcelCharacters(cell?.v)) {
+                        alert(`FATAL: worksheet masih memuat karakter terlarang pada baris ${rowIndex}, kolom ${exportHeaders[columnIndex]}. File tidak dibuat.`);
+                        return;
+                    }
+                }
+            }
 
             // Guard sampai tingkat worksheet: customer_code harus benar-benar tertulis
             // pada setiap sel Excel, bukan hanya tersedia di objek sebelum konversi.
