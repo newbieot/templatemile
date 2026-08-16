@@ -1,12 +1,12 @@
 # Changelog
 
-## v16.17 — Filter karakter ketat pada data Excel
+## v16.18 — Filter karakter ketat pada data Excel
 
 - Menyaring seluruh nilai string tepat sebelum worksheet dibuat; hanya huruf, angka, spasi, serta `. / - ( )` yang diizinkan.
 - Menghapus koma, garis bawah, tanda kutip, ampersand, simbol formula, emoji, dan karakter khusus lain dari data hasil ekspor.
 - Memeriksa ulang setiap sel data setelah worksheet dibentuk dan membatalkan ekspor bila karakter terlarang masih ditemukan.
 - Menerapkan perlindungan yang sama pada aplikasi utama dan halaman beta; header baku Mile App tetap dipertahankan.
-- Mengganti bundle AI menjadi `ai-pdf-v16-18.js` dan identitas aset menjadi `20260816-16.17` untuk memutus cache lama.
+- Mengganti bundle AI menjadi `ai-pdf-v16-18.js` dan identitas aset menjadi `20260819-16.18` untuk memutus cache lama.
 
 ## v16.16 — REF/SURAT sebagai pengirim PN Batam
 
