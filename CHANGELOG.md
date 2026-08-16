@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.19 — Perihal surat dan pembersihan nama penerima
+
+- Memprioritaskan isi setelah label `PERIHAL`, `HAL`, atau `SUBJECT` sebagai nilai `REF/SURAT`; labelnya tidak ikut disimpan.
+- Menambahkan contoh eksplisit agar `Surat Pemberitahuan (SP1)` serta `Penagihan dan Peringatan Terakhir` dapat masuk ke kolom `REF/SURAT`.
+- Menghapus token kode/resi panjang campuran huruf-angka dari nama penerima melalui prompt AI dan pengaman lokal sebelum data masuk tabel maupun Excel.
+- Menjamin `FAHRUDIN 0028C20250400784` disimpan sebagai `FAHRUDIN`.
+- Mengganti bundle AI menjadi `ai-pdf-v16-19.js` dan identitas aset menjadi `20260819-16.19` untuk memutus cache immutable Cloudflare.
+
 ## v16.18 — Filter karakter ketat pada data Excel
 
 - Menyaring seluruh nilai string tepat sebelum worksheet dibuat; hanya huruf, angka, spasi, serta `. / - ( )` yang diizinkan.

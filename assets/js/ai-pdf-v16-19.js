@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.18 — Strict Excel Character Guard */
+/* mile.posnew.com AI PDF runtime v16.19 — Perihal & Recipient Code Guard */
 (() => {
   'use strict';
 
@@ -28,7 +28,7 @@
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-v16-18';
+  const STORAGE_KEY = 'mile-ai-config-v16-19';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -795,10 +795,10 @@ Kembalikan HANYA JSON valid tanpa markdown, tanpa penjelasan, dan TANPA whitespa
 
 Aturan:
 1. Urutan sesuai urutan halaman dokumen (halaman ${startPage} - ${endPage}).
-2. nama_penerima: Hapus "KEPADA YTH", "ATTN". HAPUS kombinasi angka/huruf panjang acak (seperti resi mesin) dari nama. Nama biasanya hanya terdiri dari huruf. Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
+2. nama_penerima: Hapus "KEPADA YTH", "ATTN", dan SETIAP kode/resi panjang yang mencampur huruf dengan angka. Contoh wajib: "FAHRUDIN 0028C20250400784" menjadi "FAHRUDIN". Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
 3. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
 4. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
-5. nomor_surat: TANGKAP AKTIF Nomor Surat, Referensi, ID Pesanan, Resi, atau bahkan PERIHAL SURAT (subject). Ini tidak harus berupa angka, jika ada teks perihal surat atau kode referensi, masukkan ke sini, jangan dikosongkan.
+5. nomor_surat: Cari label PERIHAL, HAL, atau SUBJECT terlebih dahulu. Jika ada, isi kolom ini dengan TEKS SETELAH LABEL dan dahulukan dari nomor/ref lain. Contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)"; "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Jangan ikutkan kata label. Hanya jika perihal tidak ada, gunakan Nomor Surat, Referensi, ID Pesanan, atau Resi. Nilai boleh berupa teks dan tidak boleh dikosongkan bila salah satu data tersebut tercetak.
 6. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
 7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.
 
@@ -820,8 +820,8 @@ Kembalikan HANYA JSON perbaikan tanpa markdown dan whitespace berlebih:
 {"rows":[{"page":${pages[0] || startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 
 Aturan:
-- nama_penerima: Hapus KEPADA YTH. Pastikan BERSIH dari kombinasi angka/huruf acak panjang (resi). Jangan campur alamat.
-- nomor_surat: EKSTRAK semua kode referensi, surat, pesanan, ATAU PERIHAL SURAT (subject). Tidak harus angka, jangan kosongkan jika ada hal/perihal/referensi.
+- nama_penerima: Hapus KEPADA YTH dan setiap kode/resi panjang campuran huruf-angka. Contoh "FAHRUDIN 0028C20250400784" wajib menjadi "FAHRUDIN". Jangan campur alamat.
+- nomor_surat: PRIORITASKAN isi setelah label PERIHAL/HAL/SUBJECT dan jangan ikutkan labelnya. Contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)". Jika perihal tidak ada, barulah gunakan nomor surat/referensi/pesanan/resi.
 - Abaikan CABANG BATAM, kode mandiri 5-8 digit.
 - di_luar_batam: true bila jelas bukan Kota Batam / 294xx.
 - Gunakan PERLU DICEK bila tak pasti dan tambahkan ke perlu_dicek_fields.
@@ -1183,12 +1183,40 @@ ${clipped}`
       .trim();
   }
 
+  function isRecipientMachineCode(token) {
+    const compact = String(token || '')
+      .normalize('NFKC')
+      .replace(/^[([{]+|[)\]},.;:]+$/g, '')
+      .replace(/[\s/_.-]+/g, '');
+    if (compact.length < 8) return false;
+    return /\p{L}/u.test(compact) && /\d/u.test(compact) && (compact.match(/\d/g) || []).length >= 3;
+  }
+
+  function stripRecipientMachineCodes(value) {
+    return String(value ?? '')
+      .split(/\s+/)
+      .filter(token => token && !isRecipientMachineCode(token))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function stripSubjectLabel(value) {
+    return String(value ?? '')
+      .replace(/^\s*(?:PERIHAL(?:\s+SURAT)?|HAL|SUBJECT)\s*(?::|[-–—])?\s*/i, '')
+      .trim();
+  }
+
   function normalizeAIText(value, kind = 'text') {
     let raw = stripCommonArtifacts(value, kind);
     if (!raw) return '';
     const core = window.__mileCore;
-    if (kind === 'name') raw = stripRecipientPrefix(raw);
+    if (kind === 'name') {
+      raw = stripRecipientMachineCodes(stripRecipientPrefix(raw));
+      if (core?.cleanRecipientName) return core.cleanRecipientName(raw);
+    }
     if (kind === 'reference') {
+      raw = stripSubjectLabel(raw);
       if (/^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(raw)) return '';
       if (core?.cleanReference) return core.cleanReference(raw);
     }
@@ -1260,11 +1288,25 @@ ${clipped}`
   }
 
   function isReferenceLine(line) {
-    return /^(?:NO\.?\s*)?(?:SURAT|REF(?:ERENSI)?|REFERENCE|NOMOR\s+SURAT)\b/i.test(String(line || '').trim());
+    return /^(?:(?:PERIHAL(?:\s+SURAT)?|HAL|SUBJECT)|(?:NO\.?\s*)?(?:SURAT|REF(?:ERENSI)?|REFERENCE|NOMOR\s+SURAT))\b/i.test(String(line || '').trim());
   }
 
   function extractReferenceFromLines(lines) {
-    for (const line of normalizeRawLines(lines)) {
+    const normalizedLines = normalizeRawLines(lines);
+    for (let index = 0; index < normalizedLines.length; index++) {
+      const line = normalizedLines[index];
+      if (!/^(?:PERIHAL(?:\s+SURAT)?|HAL|SUBJECT)\b/i.test(line)) continue;
+      const inlineCandidate = stripSubjectLabel(line);
+      const nextLine = normalizedLines[index + 1] || '';
+      const candidate = inlineCandidate || (
+        nextLine && !isAdministrativeLine(nextLine) && !isAddressLine(nextLine) && !isPhoneLine(nextLine)
+          ? nextLine
+          : ''
+      );
+      const normalized = normalizeAIText(candidate, 'reference');
+      if (normalized) return normalized;
+    }
+    for (const line of normalizedLines) {
       if (!isReferenceLine(line)) continue;
       const candidate = line.replace(/^(?:NO\.?\s*)?(?:SURAT|REF(?:ERENSI)?|REFERENCE|NOMOR\s+SURAT)\s*[:#.-]?\s*/i, '').trim();
       const normalized = normalizeBniReference(candidate);
@@ -1407,7 +1449,7 @@ ${clipped}`
     let address = addressFromLines || fallback.address || '';
     const noSurat = normalizeBniReference(fallback.noSurat) || extractReferenceFromLines(lines);
 
-    name = stripRecipientPrefix(name)
+    name = stripRecipientMachineCodes(stripRecipientPrefix(name))
       .replace(/\bPT\s+PT\b/gi, 'PT')
       .replace(/\s+/g, ' ')
       .trim();
@@ -1438,8 +1480,12 @@ ${clipped}`
     return aiRows.map((item, index) => {
       let name = normalizeAIText(pick(item, ['nama_penerima', 'nama', 'name', 'penerima']), 'name');
       let address = normalizeAIText(pick(item, ['alamat_penerima', 'alamat', 'address', 'destination_address']), 'address');
-      let noSurat = normalizeAIText(pick(item, ['nomor_surat', 'no_surat', 'surat', 'ref', 'reference']), 'reference');
       const rawLines = normalizeRawLines(pick(item, ['raw_lines', 'baris_mentah', 'lines', 'transcription'], []));
+      const subject = pick(item, ['perihal_surat', 'perihal', 'hal', 'subject'], '');
+      const directReference = pick(item, ['nomor_surat', 'no_surat', 'surat', 'ref', 'reference'], '');
+      let noSurat = normalizeAIText(subject, 'reference') ||
+        normalizeAIText(directReference, 'reference') ||
+        extractReferenceFromLines(rawLines);
       let phone = normalizeAIPhone(pick(item, ['nomor_hp', 'no_hp', 'phone', 'telepon', 'telp', 'whatsapp', 'wa']), rawLines);
 
 
@@ -1529,12 +1575,18 @@ ${clipped}`
 
   function mergeVerifiedRows(originalRows, verifiedRows, auditedPages = []) {
     const audited = new Set(auditedPages.map(Number).filter(Number.isFinite));
+    const originalByPage = new Map();
+    originalRows.forEach(row => {
+      const page = Number(row.sourcePage);
+      if (!originalByPage.has(page)) originalByPage.set(page, row);
+    });
     const verifiedByPage = new Map();
     verifiedRows.forEach(row => {
       const page = Number(row.sourcePage);
       if (!audited.has(page)) return;
       const list = verifiedByPage.get(page) || [];
-      list.push(row);
+      const original = originalByPage.get(page);
+      list.push(!row.noSurat && original?.noSurat ? { ...row, noSurat: original.noSurat } : row);
       verifiedByPage.set(page, list);
     });
 
@@ -1645,7 +1697,7 @@ ${clipped}`
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260819-16.18';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260819-16.19';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
@@ -1998,7 +2050,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

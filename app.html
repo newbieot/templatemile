@@ -24,8 +24,8 @@
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260819-16.18">
-  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260819-16.18">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260819-16.19">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260819-16.19">
 </head>
 <body data-accept-pdf="true">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
@@ -179,7 +179,7 @@
         <section class="panel-card upload-card">
           <div class="panel-heading panel-heading--compact">
             <div><span class="section-index">04</span><h2>Unggah berkas sumber</h2></div>
-            <p>PDF diproses dengan AI vision. Sistem menyesuaikan data per halaman: Nomor HP dan Nomor Surat boleh ada, salah satu saja, atau keduanya kosong.</p>
+            <p>PDF diproses dengan AI vision. REF/SURAT memprioritaskan isi Perihal/Hal/Subject, lalu memakai nomor surat atau referensi bila perihal tidak ada. Nomor HP tetap opsional.</p>
           </div>
 
           <details class="ai-config" id="aiConfigPanel">
@@ -192,7 +192,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.18</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v16.19</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -475,12 +475,12 @@
   </footer>
 
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
-  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260819-16.18" defer></script>
-  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260819-16.18" defer></script>
-  <script src="/assets/js/app-core.js?v=20260819-16.18" defer></script>
-  <script src="/assets/js/ai-pdf-v16-18.js?v=20260819-16.18" defer></script>
-  <script src="/assets/js/ui.js?v=20260819-16.18" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260819-16.18" defer></script>
-  <script src="/assets/js/session-v16.js?v=20260819-16.18" defer></script>
+  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260819-16.19" defer></script>
+  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260819-16.19" defer></script>
+  <script src="/assets/js/app-core.js?v=20260819-16.19" defer></script>
+  <script src="/assets/js/ai-pdf-v16-19.js?v=20260819-16.19" defer></script>
+  <script src="/assets/js/ui.js?v=20260819-16.19" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260819-16.19" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260819-16.19" defer></script>
 </body>
 </html>

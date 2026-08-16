@@ -1,0 +1,138 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const root = path.resolve(__dirname, '..');
+const fakeElement = {
+  value: '',
+  checked: false,
+  disabled: false,
+  hidden: false,
+  style: {},
+  classList: { add() {}, remove() {}, toggle() {} },
+  addEventListener() {},
+  setAttribute() {},
+  removeAttribute() {},
+  focus() {}
+};
+
+const sandbox = {
+  console,
+  Intl,
+  Date,
+  Math,
+  JSON,
+  Map,
+  Set,
+  Headers,
+  Response,
+  AbortController,
+  DOMException,
+  TextEncoder,
+  performance,
+  navigator: { onLine: true },
+  document: {
+    addEventListener() {},
+    getElementById() { return fakeElement; },
+    querySelectorAll() { return []; }
+  },
+  localStorage: {
+    getItem() { return null; },
+    setItem() {},
+    removeItem() {}
+  },
+  alert() {},
+  setTimeout,
+  clearTimeout,
+  setInterval,
+  clearInterval
+};
+sandbox.window = sandbox;
+vm.createContext(sandbox);
+
+vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/app-core.js'), 'utf8'), sandbox, {
+  filename: 'app-core.js'
+});
+vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/ai-pdf-v16-19.js'), 'utf8'), sandbox, {
+  filename: 'ai-pdf-v16-19.js'
+});
+
+const core = sandbox.__mileCore;
+const ai = sandbox.MileAI._test;
+
+assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
+assert.equal(core.cleanRecipientName('ANDI AB12-3456789'), 'ANDI');
+assert.equal(core.cleanRecipientName('SITI NUR AINI'), 'SITI NUR AINI');
+
+const normalizeOne = input => ai.normalizeRows([input], 'MANUAL', 0, { expectedPages: [1] })[0];
+
+assert.deepEqual(
+  { name: normalizeOne({
+    page: 1,
+    nama_penerima: 'FAHRUDIN 0028C20250400784',
+    alamat_penerima: 'JL MERDEKA BATAM 29444',
+    nomor_surat: 'Perihal: Surat Pemberitahuan (SP1)'
+  }).name },
+  { name: 'FAHRUDIN' }
+);
+
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'FAHRUDIN',
+  alamat_penerima: 'JL MERDEKA BATAM 29444',
+  nomor_surat: 'Perihal: Surat Pemberitahuan (SP1)'
+}).noSurat, 'SURAT PEMBERITAHUAN (SP1)');
+
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'FAHRUDIN',
+  alamat_penerima: 'JL MERDEKA BATAM 29444',
+  nomor_surat: '123/ABC',
+  perihal: 'Penagihan dan Peringatan Terakhir'
+}).noSurat, 'PENAGIHAN DAN PERINGATAN TERAKHIR');
+
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'FAHRUDIN',
+  alamat_penerima: 'JL MERDEKA BATAM 29444',
+  nomor_surat: '123/ABC'
+}).noSurat, '123/ABC');
+
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'FAHRUDIN',
+  alamat_penerima: 'JL MERDEKA BATAM 29444',
+  raw_lines: ['Perihal Penagihan dan Peringatan Terakhir']
+}).noSurat, 'PENAGIHAN DAN PERINGATAN TERAKHIR');
+
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'FAHRUDIN',
+  alamat_penerima: 'JL MERDEKA BATAM 29444',
+  raw_lines: ['Perihal:', 'Penagihan dan Peringatan Terakhir']
+}).noSurat, 'PENAGIHAN DAN PERINGATAN TERAKHIR');
+
+const originalRow = normalizeOne({
+  page: 1,
+  nama_penerima: 'FAHRUDIN',
+  alamat_penerima: 'JL MERDEKA BATAM 29444',
+  nomor_surat: 'Perihal: Surat Pemberitahuan (SP1)'
+});
+const verifiedWithoutSubject = normalizeOne({
+  page: 1,
+  nama_penerima: 'FAHRUDIN',
+  alamat_penerima: 'JL MERDEKA BATAM 29444',
+  nomor_surat: ''
+});
+assert.equal(
+  ai.mergeVerifiedRows([originalRow], [verifiedWithoutSubject], [1])[0].noSurat,
+  'SURAT PEMBERITAHUAN (SP1)'
+);
+
+const prompt = ai.buildPrompt(1, 1);
+assert.match(prompt, /FAHRUDIN 0028C20250400784/);
+assert.match(prompt, /Perihal: Surat Pemberitahuan \(SP1\)/);
+assert.match(prompt, /Penagihan dan Peringatan Terakhir/);
+
+console.log('PASS ai-pdf-v16-19: perihal dan pembersihan nama penerima');
