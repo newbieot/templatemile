@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.17 — Strict Excel Character Guard */
+/* mile.posnew.com AI PDF runtime v16.18 — Strict Excel Character Guard */
 (() => {
   'use strict';
 
@@ -28,7 +28,7 @@
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-v16-17';
+  const STORAGE_KEY = 'mile-ai-config-v16-18';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -789,57 +789,46 @@
   }
 
   function buildPrompt(startPage, endPage, options = {}) {
-    return `Tolong ubah dokumen ini menjadi data terstruktur untuk Excel.
-Kolom: Nama Penerima, Alamat Penerima, Nomor HP, Nomor Surat.
-Urutan data mengikuti urutan halaman dokumen.
-Tandai nomor urut yang alamatnya jelas berada di luar Kota Batam.
-Jangan menebak tulisan yang tidak terbaca; beri keterangan literal "PERLU DICEK" tepat pada bagian yang meragukan.
+    return `Tolong ubah dokumen ini menjadi data terstruktur.
+Baca HANYA sebagai HASIL SCAN. Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" pada bagian meragukan.
+Kembalikan HANYA JSON valid tanpa markdown, tanpa penjelasan, dan TANPA whitespace berlebih.
 
-Baca setiap halaman sebagai HASIL SCAN CAMSCANNER. Jangan mencoba memakai atau meminta text layer PDF. Cocokkan tulisan langsung dari gambar dan jangan tampilkan proses berpikir.
+Aturan:
+1. Urutan sesuai urutan halaman dokumen (halaman ${startPage} - ${endPage}).
+2. nama_penerima: Hapus "KEPADA YTH", "ATTN". HAPUS kombinasi angka/huruf panjang acak (seperti resi mesin) dari nama. Nama biasanya hanya terdiri dari huruf. Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
+3. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
+4. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
+5. nomor_surat: TANGKAP AKTIF Nomor Surat, Referensi, ID Pesanan, Resi.
+6. perihal_surat: TANGKAP AKTIF informasi perihal/subject dari surat, jika ada. Teks apa pun yang mengikuti kata "Perihal:" harus diekstrak utuh!
+7. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
+8. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.
 
-Kembalikan HANYA JSON valid tanpa markdown dan tanpa penjelasan:
-{"rows":[{"page":${startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
-
-ATURAN UMUM:
-1. Setiap gambar diberi label HALAMAN. Gunakan nomor halaman pada label; jangan menukar atau menggabungkan isi antarhalaman.
-2. Hapus salam pembuka dari nama: "KEPADA YTH", "KEPADA YANG TERHORMAT", "YTH.", "ATTN", dan variasinya.
-3. Jangan memasukkan alamat ke kolom nama. Baris yang mulai dengan JL/JALAN, RUKO, PERUM/PERUMAHAN, KOMP/KOMPLEK, KAVLING, GEDUNG, BLOK, KAMPUNG, atau nama wilayah adalah alamat.
-4. Abaikan header seperti CABANG/CARRIAGE/245 BATAM serta footer TGL TRANS, TGL VALUTA, NO DOKUMEN, dan URAIAN MUTASI.
-5. Pertahankan urutan kata nama perusahaan persis seperti yang tercetak, termasuk PT di awal atau akhir.
-6. Jangan memperbaiki ejaan dengan tebakan. Jika satu kata tidak yakin, pertahankan bagian yang terbaca dan ganti hanya bagian meragukan dengan "PERLU DICEK".
-7. nomor_hp diisi hanya bila nomor telepon/HP/WhatsApp penerima benar-benar terlihat. Terima pola 08..., +62..., atau label HP/TEL/WA. Jangan mengambil kode pos, nomor cabang, nomor transaksi, atau kode mandiri sebagai nomor HP. Jika tidak ada, isi string kosong.
-8. nomor_surat diisi hanya bila nomor surat/referensi benar-benar terlihat. Jika tidak ada, isi string kosong. Setiap halaman boleh memiliki kombinasi berbeda: ada HP saja, nomor surat saja, keduanya, atau tidak keduanya.
-9. Baris kode mandiri 5–8 digit seperti 000000 yang berdiri sendiri di antara alamat jalan dan wilayah tidak dibutuhkan: abaikan. Jangan mengubahnya menjadi kata rekaan seperti DONGDOI/DONGD01/OOOOOO. Jangan membuang kode pos 5 digit yang merupakan bagian alamat, dan jangan membuang nomor surat nyata yang memiliki huruf atau pemisah / atau -.
-10. Penentuan di_luar_batam hanya berdasarkan ALAMAT PENERIMA, bukan alamat pengirim, header, nama kantor, atau lokasi cabang.
-11. di_luar_batam=true jika kota/kabupaten tujuan jelas bukan Kota Batam, atau terdapat kode pos 5 digit yang jelas bukan kelompok 294xx. di_luar_batam=false jika alamat menyebut BATAM/KOTA BATAM, wilayah kecamatan atau kawasan Batam, atau kode pos 294xx. Tidak adanya kata “BATAM” saja tidak cukup untuk menandai luar Batam.
-12. Jika lokasi kota tidak cukup jelas, jangan menebak luar Batam: gunakan di_luar_batam=false dan tandai alamat_penerima di perlu_dicek_fields bila teks alamatnya meragukan.
-13. Jangan sertakan confidence, reasoning, atau salinan seluruh teks. Untuk halaman meragukan saja, raw_lines boleh ditambahkan dan maksimal 3 baris yang benar-benar diperlukan sebagai bukti pemeriksaan.
-14. Halaman yang diproses: ${startPage} sampai ${endPage}. Pastikan setiap halaman menghasilkan satu baris kecuali halaman benar-benar kosong.`;
+Format Wajib:
+{"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","perihal_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
+`;
   }
 
   function buildVerificationPrompt(startPage, endPage, draftRows, options = {}) {
     const pages = [...new Set((options.pages || draftRows.map(row => row?.page)).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
     const pageLabel = pages.length ? pages.join(', ') : `${startPage}–${endPage}`;
-    return `Baca ulang HANYA gambar halaman ${pageLabel} secara INDEPENDEN terlebih dahulu, baru bandingkan dengan draft. Jangan sekadar menyetujui draft karena draft dapat salah. Kembalikan hanya halaman audit tersebut.
+    return `Audit gambar halaman ${pageLabel} secara INDEPENDEN.
+Jangan sekadar menyetujui draft.
 
 DRAFT:
 ${JSON.stringify({ rows: draftRows })}
 
-Kembalikan HANYA JSON valid:
-{"rows":[{"page":${pages[0] || startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
+Kembalikan HANYA JSON perbaikan tanpa markdown dan whitespace berlebih:
+{"rows":[{"page":${pages[0] || startPage},"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","perihal_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 
-Aturan audit:
-- Hapus KEPADA YTH/YTH/ATTN dari nama.
-- Jangan campur alamat ke nama.
-- nomor_hp hanya diisi jika nomor telepon/HP/WA benar-benar terlihat; kosongkan jika tidak ada.
-- Nomor surat boleh kosong; isi hanya jika benar-benar tercetak sebagai nomor surat/referensi.
-- Abaikan CABANG/CARRIAGE/245 BATAM dan footer transaksi.
-- Abaikan kode mandiri 5–8 digit seperti 000000 yang berdiri sendiri. Jangan menebaknya sebagai DONGDOI/DONGD01/OOOOOO. Kode pos dan nomor surat nyata tetap dipertahankan.
-- Cocokkan setiap karakter dengan gambar; gunakan PERLU DICEK jika tidak pasti.
-- Audit di_luar_batam dari alamat penerima saja. True hanya bila kota/kabupaten jelas bukan Kota Batam atau kode pos jelas bukan 294xx. Alamat dengan BATAM, wilayah Batam, atau kode pos 294xx harus false. Jika lokasi tidak jelas, false dan tandai alamat_penerima sebagai perlu dicek bila teksnya meragukan.
-- Pastikan nomor dan urutan halaman audit benar. Jangan mengembalikan halaman yang tidak diminta.
-- Jangan sertakan confidence atau salinan seluruh teks. raw_lines opsional, maksimal 3 baris, hanya bila masih ada field meragukan.
-- Jangan tampilkan penjelasan atau reasoning.`;
+Aturan:
+- nama_penerima: Hapus KEPADA YTH. Pastikan BERSIH dari kombinasi angka/huruf acak panjang (resi). Jangan campur alamat.
+- nomor_surat: EKSTRAK semua kode referensi, surat, pesanan.
+- perihal_surat: EKSTRAK PERIHAL SURAT (subject) jika ada, seperti "Perihal: ...". Jangan kosongkan.
+- Abaikan CABANG BATAM, kode mandiri 5-8 digit.
+- di_luar_batam: true bila jelas bukan Kota Batam / 294xx.
+- Gunakan PERLU DICEK bila tak pasti dan tambahkan ke perlu_dicek_fields.
+- Pastikan nomor halaman benar sesuai gambar audit.
+`;
   }
 
   function extractionTokenLimit(pageCount) {
@@ -870,10 +859,11 @@ Aturan audit:
       temperature: 0,
       top_p: 0.1,
       max_tokens: maxTokens,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: 'system',
-          content: 'Anda adalah operator entri data yang sangat teliti. Utamakan kesetiaan pada gambar, pemisahan kolom yang benar, dan tandai ketidakpastian; jangan berhalusinasi.'
+          content: 'Anda adalah operator data entri. Utamakan kesetiaan pada gambar. Kembalikan HANYA format JSON valid TANPA penjelasan, TANPA markdown block, dan minimalkan newline/spasi untuk efisiensi token.'
         },
         { role: 'user', content }
       ]
@@ -888,14 +878,17 @@ Aturan audit:
       temperature: 0,
       top_p: 0.1,
       max_tokens: Math.max(1200, Math.min(7000, Number(maxTokens) || 2600)),
+      response_format: { type: "json_object" },
       messages: [
         {
           role: 'system',
-          content: 'Anda memperbaiki sintaks JSON terpotong. Jangan mengubah nilai, menebak, menambah baris, atau menjelaskan.'
+          content: 'Perbaiki sintaks JSON. Kembalikan HANYA JSON.'
         },
         {
           role: 'user',
-          content: `Perbaiki teks berikut menjadi JSON valid dengan bentuk {"rows":[...]}. Pertahankan semua baris dan nilai yang masih tersedia. Tutup string, objek, dan array yang terpotong. Kembalikan HANYA JSON.\n\n${clipped}`
+          content: `Perbaiki teks berikut menjadi JSON valid dengan bentuk {"rows":[...]}. Tutup string/array terpotong.
+
+${clipped}`
         }
       ]
     };
@@ -1448,6 +1441,16 @@ Aturan audit:
       let name = normalizeAIText(pick(item, ['nama_penerima', 'nama', 'name', 'penerima']), 'name');
       let address = normalizeAIText(pick(item, ['alamat_penerima', 'alamat', 'address', 'destination_address']), 'address');
       let noSurat = normalizeAIText(pick(item, ['nomor_surat', 'no_surat', 'surat', 'ref', 'reference']), 'reference');
+      let perihalSurat = normalizeAIText(pick(item, ['perihal_surat', 'perihal', 'subject']), 'reference');
+
+      // Merge perihal_surat into noSurat if noSurat is empty, or combine them
+      if (perihalSurat) {
+          if (!noSurat) {
+              noSurat = perihalSurat;
+          } else if (!noSurat.includes(perihalSurat)) {
+              noSurat = `${noSurat} - ${perihalSurat}`;
+          }
+      }
       const rawLines = normalizeRawLines(pick(item, ['raw_lines', 'baris_mentah', 'lines', 'transcription'], []));
       let phone = normalizeAIPhone(pick(item, ['nomor_hp', 'no_hp', 'phone', 'telepon', 'telp', 'whatsapp', 'wa']), rawLines);
 
@@ -1654,7 +1657,7 @@ Aturan audit:
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260816-16.17';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260819-16.18';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);

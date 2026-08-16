@@ -1,4 +1,4 @@
-# Laporan Uji v16.17
+# Laporan Uji v16.18
 
 Tanggal uji: 16 Agustus 2026
 
@@ -8,7 +8,7 @@ Tanggal uji: 16 Agustus 2026
 - Pemeriksaan ulang sel setelah worksheet dibentuk.
 - Jalur ekspor aplikasi utama dan halaman beta.
 - Regresi REF/SURAT PN Batam, koreksi wajib, alamat luar Batam, scan-first, default 15 × 5, dan Gemini 3.7 Flash.
-- Identitas cache v16.17.
+- Identitas cache v16.18.
 
 ## Aturan yang diuji
 
@@ -27,6 +27,6 @@ Tanggal uji: 16 Agustus 2026
 - Guard yang sama aktif pada aplikasi utama dan halaman beta.
 - REF/SURAT PN Batam tetap menjadi Nama Pengirim dan tetap wajib diisi.
 - Koreksi `PERLU DICEK`, alamat luar Batam, PDF scan-first, Gemini 3.7 Flash, default 15 halaman × 5 jalur, serta profil koneksi normal tetap lulus.
-- Semua JavaScript lulus pemeriksaan sintaks; Worker health mengembalikan `20260816-16.17`; seluruh referensi aset tersedia.
+- Semua JavaScript lulus pemeriksaan sintaks; Worker health mengembalikan `20260819-16.18`; seluruh referensi aset tersedia.
 
 Kesimpulan: **LULUS**.
