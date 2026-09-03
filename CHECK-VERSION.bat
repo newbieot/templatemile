@@ -9,9 +9,9 @@ echo.
 findstr /c:"20260819-16.19" "_worker.js" >nul && echo [OK] Worker v16.19 || (echo [GAGAL] Worker bukan v16.19 & set "FAIL=1")
 findstr /c:"v16.19 Secure Gateway" "index.html" >nul && echo [OK] Login v16.19 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.19" "app.html" >nul && echo [OK] Workspace v16.19 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
-findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
-findstr /c:"gemini-3.8-flash" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Gemini 3.8 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.8 browser tidak ditemukan & set "FAIL=1")
-findstr /c:"gemini-3.8-flash" "_worker.js" >nul && echo [OK] Gemini 3.8 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.8 gateway tidak ditemukan & set "FAIL=1")
+findstr /r /c:"Gemini 3.7 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.7 Flash menjadi default || (echo [GAGAL] Default Gemini 3.7 Flash tidak ditemukan & set "FAIL=1")
+findstr /c:"gemini-3.7-flash" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Gemini 3.7 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.7 browser tidak ditemukan & set "FAIL=1")
+findstr /c:"gemini-3.7-flash" "_worker.js" >nul && echo [OK] Gemini 3.7 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.7 gateway tidak ditemukan & set "FAIL=1")
 findstr /c:"Gemini 3.6 Flash" "app.html" >nul && echo [OK] Gemini 3.6 tetap tersedia sebagai fallback || (echo [GAGAL] Fallback Gemini 3.6 tidak ditemukan & set "FAIL=1")
 
 findstr /c:"10 halaman" "app.html" >nul && echo [OK] Opsi 10 halaman tersedia || (echo [GAGAL] Opsi 10 halaman tidak ditemukan & set "FAIL=1")
