@@ -1,5 +1,11 @@
 # Changelog
 
+## Perbaikan kompatibilitas Gemini 3.8 Flash
+
+- Menghapus `temperature` dan `top_p` dari payload Gemini 3.8 Flash sesuai aturan API model terbaru.
+- Membatasi Gemini 3.8 Flash menjadi maksimal dua jalur paralel untuk mengurangi rate limit dan retry berulang.
+- Membuat tes layanan AI memakai structured JSON yang sama dengan alur PDF agar kegagalan kompatibilitas terdeteksi sebelum pemrosesan.
+
 ## v16.19 — Perihal surat dan pembersihan nama penerima
 
 - Memprioritaskan nomor surat resmi setelah label `NOMOR`, `NOMOR SURAT`, `NO. SURAT`, atau `REF` sebagai nilai `REF/SURAT`.

@@ -35,6 +35,8 @@
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
     'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro'
   ]);
+  const GEMINI_38_MODEL = 'gemini-3.8-flash';
+  const GEMINI_38_MAX_CONCURRENCY = 2;
   const activeControllers = new Set();
   let cancelled = false;
   let lastSuccessfulTransport = '';
@@ -72,7 +74,8 @@
     const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
     const networkProfile = resolveNetworkProfile(networkMode);
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
-    const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
+    const modelMaxConcurrency = model === GEMINI_38_MODEL ? GEMINI_38_MAX_CONCURRENCY : 5;
+    const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency, modelMaxConcurrency);
     const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
@@ -851,11 +854,9 @@ Aturan:
       }
     });
 
-    return {
+    const body = {
       model: config.model,
       stream: false,
-      temperature: 0,
-      top_p: 0.1,
       max_tokens: maxTokens,
       response_format: { type: "json_object" },
       messages: [
@@ -866,15 +867,20 @@ Aturan:
         { role: 'user', content }
       ]
     };
+    // Gemini 3.8 menolak/mengabaikan parameter sampling lama. Model lain pada
+    // gateway CosmosHub tetap memakai parameter yang sudah teruji sebelumnya.
+    if (config.model !== GEMINI_38_MODEL) {
+      body.temperature = 0;
+      body.top_p = 0.1;
+    }
+    return body;
   }
 
   function buildJsonRepairBody(config, rawText, maxTokens = 2600) {
     const clipped = String(rawText || '').slice(0, MAX_JSON_REPAIR_CHARS);
-    return {
+    const body = {
       model: config.model,
       stream: false,
-      temperature: 0,
-      top_p: 0.1,
       max_tokens: Math.max(1200, Math.min(7000, Number(maxTokens) || 2600)),
       response_format: { type: "json_object" },
       messages: [
@@ -890,6 +896,11 @@ ${clipped}`
         }
       ]
     };
+    if (config.model !== GEMINI_38_MODEL) {
+      body.temperature = 0;
+      body.top_p = 0.1;
+    }
+    return body;
   }
 
   function conciseResponseError(text, status, transport) {
@@ -1658,11 +1669,16 @@ ${clipped}`
       button.disabled = true;
       button.textContent = 'Menguji layanan AI…';
       setFeedback(`Menguji layanan AI dengan model ${config.model}…`);
-      const body = {
-        model: config.model,
-        messages: [{ role: 'user', content: 'Balas hanya dengan kata OK.' }]
-      };
+      // Gunakan bentuk payload produksi agar tes tidak memberi hasil positif
+      // palsu ketika teks sederhana berhasil tetapi structured output gagal.
+      const body = buildApiBody(
+        config,
+        'Balas hanya dengan JSON valid persis seperti ini: {"rows":[]}',
+        [],
+        1200
+      );
       const payload = await callCosmos(config, body);
+      parseRows(payload, 'openai');
       const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
       const usage = getUsage(payload, 'openai');
       const usageText = usage.input || usage.output ? ` · ${formatUsage(usage)}` : '';
@@ -1950,7 +1966,10 @@ ${clipped}`
 
       const workerCount = Math.min(config.concurrency, chunks.length);
       const limitedByNetwork = config.pagesPerRequest !== config.requestedPagesPerRequest || config.concurrency !== config.requestedConcurrency;
-      const networkExplanation = limitedByNetwork
+      const limitedByModel = config.model === GEMINI_38_MODEL && config.concurrency < config.requestedConcurrency;
+      const networkExplanation = limitedByModel
+        ? `Gemini 3.8 dibatasi menjadi ${config.pagesPerRequest} halaman × ${workerCount} jalur untuk mencegah rate limit dan retry berulang.`
+        : limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi sementara menjadi ${config.pagesPerRequest} halaman × ${workerCount} jalur agar stabil.`
         : `Profil ${config.networkProfile.label} memakai ${config.pagesPerRequest} halaman × ${workerCount} jalur.`;
       setProgress(5, 'Memulai pemrosesan adaptif', `${chunks.length} kelompok disiapkan. ${networkExplanation}`, formatUsage(totalUsage));
