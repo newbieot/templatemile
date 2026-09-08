@@ -172,4 +172,31 @@ assert.match(prompt, /Perihal: Surat Pemberitahuan \(SP1\)/);
 assert.match(prompt, /Penagihan dan Peringatan Terakhir/);
 assert.match(prompt, /3166\/PAN\.01\.W32-U2\/HK2\.4\/VII\/2026/);
 
-console.log('PASS ai-pdf-v16-19: nomor resmi, perihal, dan pembersihan nama penerima');
+const gemini38Body = ai.buildApiBody(
+  { model: 'gemini-3.8-flash' },
+  'uji',
+  [],
+  1200
+);
+assert.equal(gemini38Body.model, 'gemini-3.8-flash');
+assert.equal(gemini38Body.response_format.type, 'json_object');
+assert.equal('temperature' in gemini38Body, false);
+assert.equal('top_p' in gemini38Body, false);
+
+const gemini37Body = ai.buildApiBody(
+  { model: 'gemini-3.7-flash' },
+  'uji',
+  [],
+  1200
+);
+assert.equal(gemini37Body.temperature, 0);
+assert.equal(gemini37Body.top_p, 0.1);
+
+const gemini38RepairBody = ai.buildJsonRepairBody(
+  { model: 'gemini-3.8-flash' },
+  '{"rows":['
+);
+assert.equal('temperature' in gemini38RepairBody, false);
+assert.equal('top_p' in gemini38RepairBody, false);
+
+console.log('PASS ai-pdf-v16-19: ekstraksi, normalisasi, dan kompatibilitas Gemini 3.8');
