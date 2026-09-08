@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.19
+# mile.posnew.com Secure Gateway v16.20
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -180,7 +180,7 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/login-v16.js` — form login tanpa Firebase key.
 - `assets/js/session-v16.js` — status akun dan logout.
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
-- `assets/js/ai-pdf-v16-19.js` — alur PDF AI scan-first dengan default Gemini 3.7 Flash, ekstraksi perihal, pembersihan kode pada nama, profil 15 halaman × 5 jalur, dan audit selektif.
+- `assets/js/ai-pdf-v16-19.js` — alur PDF AI scan-first dengan default Gemini 3.8 Flash, ekstraksi perihal, pembersihan kode pada nama, profil Cepat 15 halaman × 5 jalur, dan audit selektif.
 
 
 ## Pembaruan v16.19
