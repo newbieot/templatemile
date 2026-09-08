@@ -1,4 +1,4 @@
-const APP_VERSION = '20260908-16.21';
+const APP_VERSION = '20260908-16.22';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -12,7 +12,8 @@ const SESSION_COOKIE = '__Host-mile_session';
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
   'claude-opus-5', 'claude-sonnet-4.5', 'claude-haiku-4.5',
-  'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro'
+  'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro',
+  'qwen-3.7-plus', 'qwen-3.7-flash'
 ]);
 const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',

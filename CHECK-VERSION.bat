@@ -3,15 +3,17 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.21...
+echo Memeriksa mile.posnew.com Secure Gateway v16.22...
 echo.
 
-findstr /c:"20260908-16.21" "_worker.js" >nul && echo [OK] Worker v16.21 || (echo [GAGAL] Worker bukan v16.21 & set "FAIL=1")
-findstr /c:"v16.21 Secure Gateway" "index.html" >nul && echo [OK] Login v16.21 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.21" "app.html" >nul && echo [OK] Workspace v16.21 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"20260908-16.22" "_worker.js" >nul && echo [OK] Worker v16.22 || (echo [GAGAL] Worker bukan v16.22 & set "FAIL=1")
+findstr /c:"v16.22 Secure Gateway" "index.html" >nul && echo [OK] Login v16.22 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.22" "app.html" >nul && echo [OK] Workspace v16.22 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.7 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.7 Flash menjadi default || (echo [GAGAL] Default Gemini 3.7 Flash tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Gemini 3.8 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.8 browser tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "_worker.js" >nul && echo [OK] Gemini 3.8 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.8 gateway tidak ditemukan & set "FAIL=1")
+findstr /c:"qwen-3.7-plus" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Qwen 3.7 Plus diizinkan browser || (echo [GAGAL] Qwen 3.7 Plus browser tidak ditemukan & set "FAIL=1")
+findstr /c:"qwen-3.7-flash" "_worker.js" >nul && echo [OK] Qwen 3.7 Flash diizinkan gateway || (echo [GAGAL] Qwen 3.7 Flash gateway tidak ditemukan & set "FAIL=1")
 findstr /c:"config.model !== GEMINI_38_MODEL" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Payload Gemini 3.8 bebas parameter sampling lama || (echo [GAGAL] Kompatibilitas payload Gemini 3.8 tidak ditemukan & set "FAIL=1")
 findstr /c:"Gemini 3.6 Flash" "app.html" >nul && echo [OK] Gemini 3.6 tetap tersedia sebagai fallback || (echo [GAGAL] Fallback Gemini 3.6 tidak ditemukan & set "FAIL=1")
 

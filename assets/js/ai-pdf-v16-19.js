@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.21 — Gemini 3.7 Flash Stable Default */
+/* mile.posnew.com AI PDF runtime v16.22 — Qwen Vision Experiments */
 (() => {
   'use strict';
 
@@ -33,7 +33,8 @@
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
-    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro'
+    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
+    'qwen-3.7-plus','qwen-3.7-flash'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
   const activeControllers = new Set();
@@ -1740,7 +1741,7 @@ ${clipped}`
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260908-16.21';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260908-16.22';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);

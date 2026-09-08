@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.22 — Alternatif Qwen Vision yang lebih hemat
+
+- Menambahkan Qwen 3.7 Plus sebagai eksperimen kualitas dan Qwen 3.7 Flash sebagai eksperimen hemat untuk ekstraksi PDF berbasis gambar.
+- Mempertahankan Gemini 3.7 Flash sebagai default stabil serta profil Cepat 15 halaman × 5 jalur.
+- Menambahkan kedua model Qwen ke allowlist browser dan Cloudflare gateway serta memperbarui identitas aset.
+
 ## v16.21 — Kembali ke Gemini 3.7 Flash sebagai default
 
 - Mengembalikan Gemini 3.7 Flash sebagai default stabil setelah Gemini 3.8 Flash menunjukkan latensi tinggi, konsumsi output besar, dan retry berulang pada PDF panjang.
