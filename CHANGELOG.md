@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.21 — Kembali ke Gemini 3.7 Flash sebagai default
+
+- Mengembalikan Gemini 3.7 Flash sebagai default stabil setelah Gemini 3.8 Flash menunjukkan latensi tinggi, konsumsi output besar, dan retry berulang pada PDF panjang.
+- Gemini 3.8 Flash tetap tersedia sebagai pilihan eksperimental dengan perbaikan kompatibilitas payload yang sudah diterapkan.
+- Mempertahankan profil Cepat 15 halaman × 5 jalur dan memperbarui identitas aset agar rollback langsung diterima browser.
+
 ## v16.20 — Gemini 3.8 Flash default dan stabil
 
 - Menghapus `temperature` dan `top_p` dari payload Gemini 3.8 Flash sesuai aturan API model terbaru.
