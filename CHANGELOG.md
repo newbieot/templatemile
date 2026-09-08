@@ -1,10 +1,10 @@
 # Changelog
 
-## Perbaikan kompatibilitas Gemini 3.8 Flash
+## v16.20 — Gemini 3.8 Flash default dan stabil
 
 - Menghapus `temperature` dan `top_p` dari payload Gemini 3.8 Flash sesuai aturan API model terbaru.
-- Membatasi Gemini 3.8 Flash menjadi maksimal dua jalur paralel untuk mengurangi rate limit dan retry berulang.
 - Membuat tes layanan AI memakai structured JSON yang sama dengan alur PDF agar kegagalan kompatibilitas terdeteksi sebelum pemrosesan.
+- Menjadikan Gemini 3.8 Flash sebagai default dengan profil Cepat 15 halaman × 5 jalur, serta memperbarui identitas aset agar browser memuat runtime baru setelah deployment.
 
 ## v16.19 — Perihal surat dan pembersihan nama penerima
 
