@@ -199,4 +199,10 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
 
-console.log('PASS ai-pdf-v16-19: ekstraksi, normalisasi, dan kompatibilitas Gemini 3.8');
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 429 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 404 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 401 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
+
+console.log('PASS ai-pdf-v16-19: ekstraksi, kompatibilitas model, dan fallback otomatis');

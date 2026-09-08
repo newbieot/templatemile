@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.22 — Qwen Vision Experiments */
+/* mile.posnew.com AI PDF runtime v16.23 — Automatic Qwen Fallback */
 (() => {
   'use strict';
 
@@ -36,9 +36,13 @@
     'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
     'qwen-3.7-plus','qwen-3.7-flash'
   ]);
+  const DEFAULT_MODEL = 'gemini-3.7-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
+  const AUTO_FALLBACK_MODEL = 'qwen-3.7-flash';
   const activeControllers = new Set();
   let cancelled = false;
+  let runtimeFallbackModel = '';
+  let fallbackAnnounced = false;
   let lastSuccessfulTransport = '';
   let stopwatchInterval = 0;
   let stopwatchStartedAt = 0;
@@ -66,7 +70,7 @@
 
   function getConfig() {
     const protocol = 'openai';
-    const model = String($('aiModel')?.value || 'gemini-3.7-flash').trim();
+    const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
     const requestedPagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
@@ -154,7 +158,7 @@
   function loadNonSecretConfig() {
     // Model selalu kembali ke default stabil Gemini 3.7 Flash saat halaman dimuat.
     // Pengguna tetap dapat mengganti model selama sesi berjalan.
-    if ($('aiModel')) $('aiModel').value = 'gemini-3.7-flash';
+    if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
       ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16'].forEach(key => sessionStorage.removeItem(key));
@@ -1056,42 +1060,64 @@ ${clipped}`
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
   }
 
+  function isAutoFallbackEligible(config, error) {
+    if (cancelled || error?.name === 'AbortError' || config?.model !== DEFAULT_MODEL) return false;
+    const status = Number(error?.status || 0);
+    if (!status) return true;
+    if ([404, 408, 409, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+    return /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
+  }
+
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
+    const configuredModel = String(config?.model || body?.model || '').trim();
+    const requestModel = configuredModel === DEFAULT_MODEL && runtimeFallbackModel
+      ? runtimeFallbackModel
+      : String(body?.model || configuredModel).trim();
+    const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
+    const requestBody = body?.model === requestModel ? body : { ...body, model: requestModel };
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
       await waitUntilOnline(label);
       try {
-        hooks.onAttempt?.(attempt, MAX_RETRIES);
-        const payload = await callCosmos(config, body, event => hooks.onTransport?.({ ...event, attempt, maxAttempts: MAX_RETRIES }));
+        hooks.onAttempt?.(attempt, MAX_RETRIES, requestModel);
+        const payload = await callCosmos(requestConfig, requestBody, event => hooks.onTransport?.({ ...event, attempt, maxAttempts: MAX_RETRIES, model: requestModel }));
         try {
           // Validasi JSON di sini agar respons terpotong bisa diperbaiki atau dicoba ulang.
-          parseRows(payload, config.protocol);
+          parseRows(payload, requestConfig.protocol);
+          payload._mileEffectiveModel = requestModel;
           return payload;
         } catch (parseError) {
           let rawText = '';
-          try { rawText = extractTextFromResponse(payload, config.protocol); } catch (_) {}
+          try { rawText = extractTextFromResponse(payload, requestConfig.protocol); } catch (_) {}
           if (!rawText || rawText.length > MAX_JSON_REPAIR_CHARS) throw parseError;
 
           hooks.onRepair?.({ attempt, maxAttempts: MAX_RETRIES, error: parseError });
           const repairedPayload = await callCosmos(
-            config,
-            buildJsonRepairBody(config, rawText, Math.min(7000, Math.max(1600, Math.ceil(rawText.length / 3.6) + 400))),
-            event => hooks.onTransport?.({ ...event, attempt, maxAttempts: MAX_RETRIES, repair: true })
+            requestConfig,
+            buildJsonRepairBody(requestConfig, rawText, Math.min(7000, Math.max(1600, Math.ceil(rawText.length / 3.6) + 400))),
+            event => hooks.onTransport?.({ ...event, attempt, maxAttempts: MAX_RETRIES, repair: true, model: requestModel })
           );
-          parseRows(repairedPayload, config.protocol);
-          const originalUsage = readBaseUsage(payload, config.protocol);
+          parseRows(repairedPayload, requestConfig.protocol);
+          const originalUsage = readBaseUsage(payload, requestConfig.protocol);
           const existingExtra = repairedPayload?._mileAdditionalUsage || {};
           repairedPayload._mileAdditionalUsage = {
             input: Number(existingExtra.input || 0) + Number(originalUsage.input || 0),
             output: Number(existingExtra.output || 0) + Number(originalUsage.output || 0)
           };
           repairedPayload._mileJsonRepaired = true;
+          repairedPayload._mileEffectiveModel = requestModel;
           return repairedPayload;
         }
       } catch (error) {
         lastError = error;
-        if (!isRetryable(error) && !/JSON valid|array rows|teks hasil/i.test(String(error.message || ''))) throw error;
+        const retryable = isRetryable(error) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
+        const providerFailure = Boolean(Number(error?.status || 0)) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
+        if (requestModel === DEFAULT_MODEL && providerFailure && isAutoFallbackEligible(config, error)) break;
+        if (!retryable) {
+          if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, error)) break;
+          throw error;
+        }
         if (attempt >= MAX_RETRIES) break;
         const delay = Number(error?.status) === 429
           ? ([8000, 18000][attempt - 1] || 18000)
@@ -1106,6 +1132,19 @@ ${clipped}`
         setTransferProgress(0, `Koneksi terganggu · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`, { error: true });
         await cancellableSleep(delay + Math.floor(Math.random() * 700));
       }
+    }
+    if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, lastError)) {
+      const firstActivation = runtimeFallbackModel !== AUTO_FALLBACK_MODEL;
+      runtimeFallbackModel = AUTO_FALLBACK_MODEL;
+      if (firstActivation && !fallbackAnnounced) {
+        fallbackAnnounced = true;
+        if ($('aiModel')) $('aiModel').value = AUTO_FALLBACK_MODEL;
+        hooks.onFallback?.({ from: DEFAULT_MODEL, to: AUTO_FALLBACK_MODEL, error: lastError });
+        showToast('Gemini 3.7 terkendala. Proses dilanjutkan otomatis dengan Qwen 3.7 Flash.', 'info');
+      }
+      const fallbackPayload = await callProxyWithRetry(config, { ...body, model: AUTO_FALLBACK_MODEL }, label, hooks);
+      fallbackPayload._mileFallbackFrom = DEFAULT_MODEL;
+      return fallbackPayload;
     }
     throw lastError || new Error('Permintaan AI gagal setelah beberapa kali percobaan.');
   }
@@ -1701,6 +1740,8 @@ ${clipped}`
       return;
     }
     cancelled = false;
+    runtimeFallbackModel = '';
+    fallbackAnnounced = false;
     const startedAt = performance.now();
     startStopwatch(startedAt);
     setProgress(1, 'Memeriksa berkas dan koneksi', 'Validasi PDF dan layanan AI sedang dilakukan…');
@@ -1741,7 +1782,7 @@ ${clipped}`
         setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
         setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
       });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260908-16.22';
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260908-16.23';
       pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
       pageCount = pdf.numPages;
       if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
@@ -1786,10 +1827,10 @@ ${clipped}`
       };
 
       const makeTransportHooks = (chunk, chunkIndex, label, startWeight, waitWeight, completeWeight) => ({
-        onAttempt(attempt, maxAttempts) {
+        onAttempt(attempt, maxAttempts, model) {
           chunkStates[chunkIndex].waiting = false;
           chunkStates[chunkIndex].progress = Math.max(chunkStates[chunkIndex].progress, startWeight);
-          setTransferProgress(0, `${label} halaman ${chunk.start}–${chunk.end} · percobaan ${attempt}/${maxAttempts}`);
+          setTransferProgress(0, `${label} halaman ${chunk.start}–${chunk.end} · ${model} · percobaan ${attempt}/${maxAttempts}`);
           updateParallelProgress(chunk, chunkIndex, label);
         },
         onTransport(event) {
@@ -1822,6 +1863,11 @@ ${clipped}`
           chunkStates[chunkIndex].waiting = false;
           setTransferProgress(0, `Jaringan terganggu · percobaan ${nextAttempt}/${maxAttempts} dalam ${formatDuration(delay / 1000)}`, { error: true });
           updateParallelProgress(chunk, chunkIndex, `Menyiapkan retry ${nextAttempt}/${maxAttempts}`);
+        },
+        onFallback({ to }) {
+          chunkStates[chunkIndex].waiting = false;
+          setTransferProgress(0, `Gemini 3.7 terkendala · beralih otomatis ke ${to}`, { waiting: true });
+          updateParallelProgress(chunk, chunkIndex, 'Fallback ke Qwen 3.7 Flash');
         },
         onRepair() {
           setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });
@@ -1991,7 +2037,7 @@ ${clipped}`
         status: 'SUCCESS',
         fileCount: 1,
         pageCount,
-        model: config.model,
+        model: runtimeFallbackModel ? `${config.model} -> ${runtimeFallbackModel}` : config.model,
         chunkSize: config.pagesPerRequest,
         concurrency: config.concurrency,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2023,7 +2069,7 @@ ${clipped}`
         status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED',
         fileCount: 1,
         pageCount,
-        model: config?.model || '',
+        model: runtimeFallbackModel && config?.model === DEFAULT_MODEL ? `${config.model} -> ${runtimeFallbackModel}` : (config?.model || ''),
         chunkSize: config?.pagesPerRequest || 1,
         concurrency: config?.concurrency || 1,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2094,7 +2140,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

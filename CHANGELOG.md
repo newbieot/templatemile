@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.23 — Fallback otomatis Gemini ke Qwen
+
+- Gemini 3.7 Flash tetap menjadi model utama dan default.
+- Jika Gemini 3.7 gagal karena timeout, rate limit, gangguan upstream, model tidak tersedia, atau respons JSON rusak setelah retry, proses otomatis dilanjutkan dengan Qwen 3.7 Flash.
+- Peralihan model ditampilkan pada progres dan dicatat pada statistik pemrosesan. Error autentikasi atau izin tidak memicu fallback.
+
 ## v16.22 — Alternatif Qwen Vision yang lebih hemat
 
 - Menambahkan Qwen 3.7 Plus sebagai eksperimen kualitas dan Qwen 3.7 Flash sebagai eksperimen hemat untuk ekstraksi PDF berbasis gambar.
