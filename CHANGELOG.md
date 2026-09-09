@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.25 — Tautan versi ringan untuk komputer lambat
+
+- Menambahkan kartu ajakan di halaman utama yang mengarahkan pengguna komputer lama atau berspesifikasi rendah ke `/beta`.
+- Memperjelas halaman beta sebagai versi ramah komputer lambat dengan mode ringan yang sedang aktif.
+- Mengganti istilah teknis R2 pada tampilan pengguna dengan bahasa yang lebih sederhana tanpa mengubah pipeline R2 di belakang layar.
+
 ## v16.24 beta — Pipeline gambar sementara R2 untuk PC lawas
 
 - Menambahkan eksperimen terisolasi di `/beta`; halaman produksi `/app` dan runtime stabilnya tidak diubah.

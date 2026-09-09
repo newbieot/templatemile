@@ -200,7 +200,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Beta R2: render satu halaman pada satu waktu, lalu 15 halaman × maksimal 5 jalur AI. Audit kedua hanya jika hasil meragukan.',
+      fast: 'Mode ringan: halaman disiapkan satu per satu, lalu AI bekerja pada 15 halaman × maksimal 5 jalur. Audit kedua hanya jika hasil meragukan.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -216,7 +216,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Beta aktif: render lokal satu jalur dan maksimal 15 halaman × 5 jalur AI melalui URL R2 sementara.'
+      normal: 'Mode ringan aktif: halaman disiapkan satu per satu dan AI bekerja pada maksimal 15 halaman × 5 jalur melalui gambar sementara.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${offlineText}`;
   }
@@ -269,8 +269,8 @@
         status.classList.toggle('is-ready', configured);
         status.textContent = configured
           ? (data?.betaImagesConfigured
-              ? 'AI siap · Beta R2 aktif'
-              : 'AI siap · Beta R2 belum terikat, fallback aktif')
+              ? 'AI siap · Mode ringan aktif'
+              : 'AI siap · Mode ringan memakai jalur cadangan')
           : 'Konfigurasi server belum lengkap';
       }
       if (!configured && showFeedback) {
@@ -1975,17 +1975,17 @@ ${clipped}`
         accuracyMode: config.accuracyMode === 'auto' ? 'balanced' : config.accuracyMode
       };
 
-      setProgress(4, 'Menguji pipeline URL', 'Memastikan CosmosHub dapat mengambil gambar sementara dari R2…');
+      setProgress(4, 'Menyiapkan jalur ringan', 'Memastikan AI dapat mengambil gambar halaman sementara…');
       try {
         betaRemoteImagesAvailable = await probeRemoteImageSupport(config, betaJobId);
-        setTransferProgress(100, 'R2 dan URL gambar CosmosHub siap');
+        setTransferProgress(100, 'Jalur gambar sementara siap');
       } catch (probeError) {
         betaRemoteImagesAvailable = false;
         if (!betaRemoteFallbackAnnounced) {
           betaRemoteFallbackAnnounced = true;
-          showToast(`Pipeline URL belum tersedia; beta memakai fallback JPEG base64. ${probeError?.message || ''}`.trim(), 'info');
+          showToast(`Jalur gambar sementara belum tersedia; mode cadangan otomatis digunakan. ${probeError?.message || ''}`.trim(), 'info');
         }
-        setTransferProgress(0, 'Fallback JPEG base64 aktif', { error: true });
+        setTransferProgress(0, 'Jalur cadangan aktif', { error: true });
       }
 
       const chunks = [];
@@ -2094,7 +2094,7 @@ ${clipped}`
                 betaRemoteImagesAvailable = false;
                 if (!betaRemoteFallbackAnnounced) {
                   betaRemoteFallbackAnnounced = true;
-                  showToast('Upload R2 terhenti. Halaman berikutnya otomatis memakai JPEG base64.', 'info');
+                  showToast('Pengiriman gambar sementara terhenti. Halaman berikutnya otomatis memakai jalur cadangan.', 'info');
                 }
                 url = await blobToDataUrl(blob);
                 betaPerf.base64Pages++;
@@ -2240,8 +2240,8 @@ ${clipped}`
       const networkExplanation = limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi sementara menjadi ${config.pagesPerRequest} halaman × ${workerCount} jalur agar stabil.`
         : `Profil ${config.networkProfile.label} memakai ${config.pagesPerRequest} halaman × ${workerCount} jalur.`;
-      const imageTransport = betaRemoteImagesAvailable ? 'URL R2 sementara' : 'fallback JPEG base64';
-      setProgress(5, 'Memulai pipeline beta', `${chunks.length} kelompok disiapkan. Render satu jalur, ${networkExplanation} Transport: ${imageTransport}.`, formatUsage(totalUsage));
+      const imageTransport = betaRemoteImagesAvailable ? 'jalur gambar sementara' : 'jalur cadangan';
+      setProgress(5, 'Memulai mode ringan', `${chunks.length} kelompok disiapkan. Halaman dibuat satu per satu, ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
       const inFlight = new Set();
@@ -2303,7 +2303,7 @@ ${clipped}`
       } else {
         core.uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: mergedRows, source: 'AI PDF' });
         core.updateInterface();
-        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Beta: render ${formatPreciseDuration(betaPerf.renderMs / 1000)}, upload ${formatPreciseDuration(betaPerf.uploadMs / 1000)}, URL R2 ${betaPerf.remotePages}/${pageCount} halaman.`, formatUsage(totalUsage));
+        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Mode ringan: penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)}, pengiriman ${formatPreciseDuration(betaPerf.uploadMs / 1000)}, gambar sementara ${betaPerf.remotePages}/${pageCount} halaman.`, formatUsage(totalUsage));
         progressHideTimeout = window.setTimeout(hideProgress, 1200);
         showToast(`${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, 'success');
         core.processNextInQueue();
