@@ -95,8 +95,12 @@
 
   function connectionSignals() {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const browserOnline = navigator.onLine !== false;
     return {
-      online: navigator.onLine !== false,
+      // navigator.onLine hanya mencerminkan indikator jaringan browser/OS. Pada
+      // beberapa PC lama dengan LAN nilainya dapat false meski server terjangkau.
+      online: browserOnline || lastHealthConfigured,
+      browserOnline,
       available: Boolean(connection),
       saveData: Boolean(connection?.saveData),
       effectiveType: String(connection?.effectiveType || '').toLowerCase(),
@@ -122,7 +126,7 @@
       }
     };
 
-    if (mode === 'unstable' || !signals.online) return profiles.unstable;
+    if (mode === 'unstable') return profiles.unstable;
     if (mode === 'normal') return profiles.normal;
 
     const clearlySlow = signals.saveData ||
@@ -212,13 +216,13 @@
     const mode = $('aiNetworkMode')?.value || DEFAULT_NETWORK_MODE;
     const profile = resolveNetworkProfile(mode);
     const signals = connectionSignals();
-    const offlineText = signals.online ? '' : ' Internet sedang terputus.';
+    const connectionNote = signals.online ? '' : ' Status LAN belum dapat dipastikan; aplikasi tetap akan mencoba server.';
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
       normal: 'Mode ringan aktif: halaman disiapkan satu per satu dan AI bekerja pada maksimal 15 halaman × 5 jalur melalui gambar sementara.'
     };
-    hint.textContent = `${descriptions[mode] || descriptions.auto}${offlineText}`;
+    hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
 
   function markSpeedPresetCustom() {
@@ -284,7 +288,7 @@
       if (status) {
         status.dataset.healthChecked = 'true';
         status.classList.remove('is-ready');
-        status.textContent = navigator.onLine === false ? 'Internet terputus' : 'Server belum terhubung';
+        status.textContent = 'Server belum terhubung';
       }
       if (showFeedback) {
         const message = healthTimedOut || error?.name === 'AbortError'
@@ -352,14 +356,14 @@
     if (networkNode) {
       const mode = $('aiNetworkMode')?.value || DEFAULT_NETWORK_MODE;
       const profile = resolveNetworkProfile(mode);
-      networkNode.textContent = signals.online ? profile.label : 'Terputus';
-      networkNode.classList.toggle('is-offline', !signals.online);
+      networkNode.textContent = signals.online ? profile.label : 'Memeriksa server';
+      networkNode.classList.remove('is-offline');
     }
 
     const activityNode = $('aiProgressActivity');
     if (!activityNode) return;
     if (!signals.online) {
-      activityNode.textContent = 'Menunggu internet tersambung kembali';
+      activityNode.textContent = 'Status LAN belum pasti · proses tetap mencoba server';
       return;
     }
     if (progressWaitingSince) {
@@ -545,13 +549,11 @@
   }
 
   async function waitUntilOnline(label = 'permintaan AI') {
-    while (navigator.onLine === false) {
-      if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-      const current = Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 1);
-      setProgress(current, 'Menunggu koneksi internet', `${label} akan dilanjutkan otomatis setelah internet tersambung kembali.`, $('aiProgressUsage')?.textContent || '');
-      setTransferProgress(0, 'Internet terputus · menunggu tersambung kembali', { error: true });
-      await cancellableSleep(1000);
-    }
+    if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+    if (navigator.onLine !== false || lastHealthConfigured) return;
+    const current = Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 1);
+    setProgress(current, 'Mencoba menghubungi server', `${label} tetap dijalankan meski status LAN dari browser belum pasti.`, $('aiProgressUsage')?.textContent || '');
+    setTransferProgress(0, 'Status LAN belum pasti · mencoba server', { waiting: true });
   }
 
   function yieldToBrowser() {
@@ -1201,9 +1203,7 @@ ${clipped}`
         }, reject);
       };
       xhr.onerror = () => {
-        const error = new Error(navigator.onLine === false
-          ? 'Koneksi internet terputus saat mengirim data ke AI.'
-          : 'Koneksi ke server terputus sebelum respons AI selesai.');
+        const error = new Error('Koneksi ke server terputus sebelum respons AI selesai.');
         fail(error);
       };
       xhr.ontimeout = () => {
@@ -2371,12 +2371,12 @@ ${clipped}`
     window.addEventListener('online', () => {
       updateNetworkModeHint();
       refreshProgressHeartbeat();
-      showToast('Internet tersambung kembali. Proses akan dilanjutkan otomatis.', 'success');
+      showToast('Koneksi jaringan terdeteksi. Proses berjalan seperti biasa.', 'success');
     });
     window.addEventListener('offline', () => {
       updateNetworkModeHint();
       refreshProgressHeartbeat();
-      showToast('Internet terputus. Jangan tutup tab; sistem akan menunggu dan mencoba ulang.', 'info');
+      showToast('Status LAN berubah. Aplikasi tetap mencoba server dan akan mengulang otomatis bila diperlukan.', 'info');
     });
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     connection?.addEventListener?.('change', updateNetworkModeHint);

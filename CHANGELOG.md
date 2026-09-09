@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.26 — Perbaikan deteksi koneksi LAN
+
+- Menjadikan `navigator.onLine` sebagai petunjuk saja karena status browser/Windows dapat keliru pada komputer lama yang memakai LAN.
+- Versi biasa dan beta sekarang tetap mencoba Secure Gateway serta memakai retry nyata, bukan berhenti tanpa batas menunggu status `online`.
+- Mencegah status LAN yang keliru menurunkan profil normal menjadi 4 halaman × 1 jalur dan memperbarui pesan koneksi agar tidak menyatakan internet terputus sebelum server benar-benar dicoba.
+
 ## v16.25 — Tautan versi ringan untuk komputer lambat
 
 - Menambahkan kartu ajakan di halaman utama yang mengarahkan pengguna komputer lama atau berspesifikasi rendah ke `/beta`.

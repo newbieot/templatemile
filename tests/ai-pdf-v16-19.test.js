@@ -54,12 +54,18 @@ vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/app-core.js'), 'utf8'), sandbox, {
   filename: 'app-core.js'
 });
-vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/ai-pdf-v16-19.js'), 'utf8'), sandbox, {
+const aiRuntimeSource = fs.readFileSync(path.join(root, 'assets/js/ai-pdf-v16-19.js'), 'utf8');
+vm.runInContext(aiRuntimeSource, sandbox, {
   filename: 'ai-pdf-v16-19.js'
 });
 
 const core = sandbox.__mileCore;
 const ai = sandbox.MileAI._test;
+
+sandbox.navigator.onLine = false;
+assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
+assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
+sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
 assert.equal(core.cleanRecipientName('ANDI AB12-3456789'), 'ANDI');
