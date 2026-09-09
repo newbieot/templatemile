@@ -1,5 +1,14 @@
 # Changelog
 
+## v16.24 beta — Pipeline gambar sementara R2 untuk PC lawas
+
+- Menambahkan eksperimen terisolasi di `/beta`; halaman produksi `/app` dan runtime stabilnya tidak diubah.
+- Merender halaman PDF satu per satu langsung ke ukuran JPEG akhir agar beban CPU, RAM, dan jeda antarmuka lebih rendah pada komputer lawas.
+- Tetap menjalankan ekstraksi AI hingga 5 jalur dengan kelompok 15 halaman, tetapi tidak lagi merender 5 kelompok secara bersamaan.
+- Mengunggah JPEG secara berurutan ke R2 dan mengirim URL bertanda tangan yang ringan ke CosmosHub, sehingga Worker tidak perlu mem-parsing payload base64 berukuran besar.
+- Menguji kemampuan CosmosHub membaca URL gambar secara otomatis untuk setiap model dan kembali ke JPEG base64 bila pengujian gagal.
+- Menghapus gambar R2 setelah pemrosesan; lifecycle bucket satu hari menjadi pengaman bila tab/browser terputus.
+
 ## v16.23 — Fallback otomatis Gemini ke Qwen
 
 - Gemini 3.7 Flash tetap menjadi model utama dan default.

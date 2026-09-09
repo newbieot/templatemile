@@ -1,10 +1,12 @@
-const APP_VERSION = '20260908-16.23';
+const APP_VERSION = '20260909-16.24-beta-r2';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
 const MAX_REQUEST_BYTES = 28 * 1024 * 1024;
 const MAX_AUTH_BODY_BYTES = 16 * 1024;
 const MAX_METRICS_BODY_BYTES = 12 * 1024;
+const MAX_BETA_IMAGE_BYTES = 4 * 1024 * 1024;
+const BETA_IMAGE_TOKEN_TTL_SECONDS = 60 * 60;
 const METRICS_TIMEOUT_MS = 15000;
 const AI_UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000;
 const VERSIONED_ASSET_CACHE = 'private, max-age=31536000, immutable';
@@ -133,6 +135,48 @@ async function verifySessionToken(token, secret) {
     const payload = JSON.parse(textDecoder.decode(base64UrlDecode(encodedPayload)));
     const now = Math.floor(Date.now() / 1000);
     if (payload?.v !== 1 || !payload?.email || !payload?.uid || !payload?.exp || payload.exp <= now) return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+function betaImageBucket(env) {
+  const bucket = env?.BETA_AI_IMAGES;
+  return bucket && typeof bucket.put === 'function' && typeof bucket.get === 'function' ? bucket : null;
+}
+
+function betaOwnerKey(session) {
+  return String(session?.uid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 96);
+}
+
+function validBetaJobId(value) {
+  return /^[a-zA-Z0-9_-]{16,80}$/.test(String(value || ''));
+}
+
+async function createBetaImageToken(payload, secret) {
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const key = await sessionKey(secret);
+  const signature = new Uint8Array(await crypto.subtle.sign('HMAC', key, textEncoder.encode(encodedPayload)));
+  return `${encodedPayload}.${base64UrlEncode(signature)}`;
+}
+
+async function verifyBetaImageToken(token, secret) {
+  try {
+    const [encodedPayload, encodedSignature, extra] = String(token || '').split('.');
+    if (!encodedPayload || !encodedSignature || extra) return null;
+    const key = await sessionKey(secret);
+    const valid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      base64UrlDecode(encodedSignature),
+      textEncoder.encode(encodedPayload)
+    );
+    if (!valid) return null;
+    const payload = JSON.parse(textDecoder.decode(base64UrlDecode(encodedPayload)));
+    const now = Math.floor(Date.now() / 1000);
+    if (payload?.v !== 1 || payload?.kind !== 'beta-image' || !payload?.key || !payload?.exp || payload.exp <= now) return null;
+    if (!String(payload.key).startsWith('beta/')) return null;
     return payload;
   } catch (_) {
     return null;
@@ -410,6 +454,128 @@ function conciseHtmlError(text, status) {
   return `Upstream mengembalikan HTML, bukan JSON (HTTP ${status}).`;
 }
 
+async function handleBetaImageUpload(request, env, session, url) {
+  if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
+  if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
+  if (!sameOriginRequest(request)) return json({ error: { message: 'Permintaan lintas situs ditolak.' } }, 403);
+
+  const bucket = betaImageBucket(env);
+  const secret = configuredSessionSecret(env);
+  if (!bucket || !secret) {
+    return json({ error: { message: 'Penyimpanan gambar beta belum dikonfigurasi.' } }, 503);
+  }
+
+  const match = url.pathname.match(/^\/api\/beta\/images\/([a-zA-Z0-9_-]{16,80})\/(\d{1,3})\/(first|audit|probe)$/);
+  if (!match || !validBetaJobId(match[1])) {
+    return json({ error: { message: 'Alamat unggahan gambar beta tidak valid.' } }, 400);
+  }
+
+  const [, jobId, rawPage, variant] = match;
+  const page = Number(rawPage);
+  const validPage = variant === 'probe' ? page === 0 : page >= 1 && page <= 300;
+  if (!validPage || request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'image/jpeg') {
+    return json({ error: { message: 'Gambar beta harus berupa JPEG dengan nomor halaman valid.' } }, 400);
+  }
+
+  const declaredLength = Number(request.headers.get('content-length') || 0);
+  if (declaredLength > MAX_BETA_IMAGE_BYTES) {
+    return json({ error: { message: 'Gambar beta terlalu besar (maksimal 4 MB).' } }, 413);
+  }
+
+  let bytes;
+  try {
+    bytes = await request.arrayBuffer();
+  } catch (_) {
+    return json({ error: { message: 'Isi gambar beta tidak dapat dibaca.' } }, 400);
+  }
+  if (!bytes.byteLength || bytes.byteLength > MAX_BETA_IMAGE_BYTES) {
+    return json({ error: { message: bytes.byteLength ? 'Gambar beta terlalu besar (maksimal 4 MB).' : 'Gambar beta kosong.' } }, bytes.byteLength ? 413 : 400);
+  }
+
+  const owner = betaOwnerKey(session);
+  if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
+  const key = `beta/${owner}/${jobId}/${page}-${variant}.jpg`;
+  await bucket.put(key, bytes, {
+    httpMetadata: { contentType: 'image/jpeg', cacheControl: 'private, no-store, max-age=0' },
+    customMetadata: { createdAt: new Date().toISOString() }
+  });
+
+  const token = await createBetaImageToken({
+    v: 1,
+    kind: 'beta-image',
+    key,
+    exp: Math.floor(Date.now() / 1000) + BETA_IMAGE_TOKEN_TTL_SECONDS
+  }, secret);
+
+  return json({
+    ok: true,
+    url: `${url.origin}/api/beta/image?t=${encodeURIComponent(token)}`,
+    expiresIn: BETA_IMAGE_TOKEN_TTL_SECONDS
+  });
+}
+
+async function handleBetaImageRead(request, env, url) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'GET, HEAD' });
+  }
+
+  const bucket = betaImageBucket(env);
+  const secret = configuredSessionSecret(env);
+  if (!bucket || !secret) return json({ error: { message: 'Penyimpanan gambar beta belum dikonfigurasi.' } }, 503);
+
+  const payload = await verifyBetaImageToken(url.searchParams.get('t'), secret);
+  if (!payload) return json({ error: { message: 'Tautan gambar tidak valid atau sudah kedaluwarsa.' } }, 403);
+
+  const object = await bucket.get(payload.key);
+  if (!object) return json({ error: { message: 'Gambar beta sudah tidak tersedia.' } }, 404);
+
+  const headers = new Headers(securityHeaders({
+    'content-type': object.httpMetadata?.contentType || 'image/jpeg',
+    'content-length': String(object.size),
+    'cache-control': 'private, no-store, max-age=0',
+    'cloudflare-cdn-cache-control': 'no-store',
+    'cross-origin-resource-policy': 'cross-origin',
+    'content-disposition': 'inline',
+    etag: object.httpEtag || object.etag || ''
+  }));
+  if (!headers.get('etag')) headers.delete('etag');
+  return new Response(request.method === 'HEAD' ? null : object.body, { status: 200, headers });
+}
+
+async function handleBetaImageCleanup(request, env, session) {
+  if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
+  if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
+  if (!sameOriginRequest(request)) return json({ error: { message: 'Permintaan lintas situs ditolak.' } }, 403);
+
+  const bucket = betaImageBucket(env);
+  if (!bucket) return json({ error: { message: 'Penyimpanan gambar beta belum dikonfigurasi.' } }, 503);
+
+  let input;
+  try {
+    input = await readJson(request, 2048);
+  } catch (_) {
+    return json({ error: { message: 'Permintaan pembersihan gambar tidak valid.' } }, 400);
+  }
+  if (!validBetaJobId(input?.jobId)) return json({ error: { message: 'ID pekerjaan beta tidak valid.' } }, 400);
+
+  const owner = betaOwnerKey(session);
+  if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
+  const prefix = `beta/${owner}/${input.jobId}/`;
+  let cursor;
+  let deleted = 0;
+  do {
+    const page = await bucket.list({ prefix, cursor, limit: 1000 });
+    const keys = page.objects.map(object => object.key);
+    if (keys.length) {
+      await bucket.delete(keys);
+      deleted += keys.length;
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  return json({ ok: true, deleted });
+}
+
 async function handleProxy(request, env, session) {
   if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
   if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
@@ -535,6 +701,7 @@ export default {
         firebaseConfigured: Boolean(String(env?.FIREBASE_WEB_API_KEY || '').trim()),
         sessionConfigured: Boolean(configuredSessionSecret(env)),
         metricsConfigured: Boolean(configuredMetrics(env).webhookUrl && configuredMetrics(env).webhookSecret),
+        betaImagesConfigured: Boolean(betaImageBucket(env)),
         serverSideGate: true
       });
     }
@@ -542,6 +709,7 @@ export default {
     if (url.pathname === '/api/auth/login') return handleLogin(request, env);
     if (url.pathname === '/api/auth/reset-password') return handlePasswordReset(request, env);
     if (url.pathname === '/api/auth/logout') return handleLogout(request);
+    if (url.pathname === '/api/beta/image') return handleBetaImageRead(request, env, url);
 
     const session = await currentSession(request, env);
 
@@ -552,6 +720,8 @@ export default {
 
     if (url.pathname === '/api/ai-proxy') return handleProxy(request, env, session);
     if (url.pathname === '/api/metrics/ai') return handleMetrics(request, env, session);
+    if (url.pathname === '/api/beta/images/cleanup') return handleBetaImageCleanup(request, env, session);
+    if (url.pathname.startsWith('/api/beta/images/')) return handleBetaImageUpload(request, env, session, url);
 
     if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/login' || url.pathname === '/login.html') {
       // Fetch extensionless asset routes. Cloudflare Pages redirects /index.html to /
