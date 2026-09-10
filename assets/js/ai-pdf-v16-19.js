@@ -36,7 +36,7 @@
     'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
     'qwen-3.7-plus','qwen-3.7-flash'
   ]);
-  const DEFAULT_MODEL = 'gemini-3.7-flash';
+  const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
   const AUTO_FALLBACK_MODEL = 'qwen-3.7-flash';
   const activeControllers = new Set();
@@ -160,7 +160,7 @@
   }
 
   function loadNonSecretConfig() {
-    // Model selalu kembali ke default stabil Gemini 3.7 Flash saat halaman dimuat.
+    // Model selalu kembali ke default Gemini 3.8 Flash saat halaman dimuat.
     // Pengguna tetap dapat mengganti model selama sesi berjalan.
     if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
     try {
@@ -199,7 +199,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: '15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default stabil untuk Gemini 3.7 Flash.',
+      fast: '15 halaman × 5 jalur, audit kedua hanya jika hasil meragukan. Default menggunakan Gemini 3.8 Flash.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -1140,7 +1140,7 @@ ${clipped}`
         fallbackAnnounced = true;
         if ($('aiModel')) $('aiModel').value = AUTO_FALLBACK_MODEL;
         hooks.onFallback?.({ from: DEFAULT_MODEL, to: AUTO_FALLBACK_MODEL, error: lastError });
-        showToast('Gemini 3.7 terkendala. Proses dilanjutkan otomatis dengan Qwen 3.7 Flash.', 'info');
+        showToast('Gemini 3.8 terkendala. Proses dilanjutkan otomatis dengan Qwen 3.7 Flash.', 'info');
       }
       const fallbackPayload = await callProxyWithRetry(config, { ...body, model: AUTO_FALLBACK_MODEL }, label, hooks);
       fallbackPayload._mileFallbackFrom = DEFAULT_MODEL;
@@ -1866,7 +1866,7 @@ ${clipped}`
         },
         onFallback({ to }) {
           chunkStates[chunkIndex].waiting = false;
-          setTransferProgress(0, `Gemini 3.7 terkendala · beralih otomatis ke ${to}`, { waiting: true });
+          setTransferProgress(0, `Gemini 3.8 terkendala · beralih otomatis ke ${to}`, { waiting: true });
           updateParallelProgress(chunk, chunkIndex, 'Fallback ke Qwen 3.7 Flash');
         },
         onRepair() {

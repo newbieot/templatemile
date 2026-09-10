@@ -1,10 +1,10 @@
-# mile.posnew.com Secure Gateway v16.32 beta
+# mile.posnew.com Secure Gateway v16.33
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
 ## Eksperimen PC lawas di `/beta`
 
-Halaman `/beta` memakai pipeline scan yang lebih ringan: maksimal dua halaman PDF dirender bersamaan, JPEG diunggah sementara ke bucket R2 `mile-beta-ai-images`, lalu AI bekerja paralel dengan kelompok 8 halaman × maksimum 2 jalur agar model tidak kewalahan. Kesiapan jalur gambar dibaca dari Secure Gateway tanpa permintaan AI pemeriksaan awal; jika upload gambar terganggu, proses otomatis memakai fallback JPEG base64. Model Beta dikunci ke Gemini 3.7 Flash; kegagalan dicoba ulang dengan model yang sama dan tidak dialihkan ke Qwen.
+Halaman `/beta` memakai pipeline scan yang lebih ringan: PDF dirender satu halaman pada satu waktu, JPEG diunggah sementara ke bucket R2 `mile-beta-ai-images`, lalu AI bekerja paralel dengan kelompok 15 halaman × maksimum 5 jalur. Kesiapan jalur gambar dibaca langsung dari Secure Gateway tanpa permintaan AI pemeriksaan awal agar proses tidak bengong sebelum render dimulai; jika upload gambar terganggu, proses otomatis memakai fallback JPEG base64. Gemini 3.8 Flash menjadi model default pada Beta dan versi utama, dengan Qwen 3.7 Flash sebagai fallback otomatis.
 
 Binding Cloudflare Pages yang diperlukan:
 
@@ -192,7 +192,7 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/login-v16.js` — form login tanpa Firebase key.
 - `assets/js/session-v16.js` — status akun dan logout.
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
-- `assets/js/ai-pdf-v16-19.js` — alur PDF AI scan-first dengan default stabil Gemini 3.7 Flash, ekstraksi perihal, pembersihan kode pada nama, profil Cepat 15 halaman × 5 jalur, dan audit selektif. Jika Gemini 3.7 terkendala, proses otomatis beralih ke Qwen 3.7 Flash. Gemini 3.8 Flash dan Qwen 3.7 Plus tetap tersedia sebagai pilihan eksperimental.
+- `assets/js/ai-pdf-v16-19.js` — alur PDF AI scan-first dengan Gemini 3.8 Flash sebagai default, ekstraksi perihal, pembersihan kode pada nama, profil Cepat 15 halaman × 5 jalur, dan audit selektif. Jika Gemini 3.8 terkendala, proses otomatis beralih ke Qwen 3.7 Flash. Gemini 3.7 Flash dan Qwen 3.7 Plus tetap tersedia sebagai pilihan manual.
 
 
 ## Pembaruan v16.19

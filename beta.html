@@ -61,14 +61,14 @@
       <div class="intro-copy">
         <span class="eyebrow">Versi ringan untuk komputer lambat</span>
         <h1 id="pageTitle">Pemrosesan PDF lebih ringan untuk komputer yang lambat.</h1>
-        <p>Maksimal dua halaman disiapkan bersamaan agar komputer lama tetap responsif, sementara hingga empat jalur AI bekerja stabil tanpa menerima terlalu banyak halaman sekaligus.</p>
+        <p>Halaman disiapkan satu per satu agar komputer lama tetap responsif, sementara hingga lima jalur AI bekerja bersamaan untuk mempercepat hasil.</p>
         <div class="performance-beta-card performance-beta-card--active" role="note">
           <span class="performance-beta-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M13.5 7.2l-3 4h3l-2 3.1"/></svg>
           </span>
           <span class="performance-beta-copy">
             <strong>Mode ramah komputer lambat sedang aktif</strong>
-            <small>Render ringan dua jalur dan pengiriman gambar sementara membantu mempercepat proses tanpa membebani komputer seperti versi biasa.</small>
+            <small>Render ringan satu per satu dan pengiriman gambar sementara membantu mengurangi beban komputer selama PDF diproses.</small>
           </span>
           <span class="performance-beta-action">Mode ringan aktif</span>
         </div>
@@ -202,15 +202,30 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.32</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.33</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
                   <label for="aiModel">Model AI</label>
-                  <div class="select-shell"><select id="aiModel" disabled aria-describedby="aiModelHint">
-                    <option value="gemini-3.7-flash" selected>Gemini 3.7 Flash · Dikunci</option>
+                  <div class="select-shell"><select id="aiModel" aria-describedby="aiModelHint">
+                    <optgroup label="Gemini Vision · Antigravity">
+                      <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash · Default</option>
+                      <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                      <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                      <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
+                    </optgroup>
+                    <optgroup label="Qwen Vision · Alibaba">
+                      <option value="qwen-3.7-plus">Qwen 3.7 Plus · Eksperimen Kualitas</option>
+                      <option value="qwen-3.7-flash">Qwen 3.7 Flash · Fallback Otomatis</option>
+                    </optgroup>
+                    <optgroup label="Claude Vision · Kiro AI">
+                      <option value="claude-opus-5">Claude Opus 5</option>
+                      <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+                      <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
+                    </optgroup>
                   </select></div>
-                  <span class="field-hint" id="aiModelHint">Jika permintaan gagal, sistem menjalankan maksimal tiga percobaan dengan Gemini 3.7 Flash yang sama. Beta tidak beralih ke model lain.</span>
+                  <span class="field-hint" id="aiModelHint">Gemini 3.8 Flash digunakan secara default. Jika jalurnya gagal, Beta beralih otomatis ke Qwen 3.7 Flash.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiAccuracyMode">Mode ekstraksi</label>
@@ -225,20 +240,20 @@
                 <div class="form-group full-width">
                   <label for="aiNetworkMode">Profil koneksi internet</label>
                   <div class="select-shell"><select id="aiNetworkMode">
-                    <option value="normal" selected>Normal stabil · 8 halaman × 2 jalur · Default</option>
+                    <option value="normal" selected>Normal cepat · 15 halaman × 5 jalur · Default</option>
                     <option value="auto">Otomatis · batasi jika koneksi lambat</option>
                     <option value="unstable">Internet tidak stabil · hemat data</option>
                   </select></div>
-                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 8 halaman × 2 jalur agar AI tidak kewalahan. Mode hemat data hanya digunakan jika dipilih manual.</span>
+                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 15 halaman × 5 jalur. Mode hemat data hanya digunakan jika dipilih manual.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiSpeedPreset">Preset kecepatan</label>
                   <div class="select-shell"><select id="aiSpeedPreset">
                     <option value="medium">Sedang · audit penuh</option>
-                    <option value="fast" selected>Cepat stabil · hingga 2 jalur</option>
+                    <option value="fast" selected>Cepat · hingga 5 jalur</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan stabil menyiapkan maksimal dua halaman bersamaan; AI menerima 8 halaman per kelompok melalui maksimal 2 jalur.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan menyiapkan halaman satu per satu; AI bekerja hingga 15 halaman × 5 jalur dan memakai Qwen jika Gemini tidak tersedia.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -248,17 +263,23 @@
                     <option value="4">4 halaman</option>
                     <option value="5">5 halaman · preset Sedang</option>
                     <option value="6">6 halaman</option>
-                    <option value="8" selected>8 halaman · preset Cepat stabil</option>
+                    <option value="8">8 halaman</option>
+                    <option value="10">10 halaman · pilihan stabil</option>
+                    <option value="15" selected>15 halaman · preset Cepat</option>
+                    <option value="20">20 halaman · dokumen bersih / eksperimental</option>
                   </select></div>
-                  <span class="field-hint">Maksimal 8 halaman per permintaan agar AI tidak menerima terlalu banyak gambar sekaligus.</span>
+                  <span class="field-hint">Preset default mengirim 15 halaman per permintaan. Gunakan nilai lebih kecil untuk scan yang sulit.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
                   <div class="select-shell"><select id="aiConcurrency">
                     <option value="1">1 jalur · paling aman</option>
-                    <option value="2" selected>2 jalur · cepat stabil</option>
+                    <option value="2">2 jalur · hemat limit</option>
+                    <option value="3">3 jalur · seimbang</option>
+                    <option value="4">4 jalur · cepat dan stabil</option>
+                    <option value="5" selected>5 jalur · default</option>
                   </select></div>
-                  <span class="field-hint">Maksimal 2 jalur agar hanya 16 gambar yang dapat diproses AI secara bersamaan.</span>
+                  <span class="field-hint">Preset default memakai 5 jalur AI paralel, sementara render pada komputer tetap satu halaman pada satu waktu.</span>
                 </div>
                 <div class="form-group full-width ai-test-group">
                   <label>Uji layanan</label>
@@ -472,7 +493,7 @@
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/app-core.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260910-16.32" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260910-16.33" defer></script>
   <script src="/assets/js/ui.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>

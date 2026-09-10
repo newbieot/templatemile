@@ -72,32 +72,25 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.doesNotMatch(aiRuntimeSource, /probeRemoteImageSupport/);
-assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 8, concurrency: 2/);
-assert.match(aiRuntimeSource, /Math\.min\(8, Number\(\$\('aiPagesPerRequest'\)/);
-assert.match(aiRuntimeSource, /Math\.min\(2, Number\(\$\('aiConcurrency'\)/);
-assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Normal stabil', maxPagesPerRequest: 8, maxConcurrency: 2/);
-assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v4'/);
-assert.match(betaHtmlSource, /Normal stabil · 8 halaman × 2 jalur · Default/);
-assert.match(betaHtmlSource, /<option value="8" selected>8 halaman · preset Cepat stabil<\/option>/);
-assert.match(betaHtmlSource, /<option value="2" selected>2 jalur · cepat stabil<\/option>/);
-assert.doesNotMatch(betaHtmlSource, />10 halaman|>15 halaman|>3 jalur|>4 jalur/);
-assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
-assert.match(aiRuntimeSource, /const model = DEFAULT_MODEL;/);
-assert.match(aiRuntimeSource, /const requestModel = DEFAULT_MODEL;/);
-assert.match(aiRuntimeSource, /const delay = 500;/);
-assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL|runtimeFallbackModel|qwen-3\.7-flash|isAutoFallbackEligible/);
-assert.equal(ai.providerResetDelayMs({
-  message: 'HTTP 404',
-  details: { error: { message: 'No active credentials for provider: antigravity (reset after 1m 12s)' } }
-}), 500);
-assert.equal(ai.isRetryable({
-  status: 404,
-  details: { error: { message: 'No active credentials for provider: antigravity (reset after 1m 12s)' } }
-}), true);
-assert.equal(ai.isRetryable({ status: 404, message: 'Model tidak ditemukan' }), false);
-assert.equal(ai.providerResetDelayMs({ message: 'reset after 45s' }), 500);
-assert.equal(ai.providerResetDelayMs({ message: 'provider error tanpa waktu reset' }), 0);
-assert.equal(ai.formatRetryDelay(500), '0,5 detik');
+assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 5/);
+assert.match(aiRuntimeSource, /Math\.min\(20, Number\(\$\('aiPagesPerRequest'\)/);
+assert.match(aiRuntimeSource, /Math\.min\(5, Number\(\$\('aiConcurrency'\)/);
+assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Normal cepat', maxPagesPerRequest: 20, maxConcurrency: 5/);
+assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v5'/);
+assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
+assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 1/);
+assert.match(aiRuntimeSource, /while \(inFlight\.size >= workerCount\)/);
+assert.match(aiRuntimeSource, /const AUTO_FALLBACK_MODEL = 'qwen-3\.7-flash'/);
+assert.match(betaHtmlSource, /Normal cepat · 15 halaman × 5 jalur · Default/);
+assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
+assert.match(betaHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Fallback Otomatis<\/option>/);
+assert.match(betaHtmlSource, /<option value="15" selected>15 halaman · preset Cepat<\/option>/);
+assert.match(betaHtmlSource, /<option value="5" selected>5 jalur · default<\/option>/);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 404 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
@@ -260,7 +253,7 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
 
-const taskPool = ai.createTaskPool(2);
+const taskPool = ai.createTaskPool(1);
 let activeTasks = 0;
 let peakTasks = 0;
 const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
@@ -271,8 +264,8 @@ const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
 }));
 
 Promise.all(poolJobs).then(() => {
-  assert.equal(peakTasks, 2);
-  console.log('PASS ai-pdf-beta-r2: ekstraksi, batas 8 × 2, URL R2, pool dua render, fallback base64, dan retry Gemini 3.7 terkunci');
+  assert.equal(peakTasks, 1);
+  console.log('PASS ai-pdf-beta-r2: Gemini 3.8 default, fallback Qwen, render serial, 15 × 5, URL R2, dan fallback base64');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;

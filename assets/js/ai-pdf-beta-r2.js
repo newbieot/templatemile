@@ -1,4 +1,4 @@
-/* mile.posnew.com beta AI PDF runtime — bounded render pool + temporary R2 URLs */
+/* mile.posnew.com beta AI PDF runtime — serial render + temporary R2 URLs */
 (() => {
   'use strict';
 
@@ -12,15 +12,15 @@
   };
   const SPEED_PRESETS = {
     medium: { pagesPerRequest: 5, concurrency: 2, verification: 'all', label: 'Sedang' },
-    fast: { pagesPerRequest: 8, concurrency: 2, verification: 'smart', label: 'Cepat stabil' },
+    fast: { pagesPerRequest: 15, concurrency: 5, verification: 'smart', label: 'Cepat' },
     custom: { verification: 'smart', label: 'Kustom' }
   };
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const DEFAULT_NETWORK_MODE = 'normal';
-  const FIRST_PASS_MAX_SIDE = 1600;
+  const FIRST_PASS_MAX_SIDE = 1900;
   const AUDIT_MAX_SIDE = 2600;
-  const FIRST_PASS_JPEG_QUALITY = 0.79;
+  const FIRST_PASS_JPEG_QUALITY = 0.84;
   const AUDIT_JPEG_QUALITY = 0.91;
   const MAX_JSON_REPAIR_CHARS = 48000;
   const SMART_CONFIDENCE_THRESHOLD = 0.82;
@@ -28,15 +28,23 @@
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-beta-r2-v4';
+  const STORAGE_KEY = 'mile-ai-config-beta-r2-v5';
   const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
-  const BETA_PREPARE_CONCURRENCY = 2;
+  const BETA_PREPARE_CONCURRENCY = 1;
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
-  const DEFAULT_MODEL = 'gemini-3.7-flash';
+  const COSMOS_MODELS = new Set([
+    'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
+    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
+    'qwen-3.7-plus','qwen-3.7-flash'
+  ]);
+  const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
+  const AUTO_FALLBACK_MODEL = 'qwen-3.7-flash';
   const activeControllers = new Set();
   let cancelled = false;
+  let runtimeFallbackModel = '';
+  let fallbackAnnounced = false;
   let lastSuccessfulTransport = '';
   let stopwatchInterval = 0;
   let stopwatchStartedAt = 0;
@@ -67,16 +75,17 @@
 
   function getConfig() {
     const protocol = 'openai';
-    const model = DEFAULT_MODEL;
+    const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
-    const requestedPagesPerRequest = Math.max(1, Math.min(8, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
-    const requestedConcurrency = Math.max(1, Math.min(2, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
+    const requestedPagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const requestedConcurrency = Math.max(1, Math.min(5, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
     const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
     const networkProfile = resolveNetworkProfile(networkMode);
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
     const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
     const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
+    if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
       provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy,
       pagesPerRequest, concurrency, requestedPagesPerRequest, requestedConcurrency,
@@ -112,7 +121,7 @@
         maxImageSide: 2150, jpegQuality: 0.85
       },
       normal: {
-        key: 'normal', label: 'Normal stabil', maxPagesPerRequest: 8, maxConcurrency: 2,
+        key: 'normal', label: 'Normal cepat', maxPagesPerRequest: 20, maxConcurrency: 5,
         maxImageSide: Infinity, jpegQuality: 1
       }
     };
@@ -136,7 +145,7 @@
 
     // Firefox desktop belum menyediakan Network Information API. Dalam kondisi
     // itu Auto memilih profil paling aman; pengguna berkoneksi cepat tetap dapat
-    // memilih "Internet stabil" untuk membuka batas 8 halaman × 2 jalur.
+    // memilih "Internet stabil" untuk membuka batas 15 halaman × 5 jalur.
     if (!signals.available) return profiles.unstable;
     return profiles.balanced;
   }
@@ -156,11 +165,12 @@
   }
 
   function loadNonSecretConfig() {
-    // Model Beta dikunci ke Gemini 3.7 Flash dan tidak dibaca dari penyimpanan sesi.
+    // Model selalu kembali ke default Gemini 3.8 Flash saat halaman dimuat.
+    // Pengguna tetap dapat mengganti model selama sesi berjalan.
     if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -194,7 +204,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Mode ringan stabil: hingga dua halaman disiapkan bersamaan, lalu AI bekerja pada 8 halaman × maksimal 2 jalur. Audit kedua hanya jika hasil meragukan.',
+      fast: 'Mode ringan: halaman disiapkan satu per satu, lalu AI bekerja pada 15 halaman × maksimal 5 jalur. Audit kedua hanya jika hasil meragukan.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -210,7 +220,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode ringan aktif: maksimal dua halaman disiapkan bersamaan dan AI bekerja pada maksimal 8 halaman × 2 jalur melalui gambar sementara.'
+      normal: 'Mode ringan aktif: halaman disiapkan satu per satu dan AI bekerja pada maksimal 15 halaman × 5 jalur melalui gambar sementara.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -399,14 +409,6 @@
     const minutes = Math.floor(value / 60);
     const rest = value % 60;
     return rest ? `${minutes} menit ${rest} detik` : `${minutes} menit`;
-  }
-
-  function formatRetryDelay(milliseconds) {
-    const value = Math.max(0, Number(milliseconds) || 0);
-    if (value < 1000) {
-      return `${(value / 1000).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} detik`;
-    }
-    return formatDuration(value / 1000);
   }
 
   function formatBytes(bytes) {
@@ -1087,7 +1089,7 @@ ${clipped}`
       } else if (response.status === 403) message = 'Akun ini tidak memiliki izin menggunakan layanan AI.';
       else if (response.status === 404) {
         message = /no active credentials for provider:\s*antigravity/i.test(message)
-          ? `Slot provider Gemini 3.7 Flash sedang penuh. ${message}`
+          ? `Slot provider Gemini 3.8 Flash sedang penuh. ${message}`
           : 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
       }
       else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
@@ -1210,67 +1212,26 @@ ${clipped}`
     return callViaProxy(config, body, onTransport);
   }
 
-  function providerErrorText(error) {
-    return [
-      error?.message,
-      error?.details?.error?.message,
-      error?.details?.message
-    ].map(value => String(value || '')).filter(Boolean).join(' ');
-  }
-
-  function providerResetDelayMs(error) {
-    const resetText = providerErrorText(error).match(/reset\s+after\s+([^\n\r)\]}]+)/i)?.[1] || '';
-    let seconds = 0;
-    let found = false;
-    const units = /(\d+)\s*(h(?:ours?)?|m(?:in(?:ute)?s?)?|s(?:ec(?:ond)?s?)?)/gi;
-    let match;
-    while ((match = units.exec(resetText)) !== null) {
-      found = true;
-      const value = Number(match[1] || 0);
-      const unit = String(match[2] || '').toLowerCase()[0];
-      seconds += value * (unit === 'h' ? 3600 : unit === 'm' ? 60 : 1);
-    }
-    if (!found || seconds <= 0) return 0;
-    // Waktu reset dari provider hanya perkiraan. Coba lagi lebih awal agar proses
-    // tidak menunggu seluruh estimasi bila slot ternyata tersedia lebih cepat.
-    return Math.min((seconds + 2) * 1000, 500);
-  }
-
-  function isTemporaryProviderCredentialError(error) {
-    return /no active credentials for provider:\s*antigravity/i.test(providerErrorText(error));
-  }
-
   function isRetryable(error) {
     if (cancelled || error?.name === 'AbortError') return false;
     if (!error?.status) return true;
-    if (Number(error.status) === 404 && isTemporaryProviderCredentialError(error)) return true;
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
   }
 
-  async function waitBeforeRetry(delay, nextAttempt, maxAttempts, providerWait = false) {
-    if (!providerWait) {
-      await cancellableSleep(delay);
-      return;
-    }
-    const deadline = performance.now() + delay;
-    while (performance.now() < deadline) {
-      const remaining = Math.max(0, deadline - performance.now());
-      const remainingText = formatRetryDelay(remaining);
-      const percent = Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10);
-      setProgress(
-        percent,
-        'Mencoba kembali Gemini 3.7 Flash',
-        `Slot provider sedang diperiksa ulang. Percobaan ${nextAttempt}/${maxAttempts} dimulai dalam ${remainingText}.`,
-        $('aiProgressUsage')?.textContent || ''
-      );
-      setTransferProgress(0, `Cek ulang slot Gemini · ${remainingText}`, { waiting: true });
-      await cancellableSleep(Math.min(1000, remaining));
-    }
+  function isAutoFallbackEligible(config, error) {
+    if (cancelled || error?.name === 'AbortError' || config?.model !== DEFAULT_MODEL) return false;
+    const status = Number(error?.status || 0);
+    if (!status) return true;
+    if ([404, 408, 409, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+    return /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
   }
 
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
-    const requestModel = DEFAULT_MODEL;
-    const requestConfig = config?.model === requestModel ? config : { ...config, model: requestModel };
+    const configuredModel = String(config?.model || body?.model || '').trim();
+    const requestModel = configuredModel === DEFAULT_MODEL && runtimeFallbackModel
+      ? runtimeFallbackModel
+      : String(body?.model || configuredModel).trim();
+    const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
     const requestBody = body?.model === requestModel ? body : { ...body, model: requestModel };
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -1309,28 +1270,41 @@ ${clipped}`
       } catch (error) {
         lastError = error;
         const retryable = isRetryable(error) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
-        if (!retryable) throw error;
+        const providerFailure = Boolean(Number(error?.status || 0)) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
+        if (requestModel === DEFAULT_MODEL && providerFailure && isAutoFallbackEligible(config, error)) break;
+        if (!retryable) {
+          if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, error)) break;
+          throw error;
+        }
         if (attempt >= MAX_RETRIES) break;
-        const providerDelay = providerResetDelayMs(error);
-        const delay = 500;
+        const delay = Number(error?.status) === 429
+          ? ([8000, 18000][attempt - 1] || 18000)
+          : ([1800, 4200, 8500][attempt - 1] || 8500);
         hooks.onRetry?.({ attempt, nextAttempt: attempt + 1, maxAttempts: MAX_RETRIES, delay, error });
         setProgress(
           Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10),
           `Mencoba ulang ${label}`,
-          `Percobaan ${attempt + 1}/${MAX_RETRIES} dimulai dalam ${formatRetryDelay(delay)}.`,
+          `Percobaan ${attempt + 1}/${MAX_RETRIES} dimulai dalam ${formatDuration(delay / 1000)}.`,
           $('aiProgressUsage')?.textContent || ''
         );
-        setTransferProgress(
-          0,
-          providerDelay
-            ? `Slot Gemini belum aktif · cek ulang dalam ${formatRetryDelay(delay)}`
-            : `Gemini 3.7 belum berhasil · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`,
-          providerDelay ? { waiting: true } : { error: true }
-        );
-        await waitBeforeRetry(delay, attempt + 1, MAX_RETRIES, Boolean(providerDelay));
+        setTransferProgress(0, `Koneksi terganggu · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`, { error: true });
+        await cancellableSleep(delay + Math.floor(Math.random() * 700));
       }
     }
-    throw lastError || new Error('Gemini 3.7 Flash gagal setelah tiga kali percobaan.');
+    if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, lastError)) {
+      const firstActivation = runtimeFallbackModel !== AUTO_FALLBACK_MODEL;
+      runtimeFallbackModel = AUTO_FALLBACK_MODEL;
+      if (firstActivation && !fallbackAnnounced) {
+        fallbackAnnounced = true;
+        if ($('aiModel')) $('aiModel').value = AUTO_FALLBACK_MODEL;
+        hooks.onFallback?.({ from: DEFAULT_MODEL, to: AUTO_FALLBACK_MODEL, error: lastError });
+        showToast('Gemini 3.8 terkendala. Proses dilanjutkan otomatis dengan Qwen 3.7 Flash.', 'info');
+      }
+      const fallbackPayload = await callProxyWithRetry(config, { ...body, model: AUTO_FALLBACK_MODEL }, label, hooks);
+      fallbackPayload._mileFallbackFrom = DEFAULT_MODEL;
+      return fallbackPayload;
+    }
+    throw lastError || new Error('Permintaan AI gagal setelah beberapa kali percobaan.');
   }
 
   function extractTextFromResponse(payload, protocol) {
@@ -1924,6 +1898,8 @@ ${clipped}`
       return;
     }
     cancelled = false;
+    runtimeFallbackModel = '';
+    fallbackAnnounced = false;
     betaRemoteFallbackAnnounced = false;
     const startedAt = performance.now();
     startStopwatch(startedAt);
@@ -2054,6 +2030,11 @@ ${clipped}`
           chunkStates[chunkIndex].waiting = false;
           setTransferProgress(0, `Jaringan terganggu · percobaan ${nextAttempt}/${maxAttempts} dalam ${formatDuration(delay / 1000)}`, { error: true });
           updateParallelProgress(chunk, chunkIndex, `Menyiapkan retry ${nextAttempt}/${maxAttempts}`);
+        },
+        onFallback({ to }) {
+          chunkStates[chunkIndex].waiting = false;
+          setTransferProgress(0, `Gemini 3.8 terkendala · beralih otomatis ke ${to}`, { waiting: true });
+          updateParallelProgress(chunk, chunkIndex, 'Fallback ke Qwen 3.7 Flash');
         },
         onRepair() {
           setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });
@@ -2249,27 +2230,29 @@ ${clipped}`
         ? `Profil ${config.networkProfile.label} membatasi sementara menjadi ${config.pagesPerRequest} halaman × ${workerCount} jalur agar stabil.`
         : `Profil ${config.networkProfile.label} memakai ${config.pagesPerRequest} halaman × ${workerCount} jalur.`;
       const imageTransport = betaRemoteImagesAvailable ? 'jalur gambar sementara' : 'jalur cadangan';
-      setProgress(5, 'Memulai mode ringan cepat', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dibuat bersamaan, ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
+      setProgress(5, 'Memulai mode ringan', `${chunks.length} kelompok disiapkan. Halaman dibuat satu per satu, ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
-      const runAI = createTaskPool(workerCount);
-      const processTasks = [];
+      const inFlight = new Set();
       let pipelineError = null;
       for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-        if (pipelineError) break;
+        if (pipelineError) throw pipelineError;
+        while (inFlight.size >= workerCount) {
+          await Promise.race(inFlight);
+          if (pipelineError) throw pipelineError;
+        }
         const chunk = chunks[chunkIndex];
         const pageSources = await prepareChunk(chunk, chunkIndex);
-        if (pipelineError) break;
-        const task = runAI(async () => {
-          if (pipelineError) return;
-          await processChunk(chunk, chunkIndex, pageSources);
-        }).catch(error => {
-          pipelineError ||= error;
-        });
-        processTasks.push(task);
+        if (pipelineError) throw pipelineError;
+        const task = processChunk(chunk, chunkIndex, pageSources)
+          .catch(error => {
+            pipelineError ||= error;
+          })
+          .finally(() => inFlight.delete(task));
+        inFlight.add(task);
       }
-      await Promise.all(processTasks);
+      await Promise.all(inFlight);
       if (pipelineError) throw pipelineError;
       setTransferProgress(100, 'Semua respons AI telah diterima');
 
@@ -2290,7 +2273,7 @@ ${clipped}`
         status: 'SUCCESS',
         fileCount: 1,
         pageCount,
-        model: config.model,
+        model: runtimeFallbackModel ? `${config.model} -> ${runtimeFallbackModel}` : config.model,
         chunkSize: config.pagesPerRequest,
         concurrency: config.concurrency,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2322,7 +2305,7 @@ ${clipped}`
         status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED',
         fileCount: 1,
         pageCount,
-        model: config?.model || DEFAULT_MODEL,
+        model: runtimeFallbackModel && config?.model === DEFAULT_MODEL ? `${config.model} -> ${runtimeFallbackModel}` : (config?.model || ''),
         chunkSize: config?.pagesPerRequest || 1,
         concurrency: config?.concurrency || 1,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2355,7 +2338,7 @@ ${clipped}`
     loadNonSecretConfig();
     updateSpeedPresetHint();
     updateNetworkModeHint();
-    ['aiAccuracyMode'].forEach(id => {
+    ['aiModel', 'aiAccuracyMode'].forEach(id => {
       $(id)?.addEventListener('change', saveNonSecretConfig);
       $(id)?.addEventListener('input', saveNonSecretConfig);
     });
@@ -2394,7 +2377,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, providerResetDelayMs, isRetryable, formatRetryDelay, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

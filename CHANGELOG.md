@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.33 — Gemini 3.8 default dan Beta klasik dipulihkan
+
+- Menjadikan Gemini 3.8 Flash sebagai model default pada `/beta` dan versi utama `mile.posnew.com`.
+- Mengembalikan Beta ke render satu halaman pada satu waktu dengan preset 15 halaman × 5 jalur AI.
+- Mengaktifkan kembali fallback otomatis dari Gemini 3.8 Flash ke Qwen 3.7 Flash pada Beta; fallback versi utama tetap aktif.
+- Tetap menghapus pemeriksaan AI awal sehingga render halaman langsung dimulai dan proses tidak berhenti di tahap menyiapkan jalur ringan.
+- Mempertahankan deteksi LAN yang aman serta batas upload 15 detik agar gangguan tidak membuat tampilan diam tanpa progres.
+
 ## v16.32 beta — Beban AI dibatasi 8 × 2
 
 - Mengubah preset dan profil normal menjadi 8 halaman per permintaan × maksimal 2 jalur AI.

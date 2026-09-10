@@ -55,6 +55,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/app-core.js'), 'utf8'
   filename: 'app-core.js'
 });
 const aiRuntimeSource = fs.readFileSync(path.join(root, 'assets/js/ai-pdf-v16-19.js'), 'utf8');
+const appHtmlSource = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
 vm.runInContext(aiRuntimeSource, sandbox, {
   filename: 'ai-pdf-v16-19.js'
 });
@@ -65,6 +66,8 @@ const ai = sandbox.MileAI._test;
 sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
+assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
+assert.match(appHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
@@ -205,10 +208,11 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
 
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 429 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 404 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 401 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 429 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 404 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 
 console.log('PASS ai-pdf-v16-19: ekstraksi, kompatibilitas model, dan fallback otomatis');
