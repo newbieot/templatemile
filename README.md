@@ -1,10 +1,10 @@
-# mile.posnew.com Secure Gateway v16.35
+# mile.posnew.com Secure Gateway v16.36
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
 ## Eksperimen PC lawas di `/beta`
 
-Halaman `/beta` memakai pipeline adaptif untuk PC lama: PDF dirender maksimal dua halaman pada resolusi awal 1600 px, JPEG diunggah sementara ke bucket R2 `mile-beta-ai-images`, lalu Gemini memproses kelompok maksimal 10 halaman. Ekstraksi dimulai dengan dua jalur dan naik ke tiga hanya setelah Gemini berhasil. Satu gangguan Gemini hanya mengalihkan kelompok tersebut ke Qwen 3.7 Flash, sedangkan kelompok lain tetap mencoba Gemini. Upload R2 dicoba ulang sekali dan kegagalan hanya membuat halaman terkait memakai JPEG base64. Audit selektif dijalankan belakangan dalam satu jalur agar tidak berebut kapasitas dengan ekstraksi awal.
+Halaman `/beta` memakai pipeline cepat untuk PC lama: PDF dirender maksimal dua halaman pada resolusi awal 1600 px, lalu JPEG diunggah sementara ke bucket R2 `mile-beta-ai-images`. Browser hanya mengirim referensi kecil; Cloudflare Worker mengambil gambar dari R2 dan menyisipkan base64 langsung ke permintaan Gemini sehingga AI tidak perlu membuka URL sementara. Ekstraksi memakai kelompok 6 halaman × 3 jalur. Satu gangguan Gemini hanya mengalihkan kelompok tersebut ke Qwen 3.7 Flash, sedangkan kelompok lain tetap mencoba Gemini. Upload R2 dicoba ulang sekali dan kegagalan hanya membuat halaman terkait memakai JPEG base64. Audit selektif dijalankan belakangan dalam satu jalur agar tidak berebut kapasitas dengan ekstraksi awal.
 
 Binding Cloudflare Pages yang diperlukan:
 
@@ -12,7 +12,7 @@ Binding Cloudflare Pages yang diperlukan:
 BETA_AI_IMAGES -> mile-beta-ai-images
 ```
 
-Gambar memakai URL bertanda tangan yang kedaluwarsa setelah satu jam, dihapus saat pekerjaan selesai, dan memiliki lifecycle R2 satu hari sebagai pembersihan cadangan.
+Gambar memakai referensi bertanda tangan yang hanya dapat ditukar menjadi base64 oleh Worker untuk pemilik sesi yang sama. Referensi kedaluwarsa setelah satu jam, gambar dihapus saat pekerjaan selesai, dan lifecycle R2 satu hari tetap menjadi pembersihan cadangan.
 
 
 ## Penamaan aplikasi

@@ -1,4 +1,4 @@
-const APP_VERSION = '20260910-16.35-beta-adaptive';
+const APP_VERSION = '20260910-16.36-beta-r2-bridge';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -6,7 +6,10 @@ const MAX_REQUEST_BYTES = 28 * 1024 * 1024;
 const MAX_AUTH_BODY_BYTES = 16 * 1024;
 const MAX_METRICS_BODY_BYTES = 12 * 1024;
 const MAX_BETA_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_BETA_BATCH_IMAGES = 8;
+const MAX_BETA_BATCH_RAW_BYTES = 8 * 1024 * 1024;
 const BETA_IMAGE_TOKEN_TTL_SECONDS = 60 * 60;
+const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:';
 const METRICS_TIMEOUT_MS = 15000;
 const AI_UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000;
 const VERSIONED_ASSET_CACHE = 'private, max-age=31536000, immutable';
@@ -181,6 +184,81 @@ async function verifyBetaImageToken(token, secret) {
   } catch (_) {
     return null;
   }
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function hydrateBetaImageReferences(body, env, session) {
+  const references = [];
+  const messages = Array.isArray(body?.messages) ? body.messages : [];
+  for (const message of messages) {
+    if (!Array.isArray(message?.content)) continue;
+    for (const part of message.content) {
+      const imageUrl = part?.type === 'image_url' && part?.image_url && typeof part.image_url === 'object'
+        ? part.image_url
+        : null;
+      const url = String(imageUrl?.url || '');
+      if (url.startsWith(BETA_IMAGE_REFERENCE_PREFIX)) {
+        references.push({ imageUrl, token: url.slice(BETA_IMAGE_REFERENCE_PREFIX.length) });
+      }
+    }
+  }
+
+  if (!references.length) return { count: 0, rawBytes: 0 };
+  if (references.length > MAX_BETA_BATCH_IMAGES) {
+    const error = new Error(`Kelompok Beta terlalu besar. Maksimal ${MAX_BETA_BATCH_IMAGES} gambar per permintaan.`);
+    error.status = 413;
+    throw error;
+  }
+
+  const bucket = betaImageBucket(env);
+  const secret = configuredSessionSecret(env);
+  const owner = betaOwnerKey(session);
+  if (!bucket || !secret || !owner) {
+    const error = new Error('Jembatan gambar R2 belum siap. Muat ulang halaman lalu coba lagi.');
+    error.status = 503;
+    throw error;
+  }
+
+  const ownerPrefix = `beta/${owner}/`;
+  const loaded = await Promise.all(references.map(async reference => {
+    const payload = await verifyBetaImageToken(reference.token, secret);
+    if (!payload || !String(payload.key).startsWith(ownerPrefix)) {
+      const error = new Error('Referensi gambar Beta tidak valid atau sudah kedaluwarsa.');
+      error.status = 422;
+      throw error;
+    }
+    const object = await bucket.get(payload.key);
+    if (!object) {
+      const error = new Error('Gambar sementara Beta sudah tidak tersedia. Silakan proses ulang PDF.');
+      error.status = 410;
+      throw error;
+    }
+    return { ...reference, object };
+  }));
+
+  const rawBytes = loaded.reduce((total, item) => total + Number(item.object.size || 0), 0);
+  if (rawBytes > MAX_BETA_BATCH_RAW_BYTES) {
+    const error = new Error('Total gambar dalam kelompok terlalu besar. Kurangi halaman per permintaan.');
+    error.status = 413;
+    throw error;
+  }
+
+  const buffers = await Promise.all(loaded.map(item => item.object.arrayBuffer()));
+  loaded.forEach((item, index) => {
+    const contentType = item.object.httpMetadata?.contentType || 'image/jpeg';
+    item.imageUrl.url = `data:${contentType};base64,${arrayBufferToBase64(buffers[index])}`;
+  });
+
+  return { count: loaded.length, rawBytes };
 }
 
 function allowedEmails(env) {
@@ -509,6 +587,7 @@ async function handleBetaImageUpload(request, env, session, url) {
 
   return json({
     ok: true,
+    ref: `${BETA_IMAGE_REFERENCE_PREFIX}${token}`,
     url: `${url.origin}/api/beta/image?t=${encodeURIComponent(token)}`,
     expiresIn: BETA_IMAGE_TOKEN_TTL_SECONDS
   });
@@ -598,6 +677,26 @@ async function handleProxy(request, env, session) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: { message: 'Payload API tidak valid.' } }, 400);
   if (!ALLOWED_MODELS.has(model)) return json({ error: { message: `Model CosmosHub tidak diizinkan: ${model || '(kosong)'}.` } }, 400);
 
+  let hydratedImages = 0;
+  try {
+    const hydrated = await hydrateBetaImageReferences(body, env, session);
+    hydratedImages = hydrated.count;
+  } catch (error) {
+    return json({ error: { message: error?.message || 'Gambar sementara Beta tidak dapat dipersiapkan.', source: 'r2-bridge' } }, Number(error?.status || 500), {
+      'x-mile-transport': 'cloudflare-r2-bridge'
+    });
+  }
+
+  const transport = hydratedImages ? 'cloudflare-r2-bridge' : 'cloudflare-worker';
+  const upstreamBody = JSON.stringify(body);
+  // Payload ini didominasi base64 ASCII; gunakan panjang string agar tidak
+  // membuat salinan Uint8Array besar dan membuang jatah CPU Worker Free.
+  if (upstreamBody.length > MAX_REQUEST_BYTES - 64 * 1024) {
+    return json({ error: { message: 'Payload AI setelah gambar dipersiapkan terlalu besar. Kurangi halaman per permintaan.' } }, 413, {
+      'x-mile-transport': transport
+    });
+  }
+
   const upstreamController = new AbortController();
   let upstreamTimedOut = false;
   const abortUpstream = () => upstreamController.abort();
@@ -615,7 +714,7 @@ async function handleProxy(request, env, session) {
         'content-type': 'application/json',
         accept: 'application/json'
       },
-      body: JSON.stringify(body),
+      body: upstreamBody,
       signal: upstreamController.signal,
       redirect: 'follow'
     });
@@ -632,7 +731,7 @@ async function handleProxy(request, env, session) {
 
     if (upstream.status === 401 || upstream.status === 403) {
       return json({ error: { message: 'Kredensial layanan AI ditolak oleh provider. Administrator perlu memeriksa COSMOS_API_KEY.' } }, 502, {
-        'x-mile-transport': 'cloudflare-worker',
+        'x-mile-transport': transport,
         'x-mile-upstream-status': String(upstream.status)
       });
     }
@@ -641,7 +740,7 @@ async function handleProxy(request, env, session) {
     }
 
     return json(output, upstream.status, {
-      'x-mile-transport': 'cloudflare-worker',
+      'x-mile-transport': transport,
       'x-mile-upstream-status': String(upstream.status),
       'x-mile-request-id': upstream.headers.get('x-request-id') || upstream.headers.get('request-id') || ''
     });
@@ -653,7 +752,7 @@ async function handleProxy(request, env, session) {
           ? 'CosmosHub tidak memberi respons dalam 5 menit. Permintaan aman untuk dicoba ulang.'
           : `Cloudflare Pages Function tidak dapat menghubungi CosmosHub: ${error?.message || 'kesalahan jaringan'}`
       }
-    }, timedOut ? 504 : 502);
+    }, timedOut ? 504 : 502, { 'x-mile-transport': transport });
   } finally {
     clearTimeout(upstreamTimeout);
     request.signal?.removeEventListener?.('abort', abortUpstream);

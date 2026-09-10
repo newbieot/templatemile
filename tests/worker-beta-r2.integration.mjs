@@ -32,6 +32,7 @@ const uploadResponse = await fetch(`${origin}/api/beta/images/${jobId}/1/first`,
 assert.equal(uploadResponse.status, 200);
 const upload = await uploadResponse.json();
 assert.equal(upload.ok, true);
+assert.match(upload.ref, /^mile-r2:/);
 assert.match(upload.url, /^http:\/\/127\.0\.0\.1:8791\/api\/beta\/image\?t=/);
 
 const imageResponse = await fetch(upload.url);
@@ -52,4 +53,4 @@ assert.equal(cleanupResponse.status, 200);
 assert.equal((await cleanupResponse.json()).deleted, 1);
 assert.equal((await fetch(upload.url)).status, 404);
 
-console.log('PASS worker-beta-r2: upload, signed read, HEAD, cleanup, dan expiry behavior');
+console.log('PASS worker-beta-r2: upload, referensi jembatan, signed read, HEAD, cleanup, dan expiry behavior');

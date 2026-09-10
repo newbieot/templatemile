@@ -1,4 +1,4 @@
-/* mile.posnew.com beta AI PDF runtime — adaptive AI lanes + lightweight R2 image pipeline */
+/* mile.posnew.com beta AI PDF runtime — R2 bridge + lightweight AI pipeline */
 (() => {
   'use strict';
 
@@ -12,7 +12,7 @@
   };
   const SPEED_PRESETS = {
     medium: { pagesPerRequest: 5, concurrency: 2, verification: 'all', label: 'Sedang' },
-    fast: { pagesPerRequest: 10, concurrency: 3, verification: 'smart', label: 'Cepat Adaptif' },
+    fast: { pagesPerRequest: 6, concurrency: 3, verification: 'smart', label: 'Cepat R2' },
     custom: { verification: 'smart', label: 'Kustom' }
   };
   const DEFAULT_ACCURACY_MODE = 'auto';
@@ -31,11 +31,12 @@
   const GEMINI_RETRY_DELAY_MS = 500;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-beta-r2-v6';
+  const STORAGE_KEY = 'mile-ai-config-beta-r2-v7';
   const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
   const BETA_PREPARE_CONCURRENCY = 2;
-  const BETA_INITIAL_AI_CONCURRENCY = 2;
+  const BETA_INITIAL_AI_CONCURRENCY = 3;
   const BETA_MAX_AI_CONCURRENCY = 3;
+  const BETA_PROBE_CODE = 'MILE38';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -83,7 +84,7 @@
     const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
-    const requestedPagesPerRequest = Math.max(1, Math.min(10, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const requestedPagesPerRequest = Math.max(1, Math.min(8, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
     const requestedConcurrency = Math.max(1, Math.min(BETA_MAX_AI_CONCURRENCY, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
     const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
     const networkProfile = resolveNetworkProfile(networkMode);
@@ -126,7 +127,7 @@
         maxImageSide: 2150, jpegQuality: 0.85
       },
       normal: {
-        key: 'normal', label: 'Adaptif cepat', maxPagesPerRequest: 10, maxConcurrency: BETA_MAX_AI_CONCURRENCY,
+        key: 'normal', label: 'Jembatan R2 cepat', maxPagesPerRequest: 6, maxConcurrency: BETA_MAX_AI_CONCURRENCY,
         maxImageSide: Infinity, jpegQuality: 1
       }
     };
@@ -150,7 +151,7 @@
 
     // Firefox desktop belum menyediakan Network Information API. Dalam kondisi
     // itu Auto memilih profil paling aman; pengguna berkoneksi cepat tetap dapat
-    // memilih profil adaptif untuk kelompok 10 halaman dan maksimum 3 jalur.
+    // memilih profil R2 untuk kelompok 6 halaman dan maksimum 3 jalur.
     if (!signals.available) return profiles.unstable;
     return profiles.balanced;
   }
@@ -175,7 +176,7 @@
     if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -209,7 +210,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Mode ringan: dua halaman disiapkan bersamaan. AI mulai dengan 2 jalur lalu naik ke 3 setelah Gemini berhasil, masing-masing maksimal 10 halaman.',
+      fast: 'Mode cepat R2: dua halaman disiapkan bersamaan, lalu Gemini menjalankan 3 jalur berisi maksimal 6 halaman.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -225,7 +226,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode adaptif aktif: render maksimal 2 halaman, kelompok 10 halaman, dan AI naik dari 2 ke 3 jalur setelah Gemini berhasil.'
+      normal: 'Mode cepat aktif: render maksimal 2 halaman, kelompok 6 halaman, dan 3 jalur Gemini melalui jembatan R2.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -637,6 +638,26 @@
     });
   }
 
+  async function createBetaProbeBlob() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 220;
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) throw new Error('Canvas browser tidak tersedia untuk menguji jalur gambar.');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = '#111827';
+    context.font = 'bold 76px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(BETA_PROBE_CODE, canvas.width / 2, canvas.height / 2);
+    try {
+      return await canvasToJpegBlob(canvas, 0.84);
+    } finally {
+      canvas.width = canvas.height = 1;
+    }
+  }
+
   function blobToDataUrl(blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -679,12 +700,12 @@
         signal: controller.signal
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.url) {
+      if (!response.ok || !(payload?.ref || payload?.url)) {
         const error = new Error(payload?.error?.message || `Penyimpanan gambar beta gagal (HTTP ${response.status}).`);
         error.status = response.status;
         throw error;
       }
-      return payload.url;
+      return payload.ref || payload.url;
     } catch (error) {
       if (error?.name === 'AbortError' && !cancelled) {
         const timeoutError = new Error('Upload JPEG beta melewati 15 detik.');
@@ -1226,9 +1247,10 @@ ${clipped}`
           return;
         }
         if (!cleanup()) return;
+        const actualTransport = xhr.getResponseHeader('x-mile-transport') || 'proxy Cloudflare';
         const headers = new Headers({ 'content-type': xhr.getResponseHeader('content-type') || 'application/json' });
         const response = new Response(xhr.responseText || '', { status: xhr.status, statusText: xhr.statusText, headers });
-        parseApiResponse(response, 'proxy Cloudflare').then(payload => {
+        parseApiResponse(response, actualTransport).then(payload => {
           onTransport({ phase: 'complete', loaded: totalBytes, total: totalBytes });
           resolve(payload);
         }, reject);
@@ -1271,10 +1293,16 @@ ${clipped}`
 
   function isAutoFallbackEligible(config, error) {
     if (cancelled || error?.name === 'AbortError' || config?.model !== DEFAULT_MODEL) return false;
+    if (isR2BridgeFailure(error)) return false;
     const status = Number(error?.status || 0);
     if (!status) return true;
     if ([404, 408, 409, 425, 429, 500, 502, 503, 504].includes(status)) return true;
     return /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
+  }
+
+  function isR2BridgeFailure(error) {
+    if (error?.details?.error?.source === 'r2-bridge') return true;
+    return /worker exceeded resource limits|error\s*1102|jembatan (?:gambar )?r2|referensi gambar beta|gambar sementara beta/i.test(String(error?.message || ''));
   }
 
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
@@ -1321,10 +1349,13 @@ ${clipped}`
         lastError = error;
         const status = Number(error?.status || 0);
         const malformed = /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
+        const bridgeFailure = isR2BridgeFailure(error);
         const geminiRetryable = requestModel === DEFAULT_MODEL &&
-          isAutoFallbackEligible(config, error) &&
           status !== 408 &&
-          (!status || [404, 409, 425, 429, 500, 502, 503, 504].includes(status) || malformed);
+          (bridgeFailure
+            ? (isRetryable(error) && !/worker exceeded resource limits|error\s*1102/i.test(String(error?.message || '')))
+            : (isAutoFallbackEligible(config, error) &&
+              (!status || [404, 409, 425, 429, 500, 502, 503, 504].includes(status) || malformed)));
         const canRetry = requestModel === DEFAULT_MODEL
           ? geminiRetryable
           : (isRetryable(error) || malformed);
@@ -1911,36 +1942,44 @@ ${clipped}`
 
   async function testConnection() {
     const button = $('testAiConnection');
+    let probeJobId = '';
     try {
       const configured = await checkServerConfiguration({ showFeedback: true });
       if (!configured) {
         throw new Error('Konfigurasi Secure Gateway belum lengkap. Periksa tiga secret Cloudflare lalu deploy ulang.');
       }
+      if (!lastBetaImagesConfigured) {
+        throw new Error('Penyimpanan gambar R2 Beta belum dikonfigurasi.');
+      }
       const config = getConfig();
       saveNonSecretConfig();
       button.disabled = true;
-      button.textContent = 'Menguji layanan AI…';
-      setFeedback(`Menguji layanan AI dengan model ${config.model}…`);
-      // Gunakan bentuk payload produksi agar tes tidak memberi hasil positif
-      // palsu ketika teks sederhana berhasil tetapi structured output gagal.
+      button.textContent = 'Menguji gambar R2…';
+      setFeedback(`Menguji R2, Worker, dan ${config.model} dengan satu gambar sungguhan…`);
+      probeJobId = createBetaJobId();
+      const probeBlob = await createBetaProbeBlob();
+      const probeReference = await uploadBetaImageWithRetry(probeJobId, 0, 'probe', probeBlob);
       const body = buildApiBody(
         config,
-        'Balas hanya dengan JSON valid persis seperti ini: {"rows":[]}',
-        [],
-        1200
+        `Baca kode besar pada gambar. Balas HANYA JSON valid {"code":"${BETA_PROBE_CODE}"}.`,
+        [{ page: 1, label: 'UJI GAMBAR R2', url: probeReference }],
+        300
       );
       const payload = await callCosmos(config, body);
-      parseRows(payload, 'openai');
       const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
+      if (!text.toUpperCase().includes(BETA_PROBE_CODE)) {
+        throw new Error('AI merespons tetapi belum berhasil membaca gambar melalui jembatan R2.');
+      }
       const usage = getUsage(payload, 'openai');
       const usageText = usage.input || usage.output ? ` · ${formatUsage(usage)}` : '';
       const transportText = payload?._mileTransport ? ` melalui ${payload._mileTransport}` : '';
-      setFeedback(`Layanan AI siap${transportText}. Respons: ${text || 'OK'}${usageText}`, 'success');
-      showToast('Layanan AI siap digunakan.', 'success');
+      setFeedback(`R2 dan layanan AI siap${transportText}. Gambar berhasil dibaca${usageText}`, 'success');
+      showToast('R2, Worker, dan AI siap digunakan.', 'success');
     } catch (error) {
-      setFeedback(`Tes layanan AI gagal: ${error.message}`, 'error');
-      showToast(`Tes layanan AI gagal: ${error.message}`, 'error');
+      setFeedback(`Tes jalur gambar gagal: ${error.message}`, 'error');
+      showToast(`Tes jalur gambar gagal: ${error.message}`, 'error');
     } finally {
+      await cleanupBetaImages(probeJobId);
       button.disabled = false;
       button.textContent = 'Tes layanan AI';
       refreshConfigStatus();
@@ -2181,6 +2220,7 @@ ${clipped}`
                 page: pageNumber,
                 url,
                 remote,
+                blob,
                 sourceType: 'image'
               };
               renderedPages++;
@@ -2212,21 +2252,50 @@ ${clipped}`
           url: source.url || ''
         }));
 
-        const body = buildApiBody(
+        let body = buildApiBody(
           config,
           buildPrompt(chunk.start, chunk.end, config),
           extractionSources,
           extractionTokenLimit(pagesInChunk)
         );
         const aiStartedAt = performance.now();
-        const payload = await callProxyWithRetry(
-          config,
-          body,
-          `halaman ${chunk.start}–${chunk.end}`,
-          makeTransportHooks(chunk, chunkIndex, 'Ekstraksi pertama', 0.28, 0.53, 0.62)
-        ).finally(() => {
+        let payload;
+        try {
+          payload = await callProxyWithRetry(
+            config,
+            body,
+            `halaman ${chunk.start}–${chunk.end}`,
+            makeTransportHooks(chunk, chunkIndex, 'Ekstraksi pertama', 0.28, 0.53, 0.62)
+          );
+        } catch (error) {
+          if (!isR2BridgeFailure(error) || !pageSources.every(source => source?.blob instanceof Blob)) throw error;
+          markProgressActivity(`Jembatan R2 halaman ${chunk.start}–${chunk.end} dialihkan ke jalur langsung`);
+          setTransferProgress(0, `Jembatan R2 terkendala · menyiapkan jalur langsung halaman ${chunk.start}–${chunk.end}`, { waiting: true });
+          const directSources = [];
+          for (const source of pageSources) {
+            const dataUrl = String(source.url || '').startsWith('data:')
+              ? source.url
+              : await blobToDataUrl(source.blob);
+            if (source.remote) betaPerf.base64Pages++;
+            directSources.push({ page: source.page, label: `HALAMAN ${source.page}`, url: dataUrl });
+          }
+          body = buildApiBody(
+            config,
+            buildPrompt(chunk.start, chunk.end, config),
+            directSources,
+            extractionTokenLimit(pagesInChunk)
+          );
+          payload = await callProxyWithRetry(
+            config,
+            body,
+            `halaman ${chunk.start}–${chunk.end} jalur langsung`,
+            makeTransportHooks(chunk, chunkIndex, 'Ekstraksi jalur langsung', 0.28, 0.53, 0.62)
+          );
+        } finally {
           betaPerf.aiMs += performance.now() - aiStartedAt;
-        });
+        }
+        pageSources.forEach(source => { source.blob = null; });
+        body = null;
         let usage = getUsage(payload, config.protocol);
         totalUsage.input += Number(usage.input || 0);
         totalUsage.output += Number(usage.output || 0);
@@ -2278,9 +2347,11 @@ ${clipped}`
           const auditStartedAt = performance.now();
           const page = await pdf.getPage(pageNumber);
           let auditUrl = '';
+          let directAuditUrl = '';
           try {
             const rendered = await runRender(() => renderPageToImage(page, config.accuracyMode, config.speedPreset, config.networkProfile, true));
-            auditUrl = rendered.detailUrl || rendered.fullUrl;
+            directAuditUrl = rendered.detailUrl || rendered.fullUrl;
+            auditUrl = directAuditUrl;
             if (betaRemoteImagesAvailable) {
               try {
                 auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl));
@@ -2295,7 +2366,8 @@ ${clipped}`
           verificationImages.push({
             page: source.page,
             label: `HALAMAN ${source.page} — ZOOM AUDIT`,
-            url: auditUrl || source.url
+            url: auditUrl || source.url,
+            directUrl: directAuditUrl
           });
         }
 
@@ -2303,21 +2375,44 @@ ${clipped}`
         const draftRows = rowsForVerification(
           originalRows.filter(row => auditPages.includes(Number(row.sourcePage)))
         );
-        const verificationBody = buildApiBody(
+        let verificationBody = buildApiBody(
           config,
           buildVerificationPrompt(chunk.start, chunk.end, draftRows, { ...config, pages: auditPages }),
           verificationImages,
           verificationTokenLimit(auditPages.length)
         );
         const auditAiStartedAt = performance.now();
-        const verifiedPayload = await callProxyWithRetry(
-          config,
-          verificationBody,
-          `audit halaman ${auditPages.join(', ')}`,
-          makeTransportHooks(chunk, chunkIndex, 'Audit selektif', 0.68, 0.85, 0.93)
-        ).finally(() => {
+        let verifiedPayload;
+        try {
+          verifiedPayload = await callProxyWithRetry(
+            config,
+            verificationBody,
+            `audit halaman ${auditPages.join(', ')}`,
+            makeTransportHooks(chunk, chunkIndex, 'Audit selektif', 0.68, 0.85, 0.93)
+          );
+        } catch (error) {
+          if (!isR2BridgeFailure(error) || !verificationImages.every(source => source.directUrl)) throw error;
+          const directVerificationImages = verificationImages.map(source => ({
+            page: source.page,
+            label: source.label,
+            url: source.directUrl
+          }));
+          verificationBody = buildApiBody(
+            config,
+            buildVerificationPrompt(chunk.start, chunk.end, draftRows, { ...config, pages: auditPages }),
+            directVerificationImages,
+            verificationTokenLimit(auditPages.length)
+          );
+          verifiedPayload = await callProxyWithRetry(
+            config,
+            verificationBody,
+            `audit halaman ${auditPages.join(', ')} jalur langsung`,
+            makeTransportHooks(chunk, chunkIndex, 'Audit jalur langsung', 0.68, 0.85, 0.93)
+          );
+        } finally {
           betaPerf.aiMs += performance.now() - auditAiStartedAt;
-        });
+        }
+        verificationBody = null;
         const usage = getUsage(verifiedPayload, config.protocol);
         totalUsage.input += Number(usage.input || 0);
         totalUsage.output += Number(usage.output || 0);
@@ -2342,9 +2437,9 @@ ${clipped}`
       const networkExplanation = limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`
         : (config.model === DEFAULT_MODEL
-          ? `AI mulai dengan ${activeAiLimit} jalur dan naik ke ${workerCount} setelah Gemini berhasil.`
+          ? `Gemini berjalan dengan ${activeAiLimit} jalur melalui jembatan R2.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
-      const imageTransport = betaRemoteImagesAvailable ? 'jalur gambar sementara' : 'jalur cadangan';
+      const imageTransport = betaRemoteImagesAvailable ? 'jembatan R2 ke Gemini' : 'jalur base64 cadangan';
       setProgress(5, 'Memulai mode adaptif', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dirender bersamaan. ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');

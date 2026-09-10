@@ -1,5 +1,14 @@
 # Changelog
 
+## v16.36 beta — Jembatan R2 langsung ke Gemini
+
+- Mempertahankan R2 sebagai penyangga gambar, tetapi menghentikan pengiriman URL R2 langsung ke Gemini.
+- Menambahkan jembatan pada Cloudflare Worker yang memvalidasi referensi berdasarkan sesi, mengambil JPEG dari R2, lalu menyisipkan base64 ke permintaan CosmosHub.
+- Mengubah preset cepat menjadi 6 halaman × 3 jalur AI, sementara render browser tetap maksimal dua halaman bersamaan.
+- Membatasi jembatan maksimal delapan gambar dan 8 MB data JPEG mentah per permintaan agar penggunaan memori Worker tetap terkendali.
+- Mengubah tes layanan Beta agar benar-benar mengunggah dan membaca satu gambar melalui R2, Worker, dan model yang dipilih.
+- Mempertahankan fallback base64 per halaman jika upload R2 gagal serta fallback Qwen hanya untuk kelompok yang gagal setelah retry Gemini.
+
 ## v16.35 beta — Pipeline adaptif untuk PC lama
 
 - Menurunkan render Beta menjadi maksimal dua halaman bersamaan pada resolusi awal 1600 px/JPEG 79%.
