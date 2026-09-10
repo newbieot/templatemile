@@ -60,6 +60,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/app-core.js'), 'utf8'
   filename: 'app-core.js'
 });
 const aiRuntimeSource = fs.readFileSync(path.join(root, 'assets/js/ai-pdf-beta-r2.js'), 'utf8');
+const betaHtmlSource = fs.readFileSync(path.join(root, 'beta.html'), 'utf8');
 vm.runInContext(aiRuntimeSource, sandbox, {
   filename: 'ai-pdf-beta-r2.js'
 });
@@ -71,9 +72,15 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.doesNotMatch(aiRuntimeSource, /probeRemoteImageSupport/);
-assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 4/);
-assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/);
-assert.match(aiRuntimeSource, /Math\.min\(4, Number\(\$\('aiConcurrency'\)/);
+assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 8, concurrency: 2/);
+assert.match(aiRuntimeSource, /Math\.min\(8, Number\(\$\('aiPagesPerRequest'\)/);
+assert.match(aiRuntimeSource, /Math\.min\(2, Number\(\$\('aiConcurrency'\)/);
+assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Normal stabil', maxPagesPerRequest: 8, maxConcurrency: 2/);
+assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v4'/);
+assert.match(betaHtmlSource, /Normal stabil · 8 halaman × 2 jalur · Default/);
+assert.match(betaHtmlSource, /<option value="8" selected>8 halaman · preset Cepat stabil<\/option>/);
+assert.match(betaHtmlSource, /<option value="2" selected>2 jalur · cepat stabil<\/option>/);
+assert.doesNotMatch(betaHtmlSource, />10 halaman|>15 halaman|>3 jalur|>4 jalur/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
 assert.match(aiRuntimeSource, /const model = DEFAULT_MODEL;/);
 assert.match(aiRuntimeSource, /const requestModel = DEFAULT_MODEL;/);
@@ -265,7 +272,7 @@ const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
 
 Promise.all(poolJobs).then(() => {
   assert.equal(peakTasks, 2);
-  console.log('PASS ai-pdf-beta-r2: ekstraksi, URL R2, pool dua render, fallback base64, dan retry Gemini 3.7 terkunci');
+  console.log('PASS ai-pdf-beta-r2: ekstraksi, batas 8 × 2, URL R2, pool dua render, fallback base64, dan retry Gemini 3.7 terkunci');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;

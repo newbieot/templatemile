@@ -202,7 +202,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.31</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.32</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -225,20 +225,20 @@
                 <div class="form-group full-width">
                   <label for="aiNetworkMode">Profil koneksi internet</label>
                   <div class="select-shell"><select id="aiNetworkMode">
-                    <option value="normal" selected>Normal stabil · 15 halaman × 4 jalur · Default</option>
+                    <option value="normal" selected>Normal stabil · 8 halaman × 2 jalur · Default</option>
                     <option value="auto">Otomatis · batasi jika koneksi lambat</option>
                     <option value="unstable">Internet tidak stabil · hemat data</option>
                   </select></div>
-                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 15 halaman × 4 jalur agar AI tidak kewalahan. Mode hemat data hanya digunakan jika dipilih manual.</span>
+                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 8 halaman × 2 jalur agar AI tidak kewalahan. Mode hemat data hanya digunakan jika dipilih manual.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiSpeedPreset">Preset kecepatan</label>
                   <div class="select-shell"><select id="aiSpeedPreset">
                     <option value="medium">Sedang · audit penuh</option>
-                    <option value="fast" selected>Cepat stabil · hingga 4 jalur</option>
+                    <option value="fast" selected>Cepat stabil · hingga 2 jalur</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan stabil menyiapkan maksimal dua halaman bersamaan; AI menerima 15 halaman per kelompok melalui maksimal 4 jalur.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan stabil menyiapkan maksimal dua halaman bersamaan; AI menerima 8 halaman per kelompok melalui maksimal 2 jalur.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -248,21 +248,17 @@
                     <option value="4">4 halaman</option>
                     <option value="5">5 halaman · preset Sedang</option>
                     <option value="6">6 halaman</option>
-                    <option value="8">8 halaman</option>
-                    <option value="10">10 halaman · pilihan stabil</option>
-                    <option value="15" selected>15 halaman · preset Cepat stabil</option>
+                    <option value="8" selected>8 halaman · preset Cepat stabil</option>
                   </select></div>
-                  <span class="field-hint">Maksimal 15 halaman agar AI tetap stabil; gunakan 10 untuk scan yang sulit.</span>
+                  <span class="field-hint">Maksimal 8 halaman per permintaan agar AI tidak menerima terlalu banyak gambar sekaligus.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
                   <div class="select-shell"><select id="aiConcurrency">
                     <option value="1">1 jalur · paling aman</option>
-                    <option value="2">2 jalur · hemat limit</option>
-                    <option value="3">3 jalur · seimbang</option>
-                    <option value="4" selected>4 jalur · cepat dan stabil</option>
+                    <option value="2" selected>2 jalur · cepat stabil</option>
                   </select></div>
-                  <span class="field-hint">Maksimal 4 jalur untuk menjaga AI tetap stabil. Jika muncul rate limit 429, turunkan menjadi 2–3 jalur.</span>
+                  <span class="field-hint">Maksimal 2 jalur agar hanya 16 gambar yang dapat diproses AI secara bersamaan.</span>
                 </div>
                 <div class="form-group full-width ai-test-group">
                   <label>Uji layanan</label>
@@ -476,7 +472,7 @@
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/app-core.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260910-16.31" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260910-16.32" defer></script>
   <script src="/assets/js/ui.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>

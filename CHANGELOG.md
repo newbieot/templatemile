@@ -1,5 +1,12 @@
 # Changelog
 
+## v16.32 beta — Beban AI dibatasi 8 × 2
+
+- Mengubah preset dan profil normal menjadi 8 halaman per permintaan × maksimal 2 jalur AI.
+- Mengunci batas runtime pada 8 × 2 serta menghapus pilihan 10/15 halaman dan 3/4 jalur dari Beta.
+- Mengganti kunci konfigurasi sesi agar nilai 15 × 4 dari tab atau rilis lama tidak dapat aktif kembali.
+- Membatasi beban aktif menjadi maksimal 16 gambar halaman pada AI dalam satu waktu.
+
 ## v16.31 beta — Retry Gemini seketika
 
 - Menganggap waktu `reset after` dari provider sebagai perkiraan, bukan waktu tunggu wajib.
