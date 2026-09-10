@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.31 beta — Retry Gemini seketika
+
+- Menganggap waktu `reset after` dari provider sebagai perkiraan, bukan waktu tunggu wajib.
+- Menggunakan jeda retry hanya 0,5 detik untuk setiap gangguan sementara, termasuk saat provider memberikan estimasi reset yang lebih lama.
+- Tetap membatasi proses menjadi maksimal tiga percobaan tanpa beralih ke Qwen atau model lain.
+
 ## v16.30 beta — Menunggu slot Gemini secara otomatis
 
 - Mengenali respons CosmosHub `No active credentials for provider: antigravity` sebagai gangguan sementara, bukan model yang hilang permanen.
