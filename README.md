@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.29 beta
+# mile.posnew.com Secure Gateway v16.30 beta
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 

@@ -78,6 +78,17 @@ assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
 assert.match(aiRuntimeSource, /const model = DEFAULT_MODEL;/);
 assert.match(aiRuntimeSource, /const requestModel = DEFAULT_MODEL;/);
 assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL|runtimeFallbackModel|qwen-3\.7-flash|isAutoFallbackEligible/);
+assert.equal(ai.providerResetDelayMs({
+  message: 'HTTP 404',
+  details: { error: { message: 'No active credentials for provider: antigravity (reset after 1m 12s)' } }
+}), 74000);
+assert.equal(ai.isRetryable({
+  status: 404,
+  details: { error: { message: 'No active credentials for provider: antigravity (reset after 1m 12s)' } }
+}), true);
+assert.equal(ai.isRetryable({ status: 404, message: 'Model tidak ditemukan' }), false);
+assert.equal(ai.providerResetDelayMs({ message: 'reset after 45s' }), 47000);
+assert.equal(ai.providerResetDelayMs({ message: 'provider error tanpa waktu reset' }), 0);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');

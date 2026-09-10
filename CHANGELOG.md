@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.30 beta — Menunggu slot Gemini secara otomatis
+
+- Mengenali respons CosmosHub `No active credentials for provider: antigravity` sebagai gangguan sementara, bukan model yang hilang permanen.
+- Membaca waktu `reset after` dari provider, menunggu sampai slot Gemini tersedia, lalu mencoba Gemini 3.7 Flash lagi tanpa beralih ke Qwen.
+- Menampilkan hitung mundur selama provider mereset kredensial agar proses tidak terlihat diam atau macet.
+
 ## v16.29 beta — Gemini 3.7 Flash dikunci
 
 - Mengunci seluruh permintaan AI Beta ke Gemini 3.7 Flash, termasuk permintaan ekstraksi, perbaikan JSON, dan verifikasi.

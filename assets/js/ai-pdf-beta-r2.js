@@ -1077,7 +1077,11 @@ ${clipped}`
         message = 'Sesi login telah berakhir. Silakan masuk kembali.';
         window.dispatchEvent(new CustomEvent('mile:session-expired'));
       } else if (response.status === 403) message = 'Akun ini tidak memiliki izin menggunakan layanan AI.';
-      else if (response.status === 404) message = 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
+      else if (response.status === 404) {
+        message = /no active credentials for provider:\s*antigravity/i.test(message)
+          ? `Slot provider Gemini 3.7 Flash sedang penuh. ${message}`
+          : 'Endpoint atau model CosmosHub tidak ditemukan. Pastikan model yang dipilih masih tersedia.';
+      }
       else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
       else if (response.status === 413) message = 'Kelompok halaman terlalu besar. Turunkan Halaman per permintaan menjadi 2–4.';
       const error = new Error(message);
@@ -1198,10 +1202,61 @@ ${clipped}`
     return callViaProxy(config, body, onTransport);
   }
 
+  function providerErrorText(error) {
+    return [
+      error?.message,
+      error?.details?.error?.message,
+      error?.details?.message
+    ].map(value => String(value || '')).filter(Boolean).join(' ');
+  }
+
+  function providerResetDelayMs(error) {
+    const resetText = providerErrorText(error).match(/reset\s+after\s+([^\n\r)\]}]+)/i)?.[1] || '';
+    let seconds = 0;
+    let found = false;
+    const units = /(\d+)\s*(h(?:ours?)?|m(?:in(?:ute)?s?)?|s(?:ec(?:ond)?s?)?)/gi;
+    let match;
+    while ((match = units.exec(resetText)) !== null) {
+      found = true;
+      const value = Number(match[1] || 0);
+      const unit = String(match[2] || '').toLowerCase()[0];
+      seconds += value * (unit === 'h' ? 3600 : unit === 'm' ? 60 : 1);
+    }
+    if (!found || seconds <= 0) return 0;
+    // Tambahkan dua detik agar slot provider benar-benar selesai di-reset.
+    return Math.min((seconds + 2) * 1000, 5 * 60 * 1000);
+  }
+
+  function isTemporaryProviderCredentialError(error) {
+    return /no active credentials for provider:\s*antigravity/i.test(providerErrorText(error));
+  }
+
   function isRetryable(error) {
     if (cancelled || error?.name === 'AbortError') return false;
     if (!error?.status) return true;
+    if (Number(error.status) === 404 && isTemporaryProviderCredentialError(error)) return true;
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
+  }
+
+  async function waitBeforeRetry(delay, nextAttempt, maxAttempts, providerWait = false) {
+    if (!providerWait) {
+      await cancellableSleep(delay + Math.floor(Math.random() * 700));
+      return;
+    }
+    const deadline = performance.now() + delay;
+    while (performance.now() < deadline) {
+      const remaining = Math.max(0, deadline - performance.now());
+      const remainingText = formatDuration(Math.ceil(remaining / 1000));
+      const percent = Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10);
+      setProgress(
+        percent,
+        'Menunggu slot Gemini 3.7 Flash',
+        `Provider sedang mereset kredensial. Percobaan ${nextAttempt}/${maxAttempts} dimulai dalam ${remainingText}.`,
+        $('aiProgressUsage')?.textContent || ''
+      );
+      setTransferProgress(0, `Menunggu slot Gemini · ${remainingText}`, { waiting: true });
+      await cancellableSleep(Math.min(1000, remaining));
+    }
   }
 
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
@@ -1247,9 +1302,10 @@ ${clipped}`
         const retryable = isRetryable(error) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
         if (!retryable) throw error;
         if (attempt >= MAX_RETRIES) break;
-        const delay = Number(error?.status) === 429
+        const providerDelay = providerResetDelayMs(error);
+        const delay = providerDelay || (Number(error?.status) === 429
           ? ([8000, 18000][attempt - 1] || 18000)
-          : ([1800, 4200, 8500][attempt - 1] || 8500);
+          : ([1800, 4200, 8500][attempt - 1] || 8500));
         hooks.onRetry?.({ attempt, nextAttempt: attempt + 1, maxAttempts: MAX_RETRIES, delay, error });
         setProgress(
           Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10),
@@ -1257,8 +1313,14 @@ ${clipped}`
           `Percobaan ${attempt + 1}/${MAX_RETRIES} dimulai dalam ${formatDuration(delay / 1000)}.`,
           $('aiProgressUsage')?.textContent || ''
         );
-        setTransferProgress(0, `Gemini 3.7 belum berhasil · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`, { error: true });
-        await cancellableSleep(delay + Math.floor(Math.random() * 700));
+        setTransferProgress(
+          0,
+          providerDelay
+            ? `Slot Gemini sedang di-reset · menunggu ${formatDuration(delay / 1000)}`
+            : `Gemini 3.7 belum berhasil · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`,
+          providerDelay ? { waiting: true } : { error: true }
+        );
+        await waitBeforeRetry(delay, attempt + 1, MAX_RETRIES, Boolean(providerDelay));
       }
     }
     throw lastError || new Error('Gemini 3.7 Flash gagal setelah tiga kali percobaan.');
@@ -2325,7 +2387,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, providerResetDelayMs, isRetryable, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);
