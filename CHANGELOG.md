@@ -1,5 +1,12 @@
 # Changelog
 
+## v16.27 beta — Pipeline cepat tanpa jeda pemeriksaan awal
+
+- Menghapus permintaan AI pemeriksaan URL sebelum dokumen diproses; kesiapan jalur gambar sekarang diambil langsung dari health Secure Gateway sehingga progres halaman dimulai seketika.
+- Menyiapkan maksimal dua halaman secara paralel dengan pool terbatas dan tetap membatasi AI hingga lima jalur agar PC lama tetap responsif.
+- Mengubah preset cepat menjadi 18 halaman × 5 jalur sehingga PDF 90 halaman dapat diproses dalam satu gelombang AI, serta memperkecil gambar awal menjadi 1600 px/JPEG 79% untuk mengurangi waktu render dan upload.
+- Memperpendek batas upload per gambar dari 90 detik menjadi 15 detik agar jalur cadangan segera digunakan bila R2 terganggu.
+
 ## v16.26 — Perbaikan deteksi koneksi LAN
 
 - Menjadikan `navigator.onLine` sebagai petunjuk saja karena status browser/Windows dapat keliru pada komputer lama yang memakai LAN.

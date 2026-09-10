@@ -1,4 +1,4 @@
-/* mile.posnew.com beta AI PDF runtime — serial render + temporary R2 URLs */
+/* mile.posnew.com beta AI PDF runtime — bounded render pool + temporary R2 URLs */
 (() => {
   'use strict';
 
@@ -12,15 +12,15 @@
   };
   const SPEED_PRESETS = {
     medium: { pagesPerRequest: 5, concurrency: 2, verification: 'all', label: 'Sedang' },
-    fast: { pagesPerRequest: 15, concurrency: 5, verification: 'smart', label: 'Cepat' },
+    fast: { pagesPerRequest: 18, concurrency: 5, verification: 'smart', label: 'Cepat' },
     custom: { verification: 'smart', label: 'Kustom' }
   };
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const DEFAULT_NETWORK_MODE = 'normal';
-  const FIRST_PASS_MAX_SIDE = 1900;
+  const FIRST_PASS_MAX_SIDE = 1600;
   const AUDIT_MAX_SIDE = 2600;
-  const FIRST_PASS_JPEG_QUALITY = 0.84;
+  const FIRST_PASS_JPEG_QUALITY = 0.79;
   const AUDIT_JPEG_QUALITY = 0.91;
   const MAX_JSON_REPAIR_CHARS = 48000;
   const SMART_CONFIDENCE_THRESHOLD = 0.82;
@@ -28,10 +28,9 @@
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-beta-r2-v1';
-  const BETA_IMAGE_PROBE_KEY = 'mile-beta-r2-url-probe-v1';
-  const BETA_UPLOAD_TIMEOUT_MS = 90 * 1000;
-  const BETA_PROBE_CODE = 'MILE_R2_7391';
+  const STORAGE_KEY = 'mile-ai-config-beta-r2-v2';
+  const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
+  const BETA_PREPARE_CONCURRENCY = 2;
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -57,6 +56,7 @@
   let lastHealthLatencyMs = 0;
   let lastHealthCheckedAt = 0;
   let lastHealthConfigured = false;
+  let lastBetaImagesConfigured = false;
   let betaRemoteImagesAvailable = false;
   let betaRemoteFallbackAnnounced = false;
 
@@ -145,7 +145,7 @@
 
     // Firefox desktop belum menyediakan Network Information API. Dalam kondisi
     // itu Auto memilih profil paling aman; pengguna berkoneksi cepat tetap dapat
-    // memilih "Internet stabil" untuk membuka batas 15 halaman × 5 jalur.
+    // memilih "Internet stabil" untuk membuka batas 18 halaman × 5 jalur.
     if (!signals.available) return profiles.unstable;
     return profiles.balanced;
   }
@@ -204,7 +204,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Mode ringan: halaman disiapkan satu per satu, lalu AI bekerja pada 15 halaman × maksimal 5 jalur. Audit kedua hanya jika hasil meragukan.',
+      fast: 'Mode ringan cepat: hingga dua halaman disiapkan bersamaan, lalu AI bekerja pada 18 halaman × maksimal 5 jalur. Audit kedua hanya jika hasil meragukan.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -220,7 +220,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode ringan aktif: halaman disiapkan satu per satu dan AI bekerja pada maksimal 15 halaman × 5 jalur melalui gambar sementara.'
+      normal: 'Mode ringan aktif: maksimal dua halaman disiapkan bersamaan dan AI bekerja pada maksimal 18 halaman × 5 jalur melalui gambar sementara.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -268,6 +268,7 @@
       const configured = Boolean(response.ok && data?.cosmosConfigured && data?.firebaseConfigured && data?.sessionConfigured && data?.serverSideGate);
       lastHealthCheckedAt = Date.now();
       lastHealthConfigured = configured;
+      lastBetaImagesConfigured = Boolean(configured && data?.betaImagesConfigured);
       if (status) {
         status.dataset.healthChecked = 'true';
         status.classList.toggle('is-ready', configured);
@@ -285,6 +286,7 @@
     } catch (error) {
       lastHealthLatencyMs = Math.max(1, performance.now() - startedAt);
       lastHealthConfigured = false;
+      lastBetaImagesConfigured = false;
       if (status) {
         status.dataset.healthChecked = 'true';
         status.classList.remove('is-ready');
@@ -655,7 +657,7 @@
       return payload.url;
     } catch (error) {
       if (error?.name === 'AbortError' && !cancelled) {
-        const timeoutError = new Error('Upload JPEG beta melewati 90 detik.');
+        const timeoutError = new Error('Upload JPEG beta melewati 15 detik.');
         timeoutError.status = 408;
         throw timeoutError;
       }
@@ -711,51 +713,27 @@
     }
   }
 
-  function createRenderGate() {
-    let tail = Promise.resolve();
-    return task => {
-      const result = tail.then(task, task);
-      tail = result.catch(() => {});
-      return result;
+  function createTaskPool(limit = 1) {
+    const maximum = Math.max(1, Math.floor(Number(limit) || 1));
+    const queue = [];
+    let active = 0;
+    const drain = () => {
+      while (active < maximum && queue.length) {
+        const item = queue.shift();
+        active++;
+        Promise.resolve()
+          .then(item.task)
+          .then(item.resolve, item.reject)
+          .finally(() => {
+            active--;
+            drain();
+          });
+      }
     };
-  }
-
-  function createProbeCanvas() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 720;
-    canvas.height = 220;
-    const context = canvas.getContext('2d', { alpha: false });
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = '#111827';
-    context.font = 'bold 72px sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(BETA_PROBE_CODE, canvas.width / 2, canvas.height / 2);
-    return canvas;
-  }
-
-  async function probeRemoteImageSupport(config, jobId) {
-    const cached = sessionStorage.getItem(`${BETA_IMAGE_PROBE_KEY}:${config.model}`);
-    if (cached === 'ok') return true;
-    const canvas = createProbeCanvas();
-    try {
-      const blob = await canvasToJpegBlob(canvas, 0.88);
-      const url = await uploadBetaImage(jobId, 0, 'probe', blob);
-      const body = buildApiBody(
-        config,
-        `Baca kode besar pada gambar. Kembalikan HANYA JSON {"code":"..."}. Kode harus disalin persis.`,
-        [{ page: 0, label: 'UJI URL GAMBAR', url }],
-        120
-      );
-      const payload = await callCosmos(config, body);
-      const text = extractTextFromResponse(payload, config.protocol);
-      if (!text.includes(BETA_PROBE_CODE)) throw new Error('CosmosHub tidak berhasil membaca URL gambar sementara.');
-      sessionStorage.setItem(`${BETA_IMAGE_PROBE_KEY}:${config.model}`, 'ok');
-      return true;
-    } finally {
-      canvas.width = canvas.height = 1;
-    }
+    return task => new Promise((resolve, reject) => {
+      queue.push({ task, resolve, reject });
+      drain();
+    });
   }
 
   function estimateCornerBrightness(data, width, height) {
@@ -1953,7 +1931,7 @@ ${clipped}`
     const totalUsage = { input: 0, output: 0 };
     const betaJobId = createBetaJobId();
     const betaPerf = { renderMs: 0, uploadMs: 0, aiMs: 0, auditMs: 0, remotePages: 0, base64Pages: 0 };
-    const runRender = createRenderGate();
+    const runRender = createTaskPool(BETA_PREPARE_CONCURRENCY);
     try {
       setProgress(2, 'Membaca PDF', `Membuka ${file.name}…`);
       setTransferProgress(0, `Membaca ${formatBytes(file.size)} dari perangkat`);
@@ -1975,18 +1953,11 @@ ${clipped}`
         accuracyMode: config.accuracyMode === 'auto' ? 'balanced' : config.accuracyMode
       };
 
-      setProgress(4, 'Menyiapkan jalur ringan', 'Memastikan AI dapat mengambil gambar halaman sementara…');
-      try {
-        betaRemoteImagesAvailable = await probeRemoteImageSupport(config, betaJobId);
-        setTransferProgress(100, 'Jalur gambar sementara siap');
-      } catch (probeError) {
-        betaRemoteImagesAvailable = false;
-        if (!betaRemoteFallbackAnnounced) {
-          betaRemoteFallbackAnnounced = true;
-          showToast(`Jalur gambar sementara belum tersedia; mode cadangan otomatis digunakan. ${probeError?.message || ''}`.trim(), 'info');
-        }
-        setTransferProgress(0, 'Jalur cadangan aktif', { error: true });
-      }
+      betaRemoteImagesAvailable = lastBetaImagesConfigured;
+      setProgress(4, 'Menyiapkan halaman pertama', betaRemoteImagesAvailable
+        ? 'Jalur gambar sementara siap · pemrosesan langsung dimulai.'
+        : 'Jalur gambar sementara belum tersedia · memakai jalur cadangan.');
+      setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar halaman' : 'Jalur cadangan aktif');
 
       const chunks = [];
       for (let start = 1; start <= pdf.numPages; start += config.pagesPerRequest) {
@@ -2073,53 +2044,67 @@ ${clipped}`
         updateParallelProgress(chunk, chunkIndex, 'Menyiapkan gambar scan');
         const pageSources = [];
         const pagesInChunk = chunk.end - chunk.start + 1;
-        for (let pageNumber = chunk.start; pageNumber <= chunk.end; pageNumber++) {
-          if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-          markProgressActivity(`Merender scan ${pageNumber}/${pdf.numPages}`);
-          updateParallelProgress(chunk, chunkIndex, `Merender scan ${pageNumber}`);
-          const page = await pdf.getPage(pageNumber);
-          try {
-            const renderStartedAt = performance.now();
-            const blob = await runRender(() => renderPageToLightBlob(page, config.accuracyMode, config.speedPreset, config.networkProfile));
-            betaPerf.renderMs += performance.now() - renderStartedAt;
-            let url = '';
-            let remote = false;
-            if (betaRemoteImagesAvailable) {
-              const uploadStartedAt = performance.now();
-              try {
-                url = await uploadBetaImage(betaJobId, pageNumber, 'first', blob);
-                remote = true;
-                betaPerf.remotePages++;
-              } catch (uploadError) {
-                betaRemoteImagesAvailable = false;
-                if (!betaRemoteFallbackAnnounced) {
-                  betaRemoteFallbackAnnounced = true;
-                  showToast('Pengiriman gambar sementara terhenti. Halaman berikutnya otomatis memakai jalur cadangan.', 'info');
+        let nextPageNumber = chunk.start;
+        async function preparePageWorker() {
+          while (true) {
+            const pageNumber = nextPageNumber++;
+            if (pageNumber > chunk.end) return;
+            if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+            markProgressActivity(`Merender scan ${pageNumber}/${pdf.numPages}`);
+            updateParallelProgress(chunk, chunkIndex, `Merender scan ${pageNumber}`);
+            const page = await pdf.getPage(pageNumber);
+            try {
+              const blob = await runRender(async () => {
+                const renderStartedAt = performance.now();
+                try {
+                  return await renderPageToLightBlob(page, config.accuracyMode, config.speedPreset, config.networkProfile);
+                } finally {
+                  betaPerf.renderMs += performance.now() - renderStartedAt;
                 }
+              });
+              let url = '';
+              let remote = false;
+              if (betaRemoteImagesAvailable) {
+                markProgressActivity(`Mengirim gambar ${pageNumber}/${pdf.numPages}`);
+                setTransferProgress(0, `Mengirim gambar halaman ${pageNumber}/${pdf.numPages}`);
+                const uploadStartedAt = performance.now();
+                try {
+                  url = await uploadBetaImage(betaJobId, pageNumber, 'first', blob);
+                  remote = true;
+                  betaPerf.remotePages++;
+                } catch (uploadError) {
+                  betaRemoteImagesAvailable = false;
+                  if (!betaRemoteFallbackAnnounced) {
+                    betaRemoteFallbackAnnounced = true;
+                    showToast('Pengiriman gambar sementara terhenti. Halaman berikutnya otomatis memakai jalur cadangan.', 'info');
+                  }
+                  url = await blobToDataUrl(blob);
+                  betaPerf.base64Pages++;
+                } finally {
+                  betaPerf.uploadMs += performance.now() - uploadStartedAt;
+                }
+              } else {
                 url = await blobToDataUrl(blob);
                 betaPerf.base64Pages++;
-              } finally {
-                betaPerf.uploadMs += performance.now() - uploadStartedAt;
               }
-            } else {
-              url = await blobToDataUrl(blob);
-              betaPerf.base64Pages++;
+              pageSources[pageNumber - chunk.start] = {
+                page: pageNumber,
+                url,
+                remote,
+                sourceType: 'image'
+              };
+              renderedPages++;
+              const renderedInChunk = pageSources.filter(Boolean).length;
+              chunkStates[chunkIndex].progress = 0.03 + (renderedInChunk / pagesInChunk) * 0.22;
+              updateParallelProgress(chunk, chunkIndex, `Gambar scan halaman ${pageNumber} siap`);
+              await yieldToBrowser();
+            } finally {
+              page.cleanup();
             }
-            pageSources.push({
-              page: pageNumber,
-              url,
-              remote,
-              sourceType: 'image'
-            });
-            renderedPages++;
-            const renderedInChunk = pageNumber - chunk.start + 1;
-            chunkStates[chunkIndex].progress = 0.03 + (renderedInChunk / pagesInChunk) * 0.22;
-            updateParallelProgress(chunk, chunkIndex, `Gambar scan halaman ${pageNumber} siap`);
-            await yieldToBrowser();
-          } finally {
-            page.cleanup();
           }
         }
+        const pageWorkerCount = Math.min(BETA_PREPARE_CONCURRENCY, pagesInChunk);
+        await Promise.all(Array.from({ length: pageWorkerCount }, () => preparePageWorker()));
 
         return pageSources;
       }
@@ -2241,29 +2226,27 @@ ${clipped}`
         ? `Profil ${config.networkProfile.label} membatasi sementara menjadi ${config.pagesPerRequest} halaman × ${workerCount} jalur agar stabil.`
         : `Profil ${config.networkProfile.label} memakai ${config.pagesPerRequest} halaman × ${workerCount} jalur.`;
       const imageTransport = betaRemoteImagesAvailable ? 'jalur gambar sementara' : 'jalur cadangan';
-      setProgress(5, 'Memulai mode ringan', `${chunks.length} kelompok disiapkan. Halaman dibuat satu per satu, ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
+      setProgress(5, 'Memulai mode ringan cepat', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dibuat bersamaan, ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
-      const inFlight = new Set();
+      const runAI = createTaskPool(workerCount);
+      const processTasks = [];
       let pipelineError = null;
       for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-        if (pipelineError) throw pipelineError;
-        while (inFlight.size >= workerCount) {
-          await Promise.race(inFlight);
-          if (pipelineError) throw pipelineError;
-        }
+        if (pipelineError) break;
         const chunk = chunks[chunkIndex];
         const pageSources = await prepareChunk(chunk, chunkIndex);
-        if (pipelineError) throw pipelineError;
-        const task = processChunk(chunk, chunkIndex, pageSources)
-          .catch(error => {
-            pipelineError ||= error;
-          })
-          .finally(() => inFlight.delete(task));
-        inFlight.add(task);
+        if (pipelineError) break;
+        const task = runAI(async () => {
+          if (pipelineError) return;
+          await processChunk(chunk, chunkIndex, pageSources);
+        }).catch(error => {
+          pipelineError ||= error;
+        });
+        processTasks.push(task);
       }
-      await Promise.all(inFlight);
+      await Promise.all(processTasks);
       if (pipelineError) throw pipelineError;
       setTransferProgress(100, 'Semua respons AI telah diterima');
 
@@ -2388,7 +2371,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

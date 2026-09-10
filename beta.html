@@ -61,14 +61,14 @@
       <div class="intro-copy">
         <span class="eyebrow">Versi ringan untuk komputer lambat</span>
         <h1 id="pageTitle">Pemrosesan PDF lebih ringan untuk komputer yang lambat.</h1>
-        <p>Halaman disiapkan satu per satu agar komputer lama tetap responsif, sementara hingga lima jalur AI bekerja bersamaan untuk mempercepat hasil.</p>
+        <p>Maksimal dua halaman disiapkan bersamaan agar komputer lama tetap responsif, sementara hingga lima jalur AI bekerja bersamaan untuk mempercepat hasil.</p>
         <div class="performance-beta-card performance-beta-card--active" role="note">
           <span class="performance-beta-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M13.5 7.2l-3 4h3l-2 3.1"/></svg>
           </span>
           <span class="performance-beta-copy">
             <strong>Mode ramah komputer lambat sedang aktif</strong>
-            <small>Render ringan dan pengiriman gambar sementara membantu mengurangi beban komputer selama PDF diproses.</small>
+            <small>Render ringan dua jalur dan pengiriman gambar sementara membantu mempercepat proses tanpa membebani komputer seperti versi biasa.</small>
           </span>
           <span class="performance-beta-action">Mode ringan aktif</span>
         </div>
@@ -240,11 +240,11 @@
                 <div class="form-group full-width">
                   <label for="aiNetworkMode">Profil koneksi internet</label>
                   <div class="select-shell"><select id="aiNetworkMode">
-                    <option value="normal" selected>Normal cepat · 15 halaman × 5 jalur · Default</option>
+                    <option value="normal" selected>Normal cepat · 18 halaman × 5 jalur · Default</option>
                     <option value="auto">Otomatis · batasi jika koneksi lambat</option>
                     <option value="unstable">Internet tidak stabil · hemat data</option>
                   </select></div>
-                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 15 halaman × 5 jalur. Mode hemat data hanya digunakan jika dipilih manual.</span>
+                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 18 halaman × 5 jalur. Mode hemat data hanya digunakan jika dipilih manual.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiSpeedPreset">Preset kecepatan</label>
@@ -253,7 +253,7 @@
                     <option value="fast" selected>Cepat · hingga 5 jalur</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan menyiapkan halaman satu per satu; AI tetap bekerja hingga 15 halaman × 5 jalur dan beralih otomatis jika jalur cepat tidak tersedia.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan cepat menyiapkan maksimal dua halaman bersamaan; 90 halaman dibagi menjadi 5 kelompok AI.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -265,10 +265,11 @@
                     <option value="6">6 halaman</option>
                     <option value="8">8 halaman</option>
                     <option value="10">10 halaman · pilihan stabil</option>
-                    <option value="15" selected>15 halaman · preset Cepat</option>
+                    <option value="15">15 halaman · pilihan stabil</option>
+                    <option value="18" selected>18 halaman · preset Cepat</option>
                     <option value="20">20 halaman · dokumen bersih / eksperimental</option>
                   </select></div>
-                  <span class="field-hint">Tetap dapat diubah manual. Untuk PDF 50 halaman, nilai 15 menghasilkan 4 kelompok request. Gunakan 10 untuk dokumen sulit dan 20 untuk dokumen yang bersih.</span>
+                  <span class="field-hint">Tetap dapat diubah manual. Nilai 18 membuat PDF 90 halaman selesai dalam satu gelombang 5 jalur AI. Gunakan 10 atau 15 untuk scan yang sulit.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
@@ -493,7 +494,7 @@
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/app-core.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260909-16.26" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260910-16.27" defer></script>
   <script src="/assets/js/ui.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>

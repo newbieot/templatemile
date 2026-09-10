@@ -70,6 +70,9 @@ const ai = sandbox.MileAI._test;
 sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
+assert.doesNotMatch(aiRuntimeSource, /probeRemoteImageSupport/);
+assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 18, concurrency: 5/);
+assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
@@ -238,4 +241,20 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 401 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 
-console.log('PASS ai-pdf-beta-r2: ekstraksi, URL R2, payload ringan, dan fallback base64');
+const taskPool = ai.createTaskPool(2);
+let activeTasks = 0;
+let peakTasks = 0;
+const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
+  activeTasks++;
+  peakTasks = Math.max(peakTasks, activeTasks);
+  await new Promise(resolve => setTimeout(resolve, 5));
+  activeTasks--;
+}));
+
+Promise.all(poolJobs).then(() => {
+  assert.equal(peakTasks, 2);
+  console.log('PASS ai-pdf-beta-r2: ekstraksi, URL R2, pool dua render, dan fallback base64');
+}).catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

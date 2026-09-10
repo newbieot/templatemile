@@ -1,4 +1,4 @@
-const APP_VERSION = '20260909-16.26-lan-connectivity';
+const APP_VERSION = '20260910-16.27-beta-fast-pipeline';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
