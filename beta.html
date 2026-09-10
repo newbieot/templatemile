@@ -61,14 +61,14 @@
       <div class="intro-copy">
         <span class="eyebrow">Versi ringan untuk komputer lambat</span>
         <h1 id="pageTitle">Pemrosesan PDF lebih ringan untuk komputer yang lambat.</h1>
-        <p>Hingga tiga halaman disiapkan bersamaan agar render lebih cepat, sementara lima jalur AI bekerja paralel untuk mempercepat hasil.</p>
+        <p>Dua halaman dirender bersamaan agar komputer lama tetap ringan. AI mulai dengan dua jalur dan naik ke tiga setelah Gemini merespons dengan baik.</p>
         <div class="performance-beta-card performance-beta-card--active" role="note">
           <span class="performance-beta-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M13.5 7.2l-3 4h3l-2 3.1"/></svg>
           </span>
           <span class="performance-beta-copy">
             <strong>Mode ramah komputer lambat sedang aktif</strong>
-            <small>Render ringan maksimal tiga halaman dan pengiriman gambar sementara membantu mempercepat proses tanpa membebani komputer secara berlebihan.</small>
+            <small>Render 1600 px maksimal dua halaman, antrean AI adaptif, dan fallback per kelompok menjaga proses tetap cepat tanpa lonjakan beban.</small>
           </span>
           <span class="performance-beta-action">Mode ringan aktif</span>
         </div>
@@ -202,7 +202,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.34</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.35</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -240,20 +240,20 @@
                 <div class="form-group full-width">
                   <label for="aiNetworkMode">Profil koneksi internet</label>
                   <div class="select-shell"><select id="aiNetworkMode">
-                    <option value="normal" selected>Normal cepat · 15 halaman × 5 jalur · Default</option>
+                    <option value="normal" selected>Adaptif cepat · 10 halaman × 2→3 jalur · Default</option>
                     <option value="auto">Otomatis · batasi jika koneksi lambat</option>
                     <option value="unstable">Internet tidak stabil · hemat data</option>
                   </select></div>
-                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 15 halaman × 5 jalur. Mode hemat data hanya digunakan jika dipilih manual.</span>
+                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: kelompok 10 halaman, mulai 2 jalur dan naik ke 3 setelah Gemini berhasil.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiSpeedPreset">Preset kecepatan</label>
                   <div class="select-shell"><select id="aiSpeedPreset">
                     <option value="medium">Sedang · audit penuh</option>
-                    <option value="fast" selected>Cepat · hingga 5 jalur</option>
+                    <option value="fast" selected>Cepat adaptif · 2→3 jalur</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan menyiapkan maksimal tiga halaman bersamaan; AI bekerja hingga 15 halaman × 5 jalur dan memakai Qwen jika Gemini tidak tersedia.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">Mode ringan merender maksimal dua halaman bersamaan; Qwen hanya menangani kelompok yang gagal di Gemini.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -264,22 +264,18 @@
                     <option value="5">5 halaman · preset Sedang</option>
                     <option value="6">6 halaman</option>
                     <option value="8">8 halaman</option>
-                    <option value="10">10 halaman · pilihan stabil</option>
-                    <option value="15" selected>15 halaman · preset Cepat</option>
-                    <option value="20">20 halaman · dokumen bersih / eksperimental</option>
+                    <option value="10" selected>10 halaman · preset Cepat Adaptif</option>
                   </select></div>
-                  <span class="field-hint">Preset default mengirim 15 halaman per permintaan. Gunakan nilai lebih kecil untuk scan yang sulit.</span>
+                  <span class="field-hint">Preset default mengirim maksimal 10 halaman per permintaan agar Gemini tidak kewalahan.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
                   <div class="select-shell"><select id="aiConcurrency">
                     <option value="1">1 jalur · paling aman</option>
-                    <option value="2">2 jalur · hemat limit</option>
-                    <option value="3">3 jalur · seimbang</option>
-                    <option value="4">4 jalur · cepat dan stabil</option>
-                    <option value="5" selected>5 jalur · default</option>
+                    <option value="2">2 jalur · awal adaptif</option>
+                    <option value="3" selected>3 jalur · maksimum adaptif</option>
                   </select></div>
-                  <span class="field-hint">Preset default memakai 5 jalur AI paralel, sementara render pada komputer dibatasi maksimal tiga halaman bersamaan.</span>
+                  <span class="field-hint">Proses dimulai dengan 2 jalur. Jalur ketiga dibuka hanya setelah Gemini berhasil merespons.</span>
                 </div>
                 <div class="form-group full-width ai-test-group">
                   <label>Uji layanan</label>
@@ -493,7 +489,7 @@
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/app-core.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260910-16.34" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260910-16.35" defer></script>
   <script src="/assets/js/ui.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>

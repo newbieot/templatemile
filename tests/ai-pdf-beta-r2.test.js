@@ -27,6 +27,7 @@ const sandbox = {
   Set,
   Headers,
   Response,
+  Blob,
   AbortController,
   DOMException,
   TextEncoder,
@@ -72,20 +73,32 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.doesNotMatch(aiRuntimeSource, /probeRemoteImageSupport/);
-assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 5/);
-assert.match(aiRuntimeSource, /Math\.min\(20, Number\(\$\('aiPagesPerRequest'\)/);
-assert.match(aiRuntimeSource, /Math\.min\(5, Number\(\$\('aiConcurrency'\)/);
-assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Normal cepat', maxPagesPerRequest: 20, maxConcurrency: 5/);
-assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v5'/);
+assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 10, concurrency: 3/);
+assert.match(aiRuntimeSource, /Math\.min\(10, Number\(\$\('aiPagesPerRequest'\)/);
+assert.match(aiRuntimeSource, /Math\.min\(BETA_MAX_AI_CONCURRENCY, Number\(\$\('aiConcurrency'\)/);
+assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Adaptif cepat', maxPagesPerRequest: 10, maxConcurrency: BETA_MAX_AI_CONCURRENCY/);
+assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v6'/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
-assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 3/);
-assert.match(aiRuntimeSource, /while \(inFlight\.size >= workerCount\)/);
+assert.match(aiRuntimeSource, /const FIRST_PASS_MAX_SIDE = 1600/);
+assert.match(aiRuntimeSource, /const FIRST_PASS_JPEG_QUALITY = 0\.79/);
+assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
+assert.match(aiRuntimeSource, /const BETA_INITIAL_AI_CONCURRENCY = 2/);
+assert.match(aiRuntimeSource, /const BETA_MAX_AI_CONCURRENCY = 3/);
+assert.match(aiRuntimeSource, /const GEMINI_REQUEST_TIMEOUT_MS = 75 \* 1000/);
+assert.match(aiRuntimeSource, /const GEMINI_MAX_ATTEMPTS = 2/);
+assert.match(aiRuntimeSource, /const GEMINI_RETRY_DELAY_MS = 500/);
+assert.match(aiRuntimeSource, /while \(inFlight\.size >= activeAiLimit\)/);
+assert.match(aiRuntimeSource, /activeAiLimit = workerCount/);
 assert.match(aiRuntimeSource, /const AUTO_FALLBACK_MODEL = 'qwen-3\.7-flash'/);
-assert.match(betaHtmlSource, /Normal cepat · 15 halaman × 5 jalur · Default/);
+assert.doesNotMatch(aiRuntimeSource, /runtimeFallbackModel/);
+assert.equal((aiRuntimeSource.match(/betaRemoteImagesAvailable = false/g) || []).length, 1);
+assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
+assert.match(aiRuntimeSource, /for \(const audit of audits\)/);
+assert.match(betaHtmlSource, /Adaptif cepat · 10 halaman × 2→3 jalur · Default/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
 assert.match(betaHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Fallback Otomatis<\/option>/);
-assert.match(betaHtmlSource, /<option value="15" selected>15 halaman · preset Cepat<\/option>/);
-assert.match(betaHtmlSource, /<option value="5" selected>5 jalur · default<\/option>/);
+assert.match(betaHtmlSource, /<option value="10" selected>10 halaman · preset Cepat Adaptif<\/option>/);
+assert.match(betaHtmlSource, /<option value="3" selected>3 jalur · maksimum adaptif<\/option>/);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 404 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
@@ -253,7 +266,7 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
 
-const taskPool = ai.createTaskPool(3);
+const taskPool = ai.createTaskPool(2);
 let activeTasks = 0;
 let peakTasks = 0;
 const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
@@ -263,10 +276,65 @@ const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
   activeTasks--;
 }));
 
-Promise.all(poolJobs).then(() => {
-  assert.equal(peakTasks, 3);
-  console.log('PASS ai-pdf-beta-r2: Gemini 3.8 default, fallback Qwen, render 3 halaman, 15 × 5, URL R2, dan fallback base64');
-}).catch(error => {
+async function runAsyncAssertions() {
+  await Promise.all(poolJobs);
+  assert.equal(peakTasks, 2);
+
+  const responses = [
+    { status: 404, body: { error: { message: 'No active credentials for provider: antigravity' } } },
+    { status: 404, body: { error: { message: 'No active credentials for provider: antigravity' } } },
+    { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } },
+    { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
+  ];
+  const requestedModels = [];
+  sandbox.XMLHttpRequest = class FakeXMLHttpRequest {
+    constructor() {
+      this.upload = {};
+      this.readyState = 0;
+      this.status = 0;
+      this.statusText = '';
+      this.responseText = '';
+    }
+    open() {}
+    setRequestHeader() {}
+    getResponseHeader(name) { return name.toLowerCase() === 'content-type' ? 'application/json' : ''; }
+    abort() { this.onabort?.(); }
+    send(rawBody) {
+      const request = JSON.parse(rawBody);
+      requestedModels.push(request.body.model);
+      const response = responses.shift();
+      setTimeout(() => {
+        this.upload.onloadstart?.();
+        this.upload.onload?.();
+        this.status = response.status;
+        this.responseText = JSON.stringify(response.body);
+        this.readyState = 2;
+        this.onreadystatechange?.();
+        this.readyState = 4;
+        this.onload?.();
+      }, 0);
+    }
+  };
+
+  const config = { model: 'gemini-3.8-flash', protocol: 'openai' };
+  const body = ai.buildApiBody(config, 'uji fallback per kelompok', [], 1200);
+  let fallbackEvents = 0;
+  const firstPayload = await ai.callProxyWithRetry(config, body, 'kelompok pertama', {
+    onFallback() { fallbackEvents++; }
+  });
+  assert.equal(firstPayload._mileEffectiveModel, 'qwen-3.7-flash');
+  assert.equal(fallbackEvents, 1);
+
+  const secondPayload = await ai.callProxyWithRetry(config, body, 'kelompok kedua');
+  assert.equal(secondPayload._mileEffectiveModel, 'gemini-3.8-flash');
+  assert.deepEqual(requestedModels, [
+    'gemini-3.8-flash', 'gemini-3.8-flash', 'qwen-3.7-flash', 'gemini-3.8-flash'
+  ]);
+
+  console.log('PASS ai-pdf-beta-r2: render 2 halaman, AI adaptif 10 × 2→3, fallback Qwen per kelompok, URL R2, dan fallback base64 per halaman');
+}
+
+runAsyncAssertions().catch(error => {
   console.error(error);
   process.exitCode = 1;
 });

@@ -1,5 +1,15 @@
 # Changelog
 
+## v16.35 beta — Pipeline adaptif untuk PC lama
+
+- Menurunkan render Beta menjadi maksimal dua halaman bersamaan pada resolusi awal 1600 px/JPEG 79%.
+- Mengganti preset berat 15 × 5 menjadi kelompok 10 halaman dengan dua jalur awal dan maksimum tiga jalur setelah respons Gemini pertama berhasil.
+- Membatasi waktu tunggu Gemini per permintaan menjadi 75 detik dan mencoba gangguan provider sekali lagi setelah 0,5 detik.
+- Mengubah fallback Qwen menjadi per kelompok; kegagalan satu kelompok tidak lagi memindahkan seluruh sisa PDF dari Gemini.
+- Mencoba ulang upload R2 satu kali dan memakai base64 hanya untuk halaman yang tetap gagal, tanpa mematikan R2 untuk seluruh pekerjaan.
+- Menunda audit selektif sampai ekstraksi awal selesai dan menjalankannya satu jalur agar tidak berebut kapasitas AI.
+- Menampilkan model, rentang halaman, tahap, dan waktu berjalan untuk setiap jalur aktif serta memperkaya metrik tanpa menyimpan isi dokumen.
+
 ## v16.34 beta — Render tiga halaman
 
 - Menaikkan pool render khusus `/beta` dari satu menjadi maksimal tiga halaman bersamaan agar penyiapan gambar lebih cepat.
