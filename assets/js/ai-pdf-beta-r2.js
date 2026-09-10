@@ -12,7 +12,7 @@
   };
   const SPEED_PRESETS = {
     medium: { pagesPerRequest: 5, concurrency: 2, verification: 'all', label: 'Sedang' },
-    fast: { pagesPerRequest: 18, concurrency: 5, verification: 'smart', label: 'Cepat' },
+    fast: { pagesPerRequest: 15, concurrency: 4, verification: 'smart', label: 'Cepat stabil' },
     custom: { verification: 'smart', label: 'Kustom' }
   };
   const DEFAULT_ACCURACY_MODE = 'auto';
@@ -28,7 +28,7 @@
   const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-beta-r2-v2';
+  const STORAGE_KEY = 'mile-ai-config-beta-r2-v3';
   const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
   const BETA_PREPARE_CONCURRENCY = 2;
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
@@ -78,8 +78,8 @@
     const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
-    const requestedPagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
-    const requestedConcurrency = Math.max(1, Math.min(5, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
+    const requestedPagesPerRequest = Math.max(1, Math.min(15, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const requestedConcurrency = Math.max(1, Math.min(4, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
     const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
     const networkProfile = resolveNetworkProfile(networkMode);
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
@@ -121,7 +121,7 @@
         maxImageSide: 2150, jpegQuality: 0.85
       },
       normal: {
-        key: 'normal', label: 'Normal cepat', maxPagesPerRequest: 20, maxConcurrency: 5,
+        key: 'normal', label: 'Normal stabil', maxPagesPerRequest: 15, maxConcurrency: 4,
         maxImageSide: Infinity, jpegQuality: 1
       }
     };
@@ -145,7 +145,7 @@
 
     // Firefox desktop belum menyediakan Network Information API. Dalam kondisi
     // itu Auto memilih profil paling aman; pengguna berkoneksi cepat tetap dapat
-    // memilih "Internet stabil" untuk membuka batas 18 halaman × 5 jalur.
+    // memilih "Internet stabil" untuk membuka batas 15 halaman × 4 jalur.
     if (!signals.available) return profiles.unstable;
     return profiles.balanced;
   }
@@ -204,7 +204,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Mode ringan cepat: hingga dua halaman disiapkan bersamaan, lalu AI bekerja pada 18 halaman × maksimal 5 jalur. Audit kedua hanya jika hasil meragukan.',
+      fast: 'Mode ringan stabil: hingga dua halaman disiapkan bersamaan, lalu AI bekerja pada 15 halaman × maksimal 4 jalur. Audit kedua hanya jika hasil meragukan.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -220,7 +220,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode ringan aktif: maksimal dua halaman disiapkan bersamaan dan AI bekerja pada maksimal 18 halaman × 5 jalur melalui gambar sementara.'
+      normal: 'Mode ringan aktif: maksimal dua halaman disiapkan bersamaan dan AI bekerja pada maksimal 15 halaman × 4 jalur melalui gambar sementara.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }

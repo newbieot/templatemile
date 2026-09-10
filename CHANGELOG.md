@@ -1,5 +1,12 @@
 # Changelog
 
+## v16.28 beta — Beban AI lebih stabil
+
+- Mengembalikan kelompok cepat dari 18 menjadi 15 halaman agar model vision lebih konsisten membaca seluruh halaman.
+- Mengunci Beta maksimal 15 halaman × 4 jalur AI; opsi 18/20 halaman dan jalur kelima dihapus agar provider tidak menerima beban berlebihan.
+- Mempertahankan optimasi render dua halaman, resolusi 1600 px, pengiriman R2, dan penghapusan pemeriksaan AI awal dari v16.27.
+- Mengganti penyimpanan konfigurasi sesi agar nilai 18 × 5 dari rilis sebelumnya tidak terbawa pada tab lama setelah dimuat ulang.
+
 ## v16.27 beta — Pipeline cepat tanpa jeda pemeriksaan awal
 
 - Menghapus permintaan AI pemeriksaan URL sebelum dokumen diproses; kesiapan jalur gambar sekarang diambil langsung dari health Secure Gateway sehingga progres halaman dimulai seketika.

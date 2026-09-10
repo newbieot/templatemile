@@ -1,10 +1,10 @@
-# mile.posnew.com Secure Gateway v16.27 beta
+# mile.posnew.com Secure Gateway v16.28 beta
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
 ## Eksperimen PC lawas di `/beta`
 
-Halaman `/beta` memakai pipeline scan yang lebih ringan: maksimal dua halaman PDF dirender bersamaan, JPEG diunggah sementara ke bucket R2 `mile-beta-ai-images`, lalu AI bekerja paralel dengan kelompok 18 halaman × maksimum 5 jalur. Kesiapan jalur gambar dibaca dari Secure Gateway tanpa permintaan AI pemeriksaan awal; jika upload gambar terganggu, proses otomatis memakai fallback JPEG base64.
+Halaman `/beta` memakai pipeline scan yang lebih ringan: maksimal dua halaman PDF dirender bersamaan, JPEG diunggah sementara ke bucket R2 `mile-beta-ai-images`, lalu AI bekerja paralel dengan kelompok 15 halaman × maksimum 4 jalur agar model tidak kewalahan. Kesiapan jalur gambar dibaca dari Secure Gateway tanpa permintaan AI pemeriksaan awal; jika upload gambar terganggu, proses otomatis memakai fallback JPEG base64.
 
 Binding Cloudflare Pages yang diperlukan:
 

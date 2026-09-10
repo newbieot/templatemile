@@ -71,7 +71,9 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.doesNotMatch(aiRuntimeSource, /probeRemoteImageSupport/);
-assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 18, concurrency: 5/);
+assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 4/);
+assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/);
+assert.match(aiRuntimeSource, /Math\.min\(4, Number\(\$\('aiConcurrency'\)/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
 sandbox.navigator.onLine = true;
 
