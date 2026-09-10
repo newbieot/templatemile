@@ -74,17 +74,17 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.doesNotMatch(aiRuntimeSource, /probeRemoteImageSupport/);
-assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 6, concurrency: 3/);
-assert.match(aiRuntimeSource, /Math\.min\(8, Number\(\$\('aiPagesPerRequest'\)/);
+assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 5/);
+assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/);
 assert.match(aiRuntimeSource, /Math\.min\(BETA_MAX_AI_CONCURRENCY, Number\(\$\('aiConcurrency'\)/);
-assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Jembatan R2 cepat', maxPagesPerRequest: 6, maxConcurrency: BETA_MAX_AI_CONCURRENCY/);
-assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v7'/);
+assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Turbo langsung', maxPagesPerRequest: 15, maxConcurrency: BETA_MAX_AI_CONCURRENCY/);
+assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v8'/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
-assert.match(aiRuntimeSource, /const FIRST_PASS_MAX_SIDE = 1600/);
-assert.match(aiRuntimeSource, /const FIRST_PASS_JPEG_QUALITY = 0\.79/);
+assert.match(aiRuntimeSource, /const FIRST_PASS_MAX_SIDE = 1150/);
+assert.match(aiRuntimeSource, /const FIRST_PASS_JPEG_QUALITY = 0\.72/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
-assert.match(aiRuntimeSource, /const BETA_INITIAL_AI_CONCURRENCY = 3/);
-assert.match(aiRuntimeSource, /const BETA_MAX_AI_CONCURRENCY = 3/);
+assert.match(aiRuntimeSource, /const BETA_INITIAL_AI_CONCURRENCY = 5/);
+assert.match(aiRuntimeSource, /const BETA_MAX_AI_CONCURRENCY = 5/);
 assert.match(aiRuntimeSource, /const GEMINI_REQUEST_TIMEOUT_MS = 75 \* 1000/);
 assert.match(aiRuntimeSource, /const GEMINI_MAX_ATTEMPTS = 2/);
 assert.match(aiRuntimeSource, /const GEMINI_RETRY_DELAY_MS = 500/);
@@ -93,14 +93,15 @@ assert.match(aiRuntimeSource, /activeAiLimit = workerCount/);
 assert.match(aiRuntimeSource, /const AUTO_FALLBACK_MODEL = 'qwen-3\.7-flash'/);
 assert.doesNotMatch(aiRuntimeSource, /runtimeFallbackModel/);
 assert.equal((aiRuntimeSource.match(/betaRemoteImagesAvailable = false/g) || []).length, 1);
+assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = config\.networkProfile\.key === 'unstable' && lastBetaImagesConfigured/);
 assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
 assert.match(aiRuntimeSource, /for \(const audit of audits\)/);
-assert.match(betaHtmlSource, /Cepat R2 · 6 halaman × 3 jalur · Default/);
-assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.36/);
+assert.match(betaHtmlSource, /Turbo langsung · 15 halaman × 5 jalur · Default/);
+assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.37/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
 assert.match(betaHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Fallback Otomatis<\/option>/);
-assert.match(betaHtmlSource, /<option value="6" selected>6 halaman · preset Cepat R2<\/option>/);
-assert.match(betaHtmlSource, /<option value="3" selected>3 jalur · preset Cepat R2<\/option>/);
+assert.match(betaHtmlSource, /<option value="15" selected>15 halaman · preset Turbo<\/option>/);
+assert.match(betaHtmlSource, /<option value="5" selected>5 jalur · preset Turbo<\/option>/);
 assert.match(aiRuntimeSource, /createBetaProbeBlob/);
 assert.match(workerSource, /const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:'/);
 assert.match(workerSource, /async function hydrateBetaImageReferences/);
@@ -339,7 +340,7 @@ async function runAsyncAssertions() {
     'gemini-3.8-flash', 'gemini-3.8-flash', 'qwen-3.7-flash', 'gemini-3.8-flash'
   ]);
 
-  console.log('PASS ai-pdf-beta-r2: render 2 halaman, AI 6 × 3, jembatan R2 Worker, fallback Qwen per kelompok, dan fallback base64 per halaman');
+  console.log('PASS ai-pdf-beta-r2: render ringan 2 jalur, AI 15 × 5 langsung, R2 pemulihan, dan fallback Qwen per kelompok');
 }
 
 runAsyncAssertions().catch(error => {

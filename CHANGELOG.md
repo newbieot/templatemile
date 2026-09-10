@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.37 beta — Turbo langsung 15 × 5
+
+- Menghapus antrean upload R2 per halaman dari jalur normal; JPEG ringan dikirim langsung ke Gemini 3.8 Flash.
+- Meningkatkan kelompok ekstraksi menjadi 15 halaman × 5 jalur sambil mempertahankan render lokal maksimal dua halaman agar PC lawas tetap responsif.
+- Menurunkan tahap pertama menjadi 1150 px dengan kualitas JPEG 72% dan menonaktifkan audit kedua pada preset Turbo.
+- Mempertahankan R2 sebagai mode pemulihan pada profil Hemat data dan Qwen 3.7 Flash hanya sebagai fallback kelompok yang gagal.
+- Memperbarui tes koneksi agar menguji jalur yang benar-benar dipilih pengguna.
+
 ## v16.36 beta — Jembatan R2 langsung ke Gemini
 
 - Mempertahankan R2 sebagai penyangga gambar, tetapi menghentikan pengiriman URL R2 langsung ke Gemini.

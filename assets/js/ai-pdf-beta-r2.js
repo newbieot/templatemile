@@ -1,4 +1,4 @@
-/* mile.posnew.com beta AI PDF runtime — R2 bridge + lightweight AI pipeline */
+/* mile.posnew.com beta AI PDF runtime — direct turbo + R2 recovery pipeline */
 (() => {
   'use strict';
 
@@ -12,15 +12,15 @@
   };
   const SPEED_PRESETS = {
     medium: { pagesPerRequest: 5, concurrency: 2, verification: 'all', label: 'Sedang' },
-    fast: { pagesPerRequest: 6, concurrency: 3, verification: 'smart', label: 'Cepat R2' },
+    fast: { pagesPerRequest: 15, concurrency: 5, verification: 'none', label: 'Turbo Langsung' },
     custom: { verification: 'smart', label: 'Kustom' }
   };
   const DEFAULT_ACCURACY_MODE = 'auto';
   const DEFAULT_SPEED_PRESET = 'fast';
   const DEFAULT_NETWORK_MODE = 'normal';
-  const FIRST_PASS_MAX_SIDE = 1600;
+  const FIRST_PASS_MAX_SIDE = 1150;
   const AUDIT_MAX_SIDE = 2600;
-  const FIRST_PASS_JPEG_QUALITY = 0.79;
+  const FIRST_PASS_JPEG_QUALITY = 0.72;
   const AUDIT_JPEG_QUALITY = 0.91;
   const MAX_JSON_REPAIR_CHARS = 48000;
   const SMART_CONFIDENCE_THRESHOLD = 0.82;
@@ -31,11 +31,11 @@
   const GEMINI_RETRY_DELAY_MS = 500;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-beta-r2-v7';
+  const STORAGE_KEY = 'mile-ai-config-beta-r2-v8';
   const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
   const BETA_PREPARE_CONCURRENCY = 2;
-  const BETA_INITIAL_AI_CONCURRENCY = 3;
-  const BETA_MAX_AI_CONCURRENCY = 3;
+  const BETA_INITIAL_AI_CONCURRENCY = 5;
+  const BETA_MAX_AI_CONCURRENCY = 5;
   const BETA_PROBE_CODE = 'MILE38';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
@@ -84,7 +84,7 @@
     const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
-    const requestedPagesPerRequest = Math.max(1, Math.min(8, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const requestedPagesPerRequest = Math.max(1, Math.min(15, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
     const requestedConcurrency = Math.max(1, Math.min(BETA_MAX_AI_CONCURRENCY, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
     const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
     const networkProfile = resolveNetworkProfile(networkMode);
@@ -127,7 +127,7 @@
         maxImageSide: 2150, jpegQuality: 0.85
       },
       normal: {
-        key: 'normal', label: 'Jembatan R2 cepat', maxPagesPerRequest: 6, maxConcurrency: BETA_MAX_AI_CONCURRENCY,
+        key: 'normal', label: 'Turbo langsung', maxPagesPerRequest: 15, maxConcurrency: BETA_MAX_AI_CONCURRENCY,
         maxImageSide: Infinity, jpegQuality: 1
       }
     };
@@ -151,7 +151,7 @@
 
     // Firefox desktop belum menyediakan Network Information API. Dalam kondisi
     // itu Auto memilih profil paling aman; pengguna berkoneksi cepat tetap dapat
-    // memilih profil R2 untuk kelompok 6 halaman dan maksimum 3 jalur.
+    // memilih profil R2 aman. Mode Normal tetap menjadi jalur Turbo langsung.
     if (!signals.available) return profiles.unstable;
     return profiles.balanced;
   }
@@ -176,7 +176,7 @@
     if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6','mile-ai-config-beta-r2-v7'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -210,7 +210,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Mode cepat R2: dua halaman disiapkan bersamaan, lalu Gemini menjalankan 3 jalur berisi maksimal 6 halaman.',
+      fast: 'Mode Turbo: dua gambar ringan disiapkan bersamaan agar PC tetap responsif, lalu Gemini menjalankan 5 jalur berisi maksimal 15 halaman tanpa menunggu R2.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -226,7 +226,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode cepat aktif: render maksimal 2 halaman, kelompok 6 halaman, dan 3 jalur Gemini melalui jembatan R2.'
+      normal: 'Mode Turbo aktif: gambar 1150 px disiapkan maksimal 2 bersamaan agar PC tetap ringan, lalu 15 halaman × 5 jalur Gemini langsung.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -1948,33 +1948,39 @@ ${clipped}`
       if (!configured) {
         throw new Error('Konfigurasi Secure Gateway belum lengkap. Periksa tiga secret Cloudflare lalu deploy ulang.');
       }
-      if (!lastBetaImagesConfigured) {
-        throw new Error('Penyimpanan gambar R2 Beta belum dikonfigurasi.');
-      }
       const config = getConfig();
+      const testViaR2 = config.networkProfile.key === 'unstable';
+      if (testViaR2 && !lastBetaImagesConfigured) {
+        throw new Error('Penyimpanan gambar R2 Beta belum dikonfigurasi untuk mode Hemat data.');
+      }
       saveNonSecretConfig();
       button.disabled = true;
-      button.textContent = 'Menguji gambar R2…';
-      setFeedback(`Menguji R2, Worker, dan ${config.model} dengan satu gambar sungguhan…`);
-      probeJobId = createBetaJobId();
+      button.textContent = testViaR2 ? 'Menguji jalur R2…' : 'Menguji jalur Turbo…';
+      setFeedback(`Menguji jalur ${testViaR2 ? 'R2 pemulihan' : 'Turbo langsung'} dan ${config.model} dengan satu gambar sungguhan…`);
       const probeBlob = await createBetaProbeBlob();
-      const probeReference = await uploadBetaImageWithRetry(probeJobId, 0, 'probe', probeBlob);
+      let probeReference;
+      if (testViaR2) {
+        probeJobId = createBetaJobId();
+        probeReference = await uploadBetaImageWithRetry(probeJobId, 0, 'probe', probeBlob);
+      } else {
+        probeReference = await blobToDataUrl(probeBlob);
+      }
       const body = buildApiBody(
         config,
         `Baca kode besar pada gambar. Balas HANYA JSON valid {"code":"${BETA_PROBE_CODE}"}.`,
-        [{ page: 1, label: 'UJI GAMBAR R2', url: probeReference }],
+        [{ page: 1, label: 'UJI GAMBAR BETA', url: probeReference }],
         300
       );
       const payload = await callCosmos(config, body);
       const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
       if (!text.toUpperCase().includes(BETA_PROBE_CODE)) {
-        throw new Error('AI merespons tetapi belum berhasil membaca gambar melalui jembatan R2.');
+        throw new Error(`AI merespons tetapi belum berhasil membaca gambar melalui jalur ${testViaR2 ? 'R2' : 'Turbo'}.`);
       }
       const usage = getUsage(payload, 'openai');
       const usageText = usage.input || usage.output ? ` · ${formatUsage(usage)}` : '';
       const transportText = payload?._mileTransport ? ` melalui ${payload._mileTransport}` : '';
-      setFeedback(`R2 dan layanan AI siap${transportText}. Gambar berhasil dibaca${usageText}`, 'success');
-      showToast('R2, Worker, dan AI siap digunakan.', 'success');
+      setFeedback(`Jalur ${testViaR2 ? 'R2 pemulihan' : 'Turbo langsung'} dan layanan AI siap${transportText}. Gambar berhasil dibaca${usageText}`, 'success');
+      showToast(`Jalur ${testViaR2 ? 'R2 pemulihan' : 'Turbo langsung'} dan AI siap digunakan.`, 'success');
     } catch (error) {
       setFeedback(`Tes jalur gambar gagal: ${error.message}`, 'error');
       showToast(`Tes jalur gambar gagal: ${error.message}`, 'error');
@@ -2055,11 +2061,11 @@ ${clipped}`
         accuracyMode: config.accuracyMode === 'auto' ? 'balanced' : config.accuracyMode
       };
 
-      betaRemoteImagesAvailable = lastBetaImagesConfigured;
+      betaRemoteImagesAvailable = config.networkProfile.key === 'unstable' && lastBetaImagesConfigured;
       setProgress(4, 'Menyiapkan halaman pertama', betaRemoteImagesAvailable
-        ? 'Jalur gambar sementara siap · pemrosesan langsung dimulai.'
-        : 'Jalur gambar sementara belum tersedia · memakai jalur cadangan.');
-      setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar halaman' : 'Jalur cadangan aktif');
+        ? 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.'
+        : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.');
+      setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar melalui R2' : 'Mulai menyiapkan gambar Turbo');
 
       const chunks = [];
       for (let start = 1; start <= pdf.numPages; start += config.pagesPerRequest) {
@@ -2325,6 +2331,7 @@ ${clipped}`
           state.progress = Math.max(state.progress, 0.66);
           updateParallelProgress(chunk, chunkIndex, `Menunggu audit ${auditPages.length} halaman`);
         } else {
+          pageSources.forEach(source => { source.url = ''; });
           completedChunks++;
           state.progress = 1;
           updateParallelProgress(chunk, chunkIndex, 'Selesai');
@@ -2425,6 +2432,7 @@ ${clipped}`
         const merged = mergeVerifiedRows(originalRows, verifiedRows, auditPages);
         rowsFound += merged.length - originalRows.length;
         results[chunkIndex] = merged;
+        pageSources.forEach(source => { source.url = ''; source.blob = null; });
         completedChunks++;
         state.active = false;
         state.waiting = false;
@@ -2437,10 +2445,10 @@ ${clipped}`
       const networkExplanation = limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`
         : (config.model === DEFAULT_MODEL
-          ? `Gemini berjalan dengan ${activeAiLimit} jalur melalui jembatan R2.`
+          ? `Gemini berjalan dengan ${activeAiLimit} jalur Turbo langsung.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
-      const imageTransport = betaRemoteImagesAvailable ? 'jembatan R2 ke Gemini' : 'jalur base64 cadangan';
-      setProgress(5, 'Memulai mode adaptif', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dirender bersamaan. ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
+      const imageTransport = betaRemoteImagesAvailable ? 'R2 pemulihan' : 'gambar langsung ke Gemini';
+      setProgress(5, 'Memulai mode Turbo', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dirender bersamaan agar PC tetap responsif. ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
       const inFlight = new Set();
@@ -2542,7 +2550,7 @@ ${clipped}`
     } finally {
       activeControllers.forEach(controller => controller.abort());
       activeControllers.clear();
-      await cleanupBetaImages(betaJobId);
+      if (betaRemoteImagesAvailable) await cleanupBetaImages(betaJobId);
       try { pdf?.cleanup?.(); pdf?.destroy?.(); } catch (_) {}
     }
   }

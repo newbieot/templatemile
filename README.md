@@ -1,10 +1,10 @@
-# mile.posnew.com Secure Gateway v16.36
+# mile.posnew.com Secure Gateway v16.37
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
 ## Eksperimen PC lawas di `/beta`
 
-Halaman `/beta` memakai pipeline cepat untuk PC lama: PDF dirender maksimal dua halaman pada resolusi awal 1600 px, lalu JPEG diunggah sementara ke bucket R2 `mile-beta-ai-images`. Browser hanya mengirim referensi kecil; Cloudflare Worker mengambil gambar dari R2 dan menyisipkan base64 langsung ke permintaan Gemini sehingga AI tidak perlu membuka URL sementara. Ekstraksi memakai kelompok 6 halaman × 3 jalur. Satu gangguan Gemini hanya mengalihkan kelompok tersebut ke Qwen 3.7 Flash, sedangkan kelompok lain tetap mencoba Gemini. Upload R2 dicoba ulang sekali dan kegagalan hanya membuat halaman terkait memakai JPEG base64. Audit selektif dijalankan belakangan dalam satu jalur agar tidak berebut kapasitas dengan ekstraksi awal.
+Halaman `/beta` memakai pipeline Turbo untuk PC lama: PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Jalur normal mengirim gambar langsung ke Gemini dalam kelompok 15 halaman × 5 jalur sehingga tidak ada antrean upload R2 per halaman. R2 `mile-beta-ai-images` tetap dipakai oleh profil Hemat data sebagai jalur pemulihan. Satu gangguan Gemini hanya mengalihkan kelompok tersebut ke Qwen 3.7 Flash, sedangkan kelompok lain tetap mencoba Gemini. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.
 
 Binding Cloudflare Pages yang diperlukan:
 
@@ -12,7 +12,7 @@ Binding Cloudflare Pages yang diperlukan:
 BETA_AI_IMAGES -> mile-beta-ai-images
 ```
 
-Gambar memakai referensi bertanda tangan yang hanya dapat ditukar menjadi base64 oleh Worker untuk pemilik sesi yang sama. Referensi kedaluwarsa setelah satu jam, gambar dihapus saat pekerjaan selesai, dan lifecycle R2 satu hari tetap menjadi pembersihan cadangan.
+Pada mode Hemat data, gambar memakai referensi bertanda tangan yang hanya dapat ditukar menjadi base64 oleh Worker untuk pemilik sesi yang sama. Referensi kedaluwarsa setelah satu jam, gambar dihapus saat pekerjaan selesai, dan lifecycle R2 satu hari tetap menjadi pembersihan cadangan.
 
 
 ## Penamaan aplikasi
