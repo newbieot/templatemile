@@ -78,7 +78,7 @@ assert.match(aiRuntimeSource, /Math\.min\(5, Number\(\$\('aiConcurrency'\)/);
 assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Normal cepat', maxPagesPerRequest: 20, maxConcurrency: 5/);
 assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v5'/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
-assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 1/);
+assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 3/);
 assert.match(aiRuntimeSource, /while \(inFlight\.size >= workerCount\)/);
 assert.match(aiRuntimeSource, /const AUTO_FALLBACK_MODEL = 'qwen-3\.7-flash'/);
 assert.match(betaHtmlSource, /Normal cepat · 15 halaman × 5 jalur · Default/);
@@ -253,7 +253,7 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
 
-const taskPool = ai.createTaskPool(1);
+const taskPool = ai.createTaskPool(3);
 let activeTasks = 0;
 let peakTasks = 0;
 const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
@@ -264,8 +264,8 @@ const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
 }));
 
 Promise.all(poolJobs).then(() => {
-  assert.equal(peakTasks, 1);
-  console.log('PASS ai-pdf-beta-r2: Gemini 3.8 default, fallback Qwen, render serial, 15 × 5, URL R2, dan fallback base64');
+  assert.equal(peakTasks, 3);
+  console.log('PASS ai-pdf-beta-r2: Gemini 3.8 default, fallback Qwen, render 3 halaman, 15 × 5, URL R2, dan fallback base64');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;

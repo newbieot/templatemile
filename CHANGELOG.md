@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.34 beta — Render tiga halaman
+
+- Menaikkan pool render khusus `/beta` dari satu menjadi maksimal tiga halaman bersamaan agar penyiapan gambar lebih cepat.
+- Mempertahankan kelompok 15 halaman × 5 jalur AI, Gemini 3.8 Flash sebagai default, dan Qwen 3.7 Flash sebagai fallback otomatis.
+- Tidak mengubah pipeline PDF pada versi utama `mile.posnew.com`.
+
 ## v16.33 — Gemini 3.8 default dan Beta klasik dipulihkan
 
 - Menjadikan Gemini 3.8 Flash sebagai model default pada `/beta` dan versi utama `mile.posnew.com`.

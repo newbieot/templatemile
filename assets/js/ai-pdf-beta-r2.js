@@ -1,4 +1,4 @@
-/* mile.posnew.com beta AI PDF runtime — serial render + temporary R2 URLs */
+/* mile.posnew.com beta AI PDF runtime — three-page render pool + temporary R2 URLs */
 (() => {
   'use strict';
 
@@ -30,7 +30,7 @@
   const HEALTH_TIMEOUT_MS = 15 * 1000;
   const STORAGE_KEY = 'mile-ai-config-beta-r2-v5';
   const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
-  const BETA_PREPARE_CONCURRENCY = 1;
+  const BETA_PREPARE_CONCURRENCY = 3;
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
@@ -204,7 +204,7 @@
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Mode ringan: halaman disiapkan satu per satu, lalu AI bekerja pada 15 halaman × maksimal 5 jalur. Audit kedua hanya jika hasil meragukan.',
+      fast: 'Mode ringan: maksimal tiga halaman disiapkan bersamaan, lalu AI bekerja pada 15 halaman × maksimal 5 jalur. Audit kedua hanya jika hasil meragukan.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -220,7 +220,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode ringan aktif: halaman disiapkan satu per satu dan AI bekerja pada maksimal 15 halaman × 5 jalur melalui gambar sementara.'
+      normal: 'Mode ringan aktif: maksimal tiga halaman disiapkan bersamaan dan AI bekerja pada maksimal 15 halaman × 5 jalur melalui gambar sementara.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -2230,7 +2230,7 @@ ${clipped}`
         ? `Profil ${config.networkProfile.label} membatasi sementara menjadi ${config.pagesPerRequest} halaman × ${workerCount} jalur agar stabil.`
         : `Profil ${config.networkProfile.label} memakai ${config.pagesPerRequest} halaman × ${workerCount} jalur.`;
       const imageTransport = betaRemoteImagesAvailable ? 'jalur gambar sementara' : 'jalur cadangan';
-      setProgress(5, 'Memulai mode ringan', `${chunks.length} kelompok disiapkan. Halaman dibuat satu per satu, ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
+      setProgress(5, 'Memulai mode ringan', `${chunks.length} kelompok disiapkan. Maksimal tiga halaman dibuat bersamaan, ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
       const inFlight = new Set();
