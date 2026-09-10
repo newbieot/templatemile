@@ -33,18 +33,10 @@
   const BETA_PREPARE_CONCURRENCY = 2;
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
-  const COSMOS_MODELS = new Set([
-    'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
-    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
-    'qwen-3.7-plus','qwen-3.7-flash'
-  ]);
   const DEFAULT_MODEL = 'gemini-3.7-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
-  const AUTO_FALLBACK_MODEL = 'qwen-3.7-flash';
   const activeControllers = new Set();
   let cancelled = false;
-  let runtimeFallbackModel = '';
-  let fallbackAnnounced = false;
   let lastSuccessfulTransport = '';
   let stopwatchInterval = 0;
   let stopwatchStartedAt = 0;
@@ -75,7 +67,7 @@
 
   function getConfig() {
     const protocol = 'openai';
-    const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
+    const model = DEFAULT_MODEL;
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
     const requestedPagesPerRequest = Math.max(1, Math.min(15, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
@@ -85,7 +77,6 @@
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
     const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
     const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
-    if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
       provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy,
       pagesPerRequest, concurrency, requestedPagesPerRequest, requestedConcurrency,
@@ -165,8 +156,7 @@
   }
 
   function loadNonSecretConfig() {
-    // Model selalu kembali ke default stabil Gemini 3.7 Flash saat halaman dimuat.
-    // Pengguna tetap dapat mengganti model selama sesi berjalan.
+    // Model Beta dikunci ke Gemini 3.7 Flash dan tidak dibaca dari penyimpanan sesi.
     if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
@@ -1214,20 +1204,9 @@ ${clipped}`
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
   }
 
-  function isAutoFallbackEligible(config, error) {
-    if (cancelled || error?.name === 'AbortError' || config?.model !== DEFAULT_MODEL) return false;
-    const status = Number(error?.status || 0);
-    if (!status) return true;
-    if ([404, 408, 409, 425, 429, 500, 502, 503, 504].includes(status)) return true;
-    return /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
-  }
-
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
-    const configuredModel = String(config?.model || body?.model || '').trim();
-    const requestModel = configuredModel === DEFAULT_MODEL && runtimeFallbackModel
-      ? runtimeFallbackModel
-      : String(body?.model || configuredModel).trim();
-    const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
+    const requestModel = DEFAULT_MODEL;
+    const requestConfig = config?.model === requestModel ? config : { ...config, model: requestModel };
     const requestBody = body?.model === requestModel ? body : { ...body, model: requestModel };
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -1266,12 +1245,7 @@ ${clipped}`
       } catch (error) {
         lastError = error;
         const retryable = isRetryable(error) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
-        const providerFailure = Boolean(Number(error?.status || 0)) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
-        if (requestModel === DEFAULT_MODEL && providerFailure && isAutoFallbackEligible(config, error)) break;
-        if (!retryable) {
-          if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, error)) break;
-          throw error;
-        }
+        if (!retryable) throw error;
         if (attempt >= MAX_RETRIES) break;
         const delay = Number(error?.status) === 429
           ? ([8000, 18000][attempt - 1] || 18000)
@@ -1283,24 +1257,11 @@ ${clipped}`
           `Percobaan ${attempt + 1}/${MAX_RETRIES} dimulai dalam ${formatDuration(delay / 1000)}.`,
           $('aiProgressUsage')?.textContent || ''
         );
-        setTransferProgress(0, `Koneksi terganggu · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`, { error: true });
+        setTransferProgress(0, `Gemini 3.7 belum berhasil · mencoba lagi ${attempt + 1}/${MAX_RETRIES}`, { error: true });
         await cancellableSleep(delay + Math.floor(Math.random() * 700));
       }
     }
-    if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, lastError)) {
-      const firstActivation = runtimeFallbackModel !== AUTO_FALLBACK_MODEL;
-      runtimeFallbackModel = AUTO_FALLBACK_MODEL;
-      if (firstActivation && !fallbackAnnounced) {
-        fallbackAnnounced = true;
-        if ($('aiModel')) $('aiModel').value = AUTO_FALLBACK_MODEL;
-        hooks.onFallback?.({ from: DEFAULT_MODEL, to: AUTO_FALLBACK_MODEL, error: lastError });
-        showToast('Gemini 3.7 terkendala. Proses dilanjutkan otomatis dengan Qwen 3.7 Flash.', 'info');
-      }
-      const fallbackPayload = await callProxyWithRetry(config, { ...body, model: AUTO_FALLBACK_MODEL }, label, hooks);
-      fallbackPayload._mileFallbackFrom = DEFAULT_MODEL;
-      return fallbackPayload;
-    }
-    throw lastError || new Error('Permintaan AI gagal setelah beberapa kali percobaan.');
+    throw lastError || new Error('Gemini 3.7 Flash gagal setelah tiga kali percobaan.');
   }
 
   function extractTextFromResponse(payload, protocol) {
@@ -1894,8 +1855,6 @@ ${clipped}`
       return;
     }
     cancelled = false;
-    runtimeFallbackModel = '';
-    fallbackAnnounced = false;
     betaRemoteFallbackAnnounced = false;
     const startedAt = performance.now();
     startStopwatch(startedAt);
@@ -2026,11 +1985,6 @@ ${clipped}`
           chunkStates[chunkIndex].waiting = false;
           setTransferProgress(0, `Jaringan terganggu · percobaan ${nextAttempt}/${maxAttempts} dalam ${formatDuration(delay / 1000)}`, { error: true });
           updateParallelProgress(chunk, chunkIndex, `Menyiapkan retry ${nextAttempt}/${maxAttempts}`);
-        },
-        onFallback({ to }) {
-          chunkStates[chunkIndex].waiting = false;
-          setTransferProgress(0, `Gemini 3.7 terkendala · beralih otomatis ke ${to}`, { waiting: true });
-          updateParallelProgress(chunk, chunkIndex, 'Fallback ke Qwen 3.7 Flash');
         },
         onRepair() {
           setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });
@@ -2267,7 +2221,7 @@ ${clipped}`
         status: 'SUCCESS',
         fileCount: 1,
         pageCount,
-        model: runtimeFallbackModel ? `${config.model} -> ${runtimeFallbackModel}` : config.model,
+        model: config.model,
         chunkSize: config.pagesPerRequest,
         concurrency: config.concurrency,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2299,7 +2253,7 @@ ${clipped}`
         status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED',
         fileCount: 1,
         pageCount,
-        model: runtimeFallbackModel && config?.model === DEFAULT_MODEL ? `${config.model} -> ${runtimeFallbackModel}` : (config?.model || ''),
+        model: config?.model || DEFAULT_MODEL,
         chunkSize: config?.pagesPerRequest || 1,
         concurrency: config?.concurrency || 1,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2332,7 +2286,7 @@ ${clipped}`
     loadNonSecretConfig();
     updateSpeedPresetHint();
     updateNetworkModeHint();
-    ['aiModel', 'aiAccuracyMode'].forEach(id => {
+    ['aiAccuracyMode'].forEach(id => {
       $(id)?.addEventListener('change', saveNonSecretConfig);
       $(id)?.addEventListener('input', saveNonSecretConfig);
     });
@@ -2371,7 +2325,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

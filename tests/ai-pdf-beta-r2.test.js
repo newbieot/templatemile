@@ -75,6 +75,9 @@ assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 4/);
 assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/);
 assert.match(aiRuntimeSource, /Math\.min\(4, Number\(\$\('aiConcurrency'\)/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
+assert.match(aiRuntimeSource, /const model = DEFAULT_MODEL;/);
+assert.match(aiRuntimeSource, /const requestModel = DEFAULT_MODEL;/);
+assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL|runtimeFallbackModel|qwen-3\.7-flash|isAutoFallbackEligible/);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
@@ -237,12 +240,6 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
 
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 429 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 404 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 401 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
-
 const taskPool = ai.createTaskPool(2);
 let activeTasks = 0;
 let peakTasks = 0;
@@ -255,7 +252,7 @@ const poolJobs = Array.from({ length: 6 }, () => taskPool(async () => {
 
 Promise.all(poolJobs).then(() => {
   assert.equal(peakTasks, 2);
-  console.log('PASS ai-pdf-beta-r2: ekstraksi, URL R2, pool dua render, dan fallback base64');
+  console.log('PASS ai-pdf-beta-r2: ekstraksi, URL R2, pool dua render, fallback base64, dan retry Gemini 3.7 terkunci');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;

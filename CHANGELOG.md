@@ -1,5 +1,12 @@
 # Changelog
 
+## v16.29 beta — Gemini 3.7 Flash dikunci
+
+- Mengunci seluruh permintaan AI Beta ke Gemini 3.7 Flash, termasuk permintaan ekstraksi, perbaikan JSON, dan verifikasi.
+- Menghapus fallback otomatis ke Qwen maupun model lain dari runtime Beta.
+- Mempertahankan maksimal tiga percobaan saat terjadi gangguan sementara, dengan semua retry tetap menggunakan Gemini 3.7 Flash.
+- Menyederhanakan pilihan model pada tampilan Beta agar status model terkunci terlihat jelas.
+
 ## v16.28 beta — Beban AI lebih stabil
 
 - Mengembalikan kelompok cepat dari 18 menjadi 15 halaman agar model vision lebih konsisten membaca seluruh halaman.
