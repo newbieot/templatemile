@@ -79,7 +79,7 @@ assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/
 assert.match(aiRuntimeSource, /Math\.min\(BETA_MAX_AI_CONCURRENCY, Number\(\$\('aiConcurrency'\)/);
 assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Turbo langsung', maxPagesPerRequest: 15, maxConcurrency: BETA_MAX_AI_CONCURRENCY/);
 assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v8'/);
-assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
+assert.match(aiRuntimeSource, /const DEFAULT_MODEL = DEEPSEEK_R2_MODEL/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_MAX_SIDE = 1150/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_JPEG_QUALITY = 0\.72/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
@@ -92,21 +92,23 @@ assert.match(aiRuntimeSource, /while \(inFlight\.size >= activeAiLimit\)/);
 assert.match(aiRuntimeSource, /activeAiLimit = workerCount/);
 assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'gemini-3\.7-flash'/);
 assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'gemini-3\.6-flash'/);
-assert.match(aiRuntimeSource, /Object\.freeze\(\[DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
+assert.match(aiRuntimeSource, /Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
 assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
 assert.match(aiRuntimeSource, /const DEEPSEEK_R2_MODEL = 'deepseek-v4\.1-flash'/);
 assert.match(aiRuntimeSource, /return publicUrl \? payload\.url : \(payload\.ref \|\| payload\.url\)/);
+assert.match(aiRuntimeSource, /if \(publicR2Experiment\) \{\s*const strictR2Error = new Error/);
+assert.equal((aiRuntimeSource.match(/if \(publicR2Experiment \|\| !isR2BridgeFailure\(error\)/g) || []).length, 2);
 assert.doesNotMatch(aiRuntimeSource, /runtimeFallbackModel/);
 assert.equal((aiRuntimeSource.match(/betaRemoteImagesAvailable = false/g) || []).length, 1);
 assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = \(publicR2Experiment \|\| config\.networkProfile\.key === 'unstable'\) && lastBetaImagesConfigured/);
 assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
 assert.match(aiRuntimeSource, /for \(const audit of audits\)/);
 assert.match(betaHtmlSource, /Turbo langsung · 15 halaman × 5 jalur · Default/);
-assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.38/);
-assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
+assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.39/);
+assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash">Gemini 3\.8 Flash · Pilihan manual<\/option>/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash · Fallback pertama<\/option>/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.6-flash">Gemini 3\.6 Flash · Fallback kedua<\/option>/);
-assert.match(betaHtmlSource, /<option value="deepseek-v4\.1-flash">DeepSeek V4\.1 Flash · Eksperimen R2 URL<\/option>/);
+assert.match(betaHtmlSource, /<option value="deepseek-v4\.1-flash" selected>DeepSeek V4\.1 Flash · Default Beta · R2 URL<\/option>/);
 assert.match(betaHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Eksperimen Hemat<\/option>/);
 assert.match(betaHtmlSource, /<option value="15" selected>15 halaman · preset Turbo<\/option>/);
 assert.match(betaHtmlSource, /<option value="5" selected>5 jalur · preset Turbo<\/option>/);
@@ -355,7 +357,7 @@ async function runAsyncAssertions() {
     'gemini-3.6-flash', 'gemini-3.8-flash'
   ]);
 
-  console.log('PASS ai-pdf-beta-r2: render ringan 2 jalur, AI 15 × 5 langsung, R2 pemulihan, dan fallback Gemini 3.8 → 3.7 → 3.6');
+  console.log('PASS ai-pdf-beta-r2: DeepSeek R2 URL default, render ringan 2 jalur, AI 15 × 5, dan fallback Gemini 3.8 → 3.7 → 3.6');
 }
 
 runAsyncAssertions().catch(error => {

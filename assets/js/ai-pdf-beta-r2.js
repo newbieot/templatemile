@@ -1,4 +1,4 @@
-/* mile.posnew.com beta AI PDF runtime — direct turbo + R2 recovery pipeline */
+/* mile.posnew.com beta AI PDF runtime — DeepSeek R2 URL default pipeline */
 (() => {
   'use strict';
 
@@ -45,12 +45,12 @@
     'deepseek-v4.1-flash',
     'qwen-3.7-plus','qwen-3.7-flash'
   ]);
-  const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
+  const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const GEMINI_FALLBACK_CHAIN = Object.freeze([DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
+  const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
   const fallbackAnnouncements = new Set();
@@ -175,7 +175,7 @@
   }
 
   function loadNonSecretConfig() {
-    // Model selalu kembali ke default Gemini 3.8 Flash saat halaman dimuat.
+    // Model selalu kembali ke default DeepSeek V4.1 Flash saat halaman dimuat.
     // Pengguna tetap dapat mengganti model selama sesi berjalan.
     if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
     try {
@@ -212,9 +212,12 @@
     const hint = $('aiSpeedPresetHint');
     if (!hint) return;
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
+    const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: 'Mode Turbo: dua gambar ringan disiapkan bersamaan agar PC tetap responsif, lalu Gemini menjalankan 5 jalur berisi maksimal 15 halaman tanpa menunggu R2.',
+      fast: usesDeepSeekR2Url
+        ? 'Mode Turbo R2: dua gambar ringan disiapkan bersamaan, diunggah ke R2, lalu DeepSeek menjalankan 5 jalur berisi maksimal 15 halaman melalui URL sementara.'
+        : 'Mode Turbo: dua gambar ringan disiapkan bersamaan agar PC tetap responsif, lalu Gemini menjalankan 5 jalur berisi maksimal 15 halaman.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -227,10 +230,13 @@
     const profile = resolveNetworkProfile(mode);
     const signals = connectionSignals();
     const connectionNote = signals.online ? '' : ' Status LAN belum dapat dipastikan; aplikasi tetap akan mencoba server.';
+    const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Mode Turbo aktif: gambar 1150 px disiapkan maksimal 2 bersamaan agar PC tetap ringan, lalu 15 halaman × 5 jalur Gemini langsung.'
+      normal: usesDeepSeekR2Url
+        ? 'Mode Turbo R2 aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu DeepSeek menerima URL R2 sementara dalam kelompok 15 halaman × 5 jalur.'
+        : 'Mode Turbo aktif: gambar 1150 px disiapkan maksimal 2 bersamaan agar PC tetap ringan, lalu 15 halaman × 5 jalur Gemini langsung.'
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -363,7 +369,7 @@
   }
 
   function shortModelLabel(model) {
-    if (model === DEFAULT_MODEL) return 'Gemini 3.8';
+    if (model === GEMINI_38_MODEL) return 'Gemini 3.8';
     if (model === PRIMARY_FALLBACK_MODEL) return 'Gemini 3.7';
     if (model === SECONDARY_FALLBACK_MODEL) return 'Gemini 3.6';
     if (model === DEEPSEEK_R2_MODEL) return 'DeepSeek V4.1';
@@ -1222,7 +1228,7 @@ ${clipped}`
 
       xhr.open('POST', '/api/ai-proxy', true);
       xhr.withCredentials = true;
-      const requestTimeoutMs = config?.model === DEFAULT_MODEL ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+      const requestTimeoutMs = config?.model === GEMINI_38_MODEL ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
       xhr.timeout = requestTimeoutMs;
       xhr.setRequestHeader('content-type', 'application/json');
       xhr.setRequestHeader('accept', 'application/json');
@@ -1266,7 +1272,7 @@ ${clipped}`
         fail(error);
       };
       xhr.ontimeout = () => {
-        const error = new Error(config?.model === DEFAULT_MODEL
+        const error = new Error(config?.model === GEMINI_38_MODEL
           ? 'Gemini tidak memberi respons dalam 75 detik. Kelompok ini akan dialihkan tanpa mengubah kelompok lain.'
           : 'Permintaan AI melewati batas 3 menit dan akan dicoba ulang.');
         error.status = 408;
@@ -2237,6 +2243,11 @@ ${clipped}`
                   betaPerf.remotePages++;
                 } catch (uploadError) {
                   betaPerf.r2Failures++;
+                  if (publicR2Experiment) {
+                    const strictR2Error = new Error(`Gagal mengunggah halaman ${pageNumber} ke R2. DeepSeek memerlukan URL R2 dan tidak akan mengirim gambar langsung dari komputer.`);
+                    strictR2Error.status = Number(uploadError?.status || 503);
+                    throw strictR2Error;
+                  }
                   if (!betaRemoteFallbackAnnounced) {
                     betaRemoteFallbackAnnounced = true;
                     showToast('Sebagian gambar tidak dapat disimpan sementara. Hanya halaman tersebut yang memakai jalur cadangan.', 'info');
@@ -2302,7 +2313,7 @@ ${clipped}`
             makeTransportHooks(chunk, chunkIndex, 'Ekstraksi pertama', 0.28, 0.53, 0.62)
           );
         } catch (error) {
-          if (!isR2BridgeFailure(error) || !pageSources.every(source => source?.blob instanceof Blob)) throw error;
+          if (publicR2Experiment || !isR2BridgeFailure(error) || !pageSources.every(source => source?.blob instanceof Blob)) throw error;
           markProgressActivity(`Jembatan R2 halaman ${chunk.start}–${chunk.end} dialihkan ke jalur langsung`);
           setTransferProgress(0, `Jembatan R2 terkendala · menyiapkan jalur langsung halaman ${chunk.start}–${chunk.end}`, { waiting: true });
           const directSources = [];
@@ -2341,7 +2352,7 @@ ${clipped}`
           { ...config, expectedPages }
         );
 
-        if (payload?._mileEffectiveModel === DEFAULT_MODEL) {
+        if (payload?._mileEffectiveModel === GEMINI_38_MODEL) {
           betaPerf.geminiSuccesses++;
           activeAiLimit = workerCount;
         }
@@ -2390,8 +2401,13 @@ ${clipped}`
             if (betaRemoteImagesAvailable) {
               try {
                 auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl), publicR2Experiment);
-              } catch (_) {
+              } catch (uploadError) {
                 betaPerf.r2Failures++;
+                if (publicR2Experiment) {
+                  const strictR2Error = new Error(`Gagal mengunggah audit halaman ${pageNumber} ke R2. DeepSeek memerlukan URL R2 dan tidak akan mengirim gambar langsung dari komputer.`);
+                  strictR2Error.status = Number(uploadError?.status || 503);
+                  throw strictR2Error;
+                }
               }
             }
           } finally {
@@ -2426,7 +2442,7 @@ ${clipped}`
             makeTransportHooks(chunk, chunkIndex, 'Audit selektif', 0.68, 0.85, 0.93)
           );
         } catch (error) {
-          if (!isR2BridgeFailure(error) || !verificationImages.every(source => source.directUrl)) throw error;
+          if (publicR2Experiment || !isR2BridgeFailure(error) || !verificationImages.every(source => source.directUrl)) throw error;
           const directVerificationImages = verificationImages.map(source => ({
             page: source.page,
             label: source.label,
@@ -2472,7 +2488,7 @@ ${clipped}`
       const limitedByNetwork = config.pagesPerRequest !== config.requestedPagesPerRequest || config.concurrency !== config.requestedConcurrency;
       const networkExplanation = limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`
-        : (config.model === DEFAULT_MODEL
+        : (GEMINI_FALLBACK_CHAIN.includes(config.model)
           ? `Gemini berjalan dengan ${activeAiLimit} jalur Turbo langsung.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
       const imageTransport = publicR2Experiment
@@ -2599,7 +2615,13 @@ ${clipped}`
     updateSpeedPresetHint();
     updateNetworkModeHint();
     ['aiModel', 'aiAccuracyMode'].forEach(id => {
-      $(id)?.addEventListener('change', saveNonSecretConfig);
+      $(id)?.addEventListener('change', () => {
+        if (id === 'aiModel') {
+          updateSpeedPresetHint();
+          updateNetworkModeHint();
+        }
+        saveNonSecretConfig();
+      });
       $(id)?.addEventListener('input', saveNonSecretConfig);
     });
     $('aiSpeedPreset')?.addEventListener('change', event => {

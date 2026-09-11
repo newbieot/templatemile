@@ -1,5 +1,11 @@
 # Changelog
 
+## v16.39 — DeepSeek R2 URL sebagai default Beta
+
+- Menjadikan `deepseek-v4.1-flash` sebagai model default khusus `/beta`.
+- Memastikan halaman Beta selalu mengirim gambar ke DeepSeek sebagai URL R2 sementara, tanpa fallback base64 ketika unggahan R2 gagal.
+- Mempertahankan 15 halaman × 5 jalur, render lokal maksimal dua gambar, serta Gemini 3.8 → 3.7 → 3.6 sebagai pilihan dan fallback terpisah.
+
 ## v16.38 — Fallback Gemini bertingkat
 
 - Mengubah fallback otomatis pada versi utama dan Beta menjadi Gemini 3.8 Flash → Gemini 3.7 Flash → Gemini 3.6 Flash.

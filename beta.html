@@ -61,14 +61,14 @@
       <div class="intro-copy">
         <span class="eyebrow">Versi ringan untuk komputer lambat</span>
         <h1 id="pageTitle">Pemrosesan PDF lebih ringan untuk komputer yang lambat.</h1>
-        <p>Gambar ringan 1150 px disiapkan maksimal dua sekaligus agar PC tetap responsif. Gemini memproses 15 halaman × 5 jalur langsung tanpa menunggu unggah R2 per halaman.</p>
+        <p>Gambar ringan 1150 px disiapkan maksimal dua sekaligus agar PC tetap responsif. DeepSeek menerima tautan gambar R2 sementara dalam kelompok 15 halaman × 5 jalur.</p>
         <div class="performance-beta-card performance-beta-card--active" role="note">
           <span class="performance-beta-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M13.5 7.2l-3 4h3l-2 3.1"/></svg>
           </span>
           <span class="performance-beta-copy">
             <strong>Mode ramah komputer lambat sedang aktif</strong>
-            <small>Render ringan 1150 px, 15 halaman × 5 jalur Gemini, dan fallback per kelompok mengejar proses di bawah satu detik per data.</small>
+            <small>Render ringan 1150 px, tautan gambar R2 sementara, dan 15 halaman × 5 jalur DeepSeek mengejar proses di bawah satu detik per data.</small>
           </span>
           <span class="performance-beta-action">Mode ringan aktif</span>
         </div>
@@ -202,21 +202,21 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.38</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · Beta v16.39</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
                   <label for="aiModel">Model AI</label>
                   <div class="select-shell"><select id="aiModel" aria-describedby="aiModelHint">
                     <optgroup label="Gemini Vision · Antigravity">
-                      <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash · Default</option>
+                      <option value="gemini-3.8-flash">Gemini 3.8 Flash · Pilihan manual</option>
                       <option value="gemini-3.7-flash">Gemini 3.7 Flash · Fallback pertama</option>
                       <option value="gemini-3.6-flash">Gemini 3.6 Flash · Fallback kedua</option>
                       <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
                       <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
                     </optgroup>
                     <optgroup label="DeepSeek · Tencent">
-                      <option value="deepseek-v4.1-flash">DeepSeek V4.1 Flash · Eksperimen R2 URL</option>
+                      <option value="deepseek-v4.1-flash" selected>DeepSeek V4.1 Flash · Default Beta · R2 URL</option>
                     </optgroup>
                     <optgroup label="Qwen Vision · Alibaba">
                       <option value="qwen-3.7-plus">Qwen 3.7 Plus · Eksperimen Kualitas</option>
@@ -228,7 +228,7 @@
                       <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
                     </optgroup>
                   </select></div>
-                  <span class="field-hint" id="aiModelHint">Fallback otomatis: Gemini 3.8 → 3.7 → 3.6. DeepSeek V4.1 tersedia sebagai eksperimen tautan gambar R2; Qwen hanya dapat dipilih manual.</span>
+                  <span class="field-hint" id="aiModelHint">Default Beta: DeepSeek V4.1 menerima URL gambar R2 sementara. Jika Gemini 3.8 dipilih manual, fallback-nya Gemini 3.7 → 3.6. Qwen tetap pilihan manual.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiAccuracyMode">Mode ekstraksi</label>
@@ -247,7 +247,7 @@
                     <option value="auto">Otomatis · batasi jika koneksi lambat</option>
                     <option value="unstable">Internet tidak stabil · hemat data</option>
                   </select></div>
-                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: gambar ringan dikirim langsung dalam kelompok 15 halaman × 5 jalur. R2 tetap tersedia pada mode Hemat data.</span>
+                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: gambar ringan diunggah ke R2, lalu URL sementara dikirim ke DeepSeek dalam kelompok 15 halaman × 5 jalur.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiSpeedPreset">Preset kecepatan</label>
@@ -256,7 +256,7 @@
                     <option value="fast" selected>Turbo langsung · 5 jalur</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">Mode Turbo menyiapkan maksimal dua gambar bersamaan agar PC tetap ringan, lalu Gemini menjalankan lima kelompok tanpa antre unggah R2.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">Mode Turbo R2 menyiapkan maksimal dua gambar bersamaan, lalu DeepSeek menjalankan lima jalur menggunakan URL sementara.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -282,7 +282,7 @@
                     <option value="4">4 jalur</option>
                     <option value="5" selected>5 jalur · preset Turbo</option>
                   </select></div>
-                  <span class="field-hint">Lima jalur Gemini berjalan bersamaan; render lokal tetap dibatasi maksimal dua gambar.</span>
+                  <span class="field-hint">Lima jalur DeepSeek berjalan bersamaan melalui URL R2; render lokal tetap dibatasi maksimal dua gambar.</span>
                 </div>
                 <div class="form-group full-width ai-test-group">
                   <label>Uji layanan</label>
@@ -496,7 +496,7 @@
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/app-core.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260911-16.38" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260911-16.39" defer></script>
   <script src="/assets/js/ui.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>

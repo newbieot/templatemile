@@ -1,4 +1,4 @@
-const APP_VERSION = '20260911-16.38-gemini-fallback';
+const APP_VERSION = '20260911-16.39-deepseek-r2-default';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

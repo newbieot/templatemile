@@ -1,12 +1,12 @@
-# mile.posnew.com Secure Gateway v16.38
+# mile.posnew.com Secure Gateway v16.39
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
 ## Eksperimen PC lawas di `/beta`
 
-Halaman `/beta` memakai pipeline Turbo untuk PC lama: PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Jalur normal mengirim gambar langsung ke Gemini dalam kelompok 15 halaman × 5 jalur sehingga tidak ada antrean upload R2 per halaman. R2 `mile-beta-ai-images` tetap dipakai oleh profil Hemat data sebagai jalur pemulihan. Satu gangguan Gemini hanya mengalihkan kelompok tersebut melalui Gemini 3.8 Flash → Gemini 3.7 Flash → Gemini 3.6 Flash; Qwen tidak dipakai otomatis. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.
+Halaman `/beta` memakai `deepseek-v4.1-flash` sebagai model default. PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Setiap gambar diunggah ke R2 `mile-beta-ai-images`, lalu URL sementara dikirim ke DeepSeek dalam kelompok 15 halaman × 5 jalur. Mode DeepSeek tidak kembali ke base64 bila unggahan R2 gagal. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.
 
-Pilihan `deepseek-v4.1-flash` pada Beta adalah eksperimen manual. Gambar halaman ringan diunggah ke R2 dan URL bertanda tangan yang berlaku satu jam dikirim langsung ke model. R2 mengurangi payload permintaan, tetapi tidak merender PDF; render gambar tetap dilakukan maksimal dua halaman bersamaan di browser.
+Pilihan `deepseek-v4.1-flash` pada Beta adalah default eksperimental. Gambar halaman ringan diunggah ke R2 dan URL bertanda tangan yang berlaku satu jam dikirim langsung ke model. R2 mengurangi payload permintaan, tetapi tidak merender PDF; render gambar tetap dilakukan maksimal dua halaman bersamaan di browser. Gemini 3.8 tetap dapat dipilih manual dan memakai fallback Gemini 3.7 lalu Gemini 3.6 bila provider terganggu.
 
 Binding Cloudflare Pages yang diperlukan:
 
