@@ -1,10 +1,12 @@
-# mile.posnew.com Secure Gateway v16.37
+# mile.posnew.com Secure Gateway v16.38
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
 ## Eksperimen PC lawas di `/beta`
 
-Halaman `/beta` memakai pipeline Turbo untuk PC lama: PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Jalur normal mengirim gambar langsung ke Gemini dalam kelompok 15 halaman × 5 jalur sehingga tidak ada antrean upload R2 per halaman. R2 `mile-beta-ai-images` tetap dipakai oleh profil Hemat data sebagai jalur pemulihan. Satu gangguan Gemini hanya mengalihkan kelompok tersebut ke Qwen 3.7 Flash, sedangkan kelompok lain tetap mencoba Gemini. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.
+Halaman `/beta` memakai pipeline Turbo untuk PC lama: PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Jalur normal mengirim gambar langsung ke Gemini dalam kelompok 15 halaman × 5 jalur sehingga tidak ada antrean upload R2 per halaman. R2 `mile-beta-ai-images` tetap dipakai oleh profil Hemat data sebagai jalur pemulihan. Satu gangguan Gemini hanya mengalihkan kelompok tersebut melalui Gemini 3.8 Flash → Gemini 3.7 Flash → Gemini 3.6 Flash; Qwen tidak dipakai otomatis. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.
+
+Pilihan `deepseek-v4.1-flash` pada Beta adalah eksperimen manual. Gambar halaman ringan diunggah ke R2 dan URL bertanda tangan yang berlaku satu jam dikirim langsung ke model. R2 mengurangi payload permintaan, tetapi tidak merender PDF; render gambar tetap dilakukan maksimal dua halaman bersamaan di browser.
 
 Binding Cloudflare Pages yang diperlukan:
 
@@ -192,7 +194,7 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/login-v16.js` — form login tanpa Firebase key.
 - `assets/js/session-v16.js` — status akun dan logout.
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
-- `assets/js/ai-pdf-v16-19.js` — alur PDF AI scan-first dengan Gemini 3.8 Flash sebagai default, ekstraksi perihal, pembersihan kode pada nama, profil Cepat 15 halaman × 5 jalur, dan audit selektif. Jika Gemini 3.8 terkendala, proses otomatis beralih ke Qwen 3.7 Flash. Gemini 3.7 Flash dan Qwen 3.7 Plus tetap tersedia sebagai pilihan manual.
+- `assets/js/ai-pdf-v16-19.js` — alur PDF AI scan-first dengan Gemini 3.8 Flash sebagai default, ekstraksi perihal, pembersihan kode pada nama, profil Cepat 15 halaman × 5 jalur, dan audit selektif. Jika model terganggu, proses otomatis memakai Gemini 3.7 Flash lalu Gemini 3.6 Flash. Qwen tetap tersedia hanya sebagai pilihan manual.
 
 
 ## Pembaruan v16.19

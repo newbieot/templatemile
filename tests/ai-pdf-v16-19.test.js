@@ -27,6 +27,7 @@ const sandbox = {
   Set,
   Headers,
   Response,
+  Blob,
   AbortController,
   DOMException,
   TextEncoder,
@@ -67,7 +68,14 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
+assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'gemini-3\.7-flash'/);
+assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'gemini-3\.6-flash'/);
+assert.match(aiRuntimeSource, /Object\.freeze\(\[DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
+assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
 assert.match(appHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
+assert.match(appHtmlSource, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash · Fallback pertama<\/option>/);
+assert.match(appHtmlSource, /<option value="gemini-3\.6-flash">Gemini 3\.6 Flash · Fallback kedua<\/option>/);
+assert.match(appHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Eksperimen Hemat<\/option>/);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
@@ -212,7 +220,67 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 404 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.6-flash' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 
-console.log('PASS ai-pdf-v16-19: ekstraksi, kompatibilitas model, dan fallback otomatis');
+async function runFallbackAssertions() {
+  const responses = [
+    { status: 404, body: { error: { message: 'Gemini 3.8 unavailable' } } },
+    { status: 503, body: { error: { message: 'Gemini 3.7 unavailable' } } },
+    { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } },
+    { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
+  ];
+  const requestedModels = [];
+  sandbox.XMLHttpRequest = class FakeXMLHttpRequest {
+    constructor() {
+      this.upload = {};
+      this.readyState = 0;
+      this.status = 0;
+      this.statusText = '';
+      this.responseText = '';
+    }
+    open() {}
+    setRequestHeader() {}
+    getResponseHeader(name) { return name.toLowerCase() === 'content-type' ? 'application/json' : ''; }
+    abort() { this.onabort?.(); }
+    send(rawBody) {
+      const request = JSON.parse(rawBody);
+      requestedModels.push(request.body.model);
+      const response = responses.shift();
+      setTimeout(() => {
+        this.upload.onloadstart?.();
+        this.upload.onload?.();
+        this.status = response.status;
+        this.responseText = JSON.stringify(response.body);
+        this.readyState = 2;
+        this.onreadystatechange?.();
+        this.readyState = 4;
+        this.onload?.();
+      }, 0);
+    }
+  };
+
+  const config = { model: 'gemini-3.8-flash', protocol: 'openai' };
+  const body = ai.buildApiBody(config, 'uji fallback utama', [], 1200);
+  let fallbackEvents = 0;
+  const firstPayload = await ai.callProxyWithRetry(config, body, 'kelompok pertama', {
+    onFallback() { fallbackEvents++; }
+  });
+  assert.equal(firstPayload._mileEffectiveModel, 'gemini-3.6-flash');
+  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash']);
+  assert.equal(fallbackEvents, 2);
+
+  const secondPayload = await ai.callProxyWithRetry(config, body, 'kelompok kedua');
+  assert.equal(secondPayload._mileEffectiveModel, 'gemini-3.6-flash');
+  assert.deepEqual(requestedModels, [
+    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.6-flash'
+  ]);
+
+  console.log('PASS ai-pdf-v16-19: ekstraksi, kompatibilitas model, dan fallback Gemini 3.8 → 3.7 → 3.6');
+}
+
+runFallbackAssertions().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

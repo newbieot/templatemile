@@ -1,4 +1,4 @@
-const APP_VERSION = '20260910-16.37-beta-turbo';
+const APP_VERSION = '20260911-16.38-gemini-fallback';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -18,6 +18,7 @@ const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
   'claude-opus-5', 'claude-sonnet-4.5', 'claude-haiku-4.5',
   'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro',
+  'deepseek-v4.1-flash',
   'qwen-3.7-plus', 'qwen-3.7-flash'
 ]);
 const PUBLIC_ASSETS = new Set([

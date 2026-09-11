@@ -90,20 +90,29 @@ assert.match(aiRuntimeSource, /const GEMINI_MAX_ATTEMPTS = 2/);
 assert.match(aiRuntimeSource, /const GEMINI_RETRY_DELAY_MS = 500/);
 assert.match(aiRuntimeSource, /while \(inFlight\.size >= activeAiLimit\)/);
 assert.match(aiRuntimeSource, /activeAiLimit = workerCount/);
-assert.match(aiRuntimeSource, /const AUTO_FALLBACK_MODEL = 'qwen-3\.7-flash'/);
+assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'gemini-3\.7-flash'/);
+assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'gemini-3\.6-flash'/);
+assert.match(aiRuntimeSource, /Object\.freeze\(\[DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
+assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
+assert.match(aiRuntimeSource, /const DEEPSEEK_R2_MODEL = 'deepseek-v4\.1-flash'/);
+assert.match(aiRuntimeSource, /return publicUrl \? payload\.url : \(payload\.ref \|\| payload\.url\)/);
 assert.doesNotMatch(aiRuntimeSource, /runtimeFallbackModel/);
 assert.equal((aiRuntimeSource.match(/betaRemoteImagesAvailable = false/g) || []).length, 1);
-assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = config\.networkProfile\.key === 'unstable' && lastBetaImagesConfigured/);
+assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = \(publicR2Experiment \|\| config\.networkProfile\.key === 'unstable'\) && lastBetaImagesConfigured/);
 assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
 assert.match(aiRuntimeSource, /for \(const audit of audits\)/);
 assert.match(betaHtmlSource, /Turbo langsung · 15 halaman × 5 jalur · Default/);
-assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.37/);
+assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.38/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
-assert.match(betaHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Fallback Otomatis<\/option>/);
+assert.match(betaHtmlSource, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash · Fallback pertama<\/option>/);
+assert.match(betaHtmlSource, /<option value="gemini-3\.6-flash">Gemini 3\.6 Flash · Fallback kedua<\/option>/);
+assert.match(betaHtmlSource, /<option value="deepseek-v4\.1-flash">DeepSeek V4\.1 Flash · Eksperimen R2 URL<\/option>/);
+assert.match(betaHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Eksperimen Hemat<\/option>/);
 assert.match(betaHtmlSource, /<option value="15" selected>15 halaman · preset Turbo<\/option>/);
 assert.match(betaHtmlSource, /<option value="5" selected>5 jalur · preset Turbo<\/option>/);
 assert.match(aiRuntimeSource, /createBetaProbeBlob/);
 assert.match(workerSource, /const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:'/);
+assert.match(workerSource, /'deepseek-v4\.1-flash'/);
 assert.match(workerSource, /async function hydrateBetaImageReferences/);
 assert.match(workerSource, /item\.imageUrl\.url = `data:\$\{contentType\};base64,/);
 assert.match(workerSource, /'x-mile-transport': 'cloudflare-r2-bridge'/);
@@ -111,7 +120,8 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503, details: { error: { source: 'r2-bridge' } } }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.6-flash' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 sandbox.navigator.onLine = true;
 
@@ -292,6 +302,8 @@ async function runAsyncAssertions() {
   const responses = [
     { status: 404, body: { error: { message: 'No active credentials for provider: antigravity' } } },
     { status: 404, body: { error: { message: 'No active credentials for provider: antigravity' } } },
+    { status: 503, body: { error: { message: 'Gemini 3.7 temporarily unavailable' } } },
+    { status: 503, body: { error: { message: 'Gemini 3.7 temporarily unavailable' } } },
     { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } },
     { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
   ];
@@ -331,16 +343,19 @@ async function runAsyncAssertions() {
   const firstPayload = await ai.callProxyWithRetry(config, body, 'kelompok pertama', {
     onFallback() { fallbackEvents++; }
   });
-  assert.equal(firstPayload._mileEffectiveModel, 'qwen-3.7-flash');
-  assert.equal(fallbackEvents, 1);
+  assert.equal(firstPayload._mileEffectiveModel, 'gemini-3.6-flash');
+  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash']);
+  assert.equal(fallbackEvents, 2);
 
   const secondPayload = await ai.callProxyWithRetry(config, body, 'kelompok kedua');
   assert.equal(secondPayload._mileEffectiveModel, 'gemini-3.8-flash');
   assert.deepEqual(requestedModels, [
-    'gemini-3.8-flash', 'gemini-3.8-flash', 'qwen-3.7-flash', 'gemini-3.8-flash'
+    'gemini-3.8-flash', 'gemini-3.8-flash',
+    'gemini-3.7-flash', 'gemini-3.7-flash',
+    'gemini-3.6-flash', 'gemini-3.8-flash'
   ]);
 
-  console.log('PASS ai-pdf-beta-r2: render ringan 2 jalur, AI 15 × 5 langsung, R2 pemulihan, dan fallback Qwen per kelompok');
+  console.log('PASS ai-pdf-beta-r2: render ringan 2 jalur, AI 15 × 5 langsung, R2 pemulihan, dan fallback Gemini 3.8 → 3.7 → 3.6');
 }
 
 runAsyncAssertions().catch(error => {

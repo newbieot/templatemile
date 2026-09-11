@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.38 — Fallback Gemini bertingkat
+
+- Mengubah fallback otomatis pada versi utama dan Beta menjadi Gemini 3.8 Flash → Gemini 3.7 Flash → Gemini 3.6 Flash.
+- Memastikan gangguan Gemini 3.7 Flash diteruskan ke Gemini 3.6 Flash tanpa memakai Qwen.
+- Mempertahankan Qwen sebagai pilihan eksperimen manual, bukan fallback otomatis.
+- Mencatat seluruh model yang benar-benar dipakai dalam metrik pemrosesan.
+- Menambahkan `deepseek-v4.1-flash` sebagai pilihan eksperimen Beta yang menerima tautan gambar R2 sementara, tanpa mengubah model default.
+
 ## v16.37 beta — Turbo langsung 15 × 5
 
 - Menghapus antrean upload R2 per halaman dari jalur normal; JPEG ringan dikirim langsung ke Gemini 3.8 Flash.

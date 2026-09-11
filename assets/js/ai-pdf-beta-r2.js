@@ -42,14 +42,18 @@
   const COSMOS_MODELS = new Set([
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
     'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
+    'deepseek-v4.1-flash',
     'qwen-3.7-plus','qwen-3.7-flash'
   ]);
   const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
-  const AUTO_FALLBACK_MODEL = 'qwen-3.7-flash';
+  const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
+  const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
+  const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
+  const GEMINI_FALLBACK_CHAIN = Object.freeze([DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
-  let fallbackAnnounced = false;
+  const fallbackAnnouncements = new Set();
   let lastSuccessfulTransport = '';
   let stopwatchInterval = 0;
   let stopwatchStartedAt = 0;
@@ -360,7 +364,9 @@
 
   function shortModelLabel(model) {
     if (model === DEFAULT_MODEL) return 'Gemini 3.8';
-    if (model === AUTO_FALLBACK_MODEL) return 'Qwen 3.7';
+    if (model === PRIMARY_FALLBACK_MODEL) return 'Gemini 3.7';
+    if (model === SECONDARY_FALLBACK_MODEL) return 'Gemini 3.6';
+    if (model === DEEPSEEK_R2_MODEL) return 'DeepSeek V4.1';
     return String(model || 'AI');
   }
 
@@ -687,7 +693,7 @@
     return new Blob([bytes], { type });
   }
 
-  async function uploadBetaImage(jobId, pageNumber, variant, blob) {
+  async function uploadBetaImage(jobId, pageNumber, variant, blob, publicUrl = false) {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), BETA_UPLOAD_TIMEOUT_MS);
     activeControllers.add(controller);
@@ -705,7 +711,7 @@
         error.status = response.status;
         throw error;
       }
-      return payload.ref || payload.url;
+      return publicUrl ? payload.url : (payload.ref || payload.url);
     } catch (error) {
       if (error?.name === 'AbortError' && !cancelled) {
         const timeoutError = new Error('Upload JPEG beta melewati 15 detik.');
@@ -719,11 +725,11 @@
     }
   }
 
-  async function uploadBetaImageWithRetry(jobId, pageNumber, variant, blob) {
+  async function uploadBetaImageWithRetry(jobId, pageNumber, variant, blob, publicUrl = false) {
     let lastError;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        return await uploadBetaImage(jobId, pageNumber, variant, blob);
+        return await uploadBetaImage(jobId, pageNumber, variant, blob, publicUrl);
       } catch (error) {
         lastError = error;
         if (cancelled || error?.name === 'AbortError') throw error;
@@ -1291,8 +1297,13 @@ ${clipped}`
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
   }
 
+  function nextFallbackModel(model) {
+    const index = GEMINI_FALLBACK_CHAIN.indexOf(String(model || '').trim());
+    return index >= 0 ? (GEMINI_FALLBACK_CHAIN[index + 1] || '') : '';
+  }
+
   function isAutoFallbackEligible(config, error) {
-    if (cancelled || error?.name === 'AbortError' || config?.model !== DEFAULT_MODEL) return false;
+    if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model)) return false;
     if (isR2BridgeFailure(error)) return false;
     const status = Number(error?.status || 0);
     if (!status) return true;
@@ -1310,7 +1321,8 @@ ${clipped}`
     const requestModel = String(body?.model || configuredModel).trim();
     const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
     const requestBody = body?.model === requestModel ? body : { ...body, model: requestModel };
-    const maxAttempts = requestModel === DEFAULT_MODEL ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES;
+    const isGeminiFallbackModel = GEMINI_FALLBACK_CHAIN.includes(requestModel);
+    const maxAttempts = isGeminiFallbackModel ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES;
     let lastError;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
@@ -1350,21 +1362,20 @@ ${clipped}`
         const status = Number(error?.status || 0);
         const malformed = /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
         const bridgeFailure = isR2BridgeFailure(error);
-        const geminiRetryable = requestModel === DEFAULT_MODEL &&
+        const geminiRetryable = isGeminiFallbackModel &&
           status !== 408 &&
           (bridgeFailure
             ? (isRetryable(error) && !/worker exceeded resource limits|error\s*1102/i.test(String(error?.message || '')))
-            : (isAutoFallbackEligible(config, error) &&
-              (!status || [404, 409, 425, 429, 500, 502, 503, 504].includes(status) || malformed)));
-        const canRetry = requestModel === DEFAULT_MODEL
+            : (!status || [404, 409, 425, 429, 500, 502, 503, 504].includes(status) || malformed));
+        const canRetry = isGeminiFallbackModel
           ? geminiRetryable
           : (isRetryable(error) || malformed);
         if (!canRetry) {
-          if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, error)) break;
+          if (isAutoFallbackEligible(requestConfig, error)) break;
           throw error;
         }
         if (attempt >= maxAttempts) break;
-        const delay = requestModel === DEFAULT_MODEL
+        const delay = isGeminiFallbackModel
           ? GEMINI_RETRY_DELAY_MS
           : (status === 429
             ? ([8000, 18000][attempt - 1] || 18000)
@@ -1380,15 +1391,21 @@ ${clipped}`
         await cancellableSleep(delay);
       }
     }
-    if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, lastError)) {
-      hooks.onFallback?.({ from: DEFAULT_MODEL, to: AUTO_FALLBACK_MODEL, error: lastError });
-      if (!fallbackAnnounced) {
-        fallbackAnnounced = true;
-        showToast('Sebagian kelompok Gemini 3.8 terkendala. Hanya kelompok tersebut yang dialihkan ke Qwen 3.7 Flash.', 'info');
+    const nextModel = nextFallbackModel(requestModel);
+    if (nextModel && isAutoFallbackEligible(requestConfig, lastError)) {
+      hooks.onFallback?.({ from: requestModel, to: nextModel, error: lastError });
+      const transition = `${requestModel}->${nextModel}`;
+      if (!fallbackAnnouncements.has(transition)) {
+        fallbackAnnouncements.add(transition);
+        showToast(`Sebagian kelompok ${shortModelLabel(requestModel)} terkendala. Hanya kelompok tersebut yang dialihkan ke ${shortModelLabel(nextModel)}.`, 'info');
       }
-      const fallbackConfig = { ...config, model: AUTO_FALLBACK_MODEL };
-      const fallbackPayload = await callProxyWithRetry(fallbackConfig, { ...body, model: AUTO_FALLBACK_MODEL }, label, hooks);
-      fallbackPayload._mileFallbackFrom = DEFAULT_MODEL;
+      const fallbackConfig = { ...requestConfig, model: nextModel };
+      const fallbackPayload = await callProxyWithRetry(fallbackConfig, { ...requestBody, model: nextModel }, label, hooks);
+      const existingChain = Array.isArray(fallbackPayload._mileFallbackChain)
+        ? fallbackPayload._mileFallbackChain
+        : [nextModel];
+      fallbackPayload._mileFallbackChain = [requestModel, ...existingChain];
+      fallbackPayload._mileFallbackFrom ||= requestModel;
       return fallbackPayload;
     }
     throw lastError || new Error('Permintaan AI gagal setelah beberapa kali percobaan.');
@@ -1949,19 +1966,23 @@ ${clipped}`
         throw new Error('Konfigurasi Secure Gateway belum lengkap. Periksa tiga secret Cloudflare lalu deploy ulang.');
       }
       const config = getConfig();
-      const testViaR2 = config.networkProfile.key === 'unstable';
+      const publicR2Experiment = config.model === DEEPSEEK_R2_MODEL;
+      const testViaR2 = publicR2Experiment || config.networkProfile.key === 'unstable';
+      const transportLabel = publicR2Experiment
+        ? 'R2 URL eksperimental'
+        : (testViaR2 ? 'R2 pemulihan' : 'Turbo langsung');
       if (testViaR2 && !lastBetaImagesConfigured) {
         throw new Error('Penyimpanan gambar R2 Beta belum dikonfigurasi untuk mode Hemat data.');
       }
       saveNonSecretConfig();
       button.disabled = true;
       button.textContent = testViaR2 ? 'Menguji jalur R2…' : 'Menguji jalur Turbo…';
-      setFeedback(`Menguji jalur ${testViaR2 ? 'R2 pemulihan' : 'Turbo langsung'} dan ${config.model} dengan satu gambar sungguhan…`);
+      setFeedback(`Menguji jalur ${transportLabel} dan ${config.model} dengan satu gambar sungguhan…`);
       const probeBlob = await createBetaProbeBlob();
       let probeReference;
       if (testViaR2) {
         probeJobId = createBetaJobId();
-        probeReference = await uploadBetaImageWithRetry(probeJobId, 0, 'probe', probeBlob);
+        probeReference = await uploadBetaImageWithRetry(probeJobId, 0, 'probe', probeBlob, publicR2Experiment);
       } else {
         probeReference = await blobToDataUrl(probeBlob);
       }
@@ -1974,13 +1995,13 @@ ${clipped}`
       const payload = await callCosmos(config, body);
       const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
       if (!text.toUpperCase().includes(BETA_PROBE_CODE)) {
-        throw new Error(`AI merespons tetapi belum berhasil membaca gambar melalui jalur ${testViaR2 ? 'R2' : 'Turbo'}.`);
+        throw new Error(`AI merespons tetapi belum berhasil membaca gambar melalui jalur ${transportLabel}.`);
       }
       const usage = getUsage(payload, 'openai');
       const usageText = usage.input || usage.output ? ` · ${formatUsage(usage)}` : '';
       const transportText = payload?._mileTransport ? ` melalui ${payload._mileTransport}` : '';
-      setFeedback(`Jalur ${testViaR2 ? 'R2 pemulihan' : 'Turbo langsung'} dan layanan AI siap${transportText}. Gambar berhasil dibaca${usageText}`, 'success');
-      showToast(`Jalur ${testViaR2 ? 'R2 pemulihan' : 'Turbo langsung'} dan AI siap digunakan.`, 'success');
+      setFeedback(`Jalur ${transportLabel} dan layanan AI siap${transportText}. Gambar berhasil dibaca${usageText}`, 'success');
+      showToast(`Jalur ${transportLabel} dan AI siap digunakan.`, 'success');
     } catch (error) {
       setFeedback(`Tes jalur gambar gagal: ${error.message}`, 'error');
       showToast(`Tes jalur gambar gagal: ${error.message}`, 'error');
@@ -1999,7 +2020,7 @@ ${clipped}`
       return;
     }
     cancelled = false;
-    fallbackAnnounced = false;
+    fallbackAnnouncements.clear();
     betaRemoteFallbackAnnounced = false;
     const startedAt = performance.now();
     startStopwatch(startedAt);
@@ -2018,6 +2039,9 @@ ${clipped}`
         throw new Error('Layanan AI belum dapat dijangkau. Periksa sinyal internet atau konfigurasi server lalu coba lagi.');
       }
       config = getConfig();
+      if (config.model === DEEPSEEK_R2_MODEL && !lastBetaImagesConfigured) {
+        throw new Error('Eksperimen DeepSeek memerlukan penyimpanan R2 Beta yang aktif.');
+      }
       saveNonSecretConfig();
     } catch (error) {
       const elapsed = Math.max(0, (performance.now() - startedAt) / 1000);
@@ -2037,7 +2061,7 @@ ${clipped}`
     const betaPerf = {
       renderMs: 0, uploadMs: 0, aiMs: 0, auditMs: 0,
       remotePages: 0, base64Pages: 0, r2Failures: 0,
-      fallbackRequests: 0, fallbackReasons: {}, auditPages: 0, geminiSuccesses: 0
+      fallbackRequests: 0, fallbackReasons: {}, fallbackModels: [], auditPages: 0, geminiSuccesses: 0
     };
     const runRender = createTaskPool(BETA_PREPARE_CONCURRENCY);
     try {
@@ -2061,9 +2085,12 @@ ${clipped}`
         accuracyMode: config.accuracyMode === 'auto' ? 'balanced' : config.accuracyMode
       };
 
-      betaRemoteImagesAvailable = config.networkProfile.key === 'unstable' && lastBetaImagesConfigured;
+      const publicR2Experiment = config.model === DEEPSEEK_R2_MODEL;
+      betaRemoteImagesAvailable = (publicR2Experiment || config.networkProfile.key === 'unstable') && lastBetaImagesConfigured;
       setProgress(4, 'Menyiapkan halaman pertama', betaRemoteImagesAvailable
-        ? 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.'
+        ? (publicR2Experiment
+          ? 'Eksperimen DeepSeek siap · gambar dikirim sebagai tautan R2 sementara.'
+          : 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.')
         : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.');
       setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar melalui R2' : 'Mulai menyiapkan gambar Turbo');
 
@@ -2156,16 +2183,17 @@ ${clipped}`
           setTransferProgress(0, `Jaringan terganggu · percobaan ${nextAttempt}/${maxAttempts} dalam ${delayText}`, { error: true });
           updateParallelProgress(chunk, chunkIndex, `Menyiapkan retry ${nextAttempt}/${maxAttempts}`);
         },
-        onFallback({ to, error }) {
+        onFallback({ from, to, error }) {
           const state = chunkStates[chunkIndex];
           state.waiting = false;
           state.waitingSince = 0;
           state.model = to;
           betaPerf.fallbackRequests++;
+          if (!betaPerf.fallbackModels.includes(to)) betaPerf.fallbackModels.push(to);
           const reason = String(Number(error?.status || 0) || 'network');
           betaPerf.fallbackReasons[reason] = Number(betaPerf.fallbackReasons[reason] || 0) + 1;
-          setTransferProgress(0, `Kelompok ${chunk.start}–${chunk.end}: Gemini terkendala · memakai ${to}`, { waiting: true });
-          updateParallelProgress(chunk, chunkIndex, 'Fallback ke Qwen 3.7 Flash');
+          setTransferProgress(0, `Kelompok ${chunk.start}–${chunk.end}: ${shortModelLabel(from)} terkendala · memakai ${shortModelLabel(to)}`, { waiting: true });
+          updateParallelProgress(chunk, chunkIndex, `Fallback ke ${shortModelLabel(to)}`);
         },
         onRepair() {
           setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });
@@ -2204,7 +2232,7 @@ ${clipped}`
                 setTransferProgress(0, `Mengirim gambar halaman ${pageNumber}/${pdf.numPages}`);
                 const uploadStartedAt = performance.now();
                 try {
-                  url = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'first', blob);
+                  url = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'first', blob, publicR2Experiment);
                   remote = true;
                   betaPerf.remotePages++;
                 } catch (uploadError) {
@@ -2361,7 +2389,7 @@ ${clipped}`
             auditUrl = directAuditUrl;
             if (betaRemoteImagesAvailable) {
               try {
-                auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl));
+                auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl), publicR2Experiment);
               } catch (_) {
                 betaPerf.r2Failures++;
               }
@@ -2447,7 +2475,9 @@ ${clipped}`
         : (config.model === DEFAULT_MODEL
           ? `Gemini berjalan dengan ${activeAiLimit} jalur Turbo langsung.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
-      const imageTransport = betaRemoteImagesAvailable ? 'R2 pemulihan' : 'gambar langsung ke Gemini';
+      const imageTransport = publicR2Experiment
+        ? 'tautan gambar R2 sementara ke DeepSeek'
+        : (betaRemoteImagesAvailable ? 'R2 pemulihan' : 'gambar langsung ke Gemini');
       setProgress(5, 'Memulai mode Turbo', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dirender bersamaan agar PC tetap responsif. ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
@@ -2499,7 +2529,7 @@ ${clipped}`
         status: 'SUCCESS',
         fileCount: 1,
         pageCount,
-        model: betaPerf.fallbackRequests ? `${config.model} + ${AUTO_FALLBACK_MODEL}` : config.model,
+        model: betaPerf.fallbackModels.length ? [config.model, ...betaPerf.fallbackModels].join(' -> ') : config.model,
         chunkSize: config.pagesPerRequest,
         concurrency: config.concurrency,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2531,7 +2561,9 @@ ${clipped}`
         status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED',
         fileCount: 1,
         pageCount,
-        model: betaPerf.fallbackRequests ? `${config?.model || DEFAULT_MODEL} + ${AUTO_FALLBACK_MODEL}` : (config?.model || ''),
+        model: betaPerf.fallbackModels.length
+          ? [config?.model || DEFAULT_MODEL, ...betaPerf.fallbackModels].join(' -> ')
+          : (config?.model || ''),
         chunkSize: config?.pagesPerRequest || 1,
         concurrency: config?.concurrency || 1,
         durationSeconds: Number(elapsed.toFixed(3)),

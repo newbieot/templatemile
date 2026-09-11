@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime v16.23 — Automatic Qwen Fallback */
+/* mile.posnew.com AI PDF runtime — Gemini 3.8 → 3.7 → 3.6 fallback */
 (() => {
   'use strict';
 
@@ -38,11 +38,14 @@
   ]);
   const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
-  const AUTO_FALLBACK_MODEL = 'qwen-3.7-flash';
+  const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
+  const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
+  const GEMINI_FALLBACK_CHAIN = Object.freeze([DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
   let runtimeFallbackModel = '';
-  let fallbackAnnounced = false;
+  let runtimeFallbackHistory = [];
+  const fallbackAnnouncements = new Set();
   let lastSuccessfulTransport = '';
   let stopwatchInterval = 0;
   let stopwatchStartedAt = 0;
@@ -1060,8 +1063,13 @@ ${clipped}`
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
   }
 
+  function nextFallbackModel(model) {
+    const index = GEMINI_FALLBACK_CHAIN.indexOf(String(model || '').trim());
+    return index >= 0 ? (GEMINI_FALLBACK_CHAIN[index + 1] || '') : '';
+  }
+
   function isAutoFallbackEligible(config, error) {
-    if (cancelled || error?.name === 'AbortError' || config?.model !== DEFAULT_MODEL) return false;
+    if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model)) return false;
     const status = Number(error?.status || 0);
     if (!status) return true;
     if ([404, 408, 409, 425, 429, 500, 502, 503, 504].includes(status)) return true;
@@ -1070,9 +1078,12 @@ ${clipped}`
 
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
     const configuredModel = String(config?.model || body?.model || '').trim();
-    const requestModel = configuredModel === DEFAULT_MODEL && runtimeFallbackModel
+    const bodyModel = String(body?.model || configuredModel).trim();
+    const configuredIndex = GEMINI_FALLBACK_CHAIN.indexOf(configuredModel);
+    const runtimeIndex = GEMINI_FALLBACK_CHAIN.indexOf(runtimeFallbackModel);
+    const requestModel = !config?._mileFallbackStep && runtimeFallbackModel && configuredIndex >= 0 && runtimeIndex > configuredIndex
       ? runtimeFallbackModel
-      : String(body?.model || configuredModel).trim();
+      : bodyModel;
     const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
     const requestBody = body?.model === requestModel ? body : { ...body, model: requestModel };
     let lastError;
@@ -1113,9 +1124,9 @@ ${clipped}`
         lastError = error;
         const retryable = isRetryable(error) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
         const providerFailure = Boolean(Number(error?.status || 0)) || /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
-        if (requestModel === DEFAULT_MODEL && providerFailure && isAutoFallbackEligible(config, error)) break;
+        if (providerFailure && isAutoFallbackEligible(requestConfig, error)) break;
         if (!retryable) {
-          if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, error)) break;
+          if (isAutoFallbackEligible(requestConfig, error)) break;
           throw error;
         }
         if (attempt >= MAX_RETRIES) break;
@@ -1133,17 +1144,26 @@ ${clipped}`
         await cancellableSleep(delay + Math.floor(Math.random() * 700));
       }
     }
-    if (requestModel === DEFAULT_MODEL && isAutoFallbackEligible(config, lastError)) {
-      const firstActivation = runtimeFallbackModel !== AUTO_FALLBACK_MODEL;
-      runtimeFallbackModel = AUTO_FALLBACK_MODEL;
-      if (firstActivation && !fallbackAnnounced) {
-        fallbackAnnounced = true;
-        if ($('aiModel')) $('aiModel').value = AUTO_FALLBACK_MODEL;
-        hooks.onFallback?.({ from: DEFAULT_MODEL, to: AUTO_FALLBACK_MODEL, error: lastError });
-        showToast('Gemini 3.8 terkendala. Proses dilanjutkan otomatis dengan Qwen 3.7 Flash.', 'info');
+    const nextModel = nextFallbackModel(requestModel);
+    if (nextModel && isAutoFallbackEligible(requestConfig, lastError)) {
+      const nextIndex = GEMINI_FALLBACK_CHAIN.indexOf(nextModel);
+      const activeRuntimeIndex = GEMINI_FALLBACK_CHAIN.indexOf(runtimeFallbackModel);
+      if (nextIndex > activeRuntimeIndex) runtimeFallbackModel = nextModel;
+      if (!runtimeFallbackHistory.includes(nextModel)) runtimeFallbackHistory.push(nextModel);
+      hooks.onFallback?.({ from: requestModel, to: nextModel, error: lastError });
+      const transition = `${requestModel}->${nextModel}`;
+      if (!fallbackAnnouncements.has(transition)) {
+        fallbackAnnouncements.add(transition);
+        if ($('aiModel')) $('aiModel').value = nextModel;
+        showToast(`${requestModel} terkendala. Proses dilanjutkan otomatis dengan ${nextModel}.`, 'info');
       }
-      const fallbackPayload = await callProxyWithRetry(config, { ...body, model: AUTO_FALLBACK_MODEL }, label, hooks);
-      fallbackPayload._mileFallbackFrom = DEFAULT_MODEL;
+      const fallbackConfig = { ...requestConfig, model: nextModel, _mileFallbackStep: true };
+      const fallbackPayload = await callProxyWithRetry(fallbackConfig, { ...requestBody, model: nextModel }, label, hooks);
+      const existingChain = Array.isArray(fallbackPayload._mileFallbackChain)
+        ? fallbackPayload._mileFallbackChain
+        : [nextModel];
+      fallbackPayload._mileFallbackChain = [requestModel, ...existingChain];
+      fallbackPayload._mileFallbackFrom ||= requestModel;
       return fallbackPayload;
     }
     throw lastError || new Error('Permintaan AI gagal setelah beberapa kali percobaan.');
@@ -1741,7 +1761,8 @@ ${clipped}`
     }
     cancelled = false;
     runtimeFallbackModel = '';
-    fallbackAnnounced = false;
+    runtimeFallbackHistory = [];
+    fallbackAnnouncements.clear();
     const startedAt = performance.now();
     startStopwatch(startedAt);
     setProgress(1, 'Memeriksa berkas dan koneksi', 'Validasi PDF dan layanan AI sedang dilakukan…');
@@ -1864,10 +1885,10 @@ ${clipped}`
           setTransferProgress(0, `Jaringan terganggu · percobaan ${nextAttempt}/${maxAttempts} dalam ${formatDuration(delay / 1000)}`, { error: true });
           updateParallelProgress(chunk, chunkIndex, `Menyiapkan retry ${nextAttempt}/${maxAttempts}`);
         },
-        onFallback({ to }) {
+        onFallback({ from, to }) {
           chunkStates[chunkIndex].waiting = false;
-          setTransferProgress(0, `Gemini 3.8 terkendala · beralih otomatis ke ${to}`, { waiting: true });
-          updateParallelProgress(chunk, chunkIndex, 'Fallback ke Qwen 3.7 Flash');
+          setTransferProgress(0, `${from} terkendala · beralih otomatis ke ${to}`, { waiting: true });
+          updateParallelProgress(chunk, chunkIndex, `Fallback ke ${to}`);
         },
         onRepair() {
           setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });
@@ -2037,7 +2058,7 @@ ${clipped}`
         status: 'SUCCESS',
         fileCount: 1,
         pageCount,
-        model: runtimeFallbackModel ? `${config.model} -> ${runtimeFallbackModel}` : config.model,
+        model: runtimeFallbackHistory.length ? [config.model, ...runtimeFallbackHistory].join(' -> ') : config.model,
         chunkSize: config.pagesPerRequest,
         concurrency: config.concurrency,
         durationSeconds: Number(elapsed.toFixed(3)),
@@ -2069,7 +2090,9 @@ ${clipped}`
         status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED',
         fileCount: 1,
         pageCount,
-        model: runtimeFallbackModel && config?.model === DEFAULT_MODEL ? `${config.model} -> ${runtimeFallbackModel}` : (config?.model || ''),
+        model: runtimeFallbackHistory.length && config?.model
+          ? [config.model, ...runtimeFallbackHistory].join(' -> ')
+          : (config?.model || ''),
         chunkSize: config?.pagesPerRequest || 1,
         concurrency: config?.concurrency || 1,
         durationSeconds: Number(elapsed.toFixed(3)),
