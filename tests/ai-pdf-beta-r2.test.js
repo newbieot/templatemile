@@ -133,6 +133,13 @@ assert.equal(core.cleanRecipientName('SITI NUR AINI'), 'SITI NUR AINI');
 
 const normalizeOne = input => ai.normalizeRows([input], 'MANUAL', 0, { expectedPages: [1] })[0];
 
+assert.equal(core.resolveZipCode('KEL. SADAI, KEC. BENGKONG, BATAM 29457', 'MANUAL'), '29426');
+assert.equal(normalizeOne({
+  page: 1,
+  nama_penerima: 'PENERIMA',
+  alamat_penerima: 'KEL. SADAI, KEC. BENGKONG, BATAM 29457'
+}).zip, '29426');
+
 assert.deepEqual(
   { name: normalizeOne({
     page: 1,

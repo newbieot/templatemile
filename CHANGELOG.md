@@ -1,5 +1,10 @@
 # Changelog
 
+## Hotfix 2026-09-24 — Kode pos Bengkong Sadai
+
+- Mengoreksi kode pos lama `29457` menjadi `29426` ketika alamat menunjukkan Kelurahan Sadai, Kecamatan Bengkong.
+- Menerapkan koreksi pada pipeline PDF utama dan Beta serta mengganti identitas cache `app-core.js` agar perbaikan langsung dimuat setelah deployment.
+
 ## v16.39 — DeepSeek R2 URL sebagai default Beta
 
 - Menjadikan `deepseek-v4.1-flash` sebagai model default khusus `/beta`.

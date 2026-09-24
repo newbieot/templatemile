@@ -929,9 +929,15 @@
         }
 
         function resolveZipCode(address, template, currentZip = '') {
+            const addressText = String(address || '');
+            const addressUpper = addressText.toUpperCase();
+
             // Tier 1: pertahankan kode pos yang benar-benar tercetak pada alamat.
-            const printedZipCodes = String(address || '').match(/\b\d{5}\b/g) || [];
+            const printedZipCodes = addressText.match(/\b\d{5}\b/g) || [];
             const printedZip = printedZipCodes.find(code => /^(?:29|28)\d{3}$/.test(code)) || printedZipCodes[0];
+            // Koreksi data lama: kode pos 29457 yang tercetak untuk Kelurahan Sadai
+            // (Kecamatan Bengkong) harus diekspor sebagai kode resmi 29426.
+            if (template !== 'MENSA' && printedZip === '29457' && /\bSADAI\b/.test(addressUpper)) return '29426';
             if (printedZip) return printedZip;
 
             // Tier 2: kelurahan → kecamatan → fallback kota dari database lokal.

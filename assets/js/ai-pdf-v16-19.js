@@ -1613,7 +1613,9 @@ ${clipped}`
         ? clampConfidence(rawConfidence)
         : (aiReviewFields.length ? 0.74 : 0.95);
       const printedZip = extractPrintedZip(address);
-      const zip = printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411');
+      const zip = core?.resolveZipCode
+        ? core.resolveZipCode(address, template, printedZip)
+        : (printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411'));
       const row = {
         noSurat, name, phone: phone || '0', zip, address,
         act: 0.2, p: 10, l: 10, t: 10, cw: '0.20',
