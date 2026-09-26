@@ -74,7 +74,7 @@
 
   // ——— Save batch results to server ———
 
-  async function saveBatchResults(batchId, captureCount, createdAt) {
+  async function saveBatchResults(batchId, captureCount, createdAt, deviceName) {
     if (!batchId || !/^CAM-/.test(batchId)) return;
 
     const rows = getAllRows();
@@ -85,6 +85,7 @@
       createdAt: createdAt || Date.now(),
       finishedAt: new Date().toISOString(),
       captureCount: captureCount || 0,
+      deviceName: deviceName || 'Kamera HP',
       form: getFormValues(),
       rows: rows
     };
@@ -138,12 +139,14 @@
     const templateLabel = batch.templateName && batch.templateName !== 'MANUAL'
       ? batch.templateName.replace(/_/g, ' ')
       : 'Manual';
+      
+    const deviceLabel = batch.deviceName ? ` — Dari: <strong>${batch.deviceName}</strong>` : '';
 
     card.innerHTML = `
       <div class="camera-batch-item__header">
-        <span class="camera-batch-item__icon" aria-hidden="true">📄</span>
+        <span class="camera-batch-item__icon" aria-hidden="true">📱</span>
         <div class="camera-batch-item__meta">
-          <div class="camera-batch-item__title">${batch.rowCount || 0} baris dari ${batch.captureCount || 0} foto</div>
+          <div class="camera-batch-item__title">${batch.rowCount || 0} baris dari ${batch.captureCount || 0} foto${deviceLabel}</div>
           <div class="camera-batch-item__time"><span>${formatRelativeTime(batch.createdAt)}</span> Template: ${templateLabel}</div>
           <div class="camera-batch-item__expiry"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${formatExpiryTime(batch.expiresAt)}</div>
         </div>

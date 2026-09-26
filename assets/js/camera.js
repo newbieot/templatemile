@@ -575,6 +575,7 @@
       updateProcessingStatus('Saving…', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI.');
       const route = 'review';
       const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
+      const deviceName = $('cameraDeviceName')?.value?.trim() || '';
       await store.save({
         id: sessionId,
         createdAt: Date.now(),
@@ -584,7 +585,8 @@
         captureCount: captures.length,
         captures: metadata,
         fileName: `camera-${sessionId}.pdf`,
-        pdfBlob
+        pdfBlob,
+        deviceName
       });
       updateProcessingStatus('Uploading…', 'Membuka antarmuka review kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis.');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
@@ -612,6 +614,18 @@
     $('cameraDevice').addEventListener('change', () => {
       if (stream && !sessionId) startCamera();
     });
+    
+    const deviceNameInput = $('cameraDeviceName');
+    if (deviceNameInput) {
+      try {
+        const storedName = localStorage.getItem('mile_camera_device_name');
+        if (storedName) deviceNameInput.value = storedName;
+      } catch (_) {}
+      deviceNameInput.addEventListener('input', () => {
+        try { localStorage.setItem('mile_camera_device_name', deviceNameInput.value.trim()); } catch (_) {}
+      });
+    }
+
     $('fixedGuideMode').addEventListener('change', updateLiveDetection);
     $('cameraPreview').addEventListener('resize', updateStageAspect);
     window.addEventListener('resize', handleViewportChange);

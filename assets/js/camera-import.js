@@ -109,7 +109,7 @@
         await store.remove(sessionId);
         // Sync results to server for desktop access (72h TTL)
         if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
-          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt);
+          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName);
         }
       } else {
         window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}`);
