@@ -117,7 +117,35 @@
         await store.remove(sessionId);
         
         if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
-          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName);
+          try {
+            const mRows = session.streamedRows || [];
+            let outOfTown = 0, reviewCount = 0;
+            mRows.forEach(r => {
+              if (r.outOfTown) outOfTown++;
+              if (r.reviewFields && r.reviewFields.length) reviewCount++;
+            });
+            await fetch('/api/metrics/ai', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                status: 'SUCCESS',
+                fileCount: 1,
+                pageCount: session.captureCount || mRows.length,
+                model: session.aiModel || 'glm-5.3-flashx',
+                chunkSize: 10,
+                concurrency: 1,
+                durationSeconds: session.durationSeconds || 0,
+                totalRows: mRows.length,
+                reviewCount: reviewCount,
+                outsideBatamCount: outOfTown,
+                message: 'Camera Stream V2'
+              }),
+              credentials: 'same-origin'
+            });
+          } catch (e) {
+            console.error('Failed to log metrics:', e);
+          }
+          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName, session.durationSeconds);
         }
         return;
       }
@@ -145,7 +173,7 @@
         await store.remove(sessionId);
         // Sync results to server for desktop access (72h TTL)
         if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
-          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName);
+          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName, session.durationSeconds);
         }
       } else {
         window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}`);

@@ -589,6 +589,8 @@
       const route = 'review';
       let streamedRows = []; if (window.MileCameraStream) streamedRows = await window.MileCameraStream.finishStream(); const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
+      const aiModel = $('aiModelSelect')?.value || 'glm-5.3-flashx';
+      const durationSeconds = (Date.now() - sessionStartedAt) / 1000;
       await store.save({
         id: sessionId,
         createdAt: Date.now(),
@@ -599,7 +601,7 @@
         captures: metadata,
         fileName: `camera-${sessionId}.pdf`, streamedRows: streamedRows,
         
-        deviceName
+        deviceName, aiModel, durationSeconds
       });
       updateProcessingStatus('Uploading…', 'Membuka antarmuka review kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis.');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
