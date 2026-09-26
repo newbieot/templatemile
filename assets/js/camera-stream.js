@@ -50,8 +50,7 @@
   function triggerBackgroundProcess(batch) {
     const task = processBatch(batch).catch(err => {
       console.error('Background AI failed for batch:', err);
-      // Fallback: If it fails, we just don't append rows.
-      // In a robust system, we might queue for manual review, but this is a beta.
+      completedRows.push({ _error: err.message || 'Terjadi kesalahan jaringan/AI saat memproses gambar.' });
     });
     pendingTasks.push(task);
     
@@ -150,7 +149,10 @@ Format Wajib:
       const data = await response.json();
       
       const contentStr = data?.choices?.[0]?.message?.content;
-      if (!contentStr) return [];
+      if (!contentStr) {
+         console.error('AI Proxy returned no content. Data:', data);
+         throw new Error(data?.error?.message || 'AI Proxy tidak mengembalikan hasil.');
+      }
       
       const parsed = JSON.parse(contentStr.replace(/```json/g, '').replace(/```/g, '').trim());
       

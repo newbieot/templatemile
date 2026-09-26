@@ -570,6 +570,7 @@
     $('processingStatusStep').textContent = step;
     $('processingStatusMessage').textContent = message;
   }
+  window.updateProcessingStatus = updateProcessingStatus;
 
   async function finishCapturing() {
     if (!captures.length || !sessionId || captureBusy) return;

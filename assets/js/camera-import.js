@@ -96,6 +96,12 @@
       const core = window.__mileCore;
       
       if (session.streamedRows && session.streamedRows.length > 0) {
+        if (session.streamedRows[0]._error) {
+           notify('AI gagal: ' + session.streamedRows[0]._error, 'error');
+           await store.remove(sessionId);
+           return;
+        }
+
         // Fast path: AI already processed via background stream!
         notify(`${session.captureCount} foto telah diproses otomatis oleh Streaming AI!`, 'success');
         
