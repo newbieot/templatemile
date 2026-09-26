@@ -93,15 +93,38 @@
         return;
       }
 
+      const core = window.__mileCore;
+      
+      if (session.streamedRows && session.streamedRows.length > 0) {
+        // Fast path: AI already processed via background stream!
+        notify(`${session.captureCount} foto telah diproses otomatis oleh Streaming AI!`, 'success');
+        
+        const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, cleanUrl);
+        
+        // Ensure core accepts the rows directly
+        if (core && core.tempExtractedRows) {
+           core.tempExtractedRows.push(...session.streamedRows);
+           core.updateInterface();
+        }
+        
+        await store.remove(sessionId);
+        
+        if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
+          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName);
+        }
+        return;
+      }
+      
+      // Fallback path: Legacy PDF
       const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
       window.history.replaceState({}, document.title, cleanUrl);
       const file = new File([session.pdfBlob], session.fileName || `camera-${sessionId}.pdf`, {
         type: 'application/pdf',
         lastModified: Date.now()
       });
-      const core = window.__mileCore;
       const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
-      notify(`${session.captureCount} hasil capture siap. Pemrosesan dimulai otomatis…`, 'success');
+      notify(`${session.captureCount} hasil capture siap diproses...`, 'success');
       await ai.processPDFFile(file);
       const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount
         || Number(core?.tempExtractedRows?.length || 0) > 0;

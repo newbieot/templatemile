@@ -388,6 +388,7 @@
   async function ensureSession() {
     if (sessionId) return;
     sessionId = randomId('CAM');
+    if (window.MileCameraStream) window.MileCameraStream.init(sessionId);
     sessionStartedAt = new Date().toISOString();
     $('sessionIdentifier').textContent = sessionId;
     $('sessionDetails').hidden = false;
@@ -489,6 +490,10 @@
         },
         previewUrl: URL.createObjectURL(blob)
       });
+      
+      if (window.MileCameraStream) {
+        window.MileCameraStream.queueCapture(blob);
+      }
       playShutterSound();
       flashCameraStage();
       showHudToast(`Capture ${sequence} (${fileName}) tersimpan`);
@@ -568,13 +573,13 @@
     showHudToast('Menyiapkan batch…');
 
     try {
-      const pdfBlob = await core.buildJpegPdf(captures);
-      if (pdfBlob.size > MAX_PDF_BYTES) {
+      // PDF generation removed for Streaming AI
+      if (false) {
         throw new Error(`Ukuran batch ${formatBytes(pdfBlob.size)} melewati batas 115 MB. Kurangi jumlah capture.`);
       }
       updateProcessingStatus('Saving…', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI.');
       const route = 'review';
-      const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
+      let streamedRows = []; if (window.MileCameraStream) streamedRows = await window.MileCameraStream.finishStream(); const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
       await store.save({
         id: sessionId,
@@ -584,8 +589,8 @@
         route: 'review',
         captureCount: captures.length,
         captures: metadata,
-        fileName: `camera-${sessionId}.pdf`,
-        pdfBlob,
+        fileName: `camera-${sessionId}.pdf`, streamedRows: streamedRows,
+        
         deviceName
       });
       updateProcessingStatus('Uploading…', 'Membuka antarmuka review kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis.');
