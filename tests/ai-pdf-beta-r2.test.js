@@ -104,7 +104,7 @@ assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = \(publicR2Experiment 
 assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
 assert.match(aiRuntimeSource, /for \(const audit of audits\)/);
 assert.match(betaHtmlSource, /Turbo langsung · 15 halaman × 5 jalur · Default/);
-assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.40/);
+assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.41/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash">Gemini 3\.8 Flash · Pilihan manual<\/option>/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash · Fallback pertama<\/option>/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.6-flash">Gemini 3\.6 Flash · Fallback kedua<\/option>/);

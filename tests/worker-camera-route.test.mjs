@@ -34,7 +34,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20260926-16.40-mobile-camera-batch');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20260926-16.41-camera-fullscreen');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const protectedAsset = await workerModule.default.fetch(new Request('https://mile.posnew.com/assets/js/camera.js', {

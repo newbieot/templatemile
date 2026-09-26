@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.40
+# mile.posnew.com Secure Gateway v16.41
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -6,7 +6,9 @@ Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App p
 
 Halaman `/camera` dirancang untuk Chrome Android dan memakai kamera belakang HP secara langsung. Tidak diperlukan DroidCam, webcam PC, atau aplikasi Android tambahan. HP dipasang pada holder tetap; operator hanya mengganti sampul/label dan menekan **Capture** berulang kali.
 
-Setiap hasil capture memiliki capture ID, timestamp, session ID, dan nomor urut. Sebelum diterima, browser menjalankan auto crop dokumen, pemeriksaan confidence, blur, brightness, dan resolusi minimum. Gambar yang tidak lolos tidak dimasukkan ke batch dan harus diulang.
+Menekan **Open Camera** sekaligus membuka preview fullscreen dan membuat sesi capture; tidak ada lagi langkah Start Capture Session. Preview dan area crop menyesuaikan saat HP dipakai portrait maupun landscape. Setiap hasil capture memiliki capture ID, timestamp, session ID, dan nomor urut.
+
+Browser tetap menjalankan auto crop ringan. Jika confidence deteksi rendah, crop beralih ke area panduan tetap dan foto tetap dimasukkan ke batch. Resolusi, blur, dan brightness hanya disimpan sebagai metadata internal, tidak lagi memblokir capture; operator menentukan kelayakan dari preview dan dapat menghapus foto bila perlu.
 
 Saat **Finish Capturing** ditekan, hasil crop dikemas secara lokal dan diteruskan ke salah satu pipeline yang sudah ada:
 
@@ -163,7 +165,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260926-16.40-mobile-camera-batch",
+  "version": "20260926-16.41-camera-fullscreen",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,

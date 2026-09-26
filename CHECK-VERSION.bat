@@ -3,12 +3,12 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.40...
+echo Memeriksa mile.posnew.com Secure Gateway v16.41...
 echo.
 
-findstr /c:"20260926-16.40-mobile-camera-batch" "_worker.js" >nul && echo [OK] Worker v16.40 || (echo [GAGAL] Worker bukan v16.40 & set "FAIL=1")
-findstr /c:"v16.40 Secure Gateway" "index.html" >nul && echo [OK] Login v16.40 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.40" "app.html" >nul && echo [OK] Workspace v16.40 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"20260926-16.41-camera-fullscreen" "_worker.js" >nul && echo [OK] Worker v16.41 || (echo [GAGAL] Worker bukan v16.41 & set "FAIL=1")
+findstr /c:"v16.41 Secure Gateway" "index.html" >nul && echo [OK] Login v16.41 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.41" "app.html" >nul && echo [OK] Workspace v16.41 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Gemini 3.8 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.8 browser tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "_worker.js" >nul && echo [OK] Gemini 3.8 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.8 gateway tidak ditemukan & set "FAIL=1")
@@ -99,12 +99,17 @@ findstr /c:"x-mile-app-version" "_worker.js" >nul && echo [OK] Header versi depl
 if exist "camera.html" (echo [OK] Halaman mobile camera tersedia) else (echo [GAGAL] camera.html tidak ditemukan & set "FAIL=1")
 findstr /c:"navigator.mediaDevices.getUserMedia" "assets\js\camera.js" >nul && echo [OK] Native browser camera API aktif || (echo [GAGAL] Browser camera API tidak ditemukan & set "FAIL=1")
 findstr /c:"facingMode: { ideal: 'environment' }" "assets\js\camera.js" >nul && echo [OK] Kamera belakang menjadi default || (echo [GAGAL] Prioritas kamera belakang tidak ditemukan & set "FAIL=1")
-findstr /c:"Foto kurang jelas, silakan ulangi capture." "assets\js\camera.js" >nul && echo [OK] Penolakan kualitas foto aktif || (echo [GAGAL] Validasi kualitas foto tidak ditemukan & set "FAIL=1")
+findstr /c:"requestFullscreen" "assets\js\camera.js" >nul && echo [OK] Fullscreen camera aktif || (echo [GAGAL] Fullscreen camera tidak ditemukan & set "FAIL=1")
+findstr /c:"Start Capture Session" "camera.html" >nul
+if not errorlevel 1 (echo [GAGAL] Tombol Start Capture Session masih tampil & set "FAIL=1") else (echo [OK] Open Camera langsung membuat sesi)
+findstr /c:"Foto kurang jelas, silakan ulangi capture." "assets\js\camera.js" >nul
+if not errorlevel 1 (echo [GAGAL] Validasi kualitas masih memblokir capture & set "FAIL=1") else (echo [OK] Resolusi dan kualitas tidak memblokir capture)
+findstr /c:"orientationchange" "assets\js\camera.js" >nul && echo [OK] Perubahan orientasi kamera ditangani || (echo [GAGAL] Dukungan orientasi tidak ditemukan & set "FAIL=1")
 findstr /c:"camera=(self)" "_worker.js" "_headers" >nul && echo [OK] Permission camera dibatasi ke halaman camera || (echo [GAGAL] Permission camera route tidak ditemukan & set "FAIL=1")
 findstr /c:"url.pathname === '/camera'" "_worker.js" >nul && echo [OK] Route camera terlindungi tersedia || (echo [GAGAL] Route camera terlindungi tidak ditemukan & set "FAIL=1")
 if exist "tests\camera-capture.test.js" (echo [OK] Tes camera capture tersedia) else (echo [GAGAL] Tes camera capture tidak ditemukan & set "FAIL=1")
 if exist "tests\worker-camera-route.test.mjs" (echo [OK] Tes auth route camera tersedia) else (echo [GAGAL] Tes auth route camera tidak ditemukan & set "FAIL=1")
-if exist "TEST-REPORT-v16.40.md" (echo [OK] Laporan uji mobile camera v16.40 tersedia) else (echo [GAGAL] Laporan uji v16.40 tidak ditemukan & set "FAIL=1")
+if exist "TEST-REPORT-v16.41.md" (echo [OK] Laporan uji mobile camera v16.41 tersedia) else (echo [GAGAL] Laporan uji v16.41 tidak ditemukan & set "FAIL=1")
 
 echo.
 if "%FAIL%"=="1" (

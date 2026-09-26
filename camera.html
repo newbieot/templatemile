@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260909-16.25">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-16.40">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-16.41">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -98,13 +98,20 @@
           </div>
           <div class="crop-guide" id="cropGuide" aria-hidden="true"><span>Posisikan sampul/label di dalam area</span></div>
           <span class="crop-status" id="cropStatus" data-state="warning">Menunggu kamera</span>
+          <div class="camera-fullscreen-toolbar" aria-label="Kontrol fullscreen kamera">
+            <strong id="fullscreenCapturedCount">0 gambar</strong>
+            <button id="exitFullscreenButton" type="button" aria-label="Keluar dari tampilan layar penuh">Keluar fullscreen</button>
+          </div>
+          <button class="camera-capture-button camera-capture-button--fullscreen" id="captureButtonFullscreen" type="button" disabled aria-label="Capture label alamat">
+            <span aria-hidden="true"></span>
+            Capture
+          </button>
         </div>
 
-        <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera, izinkan akses, lalu pasang HP pada holder tetap.</div>
+        <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera. Preview akan tampil fullscreen dan langsung siap untuk Capture.</div>
 
         <div class="camera-primary-actions">
           <button class="button button--ghost camera-open-button" id="openCameraButton" type="button">Open Camera</button>
-          <button class="button button--ghost" id="startSessionButton" type="button" disabled>Start Capture Session</button>
           <button class="camera-capture-button" id="captureButton" type="button" disabled aria-label="Capture label alamat">
             <span aria-hidden="true"></span>
             Capture
@@ -126,14 +133,14 @@
         <div class="empty-capture-state" id="emptyCaptureState">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m7 15 3-3 2 2 2-2 3 3M8 9h.01"/></svg>
           <strong>Belum ada capture</strong>
-          <p>Setiap foto akan divalidasi, di-crop, lalu muncul di daftar ini.</p>
+          <p>Setiap foto akan langsung di-crop dan masuk ke daftar untuk diperiksa operator.</p>
         </div>
         <div class="capture-list" id="captureList" aria-live="polite"></div>
 
         <button class="button button--primary camera-finish-button" id="finishCaptureButton" type="button" disabled>
           Finish Capturing
         </button>
-        <p class="camera-finish-hint">Batch baru diunggah setelah tombol Finish ditekan. Foto gagal validasi tidak pernah dimasukkan.</p>
+        <p class="camera-finish-hint">Batch baru diunggah setelah tombol Finish ditekan. Resolusi kecil tidak memblokir capture selama label terlihat jelas.</p>
 
         <div class="camera-processing-status" id="processingStatus" hidden aria-live="assertive">
           <span class="camera-processing-spinner" aria-hidden="true"></span>
@@ -155,7 +162,7 @@
       PosNew Hub
     </a>
     <p class="footer-desc">Mobile capture station untuk batch label alamat.</p>
-    <span class="footer-creator-badge">MILE Camera · v16.40</span>
+    <span class="footer-creator-badge">MILE Camera · v16.41</span>
   </footer>
 
   <canvas id="cameraAnalysisCanvas" hidden></canvas>
@@ -164,9 +171,9 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260926-16.40" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-16.40" defer></script>
-  <script src="/assets/js/camera.js?v=20260926-16.40" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260926-16.41" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-16.41" defer></script>
+  <script src="/assets/js/camera.js?v=20260926-16.41" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

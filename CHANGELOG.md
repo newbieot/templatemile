@@ -1,5 +1,13 @@
 # Changelog
 
+## v16.41 — Fullscreen capture tanpa validasi yang memblokir
+
+- Mengubah **Open Camera** agar langsung membuat sesi, membuka preview fullscreen, dan mengaktifkan tombol Capture tanpa langkah Start Capture Session.
+- Menambahkan kontrol Capture dan jumlah gambar di dalam fullscreen, serta tombol keluar untuk meninjau batch dan menekan Finish Capturing.
+- Menyesuaikan preview dan koordinat crop terhadap area video sebenarnya pada posisi HP portrait maupun landscape.
+- Mengubah pemeriksaan resolusi, blur, dan brightness menjadi metadata non-blocking; setiap capture tetap masuk dan dapat diperiksa atau dihapus operator.
+- Menggunakan area panduan tetap sebagai fallback crop ketika confidence auto crop rendah, tanpa meminta operator mengulang foto.
+
 ## v16.40 — Mobile camera batch capture
 
 - Menambahkan halaman terlindungi `/camera` yang memakai kamera belakang HP Android langsung melalui `navigator.mediaDevices.getUserMedia()`.

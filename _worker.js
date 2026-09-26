@@ -1,4 +1,4 @@
-const APP_VERSION = '20260926-16.40-mobile-camera-batch';
+const APP_VERSION = '20260926-16.41-camera-fullscreen';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

@@ -6,12 +6,7 @@
   const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
   const OUTPUT_MAX_SIDE = 2000;
   const ANALYSIS_MAX_WIDTH = 360;
-  const MIN_LONG_SIDE = 900;
-  const MIN_SHORT_SIDE = 450;
   const MIN_DETECTION_CONFIDENCE = 0.55;
-  const MIN_SHARPNESS = 58;
-  const MIN_BRIGHTNESS = 45;
-  const MAX_BRIGHTNESS = 235;
   const core = window.MileCameraCore;
   const store = window.MileCameraStore;
   const $ = id => document.getElementById(id);
@@ -24,6 +19,36 @@
   let liveDetection = core?.fixedGuideBounds?.() || { x: 0.08, y: 0.13, width: 0.84, height: 0.74, confidence: 0, method: 'fixed-guide' };
   let captureBusy = false;
   let wakeLock = null;
+
+  function captureButtons() {
+    return [$('captureButton'), $('captureButtonFullscreen')].filter(Boolean);
+  }
+
+  function setCaptureDisabled(disabled) {
+    captureButtons().forEach(button => { button.disabled = disabled; });
+  }
+
+  function isCameraFullscreen() {
+    return (document.fullscreenElement || document.webkitFullscreenElement) === $('cameraStage');
+  }
+
+  function requestCameraFullscreen() {
+    const stage = $('cameraStage');
+    if (!stage || isCameraFullscreen()) return;
+    try {
+      const request = stage.requestFullscreen
+        ? stage.requestFullscreen({ navigationUI: 'hide' })
+        : stage.webkitRequestFullscreen?.();
+      request?.catch?.(() => {});
+    } catch (_) {}
+  }
+
+  function exitCameraFullscreen() {
+    try {
+      const exit = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen?.();
+      exit?.catch?.(() => {});
+    } catch (_) {}
+  }
 
   function randomId(prefix) {
     if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
@@ -64,19 +89,47 @@
   }
 
   function detectionLabel(detection) {
-    if (!detection || detection.method === 'fixed-guide') return 'Guide tetap';
+    if (!detection || detection.method === 'fixed-guide') return 'Guide tetap aktif';
     const confidence = Math.round(Number(detection.confidence || 0) * 100);
-    return confidence >= 70 ? `Dokumen terdeteksi ${confidence}%` : `Deteksi rendah ${confidence}%`;
+    return confidence >= 70 ? `Auto crop ${confidence}%` : `Auto crop dibantu guide ${confidence}%`;
+  }
+
+  function videoDisplayRect() {
+    const stage = $('cameraStage');
+    const video = $('cameraPreview');
+    if (!stage?.clientWidth || !stage?.clientHeight || !video?.videoWidth || !video?.videoHeight) return null;
+    const stageWidth = stage.clientWidth;
+    const stageHeight = stage.clientHeight;
+    const videoRatio = video.videoWidth / video.videoHeight;
+    const stageRatio = stageWidth / stageHeight;
+    if (stageRatio > videoRatio) {
+      const height = stageHeight;
+      const width = height * videoRatio;
+      return { x: (stageWidth - width) / 2, y: 0, width, height };
+    }
+    const width = stageWidth;
+    const height = width / videoRatio;
+    return { x: 0, y: (stageHeight - height) / 2, width, height };
+  }
+
+  function updateStageAspect() {
+    const stage = $('cameraStage');
+    const video = $('cameraPreview');
+    if (!stage || !video?.videoWidth || !video?.videoHeight) return;
+    stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
+    stage.dataset.orientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
+    window.requestAnimationFrame(() => updateGuide(liveDetection));
   }
 
   function updateGuide(detection) {
     const guide = $('cropGuide');
     const label = $('cropStatus');
     if (!guide || !detection) return;
-    guide.style.left = `${detection.x * 100}%`;
-    guide.style.top = `${detection.y * 100}%`;
-    guide.style.width = `${detection.width * 100}%`;
-    guide.style.height = `${detection.height * 100}%`;
+    const display = videoDisplayRect();
+    guide.style.left = display ? `${display.x + detection.x * display.width}px` : `${detection.x * 100}%`;
+    guide.style.top = display ? `${display.y + detection.y * display.height}px` : `${detection.y * 100}%`;
+    guide.style.width = display ? `${detection.width * display.width}px` : `${detection.width * 100}%`;
+    guide.style.height = display ? `${detection.height * display.height}px` : `${detection.height * 100}%`;
     const accepted = detection.method === 'fixed-guide' || Number(detection.confidence || 0) >= MIN_DETECTION_CONFIDENCE;
     guide.classList.toggle('is-low-confidence', !accepted);
     if (label) {
@@ -93,8 +146,7 @@
     const video = $('cameraPreview');
     if (video) video.srcObject = null;
     $('cameraStage')?.classList.remove('is-active');
-    $('captureButton').disabled = true;
-    $('startSessionButton').disabled = true;
+    setCaptureDisabled(true);
     $('cameraState').textContent = 'Kamera belum aktif';
   }
 
@@ -120,6 +172,7 @@
       setStatus('Camera API tidak tersedia. Buka halaman ini melalui HTTPS di Chrome Android.', 'error');
       return;
     }
+    requestCameraFullscreen();
     button.disabled = true;
     button.textContent = 'Membuka kamera…';
     setStatus('Izinkan akses kamera ketika Chrome menampilkan permintaan.', 'info');
@@ -135,6 +188,7 @@
       video.srcObject = stream;
       await video.play();
       $('cameraStage')?.classList.add('is-active');
+      updateStageAspect();
       const track = stream.getVideoTracks()[0];
       const settings = track.getSettings?.() || {};
       try {
@@ -145,8 +199,9 @@
       } catch (_) {}
       await populateCameras(settings.deviceId || '');
       $('cameraState').textContent = `${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} · kamera belakang diprioritaskan`;
-      $('startSessionButton').disabled = Boolean(sessionId);
-      setStatus('Kamera aktif. Pasang HP pada posisi tetap lalu mulai sesi capture.', 'success');
+      await ensureSession();
+      setCaptureDisabled(false);
+      setStatus('Kamera aktif dan siap Capture. Posisi portrait maupun landscape didukung.', 'success');
       updateLiveDetection();
       analysisTimer = window.setInterval(updateLiveDetection, 650);
     } catch (error) {
@@ -157,6 +212,7 @@
           : `Kamera tidak dapat dibuka: ${error?.message || 'perangkat tidak tersedia'}`,
         'error'
       );
+      exitCameraFullscreen();
     } finally {
       button.disabled = false;
       button.textContent = stream ? 'Buka ulang kamera' : 'Open Camera';
@@ -195,20 +251,14 @@
     } catch (_) {}
   }
 
-  async function startSession() {
-    if (!stream) {
-      setStatus('Buka kamera terlebih dahulu.', 'error');
-      return;
-    }
+  async function ensureSession() {
+    if (sessionId) return;
     sessionId = randomId('CAM');
     sessionStartedAt = new Date().toISOString();
     $('sessionIdentifier').textContent = sessionId;
     $('sessionDetails').hidden = false;
-    $('startSessionButton').disabled = true;
-    $('captureButton').disabled = false;
     $('cameraDevice').disabled = true;
     $('processingRoute').disabled = true;
-    setStatus('Sesi aktif. Ganti sampul pada area panduan lalu tekan Capture.', 'success');
     await requestWakeLock();
     updateBatchUi();
   }
@@ -224,21 +274,13 @@
     return context.getImageData(0, 0, width, height);
   }
 
-  function validateCapture(outputCanvas, detection) {
-    if (!$('fixedGuideMode')?.checked && (detection.method === 'fixed-guide' || Number(detection.confidence || 0) < MIN_DETECTION_CONFIDENCE)) {
-      return { ok: false, reason: 'Area sampul/label belum terdeteksi dengan yakin. Rapikan posisi dokumen dan pastikan warna meja kontras.' };
-    }
+  function captureQualityMetadata(outputCanvas) {
     const imageData = validationFrame(outputCanvas);
-    return core.validateImageQuality({
-      imageData,
-      width: outputCanvas.width,
-      height: outputCanvas.height,
-      minLongSide: MIN_LONG_SIDE,
-      minShortSide: MIN_SHORT_SIDE,
-      minSharpness: MIN_SHARPNESS,
-      minBrightness: MIN_BRIGHTNESS,
-      maxBrightness: MAX_BRIGHTNESS
-    });
+    return {
+      code: 'measured',
+      brightness: core.averageBrightness(imageData),
+      sharpness: core.calculateSharpness(imageData)
+    };
   }
 
   function canvasToBlob(canvas, quality = 0.9) {
@@ -254,8 +296,8 @@
       return;
     }
     captureBusy = true;
-    $('captureButton').disabled = true;
-    setStatus('Memeriksa crop, fokus, dan pencahayaan…', 'info');
+    setCaptureDisabled(true);
+    setStatus('Mengambil foto dan menyiapkan crop…', 'info');
 
     try {
       const video = $('cameraPreview');
@@ -265,25 +307,21 @@
       sourceCanvas.getContext('2d').drawImage(video, 0, 0, sourceCanvas.width, sourceCanvas.height);
 
       const frame = analysisFrame();
-      const detection = $('fixedGuideMode')?.checked ? core.fixedGuideBounds() : core.detectDocumentBounds(frame);
-      updateGuide(detection);
-      const sx = Math.round(detection.x * sourceCanvas.width);
-      const sy = Math.round(detection.y * sourceCanvas.height);
-      const sw = Math.max(1, Math.round(detection.width * sourceCanvas.width));
-      const sh = Math.max(1, Math.round(detection.height * sourceCanvas.height));
+      const detectedBounds = $('fixedGuideMode')?.checked ? core.fixedGuideBounds() : core.detectDocumentBounds(frame);
+      const useGuideFallback = detectedBounds.method === 'fixed-guide' || Number(detectedBounds.confidence || 0) < MIN_DETECTION_CONFIDENCE;
+      const cropBounds = useGuideFallback ? core.fixedGuideBounds() : detectedBounds;
+      updateGuide(cropBounds);
+      const sx = Math.round(cropBounds.x * sourceCanvas.width);
+      const sy = Math.round(cropBounds.y * sourceCanvas.height);
+      const sw = Math.max(1, Math.round(cropBounds.width * sourceCanvas.width));
+      const sh = Math.max(1, Math.round(cropBounds.height * sourceCanvas.height));
       const scale = Math.min(1, OUTPUT_MAX_SIDE / Math.max(sw, sh));
       const outputCanvas = $('cameraOutputCanvas');
       outputCanvas.width = Math.max(1, Math.round(sw * scale));
       outputCanvas.height = Math.max(1, Math.round(sh * scale));
       outputCanvas.getContext('2d').drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, outputCanvas.width, outputCanvas.height);
 
-      const validation = validateCapture(outputCanvas, detection);
-      if (!validation.ok) {
-        setStatus(`Foto kurang jelas, silakan ulangi capture. ${validation.reason}`, 'error');
-        toast('Foto kurang jelas, silakan ulangi capture.', 'error');
-        if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
-        return;
-      }
+      const quality = captureQualityMetadata(outputCanvas);
 
       let blob = await canvasToBlob(outputCanvas, 0.9);
       if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.78);
@@ -302,8 +340,16 @@
         blob,
         width: outputCanvas.width,
         height: outputCanvas.height,
-        detection: { method: detection.method, confidence: Number(detection.confidence || 0) },
-        quality: { brightness: Number(validation.brightness.toFixed(1)), sharpness: Number(validation.sharpness.toFixed(1)) },
+        detection: {
+          method: cropBounds.method,
+          confidence: Number(detectedBounds.confidence || 0),
+          guideFallback: useGuideFallback
+        },
+        quality: {
+          code: quality.code,
+          brightness: Number(quality.brightness.toFixed(1)),
+          sharpness: Number(quality.sharpness.toFixed(1))
+        },
         previewUrl: URL.createObjectURL(blob)
       });
       setStatus(`Capture ${sequence} tersimpan. Ganti sampul berikutnya tanpa mengubah posisi HP.`, 'success');
@@ -311,10 +357,10 @@
       if (navigator.vibrate) navigator.vibrate(45);
       updateBatchUi();
     } catch (error) {
-      setStatus(`Foto kurang jelas, silakan ulangi capture. ${error?.message || 'Capture gagal.'}`, 'error');
+      setStatus(`Capture gagal: ${error?.message || 'gambar tidak dapat disimpan.'}`, 'error');
     } finally {
       captureBusy = false;
-      $('captureButton').disabled = !stream || !sessionId;
+      setCaptureDisabled(!stream || !sessionId);
     }
   }
 
@@ -332,6 +378,7 @@
 
   function updateBatchUi() {
     $('capturedCount').textContent = `${captures.length} gambar`;
+    $('fullscreenCapturedCount').textContent = `${captures.length} gambar`;
     $('finishCaptureButton').disabled = !captures.length || captureBusy;
     const list = $('captureList');
     list.replaceChildren();
@@ -351,7 +398,9 @@
       detail.textContent = `${formatTime(capture.timestamp)} · ${capture.width} × ${capture.height} · ${formatBytes(capture.blob.size)}`;
       const quality = document.createElement('span');
       quality.className = 'capture-card__quality';
-      quality.textContent = `Crop ${Math.round(capture.detection.confidence * 100)}% · fokus ${Math.round(capture.quality.sharpness)}`;
+      quality.textContent = capture.detection.guideFallback
+        ? 'Crop memakai area panduan · periksa preview'
+        : `Auto crop ${Math.round(capture.detection.confidence * 100)}% · periksa preview`;
       body.append(title, detail, quality);
       const removeButton = document.createElement('button');
       removeButton.type = 'button';
@@ -374,7 +423,7 @@
     if (!captures.length || !sessionId || captureBusy) return;
     const button = $('finishCaptureButton');
     button.disabled = true;
-    $('captureButton').disabled = true;
+    setCaptureDisabled(true);
     updateProcessingStatus('Preparing…', `Mengemas ${captures.length} hasil crop tanpa mengunggah background meja.`);
 
     try {
@@ -404,7 +453,7 @@
       updateProcessingStatus('Gagal', error?.message || 'Batch tidak dapat disiapkan.');
       setStatus(error?.message || 'Batch tidak dapat disiapkan.', 'error');
       button.disabled = false;
-      $('captureButton').disabled = false;
+      setCaptureDisabled(false);
     }
   }
 
@@ -414,13 +463,30 @@
       return;
     }
     $('openCameraButton').addEventListener('click', startCamera);
-    $('startSessionButton').addEventListener('click', startSession);
     $('captureButton').addEventListener('click', captureImage);
+    $('captureButtonFullscreen').addEventListener('click', captureImage);
+    $('exitFullscreenButton').addEventListener('click', exitCameraFullscreen);
     $('finishCaptureButton').addEventListener('click', finishCapturing);
     $('cameraDevice').addEventListener('change', () => {
       if (stream && !sessionId) startCamera();
     });
     $('fixedGuideMode').addEventListener('change', updateLiveDetection);
+    $('cameraPreview').addEventListener('resize', updateStageAspect);
+    const handleViewportChange = () => {
+      updateStageAspect();
+      window.requestAnimationFrame(() => updateGuide(liveDetection));
+    };
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('orientationchange', handleViewportChange);
+    window.screen?.orientation?.addEventListener?.('change', handleViewportChange);
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(eventName => {
+      document.addEventListener(eventName, () => {
+        const active = isCameraFullscreen();
+        $('cameraStage')?.classList.toggle('is-fullscreen', active);
+        document.body.classList.toggle('camera-fullscreen-active', active);
+        handleViewportChange();
+      });
+    });
     document.addEventListener('keydown', event => {
       if (event.code !== 'Space' || event.repeat || ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(document.activeElement?.tagName)) return;
       if (!$('captureButton').disabled) {

@@ -84,19 +84,28 @@ async function runAsyncAssertions() {
 
   const cameraHtml = fs.readFileSync(path.join(root, 'camera.html'), 'utf8');
   const cameraRuntime = fs.readFileSync(path.join(root, 'assets/js/camera.js'), 'utf8');
+  const cameraCss = fs.readFileSync(path.join(root, 'assets/css/camera.css'), 'utf8');
   const worker = fs.readFileSync(path.join(root, '_worker.js'), 'utf8');
   assert.match(cameraRuntime, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(cameraHtml, /Finish Capturing/);
   assert.match(cameraHtml, /Beta R2 \+ DeepSeek 4\.1/);
   assert.match(cameraRuntime, /facingMode: \{ ideal: 'environment' \}/);
-  assert.match(cameraRuntime, /Foto kurang jelas, silakan ulangi capture\./);
+  assert.match(cameraRuntime, /requestFullscreen/);
+  assert.match(cameraRuntime, /orientationchange/);
+  assert.match(cameraRuntime, /await ensureSession\(\);/);
+  assert.match(cameraRuntime, /guideFallback: useGuideFallback/);
+  assert.doesNotMatch(cameraRuntime, /validateImageQuality/);
+  assert.doesNotMatch(cameraHtml, /Start Capture Session/);
+  assert.doesNotMatch(cameraRuntime, /Foto kurang jelas, silakan ulangi capture\./);
+  assert.match(cameraHtml, /captureButtonFullscreen/);
+  assert.match(cameraCss, /\.camera-stage\.is-fullscreen/);
   assert.match(cameraRuntime, /captureId:/);
   assert.match(cameraRuntime, /sessionId,/);
   assert.match(cameraRuntime, /timestamp,/);
   assert.match(worker, /url\.pathname === '\/camera'/);
   assert.match(worker, /camera=\(self\)/);
 
-  console.log('PASS camera-capture: auto crop, quality hooks, JPEG-to-PDF batch, metadata, dan protected mobile route');
+  console.log('PASS camera-capture: fullscreen, portrait/landscape, non-blocking capture, auto crop, JPEG-to-PDF, dan protected route');
 }
 
 runAsyncAssertions().catch(error => {
