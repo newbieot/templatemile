@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const BATCH_SIZE = 15;
+  const BATCH_SIZE = 10;
 
   function getSelectedModel() {
     const selector = document.getElementById('aiModelSelect');
