@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const BATCH_SIZE = 5;
+  const BATCH_SIZE = 10;
   const AI_MODEL = 'deepseek-v4.1-flash';
 
   let sessionId = null;
@@ -119,7 +119,7 @@ Format Wajib:
 {"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 `;
 
-    async function executePrompt(promptText) {
+    async function executePrompt(promptText, customSystemRole = null) {
       const content = [{ type: 'text', text: promptText }];
       urls.forEach((item) => {
         content.push({ type: 'text', text: `GAMBAR ${item.index}` });
@@ -134,7 +134,7 @@ Format Wajib:
         messages: [
           {
             role: 'system',
-            content: 'Anda adalah operator data entri. Utamakan kesetiaan pada gambar. Kembalikan HANYA JSON valid.'
+            content: customSystemRole || 'Anda adalah operator data entri. Utamakan kesetiaan pada gambar. Kembalikan HANYA JSON valid.'
           },
           { role: 'user', content }
         ]
@@ -189,20 +189,22 @@ Format Wajib:
             window.updateProcessingStatus('Audit AI...', 'Terdapat cetakan samar/dot matrix. Meminta AI memeriksa ulang gambar dengan lebih teliti...');
           }
           const uncertainDetails = mappedRows.filter(r => r.reviewFields.length > 0).map(r => ({ GAMBAR: r.sourcePage, FIELD_RAGU: r.reviewFields }));
-          const auditPrompt = `Koreksi JSON ini dengan mengamati kembali gambar terkait secara SANGAT TELITI, khususnya untuk tulisan Dot Matrix / pudar / samar.
-Terdapat kolom yang meragukan dan butuh konfirmasi: ${JSON.stringify(uncertainDetails)}.
+          const auditPrompt = `Koreksi JSON ini dengan mengamati kembali gambar terkait secara SANGAT TELITI, khususnya untuk tulisan cetakan Dot Matrix yang pudar, terputus, atau samar.
+Terdapat kolom yang meragukan dan butuh konfirmasi ahli: ${JSON.stringify(uncertainDetails)}.
 
 Draft Anda saat ini:
 ${JSON.stringify({ rows: mappedRows })}
 
-Aturan:
-- Perbaiki field yang salah baca pada draft di atas.
-- Kosongkan array 'reviewFields' (menjadi []) HANYA JIKA Anda sudah yakin 100% dengan perbaikannya.
-- Kembalikan HANYA JSON perbaikan secara penuh untuk semua baris.
-- Format HANYA: {"rows":[{"sourcePage":...,"name":"...","address":"...","phone":"","noSurat":"","outOfTown":false,"reviewFields":[]}]}
+ATURAN AUDIT DOT MATRIX:
+1. Huruf dot matrix sering renggang (contoh: "B A T A M"). Satukan spasi berlebih tersebut menjadi kata utuh ("BATAM").
+2. Bedakan dengan teliti: Angka '0' vs Huruf 'O', Angka '8' vs Huruf 'B', Angka '1' vs Huruf 'I', dan '5' vs 'S'.
+3. Gunakan nalar dan konteks sekitar untuk menyambung huruf yang terpotong akibat tinta habis/pudar.
+4. Perbaiki field yang salah baca pada draft di atas.
+5. Kosongkan array 'reviewFields' (menjadi []) HANYA JIKA Anda sudah berhasil memecahkan teks kasat mata tersebut dan yakin 100%. Jika memang benar-benar hancur tidak terbaca sama sekali, biarkan reviewFields terisi.
+6. Kembalikan HANYA JSON perbaikan secara penuh untuk semua baris. Format HANYA: {"rows":[{"sourcePage":...,"name":"...","address":"...","phone":"","noSurat":"","outOfTown":false,"reviewFields":[]}]}
 `;
           try {
-            const audited = await executePrompt(auditPrompt);
+            const audited = await executePrompt(auditPrompt, 'Anda adalah spesialis OCR, ahli restorasi dokumen, dan pemecah sandi cetakan Dot Matrix yang buram. Kembalikan HANYA JSON valid.');
             if (Array.isArray(audited.rows) && audited.rows.length === mappedRows.length) {
                mappedRows = audited.rows.map((row, idx) => ({
                  id: mappedRows[idx].id,
