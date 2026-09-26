@@ -78,7 +78,7 @@
 
     try {
       const session = await store.get(sessionId);
-      if (!session?.pdfBlob || Number(session.captureCount || 0) < 1) {
+      if (!session || (!session.pdfBlob && !session.streamedRows) || Number(session.captureCount || 0) < 1) {
         throw new Error('Batch camera tidak ditemukan atau sudah selesai diproses.');
       }
       activateCameraMode(session.captureCount);
@@ -103,8 +103,8 @@
         window.history.replaceState({}, document.title, cleanUrl);
         
         // Ensure core accepts the rows directly
-        if (core && core.tempExtractedRows) {
-           core.tempExtractedRows.push(...session.streamedRows);
+        if (core && core.uploadedFilesManager) {
+           core.uploadedFilesManager.push({ id: Date.now(), name: `Kamera - ${session.deviceName || sessionId}`, rows: session.streamedRows, source: 'AI PDF' });
            core.updateInterface();
         }
         
@@ -117,6 +117,13 @@
       }
       
       // Fallback path: Legacy PDF
+      if (!session.pdfBlob) {
+         // This means it was a streaming session but AI completely failed.
+         notify('AI gagal memproses gambar. Sesi kamera selesai tanpa hasil.', 'warning');
+         await store.remove(sessionId);
+         return;
+      }
+      
       const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
       window.history.replaceState({}, document.title, cleanUrl);
       const file = new File([session.pdfBlob], session.fileName || `camera-${sessionId}.pdf`, {

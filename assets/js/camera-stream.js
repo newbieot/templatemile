@@ -82,7 +82,7 @@
 
   async function uploadToR2(blob, index) {
     try {
-      const response = await fetch(`/api/beta/images/${encodeURIComponent(sessionId)}/cam_${index}/original`, {
+      const response = await fetch(`/api/beta/images/${encodeURIComponent(sessionId)}/${index}/first`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'content-type': 'image/jpeg' },
