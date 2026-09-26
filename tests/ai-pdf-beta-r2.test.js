@@ -100,7 +100,7 @@ assert.match(aiRuntimeSource, /if \(publicR2Experiment\) \{\s*const strictR2Erro
 assert.equal((aiRuntimeSource.match(/if \(publicR2Experiment \|\| !isR2BridgeFailure\(error\)/g) || []).length, 2);
 assert.doesNotMatch(aiRuntimeSource, /runtimeFallbackModel/);
 assert.equal((aiRuntimeSource.match(/betaRemoteImagesAvailable = false/g) || []).length, 1);
-assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = \(publicR2Experiment \|\| config\.networkProfile\.key === 'unstable'\) && lastBetaImagesConfigured/);
+assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = !config\.cameraDirect && \(publicR2Experiment \|\| config\.networkProfile\.key === 'unstable'\) && lastBetaImagesConfigured/);
 assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
 assert.match(aiRuntimeSource, /for \(const audit of audits\)/);
 assert.match(betaHtmlSource, /Turbo langsung · 15 halaman × 5 jalur · Default/);

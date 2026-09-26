@@ -49,6 +49,14 @@
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
+  const CAMERA_DEFAULT_MODEL = 'glm-5.3-flashx';
+  const CAMERA_BATCH_SIZE = 15;
+  const CAMERA_AI_CONCURRENCY = 1;
+  const CAMERA_MODELS = new Set([
+    'glm-5.3-flashx', 'glm-5.3', 'glm-5.3-flash',
+    'gemini-3.8-flash', 'gemini-3.7-flash',
+    'deepseek-v4.1-flash', 'deepseek-v4-pro'
+  ]);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
@@ -73,6 +81,10 @@
 
   const $ = id => document.getElementById(id);
 
+  function isCameraDirectMode() {
+    return Boolean(document.body?.classList?.contains('camera-mode'));
+  }
+
   function showToast(message, type = 'info') {
     if (typeof window.showToast === 'function') window.showToast(message, type);
     else window.alert(message);
@@ -85,22 +97,29 @@
   }
 
   function getConfig() {
+    const cameraDirect = isCameraDirectMode();
     const protocol = 'openai';
-    const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
+    const selectedModel = String($('aiModel')?.value || (cameraDirect ? CAMERA_DEFAULT_MODEL : DEFAULT_MODEL)).trim();
+    const model = cameraDirect && !CAMERA_MODELS.has(selectedModel) ? CAMERA_DEFAULT_MODEL : selectedModel;
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
-    const requestedPagesPerRequest = Math.max(1, Math.min(15, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
-    const requestedConcurrency = Math.max(1, Math.min(BETA_MAX_AI_CONCURRENCY, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
-    const networkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
+    const requestedPagesPerRequest = cameraDirect
+      ? CAMERA_BATCH_SIZE
+      : Math.max(1, Math.min(15, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+    const requestedConcurrency = cameraDirect
+      ? CAMERA_AI_CONCURRENCY
+      : Math.max(1, Math.min(BETA_MAX_AI_CONCURRENCY, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
+    const selectedNetworkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
+    const networkMode = cameraDirect ? 'normal' : selectedNetworkMode;
     const networkProfile = resolveNetworkProfile(networkMode);
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
     const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
-    const verificationPolicy = SPEED_PRESETS[speedPreset]?.verification || 'smart';
+    const verificationPolicy = cameraDirect ? 'none' : (SPEED_PRESETS[speedPreset]?.verification || 'smart');
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
       provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy,
       pagesPerRequest, concurrency, requestedPagesPerRequest, requestedConcurrency,
-      networkMode, networkProfile
+      networkMode, networkProfile, cameraDirect
     };
   }
 
@@ -162,6 +181,10 @@
   }
 
   function saveNonSecretConfig() {
+    if (isCameraDirectMode()) {
+      refreshConfigStatus();
+      return;
+    }
     try {
       const cfg = {
         accuracyMode: $('aiAccuracyMode')?.value || DEFAULT_ACCURACY_MODE,
@@ -176,6 +199,15 @@
   }
 
   function loadNonSecretConfig() {
+    if (isCameraDirectMode()) {
+      if ($('aiModel')) $('aiModel').value = CAMERA_DEFAULT_MODEL;
+      if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
+      if ($('aiNetworkMode')) $('aiNetworkMode').value = 'normal';
+      if ($('aiSpeedPreset')) $('aiSpeedPreset').value = 'fast';
+      if ($('aiPagesPerRequest')) $('aiPagesPerRequest').value = String(CAMERA_BATCH_SIZE);
+      if ($('aiConcurrency')) $('aiConcurrency').value = String(CAMERA_AI_CONCURRENCY);
+      return;
+    }
     // Model selalu kembali ke default DeepSeek V4.1 Flash saat halaman dimuat.
     // Pengguna tetap dapat mengganti model selama sesi berjalan.
     if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
@@ -213,6 +245,10 @@
     const hint = $('aiSpeedPresetHint');
     if (!hint) return;
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
+    if (isCameraDirectMode()) {
+      hint.textContent = 'Mode Kamera: maksimal 15 gambar dikirim dalam satu request langsung ke model yang dipilih, tanpa R2.';
+      return;
+    }
     const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
@@ -227,6 +263,10 @@
   function updateNetworkModeHint() {
     const hint = $('aiNetworkModeHint');
     if (!hint) return;
+    if (isCameraDirectMode()) {
+      hint.textContent = 'Jalur Kamera Direct aktif: gambar dikirim sebagai base64 melalui Secure Gateway dan tidak pernah diunggah ke R2.';
+      return;
+    }
     const mode = $('aiNetworkMode')?.value || DEFAULT_NETWORK_MODE;
     const profile = resolveNetworkProfile(mode);
     const signals = connectionSignals();
@@ -1975,11 +2015,11 @@ ${clipped}`
         throw new Error('Konfigurasi Secure Gateway belum lengkap. Periksa tiga secret Cloudflare lalu deploy ulang.');
       }
       const config = getConfig();
-      const publicR2Experiment = config.model === DEEPSEEK_R2_MODEL;
-      const testViaR2 = publicR2Experiment || config.networkProfile.key === 'unstable';
+      const publicR2Experiment = !config.cameraDirect && config.model === DEEPSEEK_R2_MODEL;
+      const testViaR2 = !config.cameraDirect && (publicR2Experiment || config.networkProfile.key === 'unstable');
       const transportLabel = publicR2Experiment
         ? 'R2 URL eksperimental'
-        : (testViaR2 ? 'R2 pemulihan' : 'Turbo langsung');
+        : (testViaR2 ? 'R2 pemulihan' : (config.cameraDirect ? 'Kamera Direct tanpa R2' : 'Turbo langsung'));
       if (testViaR2 && !lastBetaImagesConfigured) {
         throw new Error('Penyimpanan gambar R2 Beta belum dikonfigurasi untuk mode Hemat data.');
       }
@@ -2048,7 +2088,7 @@ ${clipped}`
         throw new Error('Layanan AI belum dapat dijangkau. Periksa sinyal internet atau konfigurasi server lalu coba lagi.');
       }
       config = getConfig();
-      if (config.model === DEEPSEEK_R2_MODEL && !lastBetaImagesConfigured) {
+      if (!config.cameraDirect && config.model === DEEPSEEK_R2_MODEL && !lastBetaImagesConfigured) {
         throw new Error('Eksperimen DeepSeek memerlukan penyimpanan R2 Beta yang aktif.');
       }
       saveNonSecretConfig();
@@ -2094,14 +2134,16 @@ ${clipped}`
         accuracyMode: config.accuracyMode === 'auto' ? 'balanced' : config.accuracyMode
       };
 
-      const publicR2Experiment = config.model === DEEPSEEK_R2_MODEL;
-      betaRemoteImagesAvailable = (publicR2Experiment || config.networkProfile.key === 'unstable') && lastBetaImagesConfigured;
+      const publicR2Experiment = !config.cameraDirect && config.model === DEEPSEEK_R2_MODEL;
+      betaRemoteImagesAvailable = !config.cameraDirect && (publicR2Experiment || config.networkProfile.key === 'unstable') && lastBetaImagesConfigured;
       setProgress(4, 'Menyiapkan halaman pertama', betaRemoteImagesAvailable
         ? (publicR2Experiment
           ? 'Eksperimen DeepSeek siap · gambar dikirim sebagai tautan R2 sementara.'
           : 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.')
-        : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.');
-      setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar melalui R2' : 'Mulai menyiapkan gambar Turbo');
+        : (config.cameraDirect
+          ? `Mode Kamera Direct siap · maksimal ${CAMERA_BATCH_SIZE} gambar dikirim langsung tanpa R2.`
+          : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.'));
+      setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar melalui R2' : 'Mulai menyiapkan gambar langsung');
 
       const chunks = [];
       for (let start = 1; start <= pdf.numPages; start += config.pagesPerRequest) {
@@ -2496,7 +2538,7 @@ ${clipped}`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
       const imageTransport = publicR2Experiment
         ? 'tautan gambar R2 sementara ke DeepSeek'
-        : (betaRemoteImagesAvailable ? 'R2 pemulihan' : 'gambar langsung ke Gemini');
+        : (betaRemoteImagesAvailable ? 'R2 pemulihan' : `gambar base64 langsung ke ${shortModelLabel(config.model)}`);
       setProgress(5, 'Memulai mode Turbo', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dirender bersamaan agar PC tetap responsif. ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
@@ -2555,7 +2597,7 @@ ${clipped}`
         totalRows: mergedRows.length,
         reviewCount: reviewRowCount(mergedRows),
         outsideBatamCount: outsideBatamRowCount(mergedRows),
-        message: `beta-r2;remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
+        message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
       };
       void submitProcessingMetrics(metrics);
 
@@ -2567,7 +2609,7 @@ ${clipped}`
       } else {
         core.uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: mergedRows, source: 'AI PDF' });
         core.updateInterface();
-        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Mode ringan: penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)}, pengiriman ${formatPreciseDuration(betaPerf.uploadMs / 1000)}, gambar sementara ${betaPerf.remotePages}/${pageCount} halaman.`, formatUsage(totalUsage));
+        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)} · ${config.cameraDirect ? `${pageCount} gambar dikirim langsung tanpa R2` : `gambar sementara ${betaPerf.remotePages}/${pageCount} halaman`}.`, formatUsage(totalUsage));
         progressHideTimeout = window.setTimeout(hideProgress, 1200);
         showToast(`${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, 'success');
         core.processNextInQueue();
@@ -2591,7 +2633,7 @@ ${clipped}`
         outsideBatamCount: 0,
         message: error?.name === 'AbortError'
           ? 'Dibatalkan pengguna'
-          : `beta-r2;remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};error=${String(error?.message || 'Kesalahan pemrosesan')}`.slice(0, 400)
+          : `${config?.cameraDirect ? 'camera-direct' : 'beta-r2'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};error=${String(error?.message || 'Kesalahan pemrosesan')}`.slice(0, 400)
       };
       void submitProcessingMetrics(failedMetrics);
       hideProgress();
@@ -2662,7 +2704,7 @@ ${clipped}`
     processPDFFile,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, isCameraDirectMode }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

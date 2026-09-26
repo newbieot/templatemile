@@ -1,5 +1,13 @@
 # Changelog
 
+## v25.10 — Kamera Direct AI, batch 15 gambar
+
+- Mengunci jalur `/camera` dan `/review` ke pengiriman gambar base64 langsung melalui Secure Gateway tanpa upload, referensi, atau cleanup R2.
+- Menetapkan `glm-5.3-flashx` sebagai model default kamera dan memastikan keluarga GLM (`glm-5.3`, `glm-5.3-flashx`, `glm-5.3-flash`) tersedia.
+- Menambahkan pilihan `gemini-3.8-flash` dan `gemini-3.7-flash` pada halaman kamera.
+- Mengirim maksimal 15 gambar dalam satu request AI dan membatasi satu request kamera aktif pada satu waktu untuk menjaga stabilitas serta urutan hasil.
+- Menambahkan tes regresi khusus model kamera, ukuran batch, mode jaringan, payload multimodal 15 gambar, dan bypass R2.
+
 ## v16.42 — Feedback capture lengkap dan kontrol fullscreen finish
 
 - Menambahkan suara klik shutter instan menggunakan Web Audio API tanpa download aset tambahan.

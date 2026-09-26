@@ -132,13 +132,13 @@
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
                 model: session.aiModel || 'glm-5.3-flashx',
-                chunkSize: (session.aiModel || '').startsWith('glm') ? 7 : 10,
+                chunkSize: 15,
                 concurrency: 1,
                 durationSeconds: session.durationSeconds || 0,
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Stream V2'
+                message: 'Camera Direct · 15 gambar per batch · tanpa R2'
               }),
               credentials: 'same-origin'
             });

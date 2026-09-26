@@ -623,7 +623,7 @@
       const route = 'review';
       const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
-      const aiModel = $('aiModelSelect')?.value || 'deepseek-v4.1-flash';
+      const aiModel = $('aiModelSelect')?.value || 'glm-5.3-flashx';
       await store.save({
         id: sessionId,
         createdAt: Date.now(),
@@ -637,7 +637,7 @@
         deviceName,
         aiModel
       });
-      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis...');
+      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Gambar akan dikirim langsung ke AI dalam kelompok maksimal 15 tanpa R2...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       updateProcessingStatus('Gagal', error?.message || 'Batch tidak dapat disiapkan.');

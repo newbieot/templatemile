@@ -10,12 +10,9 @@ Menekan **Open Camera** sekaligus membuka preview fullscreen dan membuat sesi ca
 
 Browser tetap menjalankan auto crop ringan. Jika confidence deteksi rendah, crop beralih ke area panduan tetap dan foto tetap dimasukkan ke batch. Resolusi, blur, dan brightness hanya disimpan sebagai metadata internal, tidak lagi memblokir capture; operator menentukan kelayakan dari preview dan dapat menghapus foto bila perlu.
 
-Saat **Finish Capturing** ditekan, hasil crop dikemas secara lokal dan diteruskan ke salah satu pipeline yang sudah ada:
+Saat **Finish Capturing** ditekan, hasil crop dikemas secara lokal, dibuka di `/review`, lalu dikirim langsung sebagai gambar base64 melalui Secure Gateway tanpa R2. Setiap request berisi maksimal 15 gambar dan hanya satu request kamera dijalankan pada satu waktu agar stabil di HP. Model default kamera adalah `glm-5.3-flashx`; pilihan kamera juga mencakup `glm-5.3`, `glm-5.3-flash`, `gemini-3.8-flash`, dan `gemini-3.7-flash`.
 
-- **A · Pemrosesan standar** → `/app`, memakai alur produksi utama.
-- **B · Beta R2 + DeepSeek 4.1** → `/beta`, mengunggah gambar hasil render ke binding `BETA_AI_IMAGES` dan memakai ekstraksi DeepSeek yang sudah tersedia.
-
-Batch sementara disimpan di IndexedDB pada perangkat dan dihapus setelah pemrosesan selesai. Route `/camera` tetap memerlukan session Firebase yang valid dan permission camera hanya diizinkan pada halaman ini.
+Batch sementara disimpan di IndexedDB pada perangkat dan dihapus setelah pemrosesan selesai. Route `/camera` tetap memerlukan session Firebase yang valid dan permission camera hanya diizinkan pada halaman ini. Pipeline `/beta` tetap terpisah dan masih dapat memakai R2; sesi `/camera` tidak memakai upload, referensi, maupun cleanup R2.
 
 ## Eksperimen PC lawas di `/beta`
 

@@ -88,7 +88,12 @@ async function runAsyncAssertions() {
   const worker = fs.readFileSync(path.join(root, '_worker.js'), 'utf8');
   assert.match(cameraRuntime, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(cameraHtml, /Finish Capturing/);
-  assert.match(cameraHtml, /Beta R2 \+ DeepSeek 4\.1/);
+  assert.match(cameraHtml, /15 gambar per batch dikirim langsung ke AI tanpa R2/);
+  assert.match(cameraHtml, /<option value="glm-5\.3-flashx" selected>GLM 5\.3 FlashX \(Default\)<\/option>/);
+  assert.match(cameraHtml, /<option value="glm-5\.3">GLM 5\.3/);
+  assert.match(cameraHtml, /<option value="glm-5\.3-flash">GLM 5\.3 Flash/);
+  assert.match(cameraHtml, /<option value="gemini-3\.8-flash">Gemini 3\.8 Flash<\/option>/);
+  assert.match(cameraHtml, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash<\/option>/);
   assert.match(cameraRuntime, /facingMode: \{ ideal: 'environment' \}/);
   assert.match(cameraRuntime, /requestFullscreen/);
   assert.match(cameraRuntime, /orientationchange/);
@@ -121,12 +126,13 @@ async function runAsyncAssertions() {
   const reviewHtml = fs.readFileSync(path.join(root, 'review.html'), 'utf8');
   assert.match(reviewHtml, /assets\/css\/review\.css/);
   assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
-  assert.match(reviewHtml, /camera-import\.js/);
+  assert.match(reviewHtml, /camera-import-v2\.js/);
+  assert.match(reviewHtml, /Model pilihan membaca maksimal 15 gambar langsung tanpa R2/);
   assert.match(reviewHtml, /id="resultTable"/);
   assert.match(reviewHtml, /id="corporateTemplate"/);
   assert.match(worker, /url\.pathname === '\/review'/);
 
-  const cameraImport = fs.readFileSync(path.join(root, 'assets/js/camera-import.js'), 'utf8');
+  const cameraImport = fs.readFileSync(path.join(root, 'assets/js/camera-import-v2.js'), 'utf8');
   assert.match(cameraImport, /activateCameraMode/);
   assert.match(cameraImport, /camera-session-banner/);
   assert.match(cameraImport, /camera-mode/);
