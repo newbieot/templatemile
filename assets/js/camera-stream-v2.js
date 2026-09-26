@@ -101,7 +101,6 @@
 
   async function callAI(urls) {
     const startIdx = urls[0].index;
-    const endIdx = urls[urls.length - 1].index;
 
     const prompt = `Tolong ubah gambar-gambar resi ini menjadi data terstruktur.
 Baca HANYA sebagai HASIL SCAN. Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" pada bagian meragukan.
@@ -114,33 +113,33 @@ Aturan:
 4. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
 5. nomor_surat: PRIORITAS PERTAMA adalah nomor surat resmi setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Abaikan nomor perkara. Jika tidak ada, gunakan isi setelah label PERIHAL/HAL/SUBJECT. Setelah itu barulah gunakan ID Pesanan/Resi.
 6. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
-7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.
+7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan (terutama cetakan dot matrix yang samar).
 
 Format Wajib:
 {"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 `;
 
-    const content = [{ type: 'text', text: prompt }];
-    urls.forEach((item) => {
-      content.push({ type: 'text', text: `GAMBAR ${item.index}` });
-      content.push({ type: 'image_url', image_url: { url: item.url } });
-    });
+    async function executePrompt(promptText) {
+      const content = [{ type: 'text', text: promptText }];
+      urls.forEach((item) => {
+        content.push({ type: 'text', text: `GAMBAR ${item.index}` });
+        content.push({ type: 'image_url', image_url: { url: item.url } });
+      });
 
-    const body = {
-      model: DEEPSEEK_MODEL,
-      stream: false,
-      max_tokens: 4000,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: 'system',
-          content: 'Anda adalah operator data entri. Utamakan kesetiaan pada gambar. Kembalikan HANYA JSON valid.'
-        },
-        { role: 'user', content }
-      ]
-    };
+      const body = {
+        model: DEEPSEEK_MODEL,
+        stream: false,
+        max_tokens: 4000,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: 'system',
+            content: 'Anda adalah operator data entri. Utamakan kesetiaan pada gambar. Kembalikan HANYA JSON valid.'
+          },
+          { role: 'user', content }
+        ]
+      };
 
-    try {
       const response = await fetch('/api/ai-proxy', {
         method: 'POST',
         credentials: 'same-origin',
@@ -157,13 +156,14 @@ Format Wajib:
          console.error('AI Proxy returned no content. Data:', data);
          throw new Error(data?.error?.message || 'AI Proxy tidak mengembalikan hasil.');
       }
-      
-      const parsed = JSON.parse(contentStr.replace(/```json/g, '').replace(/```/g, '').trim());
+      return JSON.parse(contentStr.replace(/```json/g, '').replace(/```/g, '').trim());
+    }
+
+    try {
+      const parsed = await executePrompt(prompt);
       
       if (Array.isArray(parsed.rows)) {
-        // Map the 'page' to the actual capture index based on the input URLs
-        // Deepseek might just number them 1..5. We need to map them back.
-        return parsed.rows.map((row, idx) => {
+        let mappedRows = parsed.rows.map((row, idx) => {
            const aiPage = parseInt(row.page || row.halaman || row.page_number, 10);
            let actualIndex = urls[idx]?.index || (startIdx + idx);
            if (!isNaN(aiPage) && urls.some(u => u.index === aiPage)) {
@@ -181,8 +181,49 @@ Format Wajib:
              raw_lines: []
            };
         });
+
+        // Audit Pass for uncertain fields
+        const needsAudit = mappedRows.some(row => row.reviewFields && row.reviewFields.length > 0);
+        if (needsAudit) {
+          if (typeof window.updateProcessingStatus === 'function') {
+            window.updateProcessingStatus('Audit AI...', 'Terdapat cetakan samar/dot matrix. Meminta AI memeriksa ulang gambar dengan lebih teliti...');
+          }
+          const uncertainDetails = mappedRows.filter(r => r.reviewFields.length > 0).map(r => ({ GAMBAR: r.sourcePage, FIELD_RAGU: r.reviewFields }));
+          const auditPrompt = `Koreksi JSON ini dengan mengamati kembali gambar terkait secara SANGAT TELITI, khususnya untuk tulisan Dot Matrix / pudar / samar.
+Terdapat kolom yang meragukan dan butuh konfirmasi: ${JSON.stringify(uncertainDetails)}.
+
+Draft Anda saat ini:
+${JSON.stringify({ rows: mappedRows })}
+
+Aturan:
+- Perbaiki field yang salah baca pada draft di atas.
+- Kosongkan array 'reviewFields' (menjadi []) HANYA JIKA Anda sudah yakin 100% dengan perbaikannya.
+- Kembalikan HANYA JSON perbaikan secara penuh untuk semua baris.
+- Format HANYA: {"rows":[{"sourcePage":...,"name":"...","address":"...","phone":"","noSurat":"","outOfTown":false,"reviewFields":[]}]}
+`;
+          try {
+            const audited = await executePrompt(auditPrompt);
+            if (Array.isArray(audited.rows) && audited.rows.length === mappedRows.length) {
+               mappedRows = audited.rows.map((row, idx) => ({
+                 id: mappedRows[idx].id,
+                 sourcePage: row.sourcePage || row.page || mappedRows[idx].sourcePage,
+                 name: row.name || '',
+                 address: row.address || '',
+                 phone: row.phone || '',
+                 noSurat: row.noSurat || '',
+                 outOfTown: !!row.outOfTown,
+                 reviewFields: row.reviewFields || [],
+                 raw_lines: []
+               }));
+            }
+          } catch (auditErr) {
+            console.error('Audit pass failed, falling back to draft:', auditErr);
+          }
+        }
+
+        return mappedRows;
       }
-      throw new Error('Format AI salah. Respons AI: ' + contentStr);
+      throw new Error('Format AI salah. Respons AI: ' + JSON.stringify(parsed));
     } catch (err) {
       console.error('AI Proxy failed:', err);
       throw err;
