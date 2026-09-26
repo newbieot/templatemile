@@ -147,7 +147,7 @@
         <span class="camera-batch-item__icon" aria-hidden="true">📱</span>
         <div class="camera-batch-item__meta">
           <div class="camera-batch-item__title">${batch.rowCount || 0} baris dari ${batch.captureCount || 0} foto${deviceLabel}</div>
-          <div class="camera-batch-item__time"><span>${formatRelativeTime(batch.createdAt)}</span> Template: ${templateLabel}</div>
+          <div class="camera-batch-item__time"><span>${new Date(Number(batch.createdAt)).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} (${formatRelativeTime(batch.createdAt)})</span> Template: ${templateLabel}</div>
           <div class="camera-batch-item__expiry"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${formatExpiryTime(batch.expiresAt)}</div>
         </div>
       </div>

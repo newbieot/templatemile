@@ -703,6 +703,8 @@ async function handleCameraBatchSave(request, env, session, url) {
     finishedAt: body.finishedAt || new Date().toISOString(),
     captureCount: Number(body.captureCount) || 0,
     rowCount: body.rows.length,
+    deviceName: body.deviceName ? String(body.deviceName).substring(0, 50) : '',
+    templateName: body.templateName ? String(body.templateName).substring(0, 50) : (body.form?.template || ''),
     expiresAt: (Number(body.createdAt) || now) + CAMERA_BATCH_TTL_MS,
     status: 'complete',
     form: body.form || {},
