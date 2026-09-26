@@ -149,9 +149,10 @@ async function runAsyncAssertions() {
   assert.match(cameraImport, /MileCameraSync/);
   assert.match(reviewHtml, /camera-sync\.js/);
 
-  // Desktop batch panel
+  // Desktop batch modal
   const appHtml = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
-  assert.match(appHtml, /id="cameraBatchesPanel"/);
+  assert.match(appHtml, /id="cameraLogsModal"/);
+  assert.match(appHtml, /id="openCameraLogsBtn"/);
   assert.match(appHtml, /id="cameraBatchesList"/);
   assert.match(appHtml, /camera-sync\.js/);
 

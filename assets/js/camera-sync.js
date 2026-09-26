@@ -229,10 +229,6 @@
       core.uploadedFilesManager.push(fileEntry);
       core.updateInterface();
 
-      // Activate camera mode
-      document.body.classList.add('camera-mode');
-      try { sessionStorage.setItem('mile_camera_active', '1'); } catch (_) {}
-
       if (typeof window.showToast === 'function') {
         window.showToast(`${batch.rows.length} baris dari kamera HP dimuat. Periksa hasil di bawah.`, 'success');
       }
@@ -277,7 +273,7 @@
         
         // Auto-close modal if empty
         const modal = document.getElementById('cameraLogsModal');
-        if (modal && !modal.hidden) modal.hidden = true;
+        if (modal) modal.style.display = 'none';
       } else if (badge && list) {
         badge.textContent = list.querySelectorAll('.camera-batch-item').length;
       }
@@ -302,20 +298,20 @@
 
     if (openBtn && modal) {
       openBtn.addEventListener('click', () => {
-        modal.hidden = false;
+        modal.style.display = 'flex';
         fetchAndRenderBatches(); // Refresh on open
       });
     }
 
     if (closeBtn && modal) {
       closeBtn.addEventListener('click', () => {
-        modal.hidden = true;
+        modal.style.display = 'none';
       });
     }
 
     if (modal) {
       modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.hidden = true;
+        if (e.target === modal) modal.style.display = 'none';
       });
     }
 
@@ -323,7 +319,7 @@
       list.addEventListener('click', event => {
         const loadBtn = event.target.closest('.camera-batch-item__load');
         if (loadBtn) {
-          if (modal) modal.hidden = true;
+          if (modal) modal.style.display = 'none';
           loadBatchToDesktop(loadBtn.dataset.batchId);
           return;
         }
