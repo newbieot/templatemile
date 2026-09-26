@@ -310,15 +310,13 @@
     stopCamera();
 
     try {
-      const isPortrait = window.innerHeight > window.innerWidth;
-      // User specifically requested 9:16 (720x1280) in portrait to fill more vertical space
-      const idealW = isPortrait ? 720 : 1280;
-      const idealH = isPortrait ? 1280 : 720;
-      
       const deviceId = $('cameraDevice')?.value;
+      
+      // Let the mobile OS automatically handle orientation rotation by requesting the standard landscape format.
+      // Requesting 1280x720 (16:9). The OS will naturally flip this to 720x1280 (9:16) in portrait.
       const videoConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: idealW }, height: { ideal: idealH } }
-        : { facingMode: { ideal: 'environment' }, width: { ideal: idealW }, height: { ideal: idealH } };
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } };
       
       stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
       const video = $('cameraPreview');
