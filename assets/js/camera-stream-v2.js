@@ -50,6 +50,7 @@
   function triggerBackgroundProcess(batch) {
     const task = processBatch(batch).catch(err => {
       console.error('Background AI failed for batch:', err);
+      alert('Error Proses AI: ' + err.message);
       completedRows.push({ _error: err.message || 'Terjadi kesalahan jaringan/AI saat memproses gambar.' });
     });
     pendingTasks.push(task);
@@ -164,7 +165,7 @@ Format Wajib:
            return { ...row, page: actualIndex };
         });
       }
-      return [];
+      throw new Error('Format AI salah. Respons AI: ' + contentStr);
     } catch (err) {
       console.error('AI Proxy failed:', err);
       throw err;
