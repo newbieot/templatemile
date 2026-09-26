@@ -141,11 +141,11 @@
 
     card.innerHTML = `
       <div class="camera-batch-item__header">
-        <span class="camera-batch-item__icon" aria-hidden="true">📷</span>
+        <span class="camera-batch-item__icon" aria-hidden="true">📄</span>
         <div class="camera-batch-item__meta">
-          <strong class="camera-batch-item__title">${batch.rowCount || 0} baris data · ${batch.captureCount || 0} foto</strong>
-          <small class="camera-batch-item__time">${formatRelativeTime(batch.createdAt)} · Template: ${templateLabel}</small>
-          <small class="camera-batch-item__expiry">Kedaluwarsa: ${formatExpiryTime(batch.expiresAt)}</small>
+          <div class="camera-batch-item__title">${batch.rowCount || 0} baris dari ${batch.captureCount || 0} foto</div>
+          <div class="camera-batch-item__time"><span>${formatRelativeTime(batch.createdAt)}</span> Template: ${templateLabel}</div>
+          <div class="camera-batch-item__expiry"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${formatExpiryTime(batch.expiresAt)}</div>
         </div>
       </div>
       <div class="camera-batch-item__actions">
