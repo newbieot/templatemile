@@ -611,20 +611,19 @@
     setFinishDisabled(true);
     setCaptureDisabled(true);
     exitCameraFullscreen();
-    updateProcessingStatus('Preparing…', `Mengemas ${captures.length} hasil crop tanpa mengunggah background meja.`);
-    showHudToast('Menyiapkan batch…');
+    updateProcessingStatus('Mengemas PDF...', `Menggabungkan ${captures.length} foto ke format dokumen...`);
+    showHudToast('Menyiapkan batch...');
 
     try {
-      // PDF generation removed for Streaming AI
-      if (false) {
+      const pdfBlob = await core.buildJpegPdf(captures);
+      if (pdfBlob.size > MAX_PDF_BYTES) {
         throw new Error(`Ukuran batch ${formatBytes(pdfBlob.size)} melewati batas 115 MB. Kurangi jumlah capture.`);
       }
-      updateProcessingStatus('Saving…', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI.');
+      updateProcessingStatus('Menyimpan...', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI...');
       const route = 'review';
-      let streamedRows = []; if (window.MileCameraStream) streamedRows = await window.MileCameraStream.finishStream(); const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
+      const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
-      const aiModel = $('aiModelSelect')?.value || 'glm-5.3-flashx';
-      const durationSeconds = window.fsLoaderStartTime ? (Date.now() - window.fsLoaderStartTime) / 1000 : 0;
+      const aiModel = $('aiModelSelect')?.value || 'deepseek-v4.1-flash';
       await store.save({
         id: sessionId,
         createdAt: Date.now(),
@@ -633,11 +632,12 @@
         route: 'review',
         captureCount: captures.length,
         captures: metadata,
-        fileName: `camera-${sessionId}.pdf`, streamedRows: streamedRows,
-        
-        deviceName, aiModel, durationSeconds
+        fileName: `camera-${sessionId}.pdf`,
+        pdfBlob,
+        deviceName,
+        aiModel
       });
-      updateProcessingStatus('Uploading…', 'Membuka antarmuka review kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis.');
+      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       updateProcessingStatus('Gagal', error?.message || 'Batch tidak dapat disiapkan.');

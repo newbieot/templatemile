@@ -165,6 +165,16 @@
         lastModified: Date.now()
       });
       const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
+      if (session.aiModel && document.getElementById('aiModel')) {
+        const modelSelect = document.getElementById('aiModel');
+        if (!Array.from(modelSelect.options).some(o => o.value === session.aiModel)) {
+          const opt = document.createElement('option');
+          opt.value = session.aiModel;
+          opt.textContent = session.aiModel;
+          modelSelect.appendChild(opt);
+        }
+        modelSelect.value = session.aiModel;
+      }
       notify(`${session.captureCount} hasil capture siap diproses...`, 'success');
       await ai.processPDFFile(file);
       const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount

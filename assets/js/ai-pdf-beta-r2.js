@@ -42,8 +42,9 @@
   const COSMOS_MODELS = new Set([
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
     'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
-    'deepseek-v4.1-flash',
-    'qwen-3.7-plus','qwen-3.7-flash'
+    'deepseek-v4.1-flash','deepseek-v4-pro',
+    'qwen-3.8-flash','qwen-3.7-plus','qwen-3.7-flash',
+    'glm-5.3','glm-5.3-flashx','glm-5.3-flash'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
