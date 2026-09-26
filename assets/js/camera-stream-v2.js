@@ -76,37 +76,20 @@
   async function processBatch(batch) {
     if (!batch.length) return;
 
-    // 1. Upload images to R2
-    const urls = [];
-    for (const item of batch) {
-      const url = await uploadToR2(item.blob, item.index);
-      if (url) urls.push({ url, index: item.index });
-    }
-
-    if (!urls.length) {
-      throw new Error('Seluruh gambar dalam antrean gagal diunggah ke penyimpanan sementara.');
-    }
+    // 1. Bypass R2 dan kirim Base64 secara langsung ke CosmosHub (untuk memangkas latensi download URL)
+    const directUrls = batch.map(item => ({
+      index: item.index,
+      url: item.blob // "data:image/jpeg;base64,..."
+    }));
 
     // 2. Call Cosmos AI
-    const rows = await callAI(urls);
+    const rows = await callAI(directUrls);
     
     // 3. Append to completed rows
     completedRows.push(...rows);
   }
 
-  async function uploadToR2(blob, index) {
-    const response = await fetch(`/api/beta/images/${encodeURIComponent(sessionId)}/${index}/first`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'image/jpeg' },
-      body: blob
-    });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error?.message || `Gagal menyimpan gambar ke R2 (Status: ${response.status})`);
-      }
-      return payload?.url || payload?.ref;
-  }
+  // uploadToR2 dihapus karena fungsi Bypass sudah berjalan
 
   async function callAI(urls) {
     const startIdx = urls[0].index;
