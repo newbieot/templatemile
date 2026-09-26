@@ -43,6 +43,9 @@
       }
       await Promise.allSettled(pendingTasks);
     }
+    
+    // Sort array globally so results remain strictly in the captured order
+    completedRows.sort((a, b) => (a.sourcePage || 0) - (b.sourcePage || 0));
 
     return completedRows;
   }
@@ -161,7 +164,11 @@ Format Wajib:
         // Map the 'page' to the actual capture index based on the input URLs
         // Deepseek might just number them 1..5. We need to map them back.
         return parsed.rows.map((row, idx) => {
-           const actualIndex = urls[idx]?.index || (startIdx + idx);
+           const aiPage = parseInt(row.page || row.halaman || row.page_number, 10);
+           let actualIndex = urls[idx]?.index || (startIdx + idx);
+           if (!isNaN(aiPage) && urls.some(u => u.index === aiPage)) {
+             actualIndex = aiPage;
+           }
            return {
              id: Date.now() + idx,
              sourcePage: actualIndex,
