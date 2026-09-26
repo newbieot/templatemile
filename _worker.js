@@ -1,4 +1,4 @@
-const APP_VERSION = '20260926-25.10-camera-direct15';
+const APP_VERSION = '20260926-25.11-camera-ai-progress';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

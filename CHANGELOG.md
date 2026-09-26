@@ -1,5 +1,11 @@
 # Changelog
 
+## v25.11 — Proses AI kamera kembali terlihat
+
+- Memperbaiki ketidaksesuaian ID modal antara halaman `/review` dan runtime AI yang membuat pemrosesan setelah Finish Capture berjalan tanpa overlay progres yang terlihat.
+- Menampilkan tahap proses, waktu berjalan, progres render/upload, jumlah halaman dan batch, status koneksi, serta aktivitas AI secara langsung.
+- Menambahkan tes kontrak DOM untuk seluruh elemen progres yang digunakan runtime AI.
+
 ## v25.10 — Kamera Direct AI, batch 15 gambar
 
 - Mengunci jalur `/camera` dan `/review` ke pengiriman gambar base64 langsung melalui Secure Gateway tanpa upload, referensi, atau cleanup R2.

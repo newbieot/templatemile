@@ -112,5 +112,26 @@ assert.match(cameraHtml, /gemini-3\.8-flash/);
 assert.match(cameraHtml, /gemini-3\.7-flash/);
 assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="15" selected/);
 assert.match(reviewHtml, /id="aiConcurrency"><option value="1" selected/);
+for (const requiredProgressId of [
+  'aiProgressModal',
+  'aiProgressStep',
+  'aiProgressMessage',
+  'aiProgressBar',
+  'aiProgressPercent',
+  'aiProgressUsage',
+  'aiElapsedTime',
+  'aiElapsedRate',
+  'aiTransferStatus',
+  'aiTransferPercent',
+  'aiTransferBar',
+  'aiProgressPages',
+  'aiProgressChunks',
+  'aiProgressNetwork',
+  'aiProgressActivity'
+]) {
+  assert.match(reviewHtml, new RegExp(`id="${requiredProgressId}"`), `review.html harus menyediakan #${requiredProgressId}`);
+}
+assert.doesNotMatch(reviewHtml, /id="aiModal"/);
+assert.match(source, /const modal = \$\('aiProgressModal'\)/);
 
 console.log('PASS camera-direct-ai: GLM/Gemini, default GLM 5.3 FlashX, 15 gambar per request, concurrency aman, dan R2 bypass');

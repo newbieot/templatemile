@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Review Hasil Kamera · Mile App (Direct AI)</title>
   <meta name="description" content="Antarmuka khusus kamera untuk meninjau data kiriman, memilih template pelanggan, dan mengekspor Excel Mile App.">
-  <link rel="stylesheet" href="/assets/css/review.css?v=20260926-16.44-review">
+  <link rel="stylesheet" href="/assets/css/review.css?v=20260926-25.11-ai-progress">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ef4123'><path d='M4 7h3l1.5-2h7L17 7h3v12H4V7Z'/><circle cx='12' cy='13' r='4'/></svg>">
   <meta name="theme-color" content="#f1f5f9">
 </head>
@@ -293,29 +293,36 @@
   </aside>
 
   <!-- Modals -->
-  <div class="modal-overlay" id="aiModal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
-    <div class="modal-box">
-      <div class="modal-heading">
-        <span class="modal-step" id="aiModalStep">Memproses AI</span>
-        <h3 id="aiModalTitle">Menganalisis hasil capture</h3>
-        <p id="aiModalSubtitle">Model pilihan membaca maksimal 15 gambar langsung tanpa R2…</p>
+  <div class="modal-overlay" id="aiProgressModal" role="dialog" aria-modal="true" aria-labelledby="aiProgressTitle" aria-describedby="aiProgressMessage">
+    <div class="modal-box ai-progress-box">
+      <div class="ai-progress-visual" aria-hidden="true">
+        <span class="ai-orbit"></span>
+        <svg viewBox="0 0 24 24"><path d="M12 3a5 5 0 0 0-5 5v1.2A4.8 4.8 0 0 0 4 13.7V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.3a4.8 4.8 0 0 0-3-4.5V8a5 5 0 0 0-5-5Z"/><path d="M9 8a3 3 0 0 1 6 0v1H9V8Zm3 5v2"/></svg>
       </div>
-      <div class="ai-progress-status-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-        <div style="background:#f8fafc; padding:8px; border-radius:8px;"><span>Halaman:</span> <strong id="aiProgressPages">0/0</strong></div>
-        <div style="background:#f8fafc; padding:8px; border-radius:8px;"><span>Kelompok:</span> <strong id="aiProgressChunks">0/0</strong></div>
+      <div class="modal-heading ai-progress-heading">
+        <span class="modal-step" id="aiProgressStep">Memproses AI</span>
+        <h3 id="aiProgressTitle">Menganalisis hasil capture</h3>
+        <p id="aiProgressMessage">Model pilihan membaca maksimal 15 gambar langsung tanpa R2…</p>
       </div>
-      <div class="modal-actions">
-        <button id="cancelAiProcess" class="button button--ghost" type="button">Batalkan</button>
+      <div class="ai-progress-stopwatch" aria-live="off">
+        <span>Waktu berjalan</span>
+        <strong id="aiElapsedTime">00:00.0</strong>
+        <small id="aiElapsedRate">Rata-rata per data dihitung setelah proses selesai</small>
       </div>
-      <!-- Hidden technical progress elements -->
-      <span id="aiModalCounter" hidden></span>
-      <span id="aiModalProgress" hidden></span>
-      <span id="aiTransferHead" hidden></span>
-      <span id="aiTransferDetail" hidden></span>
-      <span id="aiTransferPercent" hidden></span>
-      <span id="aiTransferBar" hidden></span>
-      <span id="aiProgressNetwork" hidden></span>
-      <span id="aiProgressActivity" hidden></span>
+      <div class="ai-progress-track" aria-hidden="true"><span id="aiProgressBar"></span></div>
+      <div class="ai-progress-meta"><span id="aiProgressPercent">0%</span><span id="aiProgressUsage">Token akan tampil setelah respons</span></div>
+      <div class="ai-transfer-panel" aria-live="polite">
+        <div class="ai-transfer-head"><span id="aiTransferStatus">Belum ada data yang dikirim</span><strong id="aiTransferPercent">0%</strong></div>
+        <div class="ai-transfer-track"><span id="aiTransferBar"></span></div>
+      </div>
+      <div class="ai-progress-status-grid" aria-live="polite">
+        <div><span>Halaman siap</span><strong id="aiProgressPages">0/0</strong></div>
+        <div><span>Batch selesai</span><strong id="aiProgressChunks">0/0</strong></div>
+        <div><span>Koneksi</span><strong id="aiProgressNetwork">Memeriksa…</strong></div>
+        <div class="ai-progress-activity"><span>Aktivitas</span><strong id="aiProgressActivity">Menyiapkan proses</strong></div>
+      </div>
+      <p class="ai-progress-note">Jangan tutup atau muat ulang halaman sampai proses AI selesai.</p>
+      <div class="modal-actions"><button id="cancelAiProcess" class="button button--ghost" type="button">Batalkan</button></div>
     </div>
   </div>
 

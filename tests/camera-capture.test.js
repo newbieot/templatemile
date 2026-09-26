@@ -128,6 +128,10 @@ async function runAsyncAssertions() {
   assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
   assert.match(reviewHtml, /camera-import-v2\.js/);
   assert.match(reviewHtml, /Model pilihan membaca maksimal 15 gambar langsung tanpa R2/);
+  assert.match(reviewHtml, /id="aiProgressModal"/);
+  assert.match(reviewHtml, /id="aiProgressStep"/);
+  assert.match(reviewHtml, /id="aiProgressMessage"/);
+  assert.match(reviewHtml, /id="aiTransferStatus"/);
   assert.match(reviewHtml, /id="resultTable"/);
   assert.match(reviewHtml, /id="corporateTemplate"/);
   assert.match(worker, /url\.pathname === '\/review'/);
