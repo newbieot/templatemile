@@ -532,22 +532,21 @@
         throw new Error(`Ukuran batch ${formatBytes(pdfBlob.size)} melewati batas 115 MB. Kurangi jumlah capture.`);
       }
       updateProcessingStatus('Saving…', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI.');
-      const selectedRoute = $('processingRoute')?.value;
-      const route = selectedRoute === 'app' ? 'app' : (selectedRoute === 'beta' ? 'beta' : 'review');
+      const route = 'review';
       const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
       await store.save({
         id: sessionId,
         createdAt: Date.now(),
         startedAt: sessionStartedAt,
         finishedAt: new Date().toISOString(),
-        route,
+        route: 'review',
         captureCount: captures.length,
         captures: metadata,
         fileName: `camera-${sessionId}.pdf`,
         pdfBlob
       });
-      updateProcessingStatus('Uploading…', 'Membuka antarmuka kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis.');
-      window.location.assign(`/${route}?cameraSession=${encodeURIComponent(sessionId)}`);
+      updateProcessingStatus('Uploading…', 'Membuka antarmuka review kamera (Beta R2 + DeepSeek 4.1). Analisis dilanjutkan otomatis.');
+      window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       updateProcessingStatus('Gagal', error?.message || 'Batch tidak dapat disiapkan.');
       setStatus(error?.message || 'Batch tidak dapat disiapkan.', 'error');

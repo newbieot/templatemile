@@ -1,6 +1,13 @@
 (() => {
   'use strict';
 
+  // Universal redirect guard: pastikan sesi kamera selalu menuju /review
+  const earlySessionId = new URLSearchParams(window.location.search).get('cameraSession');
+  if (earlySessionId && !window.location.pathname.startsWith('/review')) {
+    window.location.replace(`/review?cameraSession=${encodeURIComponent(earlySessionId)}`);
+    return;
+  }
+
   function notify(message, type = 'info') {
     if (typeof window.showToast === 'function') {
       window.showToast(message, type);
@@ -47,6 +54,11 @@
     let isCameraStored = false;
     try { isCameraStored = sessionStorage.getItem('mile_camera_active') === '1'; } catch (_) {}
 
+    if (sessionId && !window.location.pathname.startsWith('/review')) {
+      window.location.replace(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
+      return;
+    }
+
     if (sessionId || isCameraStored) {
       activateCameraMode();
     }
@@ -76,17 +88,9 @@
         throw new Error('Batch camera sudah kedaluwarsa. Silakan capture ulang.');
       }
 
-      let currentRoute = 'app';
-      if (window.location.pathname.startsWith('/review')) currentRoute = 'review';
-      else if (window.location.pathname.startsWith('/beta')) currentRoute = 'beta';
-
-      if (session.route && session.route !== currentRoute) {
-        if (currentRoute === 'review' && (session.route === 'beta' || session.route === 'review')) {
-          // Tetap di halaman review khusus kamera
-        } else {
-          window.location.replace(`/${session.route}?cameraSession=${encodeURIComponent(sessionId)}`);
-          return;
-        }
+      if (!window.location.pathname.startsWith('/review')) {
+        window.location.replace(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
+        return;
       }
 
       const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;

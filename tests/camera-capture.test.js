@@ -112,8 +112,8 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /sessionId,/);
   assert.match(cameraRuntime, /timestamp,/);
   assert.match(cameraHtml, /<div class="form-group" hidden>\s*<label for="processingRoute">/);
-  assert.match(cameraHtml, /<option value="review" selected>/);
-  assert.match(cameraRuntime, /selectedRoute === 'beta' \? 'beta' : 'review'/);
+  assert.match(cameraRuntime, /const route = 'review';/);
+  assert.match(cameraRuntime, /window\.location\.assign\(`\/review\?cameraSession=\${encodeURIComponent\(sessionId\)}`\);/);
 
   const reviewHtml = fs.readFileSync(path.join(root, 'review.html'), 'utf8');
   assert.match(reviewHtml, /assets\/css\/review\.css/);
@@ -128,6 +128,7 @@ async function runAsyncAssertions() {
   assert.match(cameraImport, /camera-session-banner/);
   assert.match(cameraImport, /camera-mode/);
   assert.match(cameraImport, /startsWith\('\/review'\)/);
+  assert.match(cameraImport, /window\.location\.replace\(`\/review\?cameraSession=/);
 
   const reviewCss = fs.readFileSync(path.join(root, 'assets/css/review.css'), 'utf8');
   assert.match(reviewCss, /\.camera-session-banner/);

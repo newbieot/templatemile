@@ -17,6 +17,7 @@ const env = {
     async fetch(request) {
       const pathname = new URL(request.url).pathname;
       if (pathname === '/camera') return new Response('<title>Camera Capture Batch</title>', { headers: { 'content-type': 'text/html' } });
+      if (pathname === '/review') return new Response('<title>Review Hasil Kamera</title>', { headers: { 'content-type': 'text/html' } });
       return new Response('asset', { headers: { 'content-type': 'text/javascript' } });
     }
   }
@@ -37,9 +38,19 @@ assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), mi
 assert.equal(authenticated.headers.get('x-mile-app-version'), '20260926-16.42-camera-feedback');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
+const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
+assert.equal(unauthenticatedReview.status, 302);
+assert.equal(unauthenticatedReview.headers.get('location'), '/');
+
+const authenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review', {
+  headers: { cookie: `__Host-mile_session=${token}` }
+}), env);
+assert.equal(authenticatedReview.status, 200);
+assert.match(await authenticatedReview.text(), /Review Hasil Kamera/);
+
 const protectedAsset = await workerModule.default.fetch(new Request('https://mile.posnew.com/assets/js/camera.js', {
   headers: { accept: 'text/javascript' }
 }), env);
 assert.equal(protectedAsset.status, 401);
 
-console.log('PASS worker-camera-route: auth gate, camera-only permission, version header, dan protected assets');
+console.log('PASS worker-camera-route: auth gate, camera-only permission, version header, protected assets, dan review route');
