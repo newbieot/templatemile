@@ -29,7 +29,7 @@
   }
 
   function finishButtons() {
-    return [$('finishCaptureButton'), $('finishCaptureButtonFullscreen')].filter(Boolean);
+    return [$('finishCaptureButton'), $('finishCaptureButtonFullscreen'), $('finishCaptureButtonBatch')].filter(Boolean);
   }
 
   function setFinishDisabled(disabled) {
@@ -121,25 +121,52 @@
   }
 
   function isCameraFullscreen() {
-    return (document.fullscreenElement || document.webkitFullscreenElement) === $('cameraStage');
+    return Boolean(
+      (document.fullscreenElement || document.webkitFullscreenElement) === $('cameraStage')
+      || $('cameraStage')?.classList.contains('is-fullscreen')
+      || document.body.classList.contains('camera-fullscreen-active')
+    );
   }
 
-  function requestCameraFullscreen() {
+  async function requestCameraFullscreen() {
     const stage = $('cameraStage');
-    if (!stage || isCameraFullscreen()) return;
+    if (!stage) return;
     try {
-      const request = stage.requestFullscreen
-        ? stage.requestFullscreen({ navigationUI: 'hide' })
-        : stage.webkitRequestFullscreen?.();
-      request?.catch?.(() => {});
-    } catch (_) {}
+      if (stage.requestFullscreen) {
+        await stage.requestFullscreen({ navigationUI: 'hide' });
+      } else if (stage.webkitRequestFullscreen) {
+        await stage.webkitRequestFullscreen();
+      } else {
+        stage.classList.add('is-fullscreen');
+        document.body.classList.add('camera-fullscreen-active');
+        handleViewportChange();
+      }
+    } catch (_) {
+      stage.classList.add('is-fullscreen');
+      document.body.classList.add('camera-fullscreen-active');
+      handleViewportChange();
+    }
   }
 
   function exitCameraFullscreen() {
+    const stage = $('cameraStage');
     try {
-      const exit = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen?.();
-      exit?.catch?.(() => {});
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen().catch(() => {});
+      }
     } catch (_) {}
+    stage?.classList.remove('is-fullscreen');
+    document.body.classList.remove('camera-fullscreen-active');
+    handleViewportChange();
+  }
+
+  function toggleCameraFullscreen() {
+    if (isCameraFullscreen()) {
+      exitCameraFullscreen();
+    } else {
+      requestCameraFullscreen();
+    }
   }
 
   function randomId(prefix) {
@@ -211,6 +238,10 @@
     stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
     stage.dataset.orientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
     window.requestAnimationFrame(() => updateGuide(liveDetection));
+  }
+
+  function handleViewportChange() {
+    updateStageAspect();
   }
 
   function updateGuide(detection) {
@@ -563,18 +594,16 @@
     $('openCameraButton').addEventListener('click', startCamera);
     $('captureButton').addEventListener('click', captureImage);
     $('captureButtonFullscreen').addEventListener('click', captureImage);
+    $('enterFullscreenButton')?.addEventListener('click', toggleCameraFullscreen);
     $('exitFullscreenButton').addEventListener('click', exitCameraFullscreen);
     $('finishCaptureButton').addEventListener('click', finishCapturing);
     $('finishCaptureButtonFullscreen')?.addEventListener('click', finishCapturing);
+    $('finishCaptureButtonBatch')?.addEventListener('click', finishCapturing);
     $('cameraDevice').addEventListener('change', () => {
       if (stream && !sessionId) startCamera();
     });
     $('fixedGuideMode').addEventListener('change', updateLiveDetection);
     $('cameraPreview').addEventListener('resize', updateStageAspect);
-    const handleViewportChange = () => {
-      updateStageAspect();
-      window.requestAnimationFrame(() => updateGuide(liveDetection));
-    };
     window.addEventListener('resize', handleViewportChange);
     window.addEventListener('orientationchange', handleViewportChange);
     window.screen?.orientation?.addEventListener?.('change', handleViewportChange);

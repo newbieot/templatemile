@@ -111,7 +111,10 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /captureId:/);
   assert.match(cameraRuntime, /sessionId,/);
   assert.match(cameraRuntime, /timestamp,/);
-  assert.match(cameraHtml, /<div class="form-group" hidden>\s*<label for="processingRoute">/);
+  assert.match(cameraHtml, /camera-action-dock/);
+  assert.match(cameraHtml, /id="finishCaptureButton"/);
+  assert.match(cameraHtml, /id="enterFullscreenButton"/);
+  assert.match(cameraCss, /\.camera-action-dock/);
   assert.match(cameraRuntime, /const route = 'review';/);
   assert.match(cameraRuntime, /window\.location\.assign\(`\/review\?cameraSession=\${encodeURIComponent\(sessionId\)}`\);/);
 
