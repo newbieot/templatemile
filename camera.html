@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260909-16.25">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-16.41">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-16.42">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -98,8 +98,11 @@
           </div>
           <div class="crop-guide" id="cropGuide" aria-hidden="true"><span>Posisikan sampul/label di dalam area</span></div>
           <span class="crop-status" id="cropStatus" data-state="warning">Menunggu kamera</span>
+          <div class="camera-flash" id="cameraFlash" aria-hidden="true"></div>
+          <div class="camera-hud-toast" id="cameraHudToast" aria-live="assertive" aria-atomic="true"></div>
           <div class="camera-fullscreen-toolbar" aria-label="Kontrol fullscreen kamera">
             <strong id="fullscreenCapturedCount">0 gambar</strong>
+            <button class="camera-fullscreen-finish" id="finishCaptureButtonFullscreen" type="button" disabled aria-label="Selesai dan proses batch">Finish Capture</button>
             <button id="exitFullscreenButton" type="button" aria-label="Keluar dari tampilan layar penuh">Keluar fullscreen</button>
           </div>
           <button class="camera-capture-button camera-capture-button--fullscreen" id="captureButtonFullscreen" type="button" disabled aria-label="Capture label alamat">
@@ -162,7 +165,7 @@
       PosNew Hub
     </a>
     <p class="footer-desc">Mobile capture station untuk batch label alamat.</p>
-    <span class="footer-creator-badge">MILE Camera · v16.41</span>
+    <span class="footer-creator-badge">MILE Camera · v16.42</span>
   </footer>
 
   <canvas id="cameraAnalysisCanvas" hidden></canvas>
@@ -171,9 +174,9 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260926-16.41" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-16.41" defer></script>
-  <script src="/assets/js/camera.js?v=20260926-16.41" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260926-16.42" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-16.42" defer></script>
+  <script src="/assets/js/camera.js?v=20260926-16.42" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

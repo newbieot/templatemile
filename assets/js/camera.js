@@ -28,6 +28,98 @@
     captureButtons().forEach(button => { button.disabled = disabled; });
   }
 
+  function finishButtons() {
+    return [$('finishCaptureButton'), $('finishCaptureButtonFullscreen')].filter(Boolean);
+  }
+
+  function setFinishDisabled(disabled) {
+    finishButtons().forEach(button => { button.disabled = disabled; });
+  }
+
+  let audioContext = null;
+  let hudToastTimer = 0;
+
+  function getAudioContext() {
+    try {
+      if (!audioContext) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) audioContext = new AudioContextClass();
+      }
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+    } catch (_) {}
+    return audioContext;
+  }
+
+  function playShutterSound() {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(1400, now);
+      osc1.frequency.exponentialRampToValueAtTime(180, now + 0.022);
+      gain1.gain.setValueAtTime(0.35, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.022);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.025);
+
+      const snapTime = now + 0.036;
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(1200, snapTime);
+      osc2.frequency.exponentialRampToValueAtTime(90, snapTime + 0.035);
+      gain2.gain.setValueAtTime(0.5, snapTime);
+      gain2.gain.exponentialRampToValueAtTime(0.001, snapTime + 0.035);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(snapTime);
+      osc2.stop(snapTime + 0.04);
+
+      const thump = ctx.createOscillator();
+      const thumpGain = ctx.createGain();
+      thump.type = 'sine';
+      thump.frequency.setValueAtTime(160, snapTime);
+      thump.frequency.exponentialRampToValueAtTime(45, snapTime + 0.045);
+      thumpGain.gain.setValueAtTime(0.4, snapTime);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, snapTime + 0.045);
+      thump.connect(thumpGain);
+      thumpGain.connect(ctx.destination);
+      thump.start(snapTime);
+      thump.stop(snapTime + 0.05);
+    } catch (_) {}
+  }
+
+  function flashCameraStage() {
+    const flash = $('cameraFlash');
+    if (!flash) return;
+    flash.classList.add('is-flashing');
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        flash.classList.remove('is-flashing');
+      });
+    });
+  }
+
+  function showHudToast(message) {
+    const hud = $('cameraHudToast');
+    if (!hud) return;
+    if (hudToastTimer) window.clearTimeout(hudToastTimer);
+    hud.innerHTML = `<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" style="flex-shrink:0;color:#4ade80"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0z" clip-rule="evenodd"/></svg><span>${message}</span>`;
+    hud.classList.add('is-visible');
+    hudToastTimer = window.setTimeout(() => {
+      hud.classList.remove('is-visible');
+      hudToastTimer = 0;
+    }, 2400);
+  }
+
   function isCameraFullscreen() {
     return (document.fullscreenElement || document.webkitFullscreenElement) === $('cameraStage');
   }
@@ -172,6 +264,7 @@
       setStatus('Camera API tidak tersedia. Buka halaman ini melalui HTTPS di Chrome Android.', 'error');
       return;
     }
+    getAudioContext();
     requestCameraFullscreen();
     button.disabled = true;
     button.textContent = 'Membuka kamera…';
@@ -295,8 +388,10 @@
       setStatus(`Maksimal ${MAX_CAPTURES} gambar per sesi. Selesaikan batch ini lebih dahulu.`, 'error');
       return;
     }
+    getAudioContext();
     captureBusy = true;
     setCaptureDisabled(true);
+    setFinishDisabled(true);
     setStatus('Mengambil foto dan menyiapkan crop…', 'info');
 
     try {
@@ -331,12 +426,13 @@
       }
       const timestamp = new Date().toISOString();
       const sequence = captures.length + 1;
+      const fileName = `${String(sequence).padStart(3, '0')}.jpg`;
       captures.push({
         captureId: randomId('IMG'),
         timestamp,
         sessionId,
         sequence,
-        fileName: `${String(sequence).padStart(3, '0')}.jpg`,
+        fileName,
         blob,
         width: outputCanvas.width,
         height: outputCanvas.height,
@@ -352,15 +448,18 @@
         },
         previewUrl: URL.createObjectURL(blob)
       });
+      playShutterSound();
+      flashCameraStage();
+      showHudToast(`Capture ${sequence} (${fileName}) tersimpan`);
       setStatus(`Capture ${sequence} tersimpan. Ganti sampul berikutnya tanpa mengubah posisi HP.`, 'success');
-      toast(`${String(sequence).padStart(3, '0')}.jpg tersimpan`, 'success');
-      if (navigator.vibrate) navigator.vibrate(45);
-      updateBatchUi();
+      toast(`${fileName} tersimpan`, 'success');
+      if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
     } catch (error) {
       setStatus(`Capture gagal: ${error?.message || 'gambar tidak dapat disimpan.'}`, 'error');
     } finally {
       captureBusy = false;
       setCaptureDisabled(!stream || !sessionId);
+      updateBatchUi();
     }
   }
 
@@ -379,7 +478,7 @@
   function updateBatchUi() {
     $('capturedCount').textContent = `${captures.length} gambar`;
     $('fullscreenCapturedCount').textContent = `${captures.length} gambar`;
-    $('finishCaptureButton').disabled = !captures.length || captureBusy;
+    setFinishDisabled(!captures.length || captureBusy);
     const list = $('captureList');
     list.replaceChildren();
     $('emptyCaptureState').hidden = Boolean(captures.length);
@@ -421,10 +520,11 @@
 
   async function finishCapturing() {
     if (!captures.length || !sessionId || captureBusy) return;
-    const button = $('finishCaptureButton');
-    button.disabled = true;
+    setFinishDisabled(true);
     setCaptureDisabled(true);
+    exitCameraFullscreen();
     updateProcessingStatus('Preparing…', `Mengemas ${captures.length} hasil crop tanpa mengunggah background meja.`);
+    showHudToast('Menyiapkan batch…');
 
     try {
       const pdfBlob = await core.buildJpegPdf(captures);
@@ -452,7 +552,7 @@
     } catch (error) {
       updateProcessingStatus('Gagal', error?.message || 'Batch tidak dapat disiapkan.');
       setStatus(error?.message || 'Batch tidak dapat disiapkan.', 'error');
-      button.disabled = false;
+      setFinishDisabled(false);
       setCaptureDisabled(false);
     }
   }
@@ -467,6 +567,7 @@
     $('captureButtonFullscreen').addEventListener('click', captureImage);
     $('exitFullscreenButton').addEventListener('click', exitCameraFullscreen);
     $('finishCaptureButton').addEventListener('click', finishCapturing);
+    $('finishCaptureButtonFullscreen')?.addEventListener('click', finishCapturing);
     $('cameraDevice').addEventListener('change', () => {
       if (stream && !sessionId) startCamera();
     });

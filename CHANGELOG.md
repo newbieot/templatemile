@@ -1,5 +1,14 @@
 # Changelog
 
+## v16.42 — Feedback capture lengkap dan kontrol fullscreen finish
+
+- Menambahkan suara klik shutter instan menggunakan Web Audio API tanpa download aset tambahan.
+- Menambahkan animasi kilat visual layar (flash overlay) dan notifikasi HUD mengambang langsung di layar bidik kamera (`cameraStage`) agar terlihat jelas di mode fullscreen.
+- Menambahkan getaran ganda haptic feedback saat capture berhasil diambil di HP.
+- Menambahkan tombol **Finish Capture** di toolbar kontrol mode fullscreen agar operator dapat menyelesaikan batch secara langsung tanpa harus keluar fullscreen.
+- Memperbaiki bug status `captureBusy` yang menyebabkan tombol Finish Capturing terkunci disabled setelah foto tersimpan di daftar tangkapan.
+- Memperbarui evaluasi tombol penyelesaian batch di blok pembersihan sehingga tombol selalu aktif saat batch berisi minimal 1 gambar.
+
 ## v16.41 — Fullscreen capture tanpa validasi yang memblokir
 
 - Mengubah **Open Camera** agar langsung membuat sesi, membuka preview fullscreen, dan mengaktifkan tombol Capture tanpa langkah Start Capture Session.

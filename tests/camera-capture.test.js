@@ -98,14 +98,23 @@ async function runAsyncAssertions() {
   assert.doesNotMatch(cameraHtml, /Start Capture Session/);
   assert.doesNotMatch(cameraRuntime, /Foto kurang jelas, silakan ulangi capture\./);
   assert.match(cameraHtml, /captureButtonFullscreen/);
+  assert.match(cameraHtml, /finishCaptureButtonFullscreen/);
+  assert.match(cameraHtml, /id="cameraFlash"/);
+  assert.match(cameraHtml, /id="cameraHudToast"/);
+  assert.match(cameraRuntime, /playShutterSound/);
+  assert.match(cameraRuntime, /showHudToast/);
+  assert.match(cameraRuntime, /setFinishDisabled/);
   assert.match(cameraCss, /\.camera-stage\.is-fullscreen/);
+  assert.match(cameraCss, /\.camera-flash/);
+  assert.match(cameraCss, /\.camera-hud-toast/);
+  assert.match(cameraCss, /\.camera-fullscreen-finish/);
   assert.match(cameraRuntime, /captureId:/);
   assert.match(cameraRuntime, /sessionId,/);
   assert.match(cameraRuntime, /timestamp,/);
   assert.match(worker, /url\.pathname === '\/camera'/);
   assert.match(worker, /camera=\(self\)/);
 
-  console.log('PASS camera-capture: fullscreen, portrait/landscape, non-blocking capture, auto crop, JPEG-to-PDF, dan protected route');
+  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, dan protected route');
 }
 
 runAsyncAssertions().catch(error => {

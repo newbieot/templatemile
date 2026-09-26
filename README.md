@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.41
+# mile.posnew.com Secure Gateway v16.42
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -6,7 +6,7 @@ Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App p
 
 Halaman `/camera` dirancang untuk Chrome Android dan memakai kamera belakang HP secara langsung. Tidak diperlukan DroidCam, webcam PC, atau aplikasi Android tambahan. HP dipasang pada holder tetap; operator hanya mengganti sampul/label dan menekan **Capture** berulang kali.
 
-Menekan **Open Camera** sekaligus membuka preview fullscreen dan membuat sesi capture; tidak ada lagi langkah Start Capture Session. Preview dan area crop menyesuaikan saat HP dipakai portrait maupun landscape. Setiap hasil capture memiliki capture ID, timestamp, session ID, dan nomor urut.
+Menekan **Open Camera** sekaligus membuka preview fullscreen dan membuat sesi capture; tidak ada lagi langkah Start Capture Session. Setiap kali Capture ditekan, browser memutar suara shutter sintetis instan (Web Audio API), animasi kilat putih layar (visual flash), getaran haptic ponsel, dan notifikasi HUD mengambang langsung di layar bidik kamera (`✓ Capture X tersimpan`). Di mode fullscreen, operator dapat langsung menekan tombol **Finish Capture** tanpa harus keluar layar penuh terlebih dahulu. Hasil capture tersimpan dengan nomor urut, timestamp, capture ID, dan sesi yang terjaga.
 
 Browser tetap menjalankan auto crop ringan. Jika confidence deteksi rendah, crop beralih ke area panduan tetap dan foto tetap dimasukkan ke batch. Resolusi, blur, dan brightness hanya disimpan sebagai metadata internal, tidak lagi memblokir capture; operator menentukan kelayakan dari preview dan dapat menghapus foto bila perlu.
 
