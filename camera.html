@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Camera Capture Batch — mile.posnew.com</title>
+  <meta name="description" content="Capture batch label alamat langsung dari kamera belakang HP Android untuk diproses di MILE.">
+  <meta name="author" content="Ikhsan Radiansyah">
+  <meta name="theme-color" content="#172554">
+  <meta name="color-scheme" content="light">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <link rel="canonical" href="https://mile.posnew.com/camera">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260909-16.25">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-16.40">
+</head>
+<body class="camera-page">
+  <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="/app" aria-label="Kembali ke aplikasi MILE">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 7.4 12 3l8 4.4v9.2L12 21l-8-4.4V7.4Z"/><path d="m4.5 7.6 7.5 4.2 7.5-4.2M12 12v8.2"/></svg>
+        </span>
+        <span><strong>mile.posnew.com</strong><small>Mobile Camera Station</small></span>
+      </a>
+      <div class="header-actions">
+        <span class="privacy-pill">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
+          Crop lokal · Upload setelah Finish
+        </span>
+        <a class="all-tools-link" href="/app">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          Kembali
+        </a>
+        <div class="session-user" id="sessionUser" aria-label="Akun aktif">
+          <span class="session-avatar" aria-hidden="true">I</span>
+          <span class="session-copy"><strong id="sessionEmail">Pengguna terverifikasi</strong><small>Firebase Auth</small></span>
+          <button id="sessionLogout" type="button">Keluar</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="cameraWorkspace" class="app-main camera-main">
+    <section class="intro-shell camera-intro" aria-labelledby="pageTitle">
+      <div class="intro-copy">
+        <span class="eyebrow">Mobile capture station</span>
+        <h1 id="pageTitle">Capture label alamat langsung dari HP.</h1>
+        <p>Pasang HP pada posisi tetap. Operator cukup mengganti sampul, menekan Capture, lalu menyelesaikan satu batch sekaligus.</p>
+      </div>
+      <div class="workflow-steps camera-steps" aria-label="Alur camera capture">
+        <div class="workflow-step is-active"><span>1</span><strong>Open</strong><small>Kamera belakang</small></div>
+        <div class="workflow-step"><span>2</span><strong>Capture</strong><small>Ganti label</small></div>
+        <div class="workflow-step"><span>3</span><strong>Finish</strong><small>Kirim batch</small></div>
+        <div class="workflow-step"><span>4</span><strong>Process</strong><small>AI & koreksi</small></div>
+      </div>
+    </section>
+
+    <section class="camera-layout" aria-label="Camera capture batch">
+      <section class="panel-card camera-panel">
+        <div class="panel-heading camera-panel-heading">
+          <div><span class="section-index">01</span><h2>Kamera HP</h2></div>
+          <p id="cameraState">Kamera belum aktif</p>
+        </div>
+
+        <div class="camera-settings">
+          <div class="form-group">
+            <label for="cameraDevice">Kamera</label>
+            <div class="select-shell"><select id="cameraDevice" disabled><option value="">Kamera belakang otomatis</option></select></div>
+          </div>
+          <div class="form-group">
+            <label for="processingRoute">Jalur setelah Finish</label>
+            <div class="select-shell">
+              <select id="processingRoute">
+                <option value="app">A · Pemrosesan standar</option>
+                <option value="beta">B · Beta R2 + DeepSeek 4.1</option>
+              </select>
+            </div>
+          </div>
+          <label class="camera-check">
+            <input id="fixedGuideMode" type="checkbox">
+            <span><strong>Gunakan guide tetap</strong><small>Cadangan jika auto crop sulit mendeteksi warna sampul yang sama dengan meja.</small></span>
+          </label>
+        </div>
+
+        <div class="camera-stage" id="cameraStage">
+          <video id="cameraPreview" autoplay muted playsinline aria-label="Live preview kamera belakang"></video>
+          <div class="camera-placeholder" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
+            <strong>Live camera preview</strong>
+            <small>Chrome akan meminta izin kamera</small>
+          </div>
+          <div class="crop-guide" id="cropGuide" aria-hidden="true"><span>Posisikan sampul/label di dalam area</span></div>
+          <span class="crop-status" id="cropStatus" data-state="warning">Menunggu kamera</span>
+        </div>
+
+        <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera, izinkan akses, lalu pasang HP pada holder tetap.</div>
+
+        <div class="camera-primary-actions">
+          <button class="button button--ghost camera-open-button" id="openCameraButton" type="button">Open Camera</button>
+          <button class="button button--ghost" id="startSessionButton" type="button" disabled>Start Capture Session</button>
+          <button class="camera-capture-button" id="captureButton" type="button" disabled aria-label="Capture label alamat">
+            <span aria-hidden="true"></span>
+            Capture
+          </button>
+        </div>
+
+        <div class="camera-session-details" id="sessionDetails" hidden>
+          <span>Session ID</span><strong id="sessionIdentifier">—</strong>
+          <small>HP tetap diam; hanya sampul atau label yang diganti.</small>
+        </div>
+      </section>
+
+      <section class="panel-card capture-batch-panel">
+        <div class="panel-heading">
+          <div><span class="section-index">02</span><h2>Captured</h2></div>
+          <strong class="captured-count" id="capturedCount">0 gambar</strong>
+        </div>
+
+        <div class="empty-capture-state" id="emptyCaptureState">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m7 15 3-3 2 2 2-2 3 3M8 9h.01"/></svg>
+          <strong>Belum ada capture</strong>
+          <p>Setiap foto akan divalidasi, di-crop, lalu muncul di daftar ini.</p>
+        </div>
+        <div class="capture-list" id="captureList" aria-live="polite"></div>
+
+        <button class="button button--primary camera-finish-button" id="finishCaptureButton" type="button" disabled>
+          Finish Capturing
+        </button>
+        <p class="camera-finish-hint">Batch baru diunggah setelah tombol Finish ditekan. Foto gagal validasi tidak pernah dimasukkan.</p>
+
+        <div class="camera-processing-status" id="processingStatus" hidden aria-live="assertive">
+          <span class="camera-processing-spinner" aria-hidden="true"></span>
+          <div><strong id="processingStatusStep">Preparing…</strong><p id="processingStatusMessage">Menyiapkan batch.</p></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="camera-notes" aria-label="Tips setup">
+      <div><strong>Posisi tetap</strong><span>Gunakan holder overhead; jangan pegang HP saat capture.</span></div>
+      <div><strong>Cahaya merata</strong><span>Hindari bayangan tangan dan pantulan lampu langsung.</span></div>
+      <div><strong>Meja kontras</strong><span>Alas gelap membantu auto crop membaca tepi sampul putih.</span></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="footer-brand" href="https://posnew.com/" aria-label="Open PosNew Hub">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4.5 7.5 7.5 4.2 7.5-4.2M12 12v8.2"/></svg>
+      PosNew Hub
+    </a>
+    <p class="footer-desc">Mobile capture station untuk batch label alamat.</p>
+    <span class="footer-creator-badge">MILE Camera · v16.40</span>
+  </footer>
+
+  <canvas id="cameraAnalysisCanvas" hidden></canvas>
+  <canvas id="cameraCaptureCanvas" hidden></canvas>
+  <canvas id="cameraOutputCanvas" hidden></canvas>
+  <canvas id="cameraValidationCanvas" hidden></canvas>
+  <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
+  <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
+  <script src="/assets/js/camera-core.js?v=20260926-16.40" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-16.40" defer></script>
+  <script src="/assets/js/camera.js?v=20260926-16.40" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
+</body>
+</html>

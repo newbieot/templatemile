@@ -1,4 +1,4 @@
-const APP_VERSION = '20260911-16.39-deepseek-r2-default';
+const APP_VERSION = '20260926-16.40-mobile-camera-batch';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -767,6 +767,9 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
+  if (path === '/camera' || path === '/camera.html') {
+    headers.set('permissions-policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
+  }
   headers.set('cache-control', cacheControl);
   headers.set('x-mile-app-version', APP_VERSION);
   if (/\bno-store\b/i.test(cacheControl)) {
@@ -778,7 +781,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
 }
 
 function isProtectedAsset(pathname) {
-  if (pathname === '/app' || pathname === '/app.html' || pathname === '/beta' || pathname === '/beta.html') return true;
+  if (pathname === '/app' || pathname === '/app.html' || pathname === '/beta' || pathname === '/beta.html' || pathname === '/camera' || pathname === '/camera.html') return true;
   if (!pathname.startsWith('/assets/')) return false;
   return !PUBLIC_ASSETS.has(pathname);
 }
@@ -847,6 +850,10 @@ export default {
     if (url.pathname === '/beta' || url.pathname === '/beta.html') {
       if (!session) return redirect('/');
       return assetResponse(request, env, '/beta');
+    }
+    if (url.pathname === '/camera' || url.pathname === '/camera.html') {
+      if (!session) return redirect('/');
+      return assetResponse(request, env, '/camera');
     }
 
     if (isProtectedAsset(url.pathname)) {

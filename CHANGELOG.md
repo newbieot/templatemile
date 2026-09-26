@@ -1,5 +1,15 @@
 # Changelog
 
+## v16.40 — Mobile camera batch capture
+
+- Menambahkan halaman terlindungi `/camera` yang memakai kamera belakang HP Android langsung melalui `navigator.mediaDevices.getUserMedia()`.
+- Menambahkan sesi capture batch dengan session ID, capture ID, timestamp, nomor urut, preview, hapus hasil, dan tombol Finish Capturing.
+- Menjalankan auto crop ringan di browser untuk membuang background meja serta menolak deteksi ber-confidence rendah.
+- Menolak foto yang buram, terlalu gelap/terang, atau memiliki resolusi crop terlalu kecil sebelum foto masuk batch.
+- Mengemas hasil crop menjadi PDF lokal dan meneruskannya ke pipeline yang sudah ada: `/app` untuk pemrosesan standar atau `/beta` untuk R2 + DeepSeek 4.1.
+- Menyimpan batch sementara di IndexedDB dan menghapusnya setelah pemrosesan selesai; credential dan secret tetap hanya berada di Cloudflare.
+- Mengizinkan permission camera hanya pada route `/camera`, sedangkan route lainnya tetap memakai kebijakan `camera=()`.
+
 ## Hotfix 2026-09-24 — Kode pos Bengkong Sadai
 
 - Mengoreksi kode pos lama `29457` menjadi `29426` ketika alamat menunjukkan Kelurahan Sadai, Kecamatan Bengkong.

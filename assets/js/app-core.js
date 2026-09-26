@@ -238,6 +238,7 @@
             get uploadedFilesManager() { return uploadedFilesManager; },
             get currentFileName() { return currentFileName; },
             set tempExtractedRows(value) { tempExtractedRows = value; },
+            get tempExtractedRows() { return tempExtractedRows; },
             getZipCodeFromAddress,
             resolveZipCode,
             isClearlyBatamAddress,

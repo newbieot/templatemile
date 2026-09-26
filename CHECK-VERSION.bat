@@ -3,18 +3,18 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v16.23...
+echo Memeriksa mile.posnew.com Secure Gateway v16.40...
 echo.
 
-findstr /c:"20260908-16.23" "_worker.js" >nul && echo [OK] Worker v16.23 || (echo [GAGAL] Worker bukan v16.23 & set "FAIL=1")
-findstr /c:"v16.23 Secure Gateway" "index.html" >nul && echo [OK] Login v16.23 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.23" "app.html" >nul && echo [OK] Workspace v16.23 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
-findstr /r /c:"Gemini 3.7 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.7 Flash menjadi default || (echo [GAGAL] Default Gemini 3.7 Flash tidak ditemukan & set "FAIL=1")
+findstr /c:"20260926-16.40-mobile-camera-batch" "_worker.js" >nul && echo [OK] Worker v16.40 || (echo [GAGAL] Worker bukan v16.40 & set "FAIL=1")
+findstr /c:"v16.40 Secure Gateway" "index.html" >nul && echo [OK] Login v16.40 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
+findstr /c:"v16.40" "app.html" >nul && echo [OK] Workspace v16.40 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Gemini 3.8 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.8 browser tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "_worker.js" >nul && echo [OK] Gemini 3.8 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.8 gateway tidak ditemukan & set "FAIL=1")
 findstr /c:"qwen-3.7-plus" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Qwen 3.7 Plus diizinkan browser || (echo [GAGAL] Qwen 3.7 Plus browser tidak ditemukan & set "FAIL=1")
 findstr /c:"qwen-3.7-flash" "_worker.js" >nul && echo [OK] Qwen 3.7 Flash diizinkan gateway || (echo [GAGAL] Qwen 3.7 Flash gateway tidak ditemukan & set "FAIL=1")
-findstr /c:"AUTO_FALLBACK_MODEL = 'qwen-3.7-flash'" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Fallback otomatis Qwen 3.7 Flash aktif || (echo [GAGAL] Fallback otomatis Qwen tidak ditemukan & set "FAIL=1")
+findstr /c:"GEMINI_FALLBACK_CHAIN = Object.freeze([DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL])" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Fallback Gemini 3.8 ke 3.7 ke 3.6 aktif || (echo [GAGAL] Rantai fallback Gemini tidak ditemukan & set "FAIL=1")
 findstr /c:"config.model !== GEMINI_38_MODEL" "assets\js\ai-pdf-v16-19.js" >nul && echo [OK] Payload Gemini 3.8 bebas parameter sampling lama || (echo [GAGAL] Kompatibilitas payload Gemini 3.8 tidak ditemukan & set "FAIL=1")
 findstr /c:"Gemini 3.6 Flash" "app.html" >nul && echo [OK] Gemini 3.6 tetap tersedia sebagai fallback || (echo [GAGAL] Fallback Gemini 3.6 tidak ditemukan & set "FAIL=1")
 
@@ -95,6 +95,16 @@ if not errorlevel 1 (echo [GAGAL] Kontrol pertanyaan Bank Syariah lama masih akt
 findstr /c:"Cloudflare-CDN-Cache-Control: no-store" "_headers" >nul && echo [OK] HTML tidak dicache Cloudflare || (echo [GAGAL] Header no-store Cloudflare tidak ditemukan & set "FAIL=1")
 findstr /c:"VERSIONED_ASSET_CACHE" "_worker.js" >nul && echo [OK] Cache aset berbasis versi aktif || (echo [GAGAL] Cache aset berbasis versi tidak ditemukan & set "FAIL=1")
 findstr /c:"x-mile-app-version" "_worker.js" >nul && echo [OK] Header versi deployment aktif || (echo [GAGAL] Header versi deployment tidak ditemukan & set "FAIL=1")
+
+if exist "camera.html" (echo [OK] Halaman mobile camera tersedia) else (echo [GAGAL] camera.html tidak ditemukan & set "FAIL=1")
+findstr /c:"navigator.mediaDevices.getUserMedia" "assets\js\camera.js" >nul && echo [OK] Native browser camera API aktif || (echo [GAGAL] Browser camera API tidak ditemukan & set "FAIL=1")
+findstr /c:"facingMode: { ideal: 'environment' }" "assets\js\camera.js" >nul && echo [OK] Kamera belakang menjadi default || (echo [GAGAL] Prioritas kamera belakang tidak ditemukan & set "FAIL=1")
+findstr /c:"Foto kurang jelas, silakan ulangi capture." "assets\js\camera.js" >nul && echo [OK] Penolakan kualitas foto aktif || (echo [GAGAL] Validasi kualitas foto tidak ditemukan & set "FAIL=1")
+findstr /c:"camera=(self)" "_worker.js" "_headers" >nul && echo [OK] Permission camera dibatasi ke halaman camera || (echo [GAGAL] Permission camera route tidak ditemukan & set "FAIL=1")
+findstr /c:"url.pathname === '/camera'" "_worker.js" >nul && echo [OK] Route camera terlindungi tersedia || (echo [GAGAL] Route camera terlindungi tidak ditemukan & set "FAIL=1")
+if exist "tests\camera-capture.test.js" (echo [OK] Tes camera capture tersedia) else (echo [GAGAL] Tes camera capture tidak ditemukan & set "FAIL=1")
+if exist "tests\worker-camera-route.test.mjs" (echo [OK] Tes auth route camera tersedia) else (echo [GAGAL] Tes auth route camera tidak ditemukan & set "FAIL=1")
+if exist "TEST-REPORT-v16.40.md" (echo [OK] Laporan uji mobile camera v16.40 tersedia) else (echo [GAGAL] Laporan uji v16.40 tidak ditemukan & set "FAIL=1")
 
 echo.
 if "%FAIL%"=="1" (
