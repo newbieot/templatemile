@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Camera Capture Batch — mile.posnew.com</title>
+  <title>Camera Capture Batch â€” mile.posnew.com</title>
   <meta name="description" content="Capture batch label alamat langsung dari kamera belakang HP Android untuk diproses di MILE.">
   <meta name="author" content="Ikhsan Radiansyah">
   <meta name="theme-color" content="#172554">
@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260909-16.25">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-24.46-batch15">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-24.55-cleanup">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -32,7 +32,7 @@
       <div class="header-actions">
         <span class="privacy-pill">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          Crop lokal · Upload setelah Finish
+          Crop lokal Â· Upload setelah Finish
         </span>
         <a class="all-tools-link" href="/app">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
@@ -78,12 +78,9 @@
             <label for="aiModelSelect">Model AI (Vision)</label>
             <div class="select-shell">
               <select id="aiModelSelect">
-                <option value="deepseek-v4.1-flash" selected>DeepSeek v4.1 Flash (Default)</option>
+                <option value="glm-5.3-flashx" selected>GLM 5.3 FlashX (Default)</option>
+                <option value="deepseek-v4.1-flash">DeepSeek v4.1 Flash</option>
                 <option value="deepseek-v4-pro">DeepSeek v4 Pro (Akurasi Maksimal)</option>
-                <option value="gemini-3.8-flash">Gemini 3.8 Flash (Google)</option>
-                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Google)</option>
-                <option value="qwen-3.8-flash">Qwen 3.8 Flash (Alibaba)</option>
-                <option value="glm-5.3-flashx">GLM 5.3 FlashX (ZhipuAI)</option>
               </select>
             </div>
           </div>
@@ -95,7 +92,7 @@
             <label for="processingRoute">Jalur setelah Finish</label>
             <div class="select-shell">
               <select id="processingRoute">
-                <option value="review" selected>C · Jalur Kamera Mobile (Beta R2 + DeepSeek 4.1)</option>
+                <option value="review" selected>C Â· Jalur Kamera Mobile (Beta R2 + DeepSeek 4.1)</option>
               </select>
             </div>
           </div>
@@ -116,7 +113,7 @@
           <span class="crop-status" id="cropStatus" data-state="warning">Menunggu kamera</span>
           <div class="camera-flash" id="cameraFlash" aria-hidden="true"></div>
           <div class="camera-hud-toast" id="cameraHudToast" aria-live="assertive" aria-atomic="true"></div>
-          <button class="camera-enter-fullscreen" id="enterFullscreenButton" type="button" aria-label="Buka layar penuh">⛶ Fullscreen</button>
+          <button class="camera-enter-fullscreen" id="enterFullscreenButton" type="button" aria-label="Buka layar penuh">â›¶ Fullscreen</button>
           <div class="camera-fullscreen-toolbar" aria-label="Kontrol fullscreen kamera">
             <strong id="fullscreenCapturedCount">0 gambar</strong>
             <button id="exitFullscreenButton" type="button" aria-label="Keluar dari tampilan layar penuh">Keluar fullscreen</button>
@@ -146,7 +143,7 @@
         </div>
 
         <div class="camera-session-details" id="sessionDetails" hidden>
-          <span>Session ID</span><strong id="sessionIdentifier">—</strong>
+          <span>Session ID</span><strong id="sessionIdentifier">â€”</strong>
           <small>HP tetap diam; hanya sampul atau label yang diganti.</small>
         </div>
       </section>
@@ -171,7 +168,7 @@
 
         <div class="camera-processing-status" id="processingStatus" hidden aria-live="assertive">
           <span class="camera-processing-spinner" aria-hidden="true"></span>
-          <div><strong id="processingStatusStep">Preparing…</strong><p id="processingStatusMessage">Menyiapkan batch.</p></div>
+          <div><strong id="processingStatusStep">Preparingâ€¦</strong><p id="processingStatusMessage">Menyiapkan batch.</p></div>
         </div>
       </section>
     </section>
@@ -189,7 +186,7 @@
       PosNew Hub
     </a>
     <p class="footer-desc">Mobile capture station untuk batch label alamat.</p>
-    <span class="footer-creator-badge">MILE Camera · v16.47</span>
+    <span class="footer-creator-badge">MILE Camera Â· v16.47</span>
   </footer>
 
   <canvas id="cameraAnalysisCanvas" hidden></canvas>
@@ -198,10 +195,10 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260926-24.46-batch15" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-24.46-batch15" defer></script>
-  <script src="/assets/js/camera-stream-v2.js?v=20260926-24.46-batch15" defer></script>
-  <script src="/assets/js/camera.js?v=20260926-24.46-batch15" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260926-24.55-cleanup" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-24.55-cleanup" defer></script>
+  <script src="/assets/js/camera-stream-v2.js?v=20260926-24.55-cleanup" defer></script>
+  <script src="/assets/js/camera.js?v=20260926-24.55-cleanup" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>
