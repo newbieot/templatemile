@@ -226,14 +226,18 @@
     const stageHeight = stage.clientHeight;
     const videoRatio = video.videoWidth / video.videoHeight;
     const stageRatio = stageWidth / stageHeight;
+    
+    // For object-fit: cover, the video fills the container completely and bleeds over the edges.
     if (stageRatio > videoRatio) {
-      const height = stageHeight;
-      const width = height * videoRatio;
-      return { x: (stageWidth - width) / 2, y: 0, width, height };
+      // Stage is wider than video. Scale video width to match stage width. Bleed top/bottom.
+      const scale = stageWidth / video.videoWidth;
+      const height = video.videoHeight * scale;
+      return { x: 0, y: (stageHeight - height) / 2, width: stageWidth, height };
     }
-    const width = stageWidth;
-    const height = width / videoRatio;
-    return { x: 0, y: (stageHeight - height) / 2, width, height };
+    // Stage is taller than video. Scale video height to match stage height. Bleed left/right.
+    const scale = stageHeight / video.videoHeight;
+    const width = video.videoWidth * scale;
+    return { x: (stageWidth - width) / 2, y: 0, width, height: stageHeight };
   }
 
   function updateStageAspect() {
@@ -310,8 +314,8 @@
     try {
       const deviceId = $('cameraDevice')?.value;
       const videoConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } };
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } };
       stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
       const video = $('cameraPreview');
       video.srcObject = stream;
