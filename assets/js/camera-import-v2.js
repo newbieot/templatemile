@@ -132,7 +132,7 @@
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
                 model: session.aiModel || 'glm-5.3-flashx',
-                chunkSize: 10,
+                chunkSize: (session.aiModel || '').startsWith('glm') ? 7 : 10,
                 concurrency: 1,
                 durationSeconds: session.durationSeconds || 0,
                 totalRows: mRows.length,
