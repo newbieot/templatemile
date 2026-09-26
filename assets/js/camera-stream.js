@@ -82,13 +82,12 @@
   }
 
   async function uploadToR2(blob, index) {
-    try {
-      const response = await fetch(`/api/beta/images/${encodeURIComponent(sessionId)}/${index}/first`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'image/jpeg' },
-        body: blob
-      });
+    const response = await fetch(`/api/beta/images/${encodeURIComponent(sessionId)}/${index}/first`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'image/jpeg' },
+      body: blob
+    });
       const payload = await response.json();
       if (!response.ok) {
         throw new Error(payload?.error?.message || `Gagal menyimpan gambar ke R2 (Status: ${response.status})`);
@@ -119,7 +118,7 @@ Format Wajib:
 
     const content = [{ type: 'text', text: prompt }];
     urls.forEach((item) => {
-      content.push({ type: 'text', text: \`GAMBAR \${item.index}\` });
+      content.push({ type: 'text', text: `GAMBAR ${item.index}` });
       content.push({ type: 'image_url', image_url: { url: item.url } });
     });
 
@@ -168,7 +167,7 @@ Format Wajib:
       return [];
     } catch (err) {
       console.error('AI Proxy failed:', err);
-      return [];
+      throw err;
     }
   }
 
