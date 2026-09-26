@@ -9,7 +9,7 @@
 .camera-panel,.capture-batch-panel{min-width:0}
 .camera-panel-heading{align-items:center}
 .camera-panel-heading>p{margin:0;padding:.35rem .55rem;border-radius:999px;color:#344054;background:#eef2f7;font-size:.64rem;font-weight:800}
-.camera-settings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.camera-settings{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px}
 .camera-check{grid-column:1/-1;display:flex;align-items:flex-start;gap:.7rem;padding:.72rem;border:1px solid #d8dfeb;border-radius:12px;color:#24324a;background:#f8fafc;cursor:pointer}
 .camera-check input{width:18px;height:18px;margin-top:2px;accent-color:#172554}
 .camera-check span{display:flex;flex-direction:column;gap:.12rem}

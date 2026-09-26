@@ -137,6 +137,7 @@
   }
 
   function expandTableEditor(input) {
+    if (window.innerWidth <= 768) return;
     if (!(input instanceof HTMLInputElement) || !input.matches('#resultTable .table-input')) return;
 
     if (activeExpandedEditor && activeExpandedEditor !== input) {
@@ -685,6 +686,9 @@
     if (typeof currentFileName !== 'undefined') currentFileName = '';
     if (typeof currentHeaders !== 'undefined') currentHeaders = [];
     if (typeof tempExtractedRows !== 'undefined') tempExtractedRows = [];
+    try { sessionStorage.removeItem('mile_camera_active'); } catch (_) {}
+    document.body.classList.remove('camera-mode');
+    document.getElementById('cameraSessionBanner')?.remove();
     if (typeof window.updateInterface === 'function') window.updateInterface();
     showToast('Workspace telah dibersihkan.', 'success');
   };

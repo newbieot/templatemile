@@ -111,10 +111,23 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /captureId:/);
   assert.match(cameraRuntime, /sessionId,/);
   assert.match(cameraRuntime, /timestamp,/);
-  assert.match(worker, /url\.pathname === '\/camera'/);
-  assert.match(worker, /camera=\(self\)/);
+  assert.match(cameraHtml, /<div class="form-group" hidden>\s*<label for="processingRoute">/);
+  assert.match(cameraHtml, /<option value="beta" selected>/);
+  assert.match(cameraRuntime, /const route = \$\('processingRoute'\)\?\.value === 'app' \? 'app' : 'beta';/);
 
-  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, dan protected route');
+  const cameraImport = fs.readFileSync(path.join(root, 'assets/js/camera-import.js'), 'utf8');
+  assert.match(cameraImport, /activateCameraMode/);
+  assert.match(cameraImport, /camera-session-banner/);
+  assert.match(cameraImport, /camera-mode/);
+
+  const appCss = fs.readFileSync(path.join(root, 'assets/css/app.css'), 'utf8');
+  assert.match(appCss, /\.camera-session-banner/);
+  assert.match(appCss, /body\.camera-mode \.upload-card/);
+  assert.match(appCss, /body\.camera-mode \.intro-shell/);
+  assert.match(appCss, /#resultTable tbody tr\.outside-batam/);
+  assert.match(appCss, /#resultTable tbody tr\.needs-review/);
+
+  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, protected route, beta default & mobile friendly cards');
 }
 
 runAsyncAssertions().catch(error => {

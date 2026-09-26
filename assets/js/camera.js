@@ -532,7 +532,7 @@
         throw new Error(`Ukuran batch ${formatBytes(pdfBlob.size)} melewati batas 115 MB. Kurangi jumlah capture.`);
       }
       updateProcessingStatus('Saving…', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI.');
-      const route = $('processingRoute').value === 'beta' ? 'beta' : 'app';
+      const route = $('processingRoute')?.value === 'app' ? 'app' : 'beta';
       const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
       await store.save({
         id: sessionId,
