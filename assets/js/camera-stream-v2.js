@@ -125,7 +125,7 @@ Format Wajib:
 {"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
 `;
 
-    async function executePrompt(promptText, customSystemRole = null) {
+    async function executePrompt(promptText, customSystemRole = null, modelOverride = null) {
       const content = [{ type: 'text', text: promptText }];
       urls.forEach((item) => {
         content.push({ type: 'text', text: `GAMBAR ${item.index}` });
@@ -133,7 +133,7 @@ Format Wajib:
       });
 
       const body = {
-        model: getSelectedModel(),
+        model: modelOverride || getSelectedModel(),
         stream: false,
         max_tokens: 4000,
         response_format: { type: "json_object" },
@@ -165,11 +165,10 @@ Format Wajib:
       return JSON.parse(contentStr.replace(/```json/g, '').replace(/```/g, '').trim());
     }
 
-    try {
-      const parsed = await executePrompt(prompt);
-      
+    async function attemptExtraction(modelToUse = null) {
+      const parsed = await executePrompt(prompt, null, modelToUse);
       if (Array.isArray(parsed.rows)) {
-        let mappedRows = parsed.rows.map((row, idx) => {
+        return parsed.rows.map((row, idx) => {
            const aiPage = parseInt(row.page || row.halaman || row.page_number, 10);
            let actualIndex = urls[idx]?.index || (startIdx + idx);
            if (!isNaN(aiPage) && urls.some(u => u.index === aiPage)) {
@@ -187,10 +186,29 @@ Format Wajib:
              raw_lines: []
            };
         });
-
-        return mappedRows;
       }
       throw new Error('Format AI salah. Respons AI: ' + JSON.stringify(parsed));
+    }
+
+    try {
+      let mappedRows;
+      try {
+        mappedRows = await attemptExtraction();
+      } catch (err) {
+        const currentModel = getSelectedModel();
+        const fallbackModel = 'deepseek-v4.1-flash';
+        
+        if (currentModel !== fallbackModel) {
+          console.warn(`Model ${currentModel} gagal, mencoba fallback ke ${fallbackModel}...`, err);
+          if (typeof window.updateProcessingStatus === 'function') {
+             window.updateProcessingStatus('Mengekstrak AI...', `Model utama gagal. Mengulang dengan ${fallbackModel.split('-')[0].toUpperCase()}...`);
+          }
+          mappedRows = await attemptExtraction(fallbackModel);
+        } else {
+          throw err;
+        }
+      }
+      return mappedRows;
     } catch (err) {
       console.error('AI Proxy failed:', err);
       throw err;
