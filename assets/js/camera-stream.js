@@ -70,7 +70,9 @@
       if (url) urls.push({ url, index: item.index });
     }
 
-    if (!urls.length) return;
+    if (!urls.length) {
+      throw new Error('Seluruh gambar dalam antrean gagal diunggah ke penyimpanan sementara.');
+    }
 
     // 2. Call Cosmos AI
     const rows = await callAI(urls);
@@ -88,11 +90,10 @@
         body: blob
       });
       const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || `Gagal menyimpan gambar ke R2 (Status: ${response.status})`);
+      }
       return payload?.url || payload?.ref;
-    } catch (err) {
-      console.error('R2 upload failed:', err);
-      return null;
-    }
   }
 
   async function callAI(urls) {
