@@ -569,6 +569,40 @@
     $('processingStatus').hidden = false;
     $('processingStatusStep').textContent = step;
     $('processingStatusMessage').textContent = message;
+    
+    let overlay = $('fullscreenLoader');
+    if (!overlay) {
+       overlay = document.createElement('div');
+       overlay.id = 'fullscreenLoader';
+       overlay.innerHTML = `
+         <div style="background: white; padding: 25px 30px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 85vw; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+           <span class="camera-processing-spinner" style="margin-bottom: 5px; width: 45px; height: 45px; border-width: 4px;"></span>
+           <strong id="fsLoaderStep" style="font-size: 1.25rem; color: #1e3a8a;">${step}</strong>
+           <p id="fsLoaderMessage" style="font-size: 0.9rem; color: #475569; margin: 0;">${message}</p>
+           <div id="fsLoaderTimer" style="margin-top: 10px; font-family: monospace; font-size: 1.4rem; font-weight: 800; color: #2563eb; background: #eff6ff; padding: 4px 12px; border-radius: 8px;">00:00</div>
+         </div>
+       `;
+       Object.assign(overlay.style, {
+         position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+         background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)',
+         zIndex: '999999', display: 'flex', alignItems: 'center', justifyContent: 'center'
+       });
+       document.body.appendChild(overlay);
+
+       window.fsLoaderStartTime = Date.now();
+       window.fsLoaderInterval = setInterval(() => {
+         const seconds = Math.floor((Date.now() - window.fsLoaderStartTime) / 1000);
+         const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+         const s = String(seconds % 60).padStart(2, '0');
+         const timerEl = document.getElementById('fsLoaderTimer');
+         if (timerEl) timerEl.textContent = `${m}:${s}`;
+       }, 1000);
+    } else {
+       const stepEl = document.getElementById('fsLoaderStep');
+       const msgEl = document.getElementById('fsLoaderMessage');
+       if (stepEl) stepEl.textContent = step;
+       if (msgEl) msgEl.textContent = message;
+    }
   }
   window.updateProcessingStatus = updateProcessingStatus;
 
@@ -590,7 +624,7 @@
       let streamedRows = []; if (window.MileCameraStream) streamedRows = await window.MileCameraStream.finishStream(); const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
       const aiModel = $('aiModelSelect')?.value || 'glm-5.3-flashx';
-      const durationSeconds = (Date.now() - sessionStartedAt) / 1000;
+      const durationSeconds = window.fsLoaderStartTime ? (Date.now() - window.fsLoaderStartTime) / 1000 : 0;
       await store.save({
         id: sessionId,
         createdAt: Date.now(),

@@ -1,7 +1,9 @@
 (() => {
   'use strict';
 
-  const BATCH_SIZE = 10;
+  function getBatchSize() {
+    return getSelectedModel().startsWith('glm') ? 7 : 10;
+  }
 
   function getSelectedModel() {
     const selector = document.getElementById('aiModelSelect');
@@ -29,8 +31,9 @@
     globalCaptureIndex++;
     queue.push({ index: globalCaptureIndex, blob });
 
-    if (queue.length >= BATCH_SIZE) {
-      const batch = queue.splice(0, BATCH_SIZE);
+    const currentBatchSize = getBatchSize();
+    if (queue.length >= currentBatchSize) {
+      const batch = queue.splice(0, currentBatchSize);
       triggerBackgroundProcess(batch);
     }
   }
