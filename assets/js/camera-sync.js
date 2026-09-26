@@ -229,8 +229,30 @@
       core.uploadedFilesManager.push(fileEntry);
       core.updateInterface();
 
+      let outsideCount = 0;
+      let reviewCount = 0;
+      
+      if (typeof window.getPendingOutsideBatamCount === 'function') {
+        outsideCount = window.getPendingOutsideBatamCount();
+      }
+      if (typeof window.getPendingReviewCount === 'function') {
+        reviewCount = window.getPendingReviewCount();
+      }
+
       if (typeof window.showToast === 'function') {
-        window.showToast(`${batch.rows.length} baris dari kamera HP dimuat. Periksa hasil di bawah.`, 'success');
+        if (outsideCount > 0 || reviewCount > 0) {
+          window.showToast(`${batch.rows.length} baris dimuat. Terdapat ${outsideCount} luar kota & ${reviewCount} perlu dicek!`, 'warning');
+          // Tampilkan alert tegas sesuai kebiasaan desktop di file upload manual
+          setTimeout(() => {
+            let msg = `Perhatian:\nData dari kamera berhasil dimuat, namun masih ada data yang perlu dikoreksi:\n`;
+            if (outsideCount > 0) msg += `- ${outsideCount} alamat terdeteksi di luar Kota Batam\n`;
+            if (reviewCount > 0) msg += `- ${reviewCount} bagian teks bertuliskan "perlu dicek"\n`;
+            msg += `\nMohon perbaiki baris yang berwarna merah sebelum melakukan ekspor.`;
+            alert(msg);
+          }, 100);
+        } else {
+          window.showToast(`${batch.rows.length} baris dari kamera HP dimuat. Semua data aman.`, 'success');
+        }
       }
 
       // Scroll to results section
