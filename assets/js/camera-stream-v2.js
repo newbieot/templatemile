@@ -162,7 +162,17 @@ Format Wajib:
         // Deepseek might just number them 1..5. We need to map them back.
         return parsed.rows.map((row, idx) => {
            const actualIndex = urls[idx]?.index || (startIdx + idx);
-           return { ...row, page: actualIndex };
+           return {
+             id: Date.now() + idx,
+             sourcePage: actualIndex,
+             name: row.nama_penerima || row.name || '',
+             address: row.alamat_penerima || row.address || '',
+             phone: row.nomor_hp || row.phone || '',
+             noSurat: row.nomor_surat || row.noSurat || '',
+             outOfTown: row.di_luar_batam || row.outOfTown || false,
+             reviewFields: row.perlu_dicek_fields || row.reviewFields || [],
+             raw_lines: []
+           };
         });
       }
       throw new Error('Format AI salah. Respons AI: ' + contentStr);
