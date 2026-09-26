@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Review Hasil Kamera · Mile App (Beta R2 + DeepSeek 4.1)</title>
+  <meta name="description" content="Antarmuka khusus kamera untuk meninjau data kiriman, memilih template pelanggan, dan mengekspor Excel Mile App.">
+  <link rel="stylesheet" href="/assets/css/review.css?v=20260926-16.43">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ef4123'><path d='M4 7h3l1.5-2h7L17 7h3v12H4V7Z'/><circle cx='12' cy='13' r='4'/></svg>">
+  <meta name="theme-color" content="#f1f5f9">
+</head>
+<body class="camera-mode">
+  <header class="review-header">
+    <div class="review-header__inner">
+      <a class="brand" href="/" aria-label="Beranda Mile App">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <strong>Mile App</strong>
+        <span>Mode Kamera</span>
+      </a>
+      <div class="review-header__actions">
+        <a class="camera-back-link" href="/camera" aria-label="Buka kamera untuk mengambil foto lagi">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span>Foto Lagi</span>
+        </a>
+        <div class="session-user" id="sessionUser" aria-label="Akun aktif">
+          <button id="sessionLogout" type="button">Keluar</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="review-main">
+    <!-- Camera Session Banner -->
+    <div class="camera-session-banner" id="cameraSessionBanner">
+      <div class="camera-session-banner__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <div class="camera-session-banner__copy">
+        <span class="camera-session-banner__badge">Jalur Kamera · DeepSeek 4.1</span>
+        <strong>Hasil Kamera Sedang / Siap Diproses</strong>
+        <p>Silakan tentukan <strong>Template Pelanggan</strong> atau ubah detail transaksi sebelum mengekspor Excel.</p>
+      </div>
+    </div>
+
+    <!-- Section 01: Pengaturan Transaksi -->
+    <section class="panel-card" id="cardSetup">
+      <div class="panel-heading">
+        <div>
+          <h2><span class="section-index">01</span>Pengaturan Transaksi</h2>
+          <p>Pilih template agar field dan data pengirim terisi otomatis.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="clientMode">Jenis transaksi</label>
+          <div class="select-shell select-shell--strong">
+            <select id="clientMode">
+              <option value="KORPORAT">Kiriman korporat · Invoice</option>
+              <option value="RITEL">Kiriman ritel · Cash</option>
+              <option value="PINDAH">Barang pindah · Invoice</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" id="wrapTemplate">
+          <label for="corporateTemplate">Template pelanggan</label>
+          <div class="select-shell select-shell--strong">
+            <select id="corporateTemplate">
+              <option value="MANUAL">Input manual / pelanggan baru</option>
+              <option value="PN_BATAM">Pengadilan Negeri Batam · LNMAPN01294A</option>
+              <option value="MENSA">Mensa Bina Sukses Batam · DAGMBS01294A</option>
+              <option value="TOYOTA">PT Toyota Astra Finance · FINTOYOTA02294A</option>
+              <option value="JACCS_MPM">PT JACCS MPM Finance Indonesia · FINMPMJKT04120A</option>
+              <option value="POLRES">Satlantas Polresta Barelang · LNPOLRES01294A</option>
+              <option value="BNI">Bank BNI Batam · BANKBNIBTAM02294A</option>
+              <option value="BTN">Bank Tabungan Negara Batam · BANKBTNBTAM02294A</option>
+              <option value="ASTRA">Astra Daihatsu Motor Batam · INDASTRADAI01294A</option>
+              <option value="BSN_BATAM">Bank Syariah Nasional KC Batam · FINBSN01294A</option>
+              <option value="OJK">Kantor Pusat Otoritas Jasa Keuangan · LNOJK02294A</option>
+              <option value="BP_BATAM">BP Batam · LNBPBATAM02294A</option>
+            </select>
+          </div>
+          <span class="field-hint">Memilih template akan otomatis mengisi ID pelanggan, pengirim, dan aturan tujuan.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 02: Data Pengirim -->
+    <section class="panel-card" id="cardDataPengirim">
+      <div class="panel-heading">
+        <div>
+          <h2><span class="section-index">02</span>Data Pengirim</h2>
+          <p>Disesuaikan otomatis oleh template yang dipilih.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group" id="wrapCustomerId">
+          <label for="customerId">ID pelanggan <span>Nomor Akun</span></label>
+          <input id="customerId" type="text" autocomplete="off" placeholder="Contoh: LNMAPN01294A">
+        </div>
+        <div class="form-group" id="wrapSenderName">
+          <label for="senderName">Nama pengirim</label>
+          <input id="senderName" type="text" autocomplete="name" placeholder="Nama perusahaan atau pengirim">
+        </div>
+        <div class="form-group" id="wrapSenderPhone" style="display:none">
+          <label for="senderPhone">Nomor HP pengirim</label>
+          <input id="senderPhone" type="text" inputmode="tel" autocomplete="tel" placeholder="Contoh: 08123456789">
+        </div>
+        <div class="form-group" id="wrapSenderAddress" style="display:none">
+          <label for="senderAddress">Alamat pengirim</label>
+          <input id="senderAddress" type="text" autocomplete="street-address" placeholder="Contoh: JL. SUDIRMAN NO. 1, BATAM">
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 03: Layanan & Kiriman -->
+    <section class="panel-card">
+      <div class="panel-heading">
+        <div>
+          <h2><span class="section-index">03</span>Layanan & Kiriman</h2>
+        </div>
+      </div>
+
+      <div class="form-grid form-grid--two">
+        <div class="form-group">
+          <label for="serviceCode">Kode layanan</label>
+          <div class="select-shell">
+            <select id="serviceCode">
+              <option value="PKH">PKH · Pos Kilat Khusus</option>
+              <option value="PE">PE · Pos Express</option>
+            </select>
+          </div>
+          <span class="field-hint service-code-hint" id="serviceCodeHint" hidden></span>
+        </div>
+        <div class="form-group" id="wrapTariffCode">
+          <label for="tariffCode">Kode tarif <span>Opsional</span></label>
+          <input id="tariffCode" type="text" autocomplete="off" placeholder="Kosongkan jika publish">
+        </div>
+        <div class="form-group" id="wrapItemType">
+          <label for="itemType">Jenis kiriman</label>
+          <div class="select-shell">
+            <select id="itemType">
+              <option value="DOKUMEN" selected>Dokumen · Default 0,2 kg</option>
+              <option value="PAKET">Paket · Input dimensi & berat</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group insurance-row">
+          <label class="checkbox-wrap" for="useInsurance">
+            <input id="useInsurance" type="checkbox">
+            <span><strong>Gunakan asuransi</strong><small>Tambahkan kolom nilai barang.</small></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="moving-destination" id="wrapPindahDest" style="display:none; margin-top:10px;">
+        <div class="form-grid form-grid--two">
+          <div class="form-group"><label for="destZipPindah">Kode pos tujuan pindah</label><input id="destZipPindah" type="text" inputmode="numeric" placeholder="29411"></div>
+          <div class="form-group"><label for="destZonePindah">Kode zona tujuan pindah</label><input id="destZonePindah" type="text" inputmode="numeric" placeholder="29400"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hidden compatibility elements required by app-core.js and ai-pdf-beta-r2.js -->
+    <div hidden style="display:none!important;" aria-hidden="true">
+      <button class="dropzone-area" id="dropzone" type="button"></button>
+      <input id="excelInput" type="file" accept=".pdf,.xlsx,.xls,.csv" multiple>
+      <span id="fileCountInline">0 berkas</span>
+      <div id="fileQueue"></div>
+      <details class="ai-config" id="aiConfigPanel">
+        <summary><span id="aiConfigStatus"></span></summary>
+        <div class="ai-config-body">
+          <select id="aiModel"><option value="deepseek-v4.1-flash" selected></option></select>
+          <select id="aiAccuracyMode"><option value="auto" selected></option></select>
+          <select id="aiNetworkMode"><option value="normal" selected></option></select>
+          <select id="aiSpeedPreset"><option value="fast" selected></option></select>
+          <select id="aiPagesPerRequest"><option value="15" selected></option></select>
+          <select id="aiConcurrency"><option value="5" selected></option></select>
+          <button id="testAiConnection" type="button"></button>
+          <div id="aiConfigFeedback"></div>
+        </div>
+      </details>
+      <section class="ai-run-summary" id="aiRunSummary">
+        <span id="aiRunSummaryTitle"></span>
+        <span id="aiMetricsSyncStatus"></span>
+        <strong id="aiRunDuration"></strong>
+        <strong id="aiRunRows"></strong>
+        <strong id="aiRunPerRow"></strong>
+        <strong id="aiRunPages"></strong>
+        <p id="aiRunSummaryNote"></p>
+      </section>
+      <span id="sessionEmail"></span>
+    </div>
+
+    <!-- Section 04: Periksa Hasil (Mobile Cards) -->
+    <section class="preview-card has-data" id="cardReview">
+      <div class="preview-toolbar">
+        <div class="preview-title">
+          <h2><span class="section-index">04</span>Periksa Hasil</h2>
+          <p>Tinjau dan perbaiki data langsung pada kartu.</p>
+        </div>
+        <div class="preview-actions">
+          <button id="clearDataButton" class="btn-clear-ghost" type="button" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>
+            <span>Hapus</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Summary Strip -->
+      <div class="summary-strip" aria-label="Ringkasan data">
+        <div class="summary-item"><span>Baris</span><strong id="recordCount">0</strong></div>
+        <div class="summary-item summary-item--outside" id="outsideBatamSummary"><span>Luar Batam</span><strong id="outsideBatamCount">0</strong></div>
+        <div class="summary-item summary-item--review" id="reviewSummary"><span>Perlu Dicek</span><strong id="reviewCount">0</strong></div>
+        <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Memeriksa hasil capture…</div>
+        <!-- Hidden summary items required by JS -->
+        <span id="fileCount" hidden>0</span>
+        <span id="modeSummary" hidden>Corporate</span>
+        <span id="insuranceSummary" hidden>Off</span>
+      </div>
+
+      <!-- Bulk PDF Ref Editor -->
+      <div class="bulk-reference-editor" id="bulkPdfReferenceEditor" hidden>
+        <div class="bulk-reference-copy">
+          <span class="bulk-reference-label">Hasil PDF AI</span>
+          <strong>Atur No Ref untuk semua baris</strong>
+          <small id="bulkPdfReferenceHint">Terapkan ke seluruh baris hasil kamera.</small>
+        </div>
+        <div class="bulk-reference-controls">
+          <input id="bulkPdfReferenceValue" type="text" autocomplete="off" placeholder="Contoh: NOMOR SURAT">
+          <button class="button button--primary" id="applyBulkPdfReference" type="button">Terapkan</button>
+          <button class="button button--ghost" id="clearBulkPdfReference" type="button">Kosongkan</button>
+        </div>
+      </div>
+
+      <!-- Sticky Alert: Outside Batam -->
+      <div class="outside-batam-alert" id="outsideBatamAlert" hidden>
+        <span class="outside-batam-required-label">Keputusan Alamat Wajib</span>
+        <span class="outside-batam-location-badge" id="outsideBatamLocationBadge" hidden></span>
+        <strong id="outsideBatamAlertTitle">Alamat penerima di luar Kota Batam terdeteksi</strong>
+        <p id="outsideBatamActionHint">Perbaiki alamat agar jelas menunjukkan Kota Batam, lalu klik simpan koreksi. Hapus baris jika tujuan di luar Kota Batam.</p>
+        <div class="outside-batam-alert-actions">
+          <button class="button button--outside-keep" id="keepOutsideBatamButton" type="button">Simpan alamat yang sudah diperbaiki</button>
+          <button class="button button--outside-delete" id="deleteOutsideBatamButton" type="button">Hapus baris</button>
+          <button class="button button--outside-open" id="openOutsideBatamButton" type="button" style="display:none">Buka alamat</button>
+        </div>
+      </div>
+
+      <!-- Sticky Alert: Needs Review -->
+      <div class="review-alert" id="reviewAlert" hidden>
+        <span class="review-required-label">Koreksi Teks Wajib</span>
+        <span class="review-location-badge" id="reviewLocationBadge" hidden></span>
+        <strong id="reviewAlertTitle">Ada teks yang wajib dikoreksi</strong>
+        <p id="reviewActionHint">Ganti atau hapus seluruh kata “perlu dicek”, lalu klik tombol centang.</p>
+        <div class="review-alert-actions">
+          <button class="button button--review-confirm" id="completeReviewButton" type="button" disabled>✓ Tandai selesai & lanjut</button>
+          <button class="button button--review" id="openReviewButton" type="button" style="display:none">Buka koreksi</button>
+        </div>
+      </div>
+
+      <!-- Table Container (Cards on Mobile) -->
+      <div class="table-container" role="region" aria-label="Data penerima" tabindex="0">
+        <table id="resultTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Sticky Bottom Export Dock -->
+  <aside class="review-bottom-dock">
+    <div class="review-bottom-dock__inner">
+      <div class="dock-summary">
+        <strong>Siap Diekspor</strong>
+        <small>Format Workbook Mile App</small>
+      </div>
+      <button id="exportButton" class="button button--export" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Unduh Excel Mile</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Modals -->
+  <div class="modal-overlay" id="aiModal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
+    <div class="modal-box">
+      <div class="modal-heading">
+        <span class="modal-step" id="aiModalStep">Memproses AI</span>
+        <h3 id="aiModalTitle">Menganalisis hasil capture</h3>
+        <p id="aiModalSubtitle">DeepSeek 4.1 membaca dokumen via Cloudflare R2…</p>
+      </div>
+      <div class="ai-progress-status-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <div style="background:#f8fafc; padding:8px; border-radius:8px;"><span>Halaman:</span> <strong id="aiProgressPages">0/0</strong></div>
+        <div style="background:#f8fafc; padding:8px; border-radius:8px;"><span>Kelompok:</span> <strong id="aiProgressChunks">0/0</strong></div>
+      </div>
+      <div class="modal-actions">
+        <button id="cancelAiProcess" class="button button--ghost" type="button">Batalkan</button>
+      </div>
+      <!-- Hidden technical progress elements -->
+      <span id="aiModalCounter" hidden></span>
+      <span id="aiModalProgress" hidden></span>
+      <span id="aiTransferHead" hidden></span>
+      <span id="aiTransferDetail" hidden></span>
+      <span id="aiTransferPercent" hidden></span>
+      <span id="aiTransferBar" hidden></span>
+      <span id="aiProgressNetwork" hidden></span>
+      <span id="aiProgressActivity" hidden></span>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="mappingModal" role="dialog" aria-modal="true" aria-labelledby="mappingTitle">
+    <div class="modal-box">
+      <div class="modal-heading">
+        <span class="modal-step">Pemetaan Kolom</span>
+        <h3 id="mappingTitle">Cocokkan kolom spreadsheet</h3>
+        <p id="mappingFileName">Memproses…</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label for="mapName">Nama penerima</label><div class="select-shell"><select id="mapName"></select></div></div>
+        <div class="form-group"><label for="mapAddress">Alamat penerima</label><div class="select-shell"><select id="mapAddress"></select></div></div>
+        <div class="form-group"><label for="mapPhone">Nomor HP</label><div class="select-shell"><select id="mapPhone"></select></div></div>
+        <div class="form-group"><label for="mapRef">Referensi / surat</label><div class="select-shell"><select id="mapRef"></select></div></div>
+        <input id="customRef" type="hidden">
+        <select id="mapWeight" hidden></select>
+        <select id="mapP" hidden></select>
+        <select id="mapL" hidden></select>
+        <select id="mapT" hidden></select>
+      </div>
+      <div class="modal-actions">
+        <button class="button button--ghost" type="button" data-action="skip-mapping">Lewati</button>
+        <button class="button button--primary" type="button" data-action="apply-mapping">Lanjutkan</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="weightModal" role="dialog" aria-modal="true" aria-labelledby="weightTitle">
+    <div class="modal-box">
+      <div class="modal-heading">
+        <span class="modal-step">Konfirmasi Paket</span>
+        <h3 id="weightTitle">Berat dan dimensi paket</h3>
+      </div>
+      <div id="weightListContainer"></div>
+      <div class="modal-actions">
+        <button class="button button--ghost" type="button" data-action="cancel-weight">Lewati</button>
+        <button class="button button--primary" type="button" data-action="save-weight">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  <!-- Runtime Scripts -->
+  <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
+  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
+  <script src="/assets/js/app-core.js?v=20260926-16.43" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260926-16.43" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-16.43" defer></script>
+  <script src="/assets/js/camera-import.js?v=20260926-16.43" defer></script>
+  <script src="/assets/js/ui.js?v=20260926-16.43" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260926-16.43" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260926-16.43" defer></script>
+</body>
+</html>

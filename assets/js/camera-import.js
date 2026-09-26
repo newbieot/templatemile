@@ -76,10 +76,17 @@
         throw new Error('Batch camera sudah kedaluwarsa. Silakan capture ulang.');
       }
 
-      const currentRoute = window.location.pathname.startsWith('/beta') ? 'beta' : 'app';
+      let currentRoute = 'app';
+      if (window.location.pathname.startsWith('/review')) currentRoute = 'review';
+      else if (window.location.pathname.startsWith('/beta')) currentRoute = 'beta';
+
       if (session.route && session.route !== currentRoute) {
-        window.location.replace(`/${session.route}?cameraSession=${encodeURIComponent(sessionId)}`);
-        return;
+        if (currentRoute === 'review' && (session.route === 'beta' || session.route === 'review')) {
+          // Tetap di halaman review khusus kamera
+        } else {
+          window.location.replace(`/${session.route}?cameraSession=${encodeURIComponent(sessionId)}`);
+          return;
+        }
       }
 
       const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;

@@ -781,7 +781,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
 }
 
 function isProtectedAsset(pathname) {
-  if (pathname === '/app' || pathname === '/app.html' || pathname === '/beta' || pathname === '/beta.html' || pathname === '/camera' || pathname === '/camera.html') return true;
+  if (pathname === '/app' || pathname === '/app.html' || pathname === '/beta' || pathname === '/beta.html' || pathname === '/camera' || pathname === '/camera.html' || pathname === '/review' || pathname === '/review.html') return true;
   if (!pathname.startsWith('/assets/')) return false;
   return !PUBLIC_ASSETS.has(pathname);
 }
@@ -854,6 +854,10 @@ export default {
     if (url.pathname === '/camera' || url.pathname === '/camera.html') {
       if (!session) return redirect('/');
       return assetResponse(request, env, '/camera');
+    }
+    if (url.pathname === '/review' || url.pathname === '/review.html') {
+      if (!session) return redirect('/');
+      return assetResponse(request, env, '/review');
     }
 
     if (isProtectedAsset(url.pathname)) {

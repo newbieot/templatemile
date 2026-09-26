@@ -112,22 +112,29 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /sessionId,/);
   assert.match(cameraRuntime, /timestamp,/);
   assert.match(cameraHtml, /<div class="form-group" hidden>\s*<label for="processingRoute">/);
-  assert.match(cameraHtml, /<option value="beta" selected>/);
-  assert.match(cameraRuntime, /const route = \$\('processingRoute'\)\?\.value === 'app' \? 'app' : 'beta';/);
+  assert.match(cameraHtml, /<option value="review" selected>/);
+  assert.match(cameraRuntime, /selectedRoute === 'beta' \? 'beta' : 'review'/);
+
+  const reviewHtml = fs.readFileSync(path.join(root, 'review.html'), 'utf8');
+  assert.match(reviewHtml, /assets\/css\/review\.css/);
+  assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
+  assert.match(reviewHtml, /camera-import\.js/);
+  assert.match(reviewHtml, /id="resultTable"/);
+  assert.match(reviewHtml, /id="corporateTemplate"/);
+  assert.match(worker, /url\.pathname === '\/review'/);
 
   const cameraImport = fs.readFileSync(path.join(root, 'assets/js/camera-import.js'), 'utf8');
   assert.match(cameraImport, /activateCameraMode/);
   assert.match(cameraImport, /camera-session-banner/);
   assert.match(cameraImport, /camera-mode/);
+  assert.match(cameraImport, /startsWith\('\/review'\)/);
 
-  const appCss = fs.readFileSync(path.join(root, 'assets/css/app.css'), 'utf8');
-  assert.match(appCss, /\.camera-session-banner/);
-  assert.match(appCss, /body\.camera-mode \.upload-card/);
-  assert.match(appCss, /body\.camera-mode \.intro-shell/);
-  assert.match(appCss, /#resultTable tbody tr\.outside-batam/);
-  assert.match(appCss, /#resultTable tbody tr\.needs-review/);
+  const reviewCss = fs.readFileSync(path.join(root, 'assets/css/review.css'), 'utf8');
+  assert.match(reviewCss, /\.camera-session-banner/);
+  assert.match(reviewCss, /#resultTable tbody tr\.outside-batam/);
+  assert.match(reviewCss, /#resultTable tbody tr\.needs-review/);
 
-  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, protected route, beta default & mobile friendly cards');
+  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, protected route, dedicated review page & mobile cards');
 }
 
 runAsyncAssertions().catch(error => {
