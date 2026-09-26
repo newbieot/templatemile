@@ -157,25 +157,35 @@
   }
 
   async function fetchAndRenderBatches() {
-    const panel = document.getElementById('cameraBatchesPanel');
     const list = document.getElementById('cameraBatchesList');
-    if (!panel || !list) return;
+    const badge = document.getElementById('cameraLogBadge');
+    const btn = document.getElementById('openCameraLogsBtn');
 
     try {
       const response = await fetch('/api/camera/batches', { credentials: 'same-origin' });
       const data = await response.json();
       if (!data?.ok || !Array.isArray(data.batches) || !data.batches.length) {
-        panel.hidden = true;
+        if (list) list.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;font-size:0.8rem">Tidak ada log kamera terbaru.</div>';
+        if (badge) {
+          badge.textContent = '0';
+          badge.hidden = true;
+        }
+        if (btn) btn.hidden = true;
         return;
       }
 
-      list.innerHTML = '';
-      data.batches.forEach(batch => {
-        list.appendChild(renderBatchCard(batch));
-      });
-      panel.hidden = false;
+      if (list) {
+        list.innerHTML = '';
+        data.batches.forEach(batch => list.appendChild(renderBatchCard(batch)));
+      }
+      
+      if (badge) {
+        badge.textContent = data.batches.length;
+        badge.hidden = false;
+      }
+      if (btn) btn.hidden = false;
     } catch (_) {
-      panel.hidden = true;
+      // ignore
     }
   }
 
@@ -255,15 +265,29 @@
       if (card) card.remove();
 
       const list = document.getElementById('cameraBatchesList');
-      const panel = document.getElementById('cameraBatchesPanel');
-      if (list && !list.children.length && panel) panel.hidden = true;
+      const badge = document.getElementById('cameraLogBadge');
+      if (list && !list.children.length) {
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;font-size:0.8rem">Tidak ada log kamera terbaru.</div>';
+        if (badge) {
+          badge.textContent = '0';
+          badge.hidden = true;
+        }
+        const btn = document.getElementById('openCameraLogsBtn');
+        if (btn) btn.hidden = true;
+        
+        // Auto-close modal if empty
+        const modal = document.getElementById('cameraLogsModal');
+        if (modal && !modal.hidden) modal.hidden = true;
+      } else if (badge && list) {
+        badge.textContent = list.querySelectorAll('.camera-batch-item').length;
+      }
 
       if (typeof window.showToast === 'function') {
-        window.showToast('Batch dihapus.', 'success');
+        window.showToast('Log berhasil dihapus.', 'success');
       }
     } catch (_) {
       if (typeof window.showToast === 'function') {
-        window.showToast('Gagal menghapus batch.', 'error');
+        window.showToast('Gagal menghapus log.', 'error');
       }
     }
   }
@@ -272,19 +296,43 @@
 
   function initDesktopPanel() {
     const list = document.getElementById('cameraBatchesList');
-    if (!list) return;
+    const openBtn = document.getElementById('openCameraLogsBtn');
+    const closeBtn = document.getElementById('closeCameraLogsBtn');
+    const modal = document.getElementById('cameraLogsModal');
 
-    list.addEventListener('click', event => {
-      const loadBtn = event.target.closest('.camera-batch-item__load');
-      if (loadBtn) {
-        loadBatchToDesktop(loadBtn.dataset.batchId);
-        return;
-      }
-      const deleteBtn = event.target.closest('.camera-batch-item__delete');
-      if (deleteBtn) {
-        deleteBatch(deleteBtn.dataset.batchId);
-      }
-    });
+    if (openBtn && modal) {
+      openBtn.addEventListener('click', () => {
+        modal.hidden = false;
+        fetchAndRenderBatches(); // Refresh on open
+      });
+    }
+
+    if (closeBtn && modal) {
+      closeBtn.addEventListener('click', () => {
+        modal.hidden = true;
+      });
+    }
+
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.hidden = true;
+      });
+    }
+
+    if (list) {
+      list.addEventListener('click', event => {
+        const loadBtn = event.target.closest('.camera-batch-item__load');
+        if (loadBtn) {
+          if (modal) modal.hidden = true;
+          loadBatchToDesktop(loadBtn.dataset.batchId);
+          return;
+        }
+        const deleteBtn = event.target.closest('.camera-batch-item__delete');
+        if (deleteBtn) {
+          deleteBatch(deleteBtn.dataset.batchId);
+        }
+      });
+    }
 
     // Initial fetch
     fetchAndRenderBatches();

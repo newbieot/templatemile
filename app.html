@@ -43,6 +43,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
           Excel lokal · PDF via AI
         </span>
+        <button type="button" class="all-tools-link" id="openCameraLogsBtn" style="background:#eff6ff;color:#3b82f6;border:none;cursor:pointer;gap:6px;padding:6px 10px;border-radius:10px;font-weight:600" hidden>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
+          Log Kamera <span id="cameraLogBadge" style="background:#3b82f6;color:#fff;padding:2px 6px;border-radius:20px;font-size:0.65rem;margin-left:4px">0</span>
+        </button>
         <a class="all-tools-link" href="https://posnew.com/">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
           Semua alat
@@ -82,19 +86,6 @@
           </span>
           <span class="performance-beta-action">Buka Camera <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
         </a>
-
-        <section class="camera-batches-card" id="cameraBatchesPanel" hidden>
-          <div class="camera-batches-card__header">
-            <span class="camera-batches-card__icon" aria-hidden="true">📱</span>
-            <div>
-              <strong class="camera-batches-card__title">Hasil Kamera HP</strong>
-              <small class="camera-batches-card__subtitle">Tersimpan di server · 3 hari</small>
-            </div>
-          </div>
-          <div class="camera-batches-list" id="cameraBatchesList">
-            <!-- Populated dynamically by camera-sync.js -->
-          </div>
-        </section>
       </div>
       <div class="workflow-steps" aria-label="Workflow steps">
         <div class="workflow-step is-active" data-step="1"><span>1</span><strong>Atur</strong><small>Transaksi & pengirim</small></div>
@@ -489,6 +480,22 @@
         </div>
       </div>
       <div class="modal-actions"><button class="button button--ghost" type="button" data-action="skip-mapping">Lewati berkas</button><button class="button button--primary" type="button" data-action="apply-mapping">Lanjutkan</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="cameraLogsModal" role="dialog" aria-modal="true" aria-labelledby="cameraLogsTitle" hidden>
+    <div class="modal-box modal-box--large">
+      <div class="modal-heading">
+        <h3 id="cameraLogsTitle">Riwayat Kamera HP</h3>
+        <p>Log hasil pemrosesan label dari HP (Tersimpan 3 hari)</p>
+      </div>
+      <div class="camera-batches-list" id="cameraBatchesList" style="max-height:60vh;overflow-y:auto;padding:4px;margin:0 -4px">
+        <!-- Populated dynamically by camera-sync.js -->
+        <div style="text-align:center;padding:20px;color:#64748b;font-size:0.8rem">Tidak ada log kamera terbaru.</div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="button button--ghost" type="button" id="closeCameraLogsBtn">Tutup</button>
+      </div>
     </div>
   </div>
 
