@@ -2,7 +2,6 @@
   'use strict';
 
   const MAX_CAPTURES = 150;
-  const MAX_PDF_BYTES = 115 * 1024 * 1024;
   const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
   const OUTPUT_MAX_SIDE = 2000;
   const ANALYSIS_MAX_WIDTH = 360;
@@ -611,17 +610,16 @@
     setFinishDisabled(true);
     setCaptureDisabled(true);
     exitCameraFullscreen();
-    updateProcessingStatus('Mengemas PDF...', `Menggabungkan ${captures.length} foto ke format dokumen...`);
+    updateProcessingStatus('Menyiapkan JPEG...', `Menyiapkan ${captures.length} foto asli untuk jalur AI langsung...`);
     showHudToast('Menyiapkan batch...');
 
     try {
-      const pdfBlob = await core.buildJpegPdf(captures);
-      if (pdfBlob.size > MAX_PDF_BYTES) {
-        throw new Error(`Ukuran batch ${formatBytes(pdfBlob.size)} melewati batas 115 MB. Kurangi jumlah capture.`);
-      }
       updateProcessingStatus('Menyimpan...', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI...');
-      const route = 'review';
       const metadata = captures.map(({ blob, previewUrl, ...capture }) => capture);
+      const images = captures.map(({ blob, previewUrl, ...capture }) => ({
+        ...capture,
+        blob
+      }));
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
       const aiModel = $('aiModelSelect')?.value || 'glm-5.3-flashx';
       await store.save({
@@ -632,8 +630,8 @@
         route: 'review',
         captureCount: captures.length,
         captures: metadata,
-        fileName: `camera-${sessionId}.pdf`,
-        pdfBlob,
+        images,
+        inputFormat: 'direct-jpeg',
         deviceName,
         aiModel
       });

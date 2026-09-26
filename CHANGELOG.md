@@ -1,5 +1,12 @@
 # Changelog
 
+## v25.12 — Kamera langsung memakai JPEG tanpa putaran PDF
+
+- Finish Capture menyimpan blob JPEG hasil crop langsung ke IndexedDB tanpa membangun PDF.
+- Halaman review mengirim JPEG kamera langsung ke AI dalam kelompok maksimal 15, tetap tanpa R2.
+- JPEG asli dipertahankan selama ukuran batch aman; kompresi adaptif hanya dipakai untuk mencegah payload melewati batas gateway.
+- Sesi kamera lama berbentuk PDF tetap dapat diproses melalui jalur kompatibilitas.
+
 ## v25.11 — Proses AI kamera kembali terlihat
 
 - Memperbaiki ketidaksesuaian ID modal antara halaman `/review` dan runtime AI yang membuat pemrosesan setelah Finish Capture berjalan tanpa overlay progres yang terlihat.

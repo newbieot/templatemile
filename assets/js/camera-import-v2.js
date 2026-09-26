@@ -71,14 +71,14 @@
 
     const store = window.MileCameraStore;
     const ai = window.MileAI;
-    if (!store || typeof ai?.processPDFFile !== 'function') {
+    if (!store || typeof ai?.processPDFFile !== 'function' || typeof ai?.processCameraImages !== 'function') {
       notify('Batch camera belum dapat dibuka. Muat ulang halaman.', 'error');
       return;
     }
 
     try {
       const session = await store.get(sessionId);
-      if (!session || (!session.pdfBlob && !session.streamedRows) || Number(session.captureCount || 0) < 1) {
+      if (!session || (!session.images?.length && !session.pdfBlob && !session.streamedRows) || Number(session.captureCount || 0) < 1) {
         throw new Error('Batch camera tidak ditemukan atau sudah selesai diproses.');
       }
       activateCameraMode(session.captureCount);
@@ -94,6 +94,16 @@
       }
 
       const core = window.__mileCore;
+      if (session.aiModel && document.getElementById('aiModel')) {
+        const modelSelect = document.getElementById('aiModel');
+        if (!Array.from(modelSelect.options).some(o => o.value === session.aiModel)) {
+          const opt = document.createElement('option');
+          opt.value = session.aiModel;
+          opt.textContent = session.aiModel;
+          modelSelect.appendChild(opt);
+        }
+        modelSelect.value = session.aiModel;
+      }
       
       if (session.streamedRows && session.streamedRows.length > 0) {
         if (session.streamedRows[0]._error) {
@@ -150,7 +160,29 @@
         return;
       }
       
-      // Fallback path: Legacy PDF
+      if (Array.isArray(session.images) && session.images.length > 0) {
+        const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, cleanUrl);
+        const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
+        notify(`${session.captureCount} JPEG kamera siap dikirim langsung ke AI...`, 'success');
+        await ai.processCameraImages(session.images, {
+          name: `Kamera - ${session.deviceName || sessionId}`
+        });
+        const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount
+          || Number(core?.tempExtractedRows?.length || 0) > 0;
+        if (completed) {
+          await store.remove(sessionId);
+          if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
+            window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName, session.durationSeconds);
+          }
+        } else {
+          window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}`);
+          throw new Error('Batch kamera belum menghasilkan data. JPEG tetap tersimpan; muat ulang halaman untuk mencoba lagi.');
+        }
+        return;
+      }
+
+      // Compatibility path untuk sesi lama yang masih tersimpan sebagai PDF.
       if (!session.pdfBlob) {
          // This means it was a streaming session but AI completely failed.
          notify('AI gagal memproses gambar. Sesi kamera selesai tanpa hasil.', 'warning');
@@ -165,16 +197,6 @@
         lastModified: Date.now()
       });
       const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
-      if (session.aiModel && document.getElementById('aiModel')) {
-        const modelSelect = document.getElementById('aiModel');
-        if (!Array.from(modelSelect.options).some(o => o.value === session.aiModel)) {
-          const opt = document.createElement('option');
-          opt.value = session.aiModel;
-          opt.textContent = session.aiModel;
-          modelSelect.appendChild(opt);
-        }
-        modelSelect.value = session.aiModel;
-      }
       notify(`${session.captureCount} hasil capture siap diproses...`, 'success');
       await ai.processPDFFile(file);
       const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount

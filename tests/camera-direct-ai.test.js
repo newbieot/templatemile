@@ -72,6 +72,13 @@ vm.runInContext(source, sandbox, { filename: 'ai-pdf-beta-r2.js' });
 
 const ai = sandbox.MileAI._test;
 assert.equal(ai.isCameraDirectMode(), true);
+assert.equal(typeof sandbox.MileAI.processCameraImages, 'function');
+
+const directJpeg = new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' });
+const normalizedCameraImages = ai.normalizeCameraImages([{ blob: directJpeg, width: 1200, height: 800, fileName: '001.jpg' }]);
+assert.equal(normalizedCameraImages.length, 1);
+assert.equal(normalizedCameraImages[0].blob, directJpeg);
+assert.equal(normalizedCameraImages[0].name, '001.jpg');
 
 for (const model of [
   'glm-5.3-flashx',
@@ -107,6 +114,9 @@ assert.match(source, /betaRemoteImagesAvailable = !config\.cameraDirect/);
 assert.match(source, /const testViaR2 = !config\.cameraDirect/);
 assert.match(source, /const CAMERA_BATCH_SIZE = 15/);
 assert.match(source, /const CAMERA_DEFAULT_MODEL = 'glm-5\.3-flashx'/);
+assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
+assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCameraBlobsForBatch/);
+assert.match(source, /JPEG asli siap · belum mengirim gambar/);
 assert.match(cameraHtml, /glm-5\.3-flashx" selected/);
 assert.match(cameraHtml, /gemini-3\.8-flash/);
 assert.match(cameraHtml, /gemini-3\.7-flash/);
@@ -134,4 +144,4 @@ for (const requiredProgressId of [
 assert.doesNotMatch(reviewHtml, /id="aiModal"/);
 assert.match(source, /const modal = \$\('aiProgressModal'\)/);
 
-console.log('PASS camera-direct-ai: GLM/Gemini, default GLM 5.3 FlashX, 15 gambar per request, concurrency aman, dan R2 bypass');
+console.log('PASS camera-direct-ai: JPEG langsung tanpa PDF/R2, GLM/Gemini, default GLM 5.3 FlashX, dan 15 gambar per request');

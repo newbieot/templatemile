@@ -120,7 +120,9 @@ async function runAsyncAssertions() {
   assert.match(cameraHtml, /id="finishCaptureButton"/);
   assert.match(cameraHtml, /id="enterFullscreenButton"/);
   assert.match(cameraCss, /\.camera-action-dock/);
-  assert.match(cameraRuntime, /const route = 'review';/);
+  assert.match(cameraRuntime, /inputFormat: 'direct-jpeg'/);
+  assert.match(cameraRuntime, /const images = captures\.map/);
+  assert.doesNotMatch(cameraRuntime, /await core\.buildJpegPdf\(captures\)/);
   assert.match(cameraRuntime, /window\.location\.assign\(`\/review\?cameraSession=\${encodeURIComponent\(sessionId\)}`\);/);
 
   const reviewHtml = fs.readFileSync(path.join(root, 'review.html'), 'utf8');
@@ -142,6 +144,8 @@ async function runAsyncAssertions() {
   assert.match(cameraImport, /camera-mode/);
   assert.match(cameraImport, /startsWith\('\/review'\)/);
   assert.match(cameraImport, /window\.location\.replace\(`\/review\?cameraSession=/);
+  assert.match(cameraImport, /ai\.processCameraImages\(session\.images/);
+  assert.match(cameraImport, /Compatibility path untuk sesi lama/);
 
   const reviewCss = fs.readFileSync(path.join(root, 'assets/css/review.css'), 'utf8');
   assert.match(reviewCss, /\.camera-session-banner/);
@@ -175,7 +179,7 @@ async function runAsyncAssertions() {
   assert.match(worker, /CAMERA_BATCH_TTL_MS/);
   assert.match(worker, /\/api\/camera\/batches/);
 
-  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, protected route, dedicated review page & mobile cards, server sync 72h & desktop batch panel');
+  console.log('PASS camera-capture: fullscreen, capture feedback, auto crop, direct JPEG finish tanpa PDF, protected review, server sync 72h & desktop batch panel');
 }
 
 runAsyncAssertions().catch(error => {

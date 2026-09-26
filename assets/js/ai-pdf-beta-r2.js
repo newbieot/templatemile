@@ -52,6 +52,8 @@
   const CAMERA_DEFAULT_MODEL = 'glm-5.3-flashx';
   const CAMERA_BATCH_SIZE = 15;
   const CAMERA_AI_CONCURRENCY = 1;
+  const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
+  const CAMERA_DIRECT_BATCH_RAW_BYTES = 18 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
     'glm-5.3-flashx', 'glm-5.3', 'glm-5.3-flash',
     'gemini-3.8-flash', 'gemini-3.7-flash',
@@ -729,6 +731,105 @@
       };
       reader.readAsDataURL(blob);
     });
+  }
+
+  function normalizeCameraImages(images) {
+    if (!Array.isArray(images)) return [];
+    return images.map((item, index) => {
+      const blob = item?.blob;
+      if (!blob || typeof blob.size !== 'number' || typeof blob.arrayBuffer !== 'function') {
+        throw new Error(`Data JPEG kamera ${index + 1} tidak valid.`);
+      }
+      if (!/^image\/(?:jpeg|jpg|png|webp)$/i.test(String(blob.type || 'image/jpeg'))) {
+        throw new Error(`Format gambar kamera ${index + 1} tidak didukung.`);
+      }
+      if (blob.size > CAMERA_DIRECT_IMAGE_MAX_BYTES) {
+        throw new Error(`Gambar kamera ${index + 1} melebihi batas 4 MB.`);
+      }
+      return {
+        blob,
+        width: Math.max(1, Math.round(Number(item?.width) || 1)),
+        height: Math.max(1, Math.round(Number(item?.height) || 1)),
+        name: String(item?.fileName || item?.name || `${String(index + 1).padStart(3, '0')}.jpg`)
+      };
+    });
+  }
+
+  async function decodeCameraBlob(blob) {
+    if (typeof window.createImageBitmap === 'function') {
+      const bitmap = await window.createImageBitmap(blob);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        close: () => bitmap.close?.()
+      };
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const image = await new Promise((resolve, reject) => {
+        const element = new Image();
+        element.onload = () => resolve(element);
+        element.onerror = () => reject(new Error('JPEG kamera tidak dapat dibuka oleh browser.'));
+        element.src = objectUrl;
+      });
+      return {
+        source: image,
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+        close: () => URL.revokeObjectURL(objectUrl)
+      };
+    } catch (error) {
+      URL.revokeObjectURL(objectUrl);
+      throw error;
+    }
+  }
+
+  async function compressCameraBlobToBudget(blob, targetBytes) {
+    if (blob.size <= targetBytes) return blob;
+    const decoded = await decodeCameraBlob(blob);
+    const canvas = document.createElement('canvas');
+    let scale = 1;
+    let quality = 0.86;
+    let output = blob;
+    try {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        canvas.width = Math.max(1, Math.round(decoded.width * scale));
+        canvas.height = Math.max(1, Math.round(decoded.height * scale));
+        const context = canvas.getContext('2d', { alpha: false });
+        if (!context) throw new Error('Canvas browser tidak tersedia untuk menyiapkan JPEG kamera.');
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
+        output = await canvasToJpegBlob(canvas, quality);
+        if (output.size <= targetBytes) return output;
+        const ratio = Math.sqrt(targetBytes / Math.max(1, output.size));
+        scale *= Math.min(0.93, Math.max(0.68, ratio * 0.96));
+        quality = Math.max(0.72, quality - 0.03);
+        await yieldToBrowser();
+      }
+      if (output.size > targetBytes) throw new Error('JPEG kamera terlalu besar untuk batch langsung. Ambil ulang foto dengan area crop lebih rapat.');
+      return output;
+    } finally {
+      canvas.width = canvas.height = 1;
+      decoded.close();
+    }
+  }
+
+  async function prepareCameraBlobsForBatch(images) {
+    const originalBlobs = images.map(image => image.blob);
+    const originalBytes = originalBlobs.reduce((total, blob) => total + blob.size, 0);
+    if (originalBytes <= CAMERA_DIRECT_BATCH_RAW_BYTES) return originalBlobs;
+
+    const targetBytes = Math.floor((CAMERA_DIRECT_BATCH_RAW_BYTES * 0.96) / Math.max(1, images.length));
+    markProgressActivity('Menyesuaikan ukuran JPEG agar 15 gambar tetap dalam satu batch');
+    const pool = createTaskPool(BETA_PREPARE_CONCURRENCY);
+    const prepared = await Promise.all(originalBlobs.map(blob => pool(() => compressCameraBlobToBudget(blob, targetBytes))));
+    const preparedBytes = prepared.reduce((total, blob) => total + blob.size, 0);
+    if (preparedBytes > CAMERA_DIRECT_BATCH_RAW_BYTES) {
+      throw new Error('Total JPEG kamera terlalu besar untuk satu batch 15 gambar. Ambil ulang foto dengan crop lebih rapat.');
+    }
+    return prepared;
   }
 
   function dataUrlToBlob(dataUrl) {
@@ -2062,7 +2163,7 @@ ${clipped}`
     }
   }
 
-  async function processPDFFile(file) {
+  async function processPDFFile(file, options = {}) {
     const core = window.__mileCore;
     if (!core) {
       alert('Aplikasi mile.posnew.com belum siap. Muat ulang halaman.');
@@ -2071,17 +2172,34 @@ ${clipped}`
     cancelled = false;
     fallbackAnnouncements.clear();
     betaRemoteFallbackAnnounced = false;
+    let cameraImages = [];
+    try {
+      cameraImages = normalizeCameraImages(options.cameraImages);
+    } catch (error) {
+      showToast(error.message, 'error');
+      core.processNextInQueue();
+      return;
+    }
+    const directCameraInput = cameraImages.length > 0;
+    const inputName = directCameraInput
+      ? String(options.name || `Kamera - ${cameraImages.length} foto`)
+      : String(file?.name || 'PDF');
     const startedAt = performance.now();
     startStopwatch(startedAt);
-    setProgress(1, 'Memeriksa berkas dan koneksi', 'Validasi PDF dan layanan AI sedang dilakukan…');
+    setProgress(1, 'Memeriksa berkas dan koneksi', `${directCameraInput ? 'Validasi JPEG kamera' : 'Validasi PDF'} dan layanan AI sedang dilakukan…`);
     setTransferProgress(0, 'Belum ada data yang dikirim');
     setProgressStats({ renderedPages: 0, totalPages: 0, completedChunks: 0, totalChunks: 0 });
 
     let config;
     try {
-      if (!file || file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) throw new Error('Berkas bukan PDF.');
-      if (file.size > MAX_PDF_BYTES) throw new Error('Ukuran PDF melebihi 80 MB. Kompres PDF lalu coba lagi.');
-      if (typeof window.pdfjsLib === 'undefined') throw new Error('Library pembaca PDF gagal dimuat. Periksa koneksi lalu muat ulang halaman.');
+      if (directCameraInput) {
+        if (!isCameraDirectMode()) throw new Error('Jalur JPEG langsung hanya tersedia dari halaman kamera.');
+        if (cameraImages.length > MAX_PAGES) throw new Error(`Jumlah gambar melebihi batas ${MAX_PAGES}.`);
+      } else {
+        if (!file || file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) throw new Error('Berkas bukan PDF.');
+        if (file.size > MAX_PDF_BYTES) throw new Error('Ukuran PDF melebihi 80 MB. Kompres PDF lalu coba lagi.');
+        if (typeof window.pdfjsLib === 'undefined') throw new Error('Library pembaca PDF gagal dimuat. Periksa koneksi lalu muat ulang halaman.');
+      }
       const configured = await checkServerConfiguration({ showFeedback: true });
       if (!configured) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
@@ -2097,7 +2215,7 @@ ${clipped}`
       stopStopwatch(elapsed, 0);
       hideProgress();
       $('aiConfigPanel')?.setAttribute('open', '');
-      showToast(error?.name === 'AbortError' ? 'Proses PDF dibatalkan.' : error.message, error?.name === 'AbortError' ? 'info' : 'error');
+      showToast(error?.name === 'AbortError' ? `Proses ${directCameraInput ? 'kamera' : 'PDF'} dibatalkan.` : error.message, error?.name === 'AbortError' ? 'info' : 'error');
       core.processNextInQueue();
       return;
     }
@@ -2114,19 +2232,27 @@ ${clipped}`
     };
     const runRender = createTaskPool(BETA_PREPARE_CONCURRENCY);
     try {
-      setProgress(2, 'Membaca PDF', `Membuka ${file.name}…`);
-      setTransferProgress(0, `Membaca ${formatBytes(file.size)} dari perangkat`);
-      const bytes = await fileToArrayBuffer(file, (loaded, total) => {
-        const ratio = total ? loaded / total : 0;
-        setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
-        setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
-      });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260909-beta-r2.1';
-      pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
-      pageCount = pdf.numPages;
-      if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
-      if (pdf.numPages > 150) showToast('PDF besar terdeteksi. Biarkan tab tetap terbuka sampai proses selesai.', 'info');
-      setTransferProgress(0, 'PDF siap · belum mengirim gambar halaman');
+      if (directCameraInput) {
+        pageCount = cameraImages.length;
+        pdf = { numPages: pageCount, cleanup() {}, destroy() {} };
+        const totalBytes = cameraImages.reduce((total, image) => total + image.blob.size, 0);
+        setProgress(3, 'JPEG kamera siap', `${pageCount} foto (${formatBytes(totalBytes)}) dibaca langsung tanpa membuat PDF.`);
+        setTransferProgress(0, 'JPEG asli siap · belum mengirim gambar');
+      } else {
+        setProgress(2, 'Membaca PDF', `Membuka ${file.name}…`);
+        setTransferProgress(0, `Membaca ${formatBytes(file.size)} dari perangkat`);
+        const bytes = await fileToArrayBuffer(file, (loaded, total) => {
+          const ratio = total ? loaded / total : 0;
+          setProgress(1 + ratio * 2, 'Membaca PDF', `${formatBytes(loaded)} dari ${formatBytes(total)} telah dibaca dari perangkat.`);
+          setTransferProgress(ratio * 100, 'Membaca PDF dari perangkat');
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdfjs/pdf.worker.min.js?v=20260909-beta-r2.1';
+        pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+        pageCount = pdf.numPages;
+        if (pdf.numPages > MAX_PAGES) throw new Error(`PDF memiliki ${pdf.numPages} halaman. Batas maksimal adalah ${MAX_PAGES} halaman.`);
+        if (pdf.numPages > 150) showToast('PDF besar terdeteksi. Biarkan tab tetap terbuka sampai proses selesai.', 'info');
+        setTransferProgress(0, 'PDF siap · belum mengirim gambar halaman');
+      }
 
       config = {
         ...config,
@@ -2258,24 +2384,28 @@ ${clipped}`
         updateParallelProgress(chunk, chunkIndex, 'Menyiapkan gambar scan');
         const pageSources = [];
         const pagesInChunk = chunk.end - chunk.start + 1;
+        const cameraChunkImages = directCameraInput ? cameraImages.slice(chunk.start - 1, chunk.end) : [];
+        const cameraChunkBlobs = directCameraInput ? await prepareCameraBlobsForBatch(cameraChunkImages) : [];
         let nextPageNumber = chunk.start;
         async function preparePageWorker() {
           while (true) {
             const pageNumber = nextPageNumber++;
             if (pageNumber > chunk.end) return;
             if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-            markProgressActivity(`Merender scan ${pageNumber}/${pdf.numPages}`);
-            updateParallelProgress(chunk, chunkIndex, `Merender scan ${pageNumber}`);
-            const page = await pdf.getPage(pageNumber);
+            markProgressActivity(`${directCameraInput ? 'Membaca JPEG' : 'Merender scan'} ${pageNumber}/${pdf.numPages}`);
+            updateParallelProgress(chunk, chunkIndex, `${directCameraInput ? 'Membaca JPEG' : 'Merender scan'} ${pageNumber}`);
+            const page = directCameraInput ? null : await pdf.getPage(pageNumber);
             try {
-              const blob = await runRender(async () => {
-                const renderStartedAt = performance.now();
-                try {
-                  return await renderPageToLightBlob(page, config.accuracyMode, config.speedPreset, config.networkProfile);
-                } finally {
-                  betaPerf.renderMs += performance.now() - renderStartedAt;
-                }
-              });
+              const blob = directCameraInput
+                ? cameraChunkBlobs[pageNumber - chunk.start]
+                : await runRender(async () => {
+                    const renderStartedAt = performance.now();
+                    try {
+                      return await renderPageToLightBlob(page, config.accuracyMode, config.speedPreset, config.networkProfile);
+                    } finally {
+                      betaPerf.renderMs += performance.now() - renderStartedAt;
+                    }
+                  });
               let url = '';
               let remote = false;
               if (betaRemoteImagesAvailable) {
@@ -2316,10 +2446,10 @@ ${clipped}`
               renderedPages++;
               const renderedInChunk = pageSources.filter(Boolean).length;
               chunkStates[chunkIndex].progress = 0.03 + (renderedInChunk / pagesInChunk) * 0.22;
-              updateParallelProgress(chunk, chunkIndex, `Gambar scan halaman ${pageNumber} siap`);
+              updateParallelProgress(chunk, chunkIndex, `${directCameraInput ? 'JPEG' : 'Gambar scan'} ${pageNumber} siap`);
               await yieldToBrowser();
             } finally {
-              page.cleanup();
+              page?.cleanup?.();
             }
           }
         }
@@ -2574,7 +2704,7 @@ ${clipped}`
       setTransferProgress(100, 'Semua respons AI telah diterima');
 
       const mergedRows = results.flat().filter(Boolean);
-      if (!mergedRows.length) throw new Error('AI tidak menemukan data penerima pada PDF ini.');
+      if (!mergedRows.length) throw new Error(`AI tidak menemukan data penerima pada ${directCameraInput ? 'foto kamera' : 'PDF'} ini.`);
       mergedRows.sort((a, b) => Number(a.sourcePage || 0) - Number(b.sourcePage || 0));
       completedRowCount = mergedRows.length;
       const elapsed = (performance.now() - startedAt) / 1000;
@@ -2597,7 +2727,7 @@ ${clipped}`
         totalRows: mergedRows.length,
         reviewCount: reviewRowCount(mergedRows),
         outsideBatamCount: outsideBatamRowCount(mergedRows),
-        message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
+        message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
       };
       void submitProcessingMetrics(metrics);
 
@@ -2607,7 +2737,7 @@ ${clipped}`
         hideProgress();
         core.showWeightModal();
       } else {
-        core.uploadedFilesManager.push({ id: Date.now(), name: file.name, rows: mergedRows, source: 'AI PDF' });
+        core.uploadedFilesManager.push({ id: Date.now(), name: inputName, rows: mergedRows, source: 'AI PDF' });
         core.updateInterface();
         setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)} · ${config.cameraDirect ? `${pageCount} gambar dikirim langsung tanpa R2` : `gambar sementara ${betaPerf.remotePages}/${pageCount} halaman`}.`, formatUsage(totalUsage));
         progressHideTimeout = window.setTimeout(hideProgress, 1200);
@@ -2633,12 +2763,12 @@ ${clipped}`
         outsideBatamCount: 0,
         message: error?.name === 'AbortError'
           ? 'Dibatalkan pengguna'
-          : `${config?.cameraDirect ? 'camera-direct' : 'beta-r2'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};error=${String(error?.message || 'Kesalahan pemrosesan')}`.slice(0, 400)
+          : `${config?.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};error=${String(error?.message || 'Kesalahan pemrosesan')}`.slice(0, 400)
       };
       void submitProcessingMetrics(failedMetrics);
       hideProgress();
-      if (error?.name === 'AbortError') showToast(`Proses PDF dibatalkan setelah ${formatPreciseDuration(elapsed)}.`, 'info');
-      else showToast(`Gagal memproses PDF setelah ${formatPreciseDuration(elapsed)}: ${error.message}`, 'error');
+      if (error?.name === 'AbortError') showToast(`Proses ${directCameraInput ? 'kamera' : 'PDF'} dibatalkan setelah ${formatPreciseDuration(elapsed)}.`, 'info');
+      else showToast(`Gagal memproses ${directCameraInput ? 'kamera' : 'PDF'} setelah ${formatPreciseDuration(elapsed)}: ${error.message}`, 'error');
       core.processNextInQueue();
     } finally {
       activeControllers.forEach(controller => controller.abort());
@@ -2646,6 +2776,10 @@ ${clipped}`
       if (betaRemoteImagesAvailable) await cleanupBetaImages(betaJobId);
       try { pdf?.cleanup?.(); pdf?.destroy?.(); } catch (_) {}
     }
+  }
+
+  function processCameraImages(images, options = {}) {
+    return processPDFFile(null, { ...options, cameraImages: images });
   }
 
   function cancelProcess() {
@@ -2702,9 +2836,10 @@ ${clipped}`
 
   window.MileAI = {
     processPDFFile,
+    processCameraImages,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, isCameraDirectMode }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
   };
 
   document.addEventListener('DOMContentLoaded', bind);
