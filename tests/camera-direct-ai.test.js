@@ -91,8 +91,8 @@ for (const model of [
   const config = ai.getConfig();
   assert.equal(config.model, model);
   assert.equal(config.cameraDirect, true);
-  assert.equal(config.pagesPerRequest, 15);
-  assert.equal(config.concurrency, 1);
+  assert.equal(config.pagesPerRequest, 5);
+  assert.equal(config.concurrency, 3);
   assert.equal(config.networkMode, 'normal');
   assert.equal(config.verificationPolicy, 'none');
 }
@@ -105,14 +105,23 @@ const sources = Array.from({ length: 15 }, (_, index) => ({
   label: `GAMBAR ${index + 1}`,
   url: `data:image/jpeg;base64,${Buffer.from(String(index + 1)).toString('base64')}`
 }));
-const body = ai.buildApiBody({ model: 'glm-5.3-flashx' }, 'uji 15 gambar', sources, 5200);
-const content = body.messages[1].content;
-assert.equal(content.filter(part => part.type === 'image_url').length, 15);
-assert.equal(content.filter(part => part.type === 'text').length, 16);
+const groups = [sources.slice(0, 5), sources.slice(5, 10), sources.slice(10, 15)];
+const bodies = groups.map((group, index) => ai.buildApiBody({ model: 'glm-5.3-flashx' }, `uji kelompok ${index + 1}`, group, 3500));
+assert.equal(bodies.length, 3);
+assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.filter(part => part.type === 'image_url').length, 0), 15);
+bodies.forEach(body => {
+  const content = body.messages[1].content;
+  assert.equal(content.filter(part => part.type === 'image_url').length, 5);
+  assert.equal(content.filter(part => part.type === 'text').length, 6);
+});
 
 assert.match(source, /betaRemoteImagesAvailable = !config\.cameraDirect/);
 assert.match(source, /const testViaR2 = !config\.cameraDirect/);
-assert.match(source, /const CAMERA_BATCH_SIZE = 15/);
+assert.match(source, /const CAMERA_WAVE_SIZE = 15/);
+assert.match(source, /const CAMERA_BATCH_SIZE = 5/);
+assert.match(source, /const CAMERA_AI_CONCURRENCY = 3/);
+assert.match(source, /activeAiLimit = Math\.max\(1, activeAiLimit - 1\)/);
+assert.match(source, /const stagger = chunkIndex \* 1250/);
 assert.match(source, /const CAMERA_DEFAULT_MODEL = 'glm-5\.3-flashx'/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
 assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCameraBlobsForBatch/);
@@ -120,8 +129,8 @@ assert.match(source, /JPEG asli siap · belum mengirim gambar/);
 assert.match(cameraHtml, /glm-5\.3-flashx" selected/);
 assert.match(cameraHtml, /gemini-3\.8-flash/);
 assert.match(cameraHtml, /gemini-3\.7-flash/);
-assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="15" selected/);
-assert.match(reviewHtml, /id="aiConcurrency"><option value="1" selected/);
+assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="5" selected/);
+assert.match(reviewHtml, /id="aiConcurrency"><option value="3" selected/);
 for (const requiredProgressId of [
   'aiProgressModal',
   'aiProgressStep',
@@ -144,4 +153,4 @@ for (const requiredProgressId of [
 assert.doesNotMatch(reviewHtml, /id="aiModal"/);
 assert.match(source, /const modal = \$\('aiProgressModal'\)/);
 
-console.log('PASS camera-direct-ai: JPEG langsung tanpa PDF/R2, GLM/Gemini, default GLM 5.3 FlashX, dan 15 gambar per request');
+console.log('PASS camera-direct-ai: JPEG tanpa PDF/R2, default GLM 5.3 FlashX, dan gelombang 15 sebagai 3 request paralel × 5');

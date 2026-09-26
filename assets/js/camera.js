@@ -635,7 +635,7 @@
         deviceName,
         aiModel
       });
-      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Gambar akan dikirim langsung ke AI dalam kelompok maksimal 15 tanpa R2...');
+      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Setiap 15 gambar diproses sebagai 3 kelompok paralel × 5 tanpa R2...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       updateProcessingStatus('Gagal', error?.message || 'Batch tidak dapat disiapkan.');

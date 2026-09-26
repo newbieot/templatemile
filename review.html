@@ -184,8 +184,8 @@
           <select id="aiAccuracyMode"><option value="auto" selected></option></select>
           <select id="aiNetworkMode"><option value="normal" selected></option></select>
           <select id="aiSpeedPreset"><option value="fast" selected></option></select>
-          <select id="aiPagesPerRequest"><option value="15" selected></option></select>
-          <select id="aiConcurrency"><option value="1" selected></option></select>
+          <select id="aiPagesPerRequest"><option value="5" selected></option></select>
+          <select id="aiConcurrency"><option value="3" selected></option></select>
           <button id="testAiConnection" type="button"></button>
           <div id="aiConfigFeedback"></div>
         </div>
@@ -302,7 +302,7 @@
       <div class="modal-heading ai-progress-heading">
         <span class="modal-step" id="aiProgressStep">Memproses AI</span>
         <h3 id="aiProgressTitle">Menganalisis hasil capture</h3>
-        <p id="aiProgressMessage">Model pilihan membaca maksimal 15 gambar langsung tanpa R2…</p>
+        <p id="aiProgressMessage">15 gambar diproses sebagai 3 kelompok paralel × 5 langsung tanpa R2…</p>
       </div>
       <div class="ai-progress-stopwatch" aria-live="off">
         <span>Waktu berjalan</span>
@@ -371,10 +371,10 @@
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/app-core.js?v=20260926-16.47-sync" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260926-25.12-direct-jpeg" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-25.12-direct-jpeg" defer></script>
-  <script src="/assets/js/camera-sync.js?v=20260926-25.12-direct-jpeg" defer></script>
-  <script src="/assets/js/camera-import-v2.js?v=20260926-25.12-direct-jpeg" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260926-25.13-parallel-5x3" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-25.13-parallel-5x3" defer></script>
+  <script src="/assets/js/camera-sync.js?v=20260926-25.13-parallel-5x3" defer></script>
+  <script src="/assets/js/camera-import-v2.js?v=20260926-25.13-parallel-5x3" defer></script>
   <script src="/assets/js/ui.js?v=20260926-16.47-sync" defer></script>
   <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>
   <script src="/assets/js/session-v16.js?v=20260926-16.47-sync" defer></script>

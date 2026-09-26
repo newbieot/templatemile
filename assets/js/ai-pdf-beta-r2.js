@@ -50,8 +50,9 @@
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
   const CAMERA_DEFAULT_MODEL = 'glm-5.3-flashx';
-  const CAMERA_BATCH_SIZE = 15;
-  const CAMERA_AI_CONCURRENCY = 1;
+  const CAMERA_WAVE_SIZE = 15;
+  const CAMERA_BATCH_SIZE = 5;
+  const CAMERA_AI_CONCURRENCY = 3;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 18 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
@@ -248,7 +249,7 @@
     if (!hint) return;
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     if (isCameraDirectMode()) {
-      hint.textContent = 'Mode Kamera: maksimal 15 gambar dikirim dalam satu request langsung ke model yang dipilih, tanpa R2.';
+      hint.textContent = 'Mode Kamera: 15 gambar per gelombang dibagi menjadi 3 kelompok × 5 gambar paralel, tanpa R2.';
       return;
     }
     const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
@@ -822,12 +823,12 @@
     if (originalBytes <= CAMERA_DIRECT_BATCH_RAW_BYTES) return originalBlobs;
 
     const targetBytes = Math.floor((CAMERA_DIRECT_BATCH_RAW_BYTES * 0.96) / Math.max(1, images.length));
-    markProgressActivity('Menyesuaikan ukuran JPEG agar 15 gambar tetap dalam satu batch');
+    markProgressActivity(`Menyesuaikan ukuran JPEG agar ${images.length} gambar tetap dalam satu kelompok`);
     const pool = createTaskPool(BETA_PREPARE_CONCURRENCY);
     const prepared = await Promise.all(originalBlobs.map(blob => pool(() => compressCameraBlobToBudget(blob, targetBytes))));
     const preparedBytes = prepared.reduce((total, blob) => total + blob.size, 0);
     if (preparedBytes > CAMERA_DIRECT_BATCH_RAW_BYTES) {
-      throw new Error('Total JPEG kamera terlalu besar untuk satu batch 15 gambar. Ambil ulang foto dengan crop lebih rapat.');
+      throw new Error(`Total JPEG kamera terlalu besar untuk satu kelompok ${images.length} gambar. Ambil ulang foto dengan crop lebih rapat.`);
     }
     return prepared;
   }
@@ -1523,11 +1524,13 @@ ${clipped}`
           throw error;
         }
         if (attempt >= maxAttempts) break;
-        const delay = isGeminiFallbackModel
+        let delay = isGeminiFallbackModel
           ? GEMINI_RETRY_DELAY_MS
           : (status === 429
             ? ([8000, 18000][attempt - 1] || 18000)
             : ([1800, 4200, 8500][attempt - 1] || 8500));
+        const adjustedDelay = Number(hooks.retryDelay?.({ attempt, nextAttempt: attempt + 1, maxAttempts, delay, error }));
+        if (Number.isFinite(adjustedDelay) && adjustedDelay >= delay) delay = adjustedDelay;
         hooks.onRetry?.({ attempt, nextAttempt: attempt + 1, maxAttempts, delay, error });
         setProgress(
           Number($('aiProgressPercent')?.textContent?.replace(/\D/g, '') || 10),
@@ -2267,7 +2270,7 @@ ${clipped}`
           ? 'Eksperimen DeepSeek siap · gambar dikirim sebagai tautan R2 sementara.'
           : 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.')
         : (config.cameraDirect
-          ? `Mode Kamera Direct siap · maksimal ${CAMERA_BATCH_SIZE} gambar dikirim langsung tanpa R2.`
+          ? `Mode Kamera Direct siap · ${CAMERA_WAVE_SIZE} gambar per gelombang, ${CAMERA_BATCH_SIZE} gambar per kelompok × ${CAMERA_AI_CONCURRENCY} jalur paralel tanpa R2.`
           : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.'));
       setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar melalui R2' : 'Mulai menyiapkan gambar langsung');
 
@@ -2351,6 +2354,13 @@ ${clipped}`
             setTransferProgress(100, `Respons AI halaman ${chunk.start}–${chunk.end} diterima`);
           }
           updateParallelProgress(chunk, chunkIndex, label);
+        },
+        retryDelay({ delay, error }) {
+          if (!config.cameraDirect || Number(error?.status || 0) !== 429) return delay;
+          activeAiLimit = Math.max(1, activeAiLimit - 1);
+          const stagger = chunkIndex * 1250;
+          markProgressActivity(`Provider membatasi request · jalur aktif diturunkan menjadi ${activeAiLimit}`);
+          return delay + stagger;
         },
         onRetry({ nextAttempt, maxAttempts, delay }) {
           const state = chunkStates[chunkIndex];
@@ -2663,13 +2673,18 @@ ${clipped}`
       const limitedByNetwork = config.pagesPerRequest !== config.requestedPagesPerRequest || config.concurrency !== config.requestedConcurrency;
       const networkExplanation = limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`
-        : (GEMINI_FALLBACK_CHAIN.includes(config.model)
+        : (config.cameraDirect
+          ? `${CAMERA_WAVE_SIZE} gambar diproses sebagai ${CAMERA_AI_CONCURRENCY} kelompok paralel × ${CAMERA_BATCH_SIZE} gambar.`
+          : GEMINI_FALLBACK_CHAIN.includes(config.model)
           ? `Gemini berjalan dengan ${activeAiLimit} jalur Turbo langsung.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
       const imageTransport = publicR2Experiment
         ? 'tautan gambar R2 sementara ke DeepSeek'
         : (betaRemoteImagesAvailable ? 'R2 pemulihan' : `gambar base64 langsung ke ${shortModelLabel(config.model)}`);
-      setProgress(5, 'Memulai mode Turbo', `${chunks.length} kelompok disiapkan. Maksimal dua halaman dirender bersamaan agar PC tetap responsif. ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
+      const preparationExplanation = config.cameraDirect
+        ? 'JPEG hasil capture dibaca langsung tanpa render PDF.'
+        : 'Maksimal dua halaman dirender bersamaan agar PC tetap responsif.';
+      setProgress(5, 'Memulai mode Turbo', `${chunks.length} kelompok disiapkan. ${preparationExplanation} ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });
       setTransferProgress(0, 'Menyiapkan gambar kelompok pertama');
       const inFlight = new Set();

@@ -142,13 +142,13 @@
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
                 model: session.aiModel || 'glm-5.3-flashx',
-                chunkSize: 15,
-                concurrency: 1,
+                chunkSize: 5,
+                concurrency: 3,
                 durationSeconds: session.durationSeconds || 0,
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · 15 gambar per batch · tanpa R2'
+                message: 'Camera Direct · 15 gambar per gelombang · 3 kelompok paralel × 5 · tanpa R2'
               }),
               credentials: 'same-origin'
             });

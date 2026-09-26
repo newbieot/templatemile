@@ -88,7 +88,7 @@ async function runAsyncAssertions() {
   const worker = fs.readFileSync(path.join(root, '_worker.js'), 'utf8');
   assert.match(cameraRuntime, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(cameraHtml, /Finish Capturing/);
-  assert.match(cameraHtml, /15 gambar per batch dikirim langsung ke AI tanpa R2/);
+  assert.match(cameraHtml, /15 gambar per gelombang diproses sebagai 3 kelompok paralel × 5 tanpa R2/);
   assert.match(cameraHtml, /<option value="glm-5\.3-flashx" selected>GLM 5\.3 FlashX \(Default\)<\/option>/);
   assert.match(cameraHtml, /<option value="glm-5\.3">GLM 5\.3/);
   assert.match(cameraHtml, /<option value="glm-5\.3-flash">GLM 5\.3 Flash/);
@@ -129,7 +129,7 @@ async function runAsyncAssertions() {
   assert.match(reviewHtml, /assets\/css\/review\.css/);
   assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
   assert.match(reviewHtml, /camera-import-v2\.js/);
-  assert.match(reviewHtml, /Model pilihan membaca maksimal 15 gambar langsung tanpa R2/);
+  assert.match(reviewHtml, /15 gambar diproses sebagai 3 kelompok paralel × 5 langsung tanpa R2/);
   assert.match(reviewHtml, /id="aiProgressModal"/);
   assert.match(reviewHtml, /id="aiProgressStep"/);
   assert.match(reviewHtml, /id="aiProgressMessage"/);

@@ -1,5 +1,11 @@
 # Changelog
 
+## v25.13 — Kamera 15 gambar dalam gelombang paralel 5×3
+
+- Mengubah ekstraksi kamera dari satu request 15 gambar menjadi tiga request paralel berisi lima gambar.
+- Urutan hasil tetap digabung berdasarkan nomor halaman dan default tetap GLM 5.3 FlashX tanpa R2.
+- Ketika provider mengembalikan HTTP 429, jumlah jalur aktif diturunkan dan retry diberi jeda bertahap untuk mencegah retry serentak.
+
 ## v25.12 — Kamera langsung memakai JPEG tanpa putaran PDF
 
 - Finish Capture menyimpan blob JPEG hasil crop langsung ke IndexedDB tanpa membangun PDF.
