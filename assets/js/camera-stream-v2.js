@@ -73,14 +73,25 @@
     });
   }
 
+  function blobToDataUrl(blob) {
+    if (!blob) return Promise.resolve('');
+    if (typeof blob === 'string') return Promise.resolve(blob);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Gagal membaca gambar blob kamera'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
   async function processBatch(batch) {
     if (!batch.length) return;
 
-    // 1. Bypass R2 dan kirim Base64 secara langsung ke CosmosHub (untuk memangkas latensi download URL)
-    const directUrls = batch.map(item => ({
+    // 1. Konversi objek Blob ke Base64 Data URL string murni
+    const directUrls = await Promise.all(batch.map(async item => ({
       index: item.index,
-      url: item.blob // "data:image/jpeg;base64,..."
-    }));
+      url: await blobToDataUrl(item.blob)
+    })));
 
     // 2. Call Cosmos AI
     const rows = await callAI(directUrls);
