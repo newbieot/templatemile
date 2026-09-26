@@ -69,25 +69,61 @@
     files.forEach(file => {
       (file.rows || []).forEach(row => allRows.push(row));
     });
+    if (!allRows.length && Array.isArray(core.tempExtractedRows)) {
+      core.tempExtractedRows.forEach(row => allRows.push(row));
+    }
     return allRows;
+  }
+
+  function summarizeRows(rows) {
+    let reviewCount = 0;
+    let outsideBatamCount = 0;
+    let cleanCount = 0;
+    rows.forEach(row => {
+      const reviewFields = row?.aiReviewFields || row?.reviewFields || [];
+      const needsReview = (Array.isArray(reviewFields) && reviewFields.length > 0) || Boolean(row?.needsVerification);
+      const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
+      if (needsReview) reviewCount++;
+      if (outsideBatam) outsideBatamCount++;
+      if (!needsReview && !outsideBatam) cleanCount++;
+    });
+    return {
+      reviewCount,
+      outsideBatamCount,
+      cleanCount
+    };
   }
 
   // ——— Save batch results to server ———
 
-  async function saveBatchResults(batchId, captureCount, createdAt, deviceName, durationSeconds) {
+  async function saveBatchResults(batchId, captureCount, createdAt, deviceName, durationSeconds, details = {}) {
     if (!batchId || !/^CAM-/.test(batchId)) return;
 
     const rows = getAllRows();
     if (!rows.length) return;
+    const rowSummary = summarizeRows(rows);
+    const form = getFormValues();
+    const processingDurationSeconds = Number(details.processingDurationSeconds || durationSeconds || 0);
 
     const payload = {
       id: batchId,
       createdAt: createdAt || Date.now(),
+      startedAt: details.startedAt || '',
+      captureFinishedAt: details.captureFinishedAt || '',
       finishedAt: new Date().toISOString(),
       captureCount: captureCount || 0,
       deviceName: deviceName || 'Kamera HP',
-      durationSeconds: durationSeconds || 0,
-      form: getFormValues(),
+      durationSeconds: processingDurationSeconds,
+      captureDurationSeconds: Number(details.captureDurationSeconds || 0),
+      processingDurationSeconds,
+      totalDurationSeconds: Number(details.totalDurationSeconds || 0),
+      model: details.model || document.getElementById('aiModel')?.value || 'gemini-3.8-flash',
+      chunkSize: Number(details.chunkSize || 5),
+      concurrency: Number(details.concurrency || 3),
+      reviewCount: Number.isFinite(Number(details.reviewCount)) ? Number(details.reviewCount) : rowSummary.reviewCount,
+      outsideBatamCount: Number.isFinite(Number(details.outsideBatamCount)) ? Number(details.outsideBatamCount) : rowSummary.outsideBatamCount,
+      cleanCount: rowSummary.cleanCount,
+      form,
       rows: rows
     };
 
@@ -132,6 +168,44 @@
     return `${days} hari ${hours % 24} jam lagi`;
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatDateTime(value) {
+    const date = new Date(typeof value === 'number' || /^\d+$/.test(String(value || '')) ? Number(value) : value);
+    if (!Number.isFinite(date.getTime())) return '—';
+    return date.toLocaleString('id-ID', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+
+  function formatDuration(seconds) {
+    const value = Number(seconds || 0);
+    if (!Number.isFinite(value) || value <= 0) return '—';
+    if (value < 60) return `${value.toLocaleString('id-ID', { maximumFractionDigits: 1 })} detik`;
+    const minutes = Math.floor(value / 60);
+    const remainder = Math.round(value % 60);
+    return `${minutes} menit ${remainder} detik`;
+  }
+
+  function formatModel(model) {
+    const labels = {
+      'gemini-3.8-flash': 'Gemini 3.8 Flash',
+      'gemini-3.7-flash': 'Gemini 3.7 Flash',
+      'glm-5.3-flashx': 'GLM 5.3 FlashX',
+      'glm-5.3': 'GLM 5.3',
+      'glm-5.3-flash': 'GLM 5.3 Flash'
+    };
+    return String(model || '').split('->').map(value => labels[value.trim()] || value.trim()).filter(Boolean).join(' → ') || '—';
+  }
+
   function renderBatchCard(batch) {
     const card = document.createElement('div');
     card.className = 'camera-batch-item';
@@ -140,21 +214,68 @@
     const templateLabel = batch.templateName && batch.templateName !== 'MANUAL'
       ? batch.templateName.replace(/_/g, ' ')
       : 'Manual';
-      
-    const deviceLabel = batch.deviceName ? ` — Dari: <strong>${batch.deviceName}</strong>` : '';
+    const captureCount = Number(batch.captureCount || 0);
+    const rowCount = Number(batch.rowCount || 0);
+    const reviewCount = Number(batch.reviewCount || 0);
+    const outsideBatamCount = Number(batch.outsideBatamCount || 0);
+    const cleanCount = Number(batch.cleanCount || Math.max(0, rowCount - reviewCount - outsideBatamCount));
+    const processingSeconds = Number(batch.durationSeconds || 0);
+    const secondsPerRow = rowCount > 0 && processingSeconds > 0 ? processingSeconds / rowCount : 0;
+    const deviceName = batch.deviceName || 'Kamera HP';
+    const statusLabel = batch.status === 'complete' ? 'Selesai' : (batch.status || 'Tersimpan');
+    const itemLabel = batch.itemType === 'PAKET' ? 'Paket' : 'Dokumen';
+    const processScheme = batch.chunkSize && batch.concurrency
+      ? `${batch.concurrency} jalur × ${batch.chunkSize} gambar`
+      : '—';
 
     card.innerHTML = `
-      <div class="camera-batch-item__header">
-        <span class="camera-batch-item__icon" aria-hidden="true">📱</span>
-        <div class="camera-batch-item__meta">
-          <div class="camera-batch-item__title">${batch.rowCount || 0} baris dari ${batch.captureCount || 0} foto${deviceLabel}</div>
-          <div class="camera-batch-item__time"><span>${new Date(Number(batch.createdAt)).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} (${formatRelativeTime(batch.createdAt)})</span> Template: ${templateLabel}${batch.durationSeconds ? ` &bull; ⏱️ ${Math.round(batch.durationSeconds)}d (${(batch.durationSeconds / (batch.rowCount || 1)).toFixed(1)}d/data)` : ''}</div>
-          <div class="camera-batch-item__expiry"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${formatExpiryTime(batch.expiresAt)}</div>
+      <div class="camera-batch-item__topbar">
+        <div class="camera-batch-item__header">
+          <span class="camera-batch-item__icon" aria-hidden="true">📱</span>
+          <div class="camera-batch-item__meta">
+            <div class="camera-batch-item__title">${escapeHtml(deviceName)}</div>
+            <div class="camera-batch-item__id">${escapeHtml(batch.id)}</div>
+          </div>
+        </div>
+        <div class="camera-batch-item__badges">
+          <span class="camera-batch-badge camera-batch-badge--success">${escapeHtml(statusLabel)}</span>
+          <span class="camera-batch-badge">${escapeHtml(formatModel(batch.model))}</span>
+          <span class="camera-batch-badge">${escapeHtml(templateLabel)}</span>
         </div>
       </div>
-      <div class="camera-batch-item__actions">
-        <button type="button" class="camera-batch-item__load" data-batch-id="${batch.id}">Muat ke Desktop ▶</button>
-        <button type="button" class="camera-batch-item__delete" data-batch-id="${batch.id}" aria-label="Hapus batch">🗑️</button>
+
+      <div class="camera-batch-item__stats" aria-label="Ringkasan batch">
+        <div class="camera-batch-stat"><span>Foto</span><strong>${captureCount}</strong></div>
+        <div class="camera-batch-stat"><span>Hasil</span><strong>${rowCount}</strong></div>
+        <div class="camera-batch-stat camera-batch-stat--clean"><span>Bersih</span><strong>${cleanCount}</strong></div>
+        <div class="camera-batch-stat camera-batch-stat--review"><span>Perlu dicek</span><strong>${reviewCount}</strong></div>
+        <div class="camera-batch-stat camera-batch-stat--outside"><span>Luar Batam</span><strong>${outsideBatamCount}</strong></div>
+      </div>
+
+      <dl class="camera-batch-item__details">
+        <div><dt>Mulai capture</dt><dd>${escapeHtml(formatDateTime(batch.startedAt || batch.createdAt))}</dd></div>
+        <div><dt>Selesai capture</dt><dd>${escapeHtml(formatDateTime(batch.captureFinishedAt || batch.createdAt))}</dd></div>
+        <div><dt>Selesai AI</dt><dd>${escapeHtml(formatDateTime(batch.finishedAt || batch.savedAt))}</dd></div>
+        <div><dt>Waktu capture</dt><dd>${escapeHtml(formatDuration(batch.captureDurationSeconds))}</dd></div>
+        <div><dt>Waktu proses AI</dt><dd>${escapeHtml(formatDuration(processingSeconds))}</dd></div>
+        <div><dt>Total sesi</dt><dd>${escapeHtml(formatDuration(batch.totalDurationSeconds))}</dd></div>
+        <div><dt>Kecepatan</dt><dd>${secondsPerRow ? `${secondsPerRow.toLocaleString('id-ID', { maximumFractionDigits: 2 })} detik/data` : '—'}</dd></div>
+        <div><dt>Skema AI</dt><dd>${escapeHtml(processScheme)}</dd></div>
+        <div><dt>Pelanggan</dt><dd>${escapeHtml(batch.customerId || '—')}</dd></div>
+        <div><dt>Layanan / tarif</dt><dd>${escapeHtml([batch.serviceCode, batch.tariffCode].filter(Boolean).join(' / ') || '—')}</dd></div>
+        <div><dt>Jenis kiriman</dt><dd>${escapeHtml(itemLabel)}${batch.useInsurance ? ' · Asuransi' : ''}</dd></div>
+        <div><dt>Disimpan server</dt><dd>${escapeHtml(formatDateTime(batch.savedAt))}</dd></div>
+      </dl>
+
+      <div class="camera-batch-item__footer">
+        <div class="camera-batch-item__time">
+          <span>${escapeHtml(formatRelativeTime(batch.createdAt))}</span>
+          <span class="camera-batch-item__expiry">Kedaluwarsa ${escapeHtml(formatExpiryTime(batch.expiresAt))}</span>
+        </div>
+        <div class="camera-batch-item__actions">
+          <button type="button" class="camera-batch-item__load" data-batch-id="${escapeHtml(batch.id)}">Muat ke Desktop ▶</button>
+          <button type="button" class="camera-batch-item__delete" data-batch-id="${escapeHtml(batch.id)}" aria-label="Hapus batch ${escapeHtml(batch.id)}">🗑️</button>
+        </div>
       </div>
     `;
     return card;

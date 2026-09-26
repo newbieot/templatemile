@@ -1,5 +1,12 @@
 # Changelog
 
+## v25.15 — Log Kamera lebih lengkap
+
+- Menampilkan identitas batch dan perangkat, waktu capture/proses, model serta skema AI, dan masa kedaluwarsa.
+- Menambahkan statistik foto, hasil, data bersih, perlu dicek, serta alamat luar Batam.
+- Menampilkan template, pelanggan, layanan/tarif, jenis kiriman, asuransi, dan kecepatan per data.
+- Menyimpan ringkasan proses pada log baru serta menurunkan ringkasan kualitas dari baris untuk log lama.
+
 ## v25.14 — Gemini 3.8 menjadi default kamera
 
 - Mengubah model default `/camera` menjadi `gemini-3.8-flash`.

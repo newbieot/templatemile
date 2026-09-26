@@ -699,16 +699,33 @@ body.camera-mode .ai-config{
 .camera-batches-card__icon{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:#eff6ff;color:#3b82f6;border-radius:10px;font-size:1.1rem}
 .camera-batches-card__title{display:block;font-size:.9rem;font-weight:700;color:#0f172a;letter-spacing:-0.01em}
 .camera-batches-card__subtitle{display:block;font-size:.7rem;color:#64748b;margin-top:2px}
-.camera-batches-list{display:flex;flex-direction:column;gap:10px}
-.camera-batch-item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid #f1f5f9;border-radius:12px;background:#f8fafc;transition:all .2s ease}
-.camera-batch-item:hover{background:#fff;border-color:#cbd5e1;box-shadow:0 4px 12px rgba(15, 23, 42, 0.03)}
-.camera-batch-item__header{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
-.camera-batch-item__icon{font-size:1.2rem;opacity:0.8}
+.camera-batches-list{display:flex;flex-direction:column;gap:14px}
+.camera-batch-item{display:flex;flex-direction:column;gap:14px;padding:18px;border:1px solid #e2e8f0;border-radius:16px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);transition:border-color .2s ease,box-shadow .2s ease}
+.camera-batch-item:hover{border-color:#bfdbfe;box-shadow:0 10px 28px rgba(15,23,42,.08)}
+.camera-batch-item__topbar,.camera-batch-item__footer{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.camera-batch-item__header{display:flex;align-items:center;gap:12px;min-width:0}
+.camera-batch-item__icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:#eff6ff;font-size:1.2rem;flex:0 0 auto}
 .camera-batch-item__meta{min-width:0;display:flex;flex-direction:column;gap:3px}
-.camera-batch-item__title{font-size:.8rem;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.camera-batch-item__time{font-size:.65rem;color:#475569;display:flex;gap:6px;align-items:center}
-.camera-batch-item__time span{display:inline-block;padding:2px 6px;background:#e2e8f0;border-radius:4px;color:#334155;font-weight:600;font-size:0.6rem}
-.camera-batch-item__expiry{font-size:.65rem;color:#ef4444;font-weight:500;display:flex;align-items:center;gap:4px}
+.camera-batch-item__title{font-size:.86rem;font-weight:750;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.camera-batch-item__id{font:600 .62rem/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;color:#64748b;word-break:break-all}
+.camera-batch-item__badges{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.camera-batch-badge{display:inline-flex;align-items:center;min-height:24px;padding:3px 8px;border:1px solid #dbeafe;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:.61rem;font-weight:700}
+.camera-batch-badge--success{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}
+.camera-batch-item__stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.camera-batch-stat{padding:10px 8px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;text-align:center}
+.camera-batch-stat span{display:block;margin-bottom:3px;color:#64748b;font-size:.6rem;font-weight:650;text-transform:uppercase;letter-spacing:.035em}
+.camera-batch-stat strong{display:block;color:#0f172a;font-size:1rem;line-height:1.2}
+.camera-batch-stat--clean{border-color:#bbf7d0;background:#f0fdf4}.camera-batch-stat--clean strong{color:#15803d}
+.camera-batch-stat--review{border-color:#fde68a;background:#fffbeb}.camera-batch-stat--review strong{color:#b45309}
+.camera-batch-stat--outside{border-color:#fecaca;background:#fef2f2}.camera-batch-stat--outside strong{color:#dc2626}
+.camera-batch-item__details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin:0;border:1px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden}
+.camera-batch-item__details>div{display:grid;grid-template-columns:minmax(112px,.8fr) minmax(0,1.2fr);gap:8px;padding:8px 10px;border-bottom:1px solid #f1f5f9}
+.camera-batch-item__details>div:nth-child(odd){border-right:1px solid #f1f5f9}
+.camera-batch-item__details>div:nth-last-child(-n+2){border-bottom:0}
+.camera-batch-item__details dt{color:#64748b;font-size:.63rem;font-weight:650}.camera-batch-item__details dd{margin:0;color:#1e293b;font-size:.66rem;font-weight:650;overflow-wrap:anywhere}
+.camera-batch-item__time{display:flex;gap:7px;align-items:center;flex-wrap:wrap;color:#475569;font-size:.64rem}
+.camera-batch-item__time>span{display:inline-flex;align-items:center;min-height:23px;padding:3px 7px;background:#e2e8f0;border-radius:6px;color:#334155;font-weight:650}
+.camera-batch-item__time .camera-batch-item__expiry{background:#fff1f2;color:#be123c}
 .camera-batch-item__actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .camera-batch-item__load{padding:8px 16px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:.7rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s ease;box-shadow:0 1px 3px rgba(37,99,235,.2)}
 .camera-batch-item__load:hover{background:#1d4ed8;transform:translateY(-1px);box-shadow:0 4px 6px rgba(37,99,235,.25)}
@@ -717,7 +734,14 @@ body.camera-mode .ai-config{
 .camera-batch-item__delete{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#ef4444;font-size:.8rem;cursor:pointer;transition:all .15s ease}
 .camera-batch-item__delete:hover{background:#fef2f2;border-color:#fecaca;color:#dc2626}
 @media(max-width:640px){
-  .camera-batch-item{flex-direction:column;align-items:stretch;gap:12px;padding:16px}
+  .camera-batch-item{gap:12px;padding:14px}
+  .camera-batch-item__topbar,.camera-batch-item__footer{align-items:stretch;flex-direction:column}
+  .camera-batch-item__badges{justify-content:flex-start}
+  .camera-batch-item__stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .camera-batch-stat:first-child{grid-column:auto}.camera-batch-stat:last-child{grid-column:span 2}
+  .camera-batch-item__details{grid-template-columns:1fr}
+  .camera-batch-item__details>div,.camera-batch-item__details>div:nth-child(odd),.camera-batch-item__details>div:nth-last-child(-n+2){border-right:0;border-bottom:1px solid #f1f5f9}
+  .camera-batch-item__details>div:last-child{border-bottom:0}
   .camera-batch-item__actions{display:grid;grid-template-columns:1fr auto;gap:8px}
   .camera-batch-item__load{width:100%;text-align:center;padding:10px}
 }

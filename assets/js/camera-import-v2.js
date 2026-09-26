@@ -49,6 +49,31 @@
     }
   }
 
+  function buildSyncDetails(session, runMetrics = {}) {
+    const startedAtMs = Date.parse(session?.startedAt || '');
+    const captureFinishedAtMs = Date.parse(session?.finishedAt || '');
+    const captureDurationSeconds = Number(session?.captureDurationSeconds) || (
+      Number.isFinite(startedAtMs) && Number.isFinite(captureFinishedAtMs)
+        ? Math.max(0, (captureFinishedAtMs - startedAtMs) / 1000)
+        : 0
+    );
+    const totalDurationSeconds = Number.isFinite(startedAtMs)
+      ? Math.max(0, (Date.now() - startedAtMs) / 1000)
+      : 0;
+    return {
+      startedAt: session?.startedAt || '',
+      captureFinishedAt: session?.finishedAt || '',
+      captureDurationSeconds,
+      processingDurationSeconds: Number(runMetrics?.durationSeconds || session?.durationSeconds || 0),
+      totalDurationSeconds,
+      model: String(runMetrics?.model || session?.aiModel || 'gemini-3.8-flash'),
+      chunkSize: Number(runMetrics?.chunkSize || 5),
+      concurrency: Number(runMetrics?.concurrency || 3),
+      reviewCount: Number(runMetrics?.reviewCount || 0),
+      outsideBatamCount: Number(runMetrics?.outsideBatamCount || 0)
+    };
+  }
+
   async function importCameraBatch() {
     const sessionId = new URLSearchParams(window.location.search).get('cameraSession');
     let isCameraStored = false;
@@ -155,7 +180,21 @@
           } catch (e) {
             console.error('Failed to log metrics:', e);
           }
-          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName, session.durationSeconds);
+          await window.MileCameraSync.saveBatchResults(
+            sessionId,
+            session.captureCount,
+            session.createdAt,
+            session.deviceName,
+            session.durationSeconds,
+            buildSyncDetails(session, {
+              durationSeconds: session.durationSeconds,
+              model: session.aiModel,
+              chunkSize: 5,
+              concurrency: 3,
+              reviewCount,
+              outsideBatamCount: outOfTown
+            })
+          );
         }
         return;
       }
@@ -165,7 +204,7 @@
         window.history.replaceState({}, document.title, cleanUrl);
         const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
         notify(`${session.captureCount} JPEG kamera siap dikirim langsung ke AI...`, 'success');
-        await ai.processCameraImages(session.images, {
+        const runMetrics = await ai.processCameraImages(session.images, {
           name: `Kamera - ${session.deviceName || sessionId}`
         });
         const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount
@@ -173,7 +212,14 @@
         if (completed) {
           await store.remove(sessionId);
           if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
-            window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName, session.durationSeconds);
+            await window.MileCameraSync.saveBatchResults(
+              sessionId,
+              session.captureCount,
+              session.createdAt,
+              session.deviceName,
+              runMetrics?.durationSeconds || session.durationSeconds,
+              buildSyncDetails(session, runMetrics)
+            );
           }
         } else {
           window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}`);
@@ -198,14 +244,21 @@
       });
       const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
       notify(`${session.captureCount} hasil capture siap diproses...`, 'success');
-      await ai.processPDFFile(file);
+      const runMetrics = await ai.processPDFFile(file);
       const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount
         || Number(core?.tempExtractedRows?.length || 0) > 0;
       if (completed) {
         await store.remove(sessionId);
         // Sync results to server for desktop access (72h TTL)
         if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
-          window.MileCameraSync.saveBatchResults(sessionId, session.captureCount, session.createdAt, session.deviceName, session.durationSeconds);
+          await window.MileCameraSync.saveBatchResults(
+            sessionId,
+            session.captureCount,
+            session.createdAt,
+            session.deviceName,
+            runMetrics?.durationSeconds || session.durationSeconds,
+            buildSyncDetails(session, runMetrics)
+          );
         }
       } else {
         window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}`);

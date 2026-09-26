@@ -160,6 +160,14 @@ async function runAsyncAssertions() {
   assert.match(cameraSync, /\/api\/camera\/batch\//);
   assert.match(cameraSync, /\/api\/camera\/batches/);
   assert.match(cameraSync, /MileCameraSync/);
+  assert.match(cameraSync, /function summarizeRows/);
+  assert.match(cameraSync, /function escapeHtml/);
+  assert.match(cameraSync, /camera-batch-item__stats/);
+  assert.match(cameraSync, /Perlu dicek/);
+  assert.match(cameraSync, /Luar Batam/);
+  assert.match(cameraSync, /Waktu proses AI/);
+  assert.match(cameraSync, /Skema AI/);
+  assert.match(cameraSync, /Layanan \/ tarif/);
   assert.match(cameraImport, /MileCameraSync/);
   assert.match(reviewHtml, /camera-sync\.js/);
 
@@ -169,6 +177,13 @@ async function runAsyncAssertions() {
   assert.match(appHtml, /id="openCameraLogsBtn"/);
   assert.match(appHtml, /id="cameraBatchesList"/);
   assert.match(appHtml, /camera-sync\.js/);
+  assert.match(appHtml, /Detail perangkat, waktu, model AI, kualitas hasil/);
+
+  const appCss = fs.readFileSync(path.join(root, 'assets/css/app.css'), 'utf8');
+  assert.match(appCss, /\.camera-batch-item__stats/);
+  assert.match(appCss, /\.camera-batch-item__details/);
+  assert.match(appCss, /\.camera-batch-stat--review/);
+  assert.match(appCss, /\.camera-batch-stat--outside/);
 
   // Worker camera batch endpoints
   assert.match(worker, /handleCameraBatchSave/);
@@ -177,6 +192,10 @@ async function runAsyncAssertions() {
   assert.match(worker, /handleCameraBatchDelete/);
   assert.match(worker, /validCameraBatchId/);
   assert.match(worker, /CAMERA_BATCH_TTL_MS/);
+  assert.match(worker, /captureDurationSeconds/);
+  assert.match(worker, /outsideBatamCount/);
+  assert.match(worker, /cleanCount/);
+  assert.match(worker, /customerId: result\.form\?\.customerId/);
   assert.match(worker, /\/api\/camera\/batches/);
 
   console.log('PASS camera-capture: fullscreen, capture feedback, auto crop, direct JPEG finish tanpa PDF, protected review, server sync 72h & desktop batch panel');

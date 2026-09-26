@@ -1,4 +1,4 @@
-const APP_VERSION = '20260926-25.14-camera-gemini38';
+const APP_VERSION = '20260926-25.15-camera-log-detail';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -697,16 +697,39 @@ async function handleCameraBatchSave(request, env, session, url) {
   if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
 
   const now = Date.now();
+  let reviewCount = 0;
+  let outsideBatamCount = 0;
+  let cleanCount = 0;
+  body.rows.forEach(row => {
+    const reviewFields = Array.isArray(row?.aiReviewFields)
+      ? row.aiReviewFields
+      : (Array.isArray(row?.reviewFields) ? row.reviewFields : []);
+    const needsReview = reviewFields.length > 0 || Boolean(row?.needsVerification);
+    const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
+    if (needsReview) reviewCount++;
+    if (outsideBatam) outsideBatamCount++;
+    if (!needsReview && !outsideBatam) cleanCount++;
+  });
   const record = {
     id: body.id,
     createdAt: Number(body.createdAt) || now,
     savedAt: now,
-    finishedAt: body.finishedAt || new Date().toISOString(),
+    startedAt: safeMetricText(body.startedAt, 40),
+    captureFinishedAt: safeMetricText(body.captureFinishedAt, 40),
+    finishedAt: safeMetricText(body.finishedAt, 40) || new Date().toISOString(),
     captureCount: Number(body.captureCount) || 0,
     rowCount: body.rows.length,
     deviceName: body.deviceName ? String(body.deviceName).substring(0, 50) : '',
-    templateName: body.templateName ? String(body.templateName).substring(0, 50) : (body.form?.template || ''),
-    durationSeconds: Number(body.durationSeconds) || 0,
+    templateName: body.templateName ? String(body.templateName).substring(0, 50) : safeMetricText(body.form?.corporateTemplate, 50),
+    durationSeconds: clampMetricNumber(body.processingDurationSeconds || body.durationSeconds, 0, 86400, 3),
+    captureDurationSeconds: clampMetricNumber(body.captureDurationSeconds, 0, 86400, 3),
+    totalDurationSeconds: clampMetricNumber(body.totalDurationSeconds, 0, 86400, 3),
+    model: safeMetricText(body.model, 80),
+    chunkSize: clampMetricNumber(body.chunkSize, 1, 15),
+    concurrency: clampMetricNumber(body.concurrency, 1, 5),
+    reviewCount,
+    outsideBatamCount,
+    cleanCount,
     expiresAt: (Number(body.createdAt) || now) + CAMERA_BATCH_TTL_MS,
     status: 'complete',
     form: body.form || {},
@@ -746,16 +769,48 @@ async function handleCameraBatchList(request, env, session) {
           if (resultObj) {
             const result = await resultObj.json();
             if (result && (result.expiresAt || 0) > now) {
+              const resultRows = Array.isArray(result.rows) ? result.rows : [];
+              let derivedReviewCount = 0;
+              let derivedOutsideBatamCount = 0;
+              let derivedCleanCount = 0;
+              resultRows.forEach(row => {
+                const reviewFields = Array.isArray(row?.aiReviewFields)
+                  ? row.aiReviewFields
+                  : (Array.isArray(row?.reviewFields) ? row.reviewFields : []);
+                const needsReview = reviewFields.length > 0 || Boolean(row?.needsVerification);
+                const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
+                if (needsReview) derivedReviewCount++;
+                if (outsideBatam) derivedOutsideBatamCount++;
+                if (!needsReview && !outsideBatam) derivedCleanCount++;
+              });
               batches.push({
                 id: result.id,
                 createdAt: result.createdAt,
                 savedAt: result.savedAt,
+                startedAt: result.startedAt || '',
+                captureFinishedAt: result.captureFinishedAt || '',
                 finishedAt: result.finishedAt,
                 captureCount: result.captureCount,
                 rowCount: result.rowCount,
                 expiresAt: result.expiresAt,
                 status: result.status,
-                templateName: result.form?.corporateTemplate || 'MANUAL'
+                deviceName: result.deviceName || '',
+                templateName: result.form?.corporateTemplate || result.templateName || 'MANUAL',
+                customerId: result.form?.customerId || '',
+                clientMode: result.form?.clientMode || '',
+                serviceCode: result.form?.serviceCode || '',
+                tariffCode: result.form?.tariffCode || '',
+                itemType: result.form?.itemType || '',
+                useInsurance: Boolean(result.form?.useInsurance),
+                model: result.model || '',
+                chunkSize: Number(result.chunkSize) || 0,
+                concurrency: Number(result.concurrency) || 0,
+                durationSeconds: Number(result.durationSeconds) || 0,
+                captureDurationSeconds: Number(result.captureDurationSeconds) || 0,
+                totalDurationSeconds: Number(result.totalDurationSeconds) || 0,
+                reviewCount: Number.isFinite(Number(result.reviewCount)) ? Number(result.reviewCount) : derivedReviewCount,
+                outsideBatamCount: Number.isFinite(Number(result.outsideBatamCount)) ? Number(result.outsideBatamCount) : derivedOutsideBatamCount,
+                cleanCount: Number.isFinite(Number(result.cleanCount)) ? Number(result.cleanCount) : derivedCleanCount
               });
             }
           }

@@ -14,6 +14,8 @@ Saat **Finish Capturing** ditekan, blob JPEG hasil crop disimpan langsung ke Ind
 
 Batch sementara disimpan di IndexedDB pada perangkat dan dihapus setelah pemrosesan selesai. Route `/camera` tetap memerlukan session Firebase yang valid dan permission camera hanya diizinkan pada halaman ini. Pipeline `/beta` tetap terpisah dan masih dapat memakai R2; sesi `/camera` tidak memakai upload, referensi, maupun cleanup R2.
 
+Panel **Log Kamera** di desktop menampilkan ID batch/perangkat, waktu capture dan proses AI, model serta skema paralel, statistik foto/hasil/bersih/perlu dicek/luar Batam, template dan konfigurasi layanan, kecepatan per data, waktu simpan, serta masa kedaluwarsa. Log baru menyimpan ringkasan ini bersama hasil batch; log lama tetap ditampilkan menggunakan metadata yang masih tersedia.
+
 ## Eksperimen PC lawas di `/beta`
 
 Halaman `/beta` memakai `deepseek-v4.1-flash` sebagai model default. PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Setiap gambar diunggah ke R2 `mile-beta-ai-images`, lalu URL sementara dikirim ke DeepSeek dalam kelompok 15 halaman × 5 jalur. Mode DeepSeek tidak kembali ke base64 bila unggahan R2 gagal. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.

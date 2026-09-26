@@ -622,18 +622,24 @@
       }));
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
       const aiModel = $('aiModelSelect')?.value || 'gemini-3.8-flash';
+      const captureFinishedAt = new Date();
+      const captureStartedMs = Date.parse(sessionStartedAt);
+      const captureDurationSeconds = Number.isFinite(captureStartedMs)
+        ? Math.max(0, (captureFinishedAt.getTime() - captureStartedMs) / 1000)
+        : 0;
       await store.save({
         id: sessionId,
         createdAt: Date.now(),
         startedAt: sessionStartedAt,
-        finishedAt: new Date().toISOString(),
+        finishedAt: captureFinishedAt.toISOString(),
         route: 'review',
         captureCount: captures.length,
         captures: metadata,
         images,
         inputFormat: 'direct-jpeg',
         deviceName,
-        aiModel
+        aiModel,
+        captureDurationSeconds: Number(captureDurationSeconds.toFixed(3))
       });
       updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Setiap 15 gambar diproses sebagai 3 kelompok paralel × 5 tanpa R2...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);

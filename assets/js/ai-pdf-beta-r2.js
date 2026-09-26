@@ -2761,6 +2761,7 @@ ${clipped}`
         showToast(`${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, 'success');
         core.processNextInQueue();
       }
+      return metrics;
     } catch (error) {
       if (error?.name !== 'AbortError') cancelled = true;
       const elapsed = Math.max(0, (performance.now() - startedAt) / 1000);
