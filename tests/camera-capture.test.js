@@ -89,11 +89,11 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(cameraHtml, /Finish Capturing/);
   assert.match(cameraHtml, /15 gambar per gelombang diproses sebagai 3 kelompok paralel × 5 tanpa R2/);
-  assert.match(cameraHtml, /<option value="glm-5\.3-flashx" selected>GLM 5\.3 FlashX \(Default\)<\/option>/);
+  assert.match(cameraHtml, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash \(Default\)<\/option>/);
+  assert.match(cameraHtml, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash \(Fallback\)<\/option>/);
+  assert.match(cameraHtml, /<option value="glm-5\.3-flashx">GLM 5\.3 FlashX<\/option>/);
   assert.match(cameraHtml, /<option value="glm-5\.3">GLM 5\.3/);
   assert.match(cameraHtml, /<option value="glm-5\.3-flash">GLM 5\.3 Flash/);
-  assert.match(cameraHtml, /<option value="gemini-3\.8-flash">Gemini 3\.8 Flash<\/option>/);
-  assert.match(cameraHtml, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash<\/option>/);
   assert.match(cameraRuntime, /facingMode: \{ ideal: 'environment' \}/);
   assert.match(cameraRuntime, /requestFullscreen/);
   assert.match(cameraRuntime, /orientationchange/);

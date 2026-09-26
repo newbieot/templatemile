@@ -49,7 +49,7 @@
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
-  const CAMERA_DEFAULT_MODEL = 'glm-5.3-flashx';
+  const CAMERA_DEFAULT_MODEL = 'gemini-3.8-flash';
   const CAMERA_WAVE_SIZE = 15;
   const CAMERA_BATCH_SIZE = 5;
   const CAMERA_AI_CONCURRENCY = 3;
@@ -62,6 +62,7 @@
   ]);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
+  const CAMERA_GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
@@ -1446,13 +1447,14 @@ ${clipped}`
     return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
   }
 
-  function nextFallbackModel(model) {
-    const index = GEMINI_FALLBACK_CHAIN.indexOf(String(model || '').trim());
-    return index >= 0 ? (GEMINI_FALLBACK_CHAIN[index + 1] || '') : '';
+  function nextFallbackModel(model, config = {}) {
+    const chain = config.cameraDirect ? CAMERA_GEMINI_FALLBACK_CHAIN : GEMINI_FALLBACK_CHAIN;
+    const index = chain.indexOf(String(model || '').trim());
+    return index >= 0 ? (chain[index + 1] || '') : '';
   }
 
   function isAutoFallbackEligible(config, error) {
-    if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model)) return false;
+    if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model, config)) return false;
     if (isR2BridgeFailure(error)) return false;
     const status = Number(error?.status || 0);
     if (!status) return true;
@@ -1542,7 +1544,7 @@ ${clipped}`
         await cancellableSleep(delay);
       }
     }
-    const nextModel = nextFallbackModel(requestModel);
+    const nextModel = nextFallbackModel(requestModel, requestConfig);
     if (nextModel && isAutoFallbackEligible(requestConfig, lastError)) {
       hooks.onFallback?.({ from: requestModel, to: nextModel, error: lastError });
       const transition = `${requestModel}->${nextModel}`;

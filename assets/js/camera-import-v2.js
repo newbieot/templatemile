@@ -141,7 +141,7 @@
                 status: 'SUCCESS',
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
-                model: session.aiModel || 'glm-5.3-flashx',
+                model: session.aiModel || 'gemini-3.8-flash',
                 chunkSize: 5,
                 concurrency: 3,
                 durationSeconds: session.durationSeconds || 0,

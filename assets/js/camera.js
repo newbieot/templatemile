@@ -621,7 +621,7 @@
         blob
       }));
       const deviceName = $('cameraDeviceName')?.value?.trim() || '';
-      const aiModel = $('aiModelSelect')?.value || 'glm-5.3-flashx';
+      const aiModel = $('aiModelSelect')?.value || 'gemini-3.8-flash';
       await store.save({
         id: sessionId,
         createdAt: Date.now(),

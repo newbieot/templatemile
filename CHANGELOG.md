@@ -1,5 +1,11 @@
 # Changelog
 
+## v25.14 — Gemini 3.8 menjadi default kamera
+
+- Mengubah model default `/camera` menjadi `gemini-3.8-flash`.
+- Menetapkan fallback khusus kamera hanya ke `gemini-3.7-flash`; Gemini 3.6 tetap tersedia hanya pada rantai fallback `/beta`.
+- Mempertahankan gelombang paralel 15 gambar sebagai tiga kelompok × lima dan jalur tanpa R2.
+
 ## v25.13 — Kamera 15 gambar dalam gelombang paralel 5×3
 
 - Mengubah ekstraksi kamera dari satu request 15 gambar menjadi tiga request paralel berisi lima gambar.

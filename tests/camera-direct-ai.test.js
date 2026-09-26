@@ -9,7 +9,7 @@ const cameraHtml = fs.readFileSync(path.join(root, 'camera.html'), 'utf8');
 const reviewHtml = fs.readFileSync(path.join(root, 'review.html'), 'utf8');
 
 const values = {
-  aiModel: 'glm-5.3-flashx',
+  aiModel: 'gemini-3.8-flash',
   aiAccuracyMode: 'auto',
   aiSpeedPreset: 'fast',
   aiPagesPerRequest: '4',
@@ -98,7 +98,9 @@ for (const model of [
 }
 
 element('aiModel').value = 'model-tidak-diizinkan';
-assert.equal(ai.getConfig().model, 'glm-5.3-flashx');
+assert.equal(ai.getConfig().model, 'gemini-3.8-flash');
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash', cameraDirect: true }, { status: 503 }), false);
 
 const sources = Array.from({ length: 15 }, (_, index) => ({
   page: index + 1,
@@ -122,13 +124,15 @@ assert.match(source, /const CAMERA_BATCH_SIZE = 5/);
 assert.match(source, /const CAMERA_AI_CONCURRENCY = 3/);
 assert.match(source, /activeAiLimit = Math\.max\(1, activeAiLimit - 1\)/);
 assert.match(source, /const stagger = chunkIndex \* 1250/);
-assert.match(source, /const CAMERA_DEFAULT_MODEL = 'glm-5\.3-flashx'/);
+assert.match(source, /const CAMERA_DEFAULT_MODEL = 'gemini-3\.8-flash'/);
+assert.match(source, /CAMERA_GEMINI_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL\]\)/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
 assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCameraBlobsForBatch/);
 assert.match(source, /JPEG asli siap · belum mengirim gambar/);
-assert.match(cameraHtml, /glm-5\.3-flashx" selected/);
+assert.match(cameraHtml, /gemini-3\.8-flash" selected/);
 assert.match(cameraHtml, /gemini-3\.8-flash/);
 assert.match(cameraHtml, /gemini-3\.7-flash/);
+assert.match(reviewHtml, /value="gemini-3\.8-flash" selected/);
 assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="5" selected/);
 assert.match(reviewHtml, /id="aiConcurrency"><option value="3" selected/);
 for (const requiredProgressId of [
@@ -153,4 +157,4 @@ for (const requiredProgressId of [
 assert.doesNotMatch(reviewHtml, /id="aiModal"/);
 assert.match(source, /const modal = \$\('aiProgressModal'\)/);
 
-console.log('PASS camera-direct-ai: JPEG tanpa PDF/R2, default GLM 5.3 FlashX, dan gelombang 15 sebagai 3 request paralel × 5');
+console.log('PASS camera-direct-ai: JPEG tanpa PDF/R2, default Gemini 3.8 → fallback 3.7, dan gelombang 15 sebagai 3 request paralel × 5');
