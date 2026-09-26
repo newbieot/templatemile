@@ -82,6 +82,19 @@
           </span>
           <span class="performance-beta-action">Buka Camera <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
         </a>
+
+        <section class="camera-batches-card" id="cameraBatchesPanel" hidden>
+          <div class="camera-batches-card__header">
+            <span class="camera-batches-card__icon" aria-hidden="true">📱</span>
+            <div>
+              <strong class="camera-batches-card__title">Hasil Kamera HP</strong>
+              <small class="camera-batches-card__subtitle">Tersimpan di server · 3 hari</small>
+            </div>
+          </div>
+          <div class="camera-batches-list" id="cameraBatchesList">
+            <!-- Populated dynamically by camera-sync.js -->
+          </div>
+        </section>
       </div>
       <div class="workflow-steps" aria-label="Workflow steps">
         <div class="workflow-step is-active" data-step="1"><span>1</span><strong>Atur</strong><small>Transaksi & pengirim</small></div>
@@ -502,12 +515,13 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260908-16.23" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260908-16.23" defer></script>
-  <script src="/assets/js/app-core.js?v=20260926-16.40-camera" defer></script>
+  <script src="/assets/js/app-core.js?v=20260926-16.47-sync" defer></script>
   <script src="/assets/js/ai-pdf-v16-19.js?v=20260924-postal-29426" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-16.42" defer></script>
-  <script src="/assets/js/camera-import.js?v=20260926-16.44-review" defer></script>
-  <script src="/assets/js/ui.js?v=20260908-16.23" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260908-16.23" defer></script>
-  <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-16.47-sync" defer></script>
+  <script src="/assets/js/camera-sync.js?v=20260926-16.47-sync" defer></script>
+  <script src="/assets/js/camera-import.js?v=20260926-16.47-sync" defer></script>
+  <script src="/assets/js/ui.js?v=20260926-16.47-sync" defer></script>
+  <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>
+  <script src="/assets/js/session-v16.js?v=20260926-16.47-sync" defer></script>
 </body>
 </html>

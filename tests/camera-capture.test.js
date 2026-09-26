@@ -138,7 +138,33 @@ async function runAsyncAssertions() {
   assert.match(reviewCss, /#resultTable tbody tr\.outside-batam/);
   assert.match(reviewCss, /#resultTable tbody tr\.needs-review/);
 
-  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, protected route, dedicated review page & mobile cards');
+  // Camera sync to server
+  const cameraSync = fs.readFileSync(path.join(root, 'assets/js/camera-sync.js'), 'utf8');
+  assert.match(cameraSync, /saveBatchResults/);
+  assert.match(cameraSync, /fetchAndRenderBatches/);
+  assert.match(cameraSync, /loadBatchToDesktop/);
+  assert.match(cameraSync, /\/api\/camera\/batch\//);
+  assert.match(cameraSync, /\/api\/camera\/batches/);
+  assert.match(cameraSync, /MileCameraSync/);
+  assert.match(cameraImport, /MileCameraSync/);
+  assert.match(reviewHtml, /camera-sync\.js/);
+
+  // Desktop batch panel
+  const appHtml = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
+  assert.match(appHtml, /id="cameraBatchesPanel"/);
+  assert.match(appHtml, /id="cameraBatchesList"/);
+  assert.match(appHtml, /camera-sync\.js/);
+
+  // Worker camera batch endpoints
+  assert.match(worker, /handleCameraBatchSave/);
+  assert.match(worker, /handleCameraBatchList/);
+  assert.match(worker, /handleCameraBatchGet/);
+  assert.match(worker, /handleCameraBatchDelete/);
+  assert.match(worker, /validCameraBatchId/);
+  assert.match(worker, /CAMERA_BATCH_TTL_MS/);
+  assert.match(worker, /\/api\/camera\/batches/);
+
+  console.log('PASS camera-capture: fullscreen, audio/visual capture feedback, HUD toast, fullscreen finish, non-blocking capture, auto crop, JPEG-to-PDF, protected route, dedicated review page & mobile cards, server sync 72h & desktop batch panel');
 }
 
 runAsyncAssertions().catch(error => {

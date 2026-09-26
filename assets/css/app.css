@@ -693,3 +693,29 @@ body.camera-mode .ai-config{
   .review-alert-actions .button{min-height:40px!important;font-size:.72rem!important;width:100%!important}
 }
 
+/* ——— Camera Batches Panel (Desktop) ——— */
+.camera-batches-card{margin-top:12px;padding:16px 18px;border:1.5px solid #e0e7ff;border-radius:14px;background:linear-gradient(135deg,#eff6ff 0%,#f0f5ff 100%)}
+.camera-batches-card__header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.camera-batches-card__icon{font-size:1.4rem;line-height:1}
+.camera-batches-card__title{display:block;font-size:.82rem;font-weight:800;color:#1e293b}
+.camera-batches-card__subtitle{display:block;font-size:.65rem;color:#64748b;margin-top:1px}
+.camera-batches-list{display:flex;flex-direction:column;gap:8px}
+.camera-batch-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.camera-batch-item:hover{border-color:#818cf8;box-shadow:0 2px 8px rgba(99,102,241,.12)}
+.camera-batch-item__header{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.camera-batch-item__icon{font-size:1.1rem;flex-shrink:0}
+.camera-batch-item__meta{min-width:0}
+.camera-batch-item__title{display:block;font-size:.75rem;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.camera-batch-item__time{display:block;font-size:.62rem;color:#64748b;margin-top:2px}
+.camera-batch-item__expiry{display:block;font-size:.58rem;color:#94a3b8;margin-top:1px}
+.camera-batch-item__actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.camera-batch-item__load{padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.camera-batch-item__load:hover{opacity:.88}
+.camera-batch-item__load:disabled{opacity:.5;cursor:not-allowed}
+.camera-batch-item__delete{padding:6px 8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:.82rem;cursor:pointer;line-height:1;transition:background .15s,border-color .15s}
+.camera-batch-item__delete:hover{background:#fef2f2;border-color:#fca5a5}
+@media(max-width:640px){
+  .camera-batch-item{flex-direction:column;align-items:stretch;gap:8px}
+  .camera-batch-item__actions{justify-content:stretch}
+  .camera-batch-item__load{flex:1;text-align:center;min-height:40px;font-size:.72rem}
+}

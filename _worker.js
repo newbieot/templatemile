@@ -1,4 +1,4 @@
-const APP_VERSION = '20260926-16.42-camera-feedback';
+const APP_VERSION = '20260926-16.47-camera-sync';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -6,6 +6,9 @@ const MAX_REQUEST_BYTES = 28 * 1024 * 1024;
 const MAX_AUTH_BODY_BYTES = 16 * 1024;
 const MAX_METRICS_BODY_BYTES = 12 * 1024;
 const MAX_BETA_IMAGE_BYTES = 4 * 1024 * 1024;
+const CAMERA_BATCH_TTL_MS = 72 * 60 * 60 * 1000;
+const MAX_CAMERA_CAPTURES = 100;
+const MAX_CAMERA_MANIFEST_BYTES = 64 * 1024;
 const MAX_BETA_BATCH_IMAGES = 8;
 const MAX_BETA_BATCH_RAW_BYTES = 8 * 1024 * 1024;
 const BETA_IMAGE_TOKEN_TTL_SECONDS = 60 * 60;
@@ -656,6 +659,160 @@ async function handleBetaImageCleanup(request, env, session) {
   return json({ ok: true, deleted });
 }
 
+function validCameraBatchId(value) {
+  return /^CAM-[a-zA-Z0-9_-]{8,80}$/.test(String(value || ''));
+}
+
+const MAX_CAMERA_RESULT_BYTES = 2 * 1024 * 1024;
+
+async function handleCameraBatchSave(request, env, session, url) {
+  if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
+  if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
+  if (!sameOriginRequest(request)) return json({ error: { message: 'Permintaan lintas situs ditolak.' } }, 403);
+
+  const bucket = betaImageBucket(env);
+  if (!bucket) return json({ error: { message: 'Penyimpanan belum dikonfigurasi.' } }, 503);
+
+  const match = url.pathname.match(/^\/api\/camera\/batch\/([a-zA-Z0-9_-]{8,80})$/);
+  if (!match || !validCameraBatchId(match[1])) {
+    return json({ error: { message: 'ID batch kamera tidak valid.' } }, 400);
+  }
+
+  let body;
+  try {
+    body = await readJson(request, MAX_CAMERA_RESULT_BYTES);
+  } catch (_) {
+    return json({ error: { message: 'Data batch kamera tidak valid.' } }, 400);
+  }
+
+  if (!body || typeof body !== 'object' || body.id !== match[1]) {
+    return json({ error: { message: 'Data batch kamera tidak cocok.' } }, 400);
+  }
+  if (!Array.isArray(body.rows) || body.rows.length < 1) {
+    return json({ error: { message: 'Batch harus berisi minimal 1 baris data.' } }, 400);
+  }
+
+  const owner = betaOwnerKey(session);
+  if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
+
+  const now = Date.now();
+  const record = {
+    id: body.id,
+    createdAt: Number(body.createdAt) || now,
+    savedAt: now,
+    finishedAt: body.finishedAt || new Date().toISOString(),
+    captureCount: Number(body.captureCount) || 0,
+    rowCount: body.rows.length,
+    expiresAt: (Number(body.createdAt) || now) + CAMERA_BATCH_TTL_MS,
+    status: 'complete',
+    form: body.form || {},
+    rows: body.rows
+  };
+
+  const key = `camera/${owner}/${match[1]}/result.json`;
+  await bucket.put(key, JSON.stringify(record), {
+    httpMetadata: { contentType: 'application/json', cacheControl: 'private, no-store, max-age=0' },
+    customMetadata: { createdAt: new Date().toISOString() }
+  });
+
+  return json({ ok: true, batchId: match[1], rowCount: record.rowCount, expiresAt: record.expiresAt });
+}
+
+async function handleCameraBatchList(request, env, session) {
+  if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
+  if (request.method !== 'GET') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'GET' });
+
+  const bucket = betaImageBucket(env);
+  if (!bucket) return json({ error: { message: 'Penyimpanan belum dikonfigurasi.' } }, 503);
+
+  const owner = betaOwnerKey(session);
+  if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
+
+  const prefix = `camera/${owner}/`;
+  const batches = [];
+  const now = Date.now();
+  let cursor;
+
+  do {
+    const page = await bucket.list({ prefix, cursor, limit: 500 });
+    for (const obj of page.objects) {
+      if (obj.key.endsWith('/result.json')) {
+        try {
+          const resultObj = await bucket.get(obj.key);
+          if (resultObj) {
+            const result = await resultObj.json();
+            if (result && (result.expiresAt || 0) > now) {
+              batches.push({
+                id: result.id,
+                createdAt: result.createdAt,
+                savedAt: result.savedAt,
+                finishedAt: result.finishedAt,
+                captureCount: result.captureCount,
+                rowCount: result.rowCount,
+                expiresAt: result.expiresAt,
+                status: result.status,
+                templateName: result.form?.corporateTemplate || 'MANUAL'
+              });
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  batches.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return json({ ok: true, batches });
+}
+
+async function handleCameraBatchGet(request, env, session, url) {
+  if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
+  if (request.method !== 'GET') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'GET' });
+
+  const bucket = betaImageBucket(env);
+  if (!bucket) return json({ error: { message: 'Penyimpanan belum dikonfigurasi.' } }, 503);
+
+  const match = url.pathname.match(/^\/api\/camera\/batch\/([a-zA-Z0-9_-]{8,80})$/);
+  if (!match || !validCameraBatchId(match[1])) {
+    return json({ error: { message: 'ID batch kamera tidak valid.' } }, 400);
+  }
+
+  const owner = betaOwnerKey(session);
+  if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
+
+  const key = `camera/${owner}/${match[1]}/result.json`;
+  const object = await bucket.get(key);
+  if (!object) return json({ error: { message: 'Batch kamera tidak ditemukan.' } }, 404);
+
+  const result = await object.json();
+  if (!result || (result.expiresAt || 0) <= Date.now()) {
+    return json({ error: { message: 'Batch kamera sudah kedaluwarsa.' } }, 410);
+  }
+
+  return json({ ok: true, batch: result });
+}
+
+async function handleCameraBatchDelete(request, env, session, url) {
+  if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
+  if (request.method !== 'DELETE') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'DELETE' });
+
+  const bucket = betaImageBucket(env);
+  if (!bucket) return json({ error: { message: 'Penyimpanan belum dikonfigurasi.' } }, 503);
+
+  const match = url.pathname.match(/^\/api\/camera\/batch\/([a-zA-Z0-9_-]{8,80})$/);
+  if (!match || !validCameraBatchId(match[1])) {
+    return json({ error: { message: 'ID batch kamera tidak valid.' } }, 400);
+  }
+
+  const owner = betaOwnerKey(session);
+  if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
+
+  const key = `camera/${owner}/${match[1]}/result.json`;
+  await bucket.delete(key);
+
+  return json({ ok: true, deleted: 1 });
+}
+
 async function handleProxy(request, env, session) {
   if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
   if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
@@ -825,6 +982,10 @@ export default {
     if (url.pathname === '/api/metrics/ai') return handleMetrics(request, env, session);
     if (url.pathname === '/api/beta/images/cleanup') return handleBetaImageCleanup(request, env, session);
     if (url.pathname.startsWith('/api/beta/images/')) return handleBetaImageUpload(request, env, session, url);
+    if (url.pathname === '/api/camera/batches') return handleCameraBatchList(request, env, session);
+    if (url.pathname.match(/^\/api\/camera\/batch\/[a-zA-Z0-9_-]+$/) && request.method === 'GET') return handleCameraBatchGet(request, env, session, url);
+    if (url.pathname.match(/^\/api\/camera\/batch\/[a-zA-Z0-9_-]+$/) && request.method === 'POST') return handleCameraBatchSave(request, env, session, url);
+    if (url.pathname.match(/^\/api\/camera\/batch\/[a-zA-Z0-9_-]+$/) && request.method === 'DELETE') return handleCameraBatchDelete(request, env, session, url);
 
     if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/login' || url.pathname === '/login.html') {
       // Fetch extensionless asset routes. Cloudflare Pages redirects /index.html to /
