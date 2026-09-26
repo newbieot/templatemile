@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260909-16.25">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-16.45-dock">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-16.46-fullscreen100">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -104,11 +104,13 @@
             <strong id="fullscreenCapturedCount">0 gambar</strong>
             <button id="exitFullscreenButton" type="button" aria-label="Keluar dari tampilan layar penuh">Keluar fullscreen</button>
           </div>
-          <button class="camera-capture-button camera-capture-button--fullscreen" id="captureButtonFullscreen" type="button" disabled aria-label="Capture label alamat">
-            <span aria-hidden="true"></span>
-            Capture
-          </button>
-          <button class="camera-fullscreen-finish" id="finishCaptureButtonFullscreen" type="button" disabled aria-label="Selesai dan proses batch">Finish Capture</button>
+          <div class="camera-fullscreen-bottom-dock" id="cameraFullscreenBottomDock">
+            <button class="camera-capture-button camera-capture-button--fullscreen" id="captureButtonFullscreen" type="button" disabled aria-label="Capture label alamat">
+              <span aria-hidden="true"></span>
+              Capture
+            </button>
+            <button class="camera-fullscreen-finish" id="finishCaptureButtonFullscreen" type="button" disabled aria-label="Selesai dan proses batch">Finish Capture</button>
+          </div>
         </div>
 
         <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera. Tombol Capture dan Finish Capture tersedia langsung di bawah preview.</div>
@@ -170,7 +172,7 @@
       PosNew Hub
     </a>
     <p class="footer-desc">Mobile capture station untuk batch label alamat.</p>
-    <span class="footer-creator-badge">MILE Camera · v16.45</span>
+    <span class="footer-creator-badge">MILE Camera · v16.46</span>
   </footer>
 
   <canvas id="cameraAnalysisCanvas" hidden></canvas>
@@ -179,9 +181,9 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260926-16.45-dock" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-16.45-dock" defer></script>
-  <script src="/assets/js/camera.js?v=20260926-16.45-dock" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260926-16.46-fullscreen100" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-16.46-fullscreen100" defer></script>
+  <script src="/assets/js/camera.js?v=20260926-16.46-fullscreen100" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

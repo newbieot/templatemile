@@ -120,6 +120,8 @@
     }, 2400);
   }
 
+  let userExitedFullscreen = false;
+
   function isCameraFullscreen() {
     return Boolean(
       (document.fullscreenElement || document.webkitFullscreenElement) === $('cameraStage')
@@ -128,27 +130,30 @@
     );
   }
 
-  async function requestCameraFullscreen() {
+  function enterFullscreenMode() {
+    userExitedFullscreen = false;
     const stage = $('cameraStage');
     if (!stage) return;
+    stage.classList.add('is-fullscreen');
+    document.body.classList.add('camera-fullscreen-active');
+    handleViewportChange();
     try {
-      if (stage.requestFullscreen) {
-        await stage.requestFullscreen({ navigationUI: 'hide' });
-      } else if (stage.webkitRequestFullscreen) {
-        await stage.webkitRequestFullscreen();
-      } else {
-        stage.classList.add('is-fullscreen');
-        document.body.classList.add('camera-fullscreen-active');
-        handleViewportChange();
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (stage.requestFullscreen) {
+          stage.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+        } else if (stage.webkitRequestFullscreen) {
+          stage.webkitRequestFullscreen();
+        }
       }
-    } catch (_) {
-      stage.classList.add('is-fullscreen');
-      document.body.classList.add('camera-fullscreen-active');
-      handleViewportChange();
-    }
+    } catch (_) {}
+  }
+
+  function requestCameraFullscreen() {
+    enterFullscreenMode();
   }
 
   function exitCameraFullscreen() {
+    userExitedFullscreen = true;
     const stage = $('cameraStage');
     try {
       if (document.fullscreenElement || document.webkitFullscreenElement) {
@@ -162,10 +167,10 @@
   }
 
   function toggleCameraFullscreen() {
-    if (isCameraFullscreen()) {
+    if (isCameraFullscreen() && !userExitedFullscreen) {
       exitCameraFullscreen();
     } else {
-      requestCameraFullscreen();
+      enterFullscreenMode();
     }
   }
 
@@ -312,6 +317,7 @@
       video.srcObject = stream;
       await video.play();
       $('cameraStage')?.classList.add('is-active');
+      enterFullscreenMode();
       updateStageAspect();
       const track = stream.getVideoTracks()[0];
       const settings = track.getSettings?.() || {};
@@ -609,9 +615,14 @@
     window.screen?.orientation?.addEventListener?.('change', handleViewportChange);
     ['fullscreenchange', 'webkitfullscreenchange'].forEach(eventName => {
       document.addEventListener(eventName, () => {
-        const active = isCameraFullscreen();
-        $('cameraStage')?.classList.toggle('is-fullscreen', active);
-        document.body.classList.toggle('camera-fullscreen-active', active);
+        const nativeActive = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+        if (nativeActive) {
+          $('cameraStage')?.classList.add('is-fullscreen');
+          document.body.classList.add('camera-fullscreen-active');
+        } else if (userExitedFullscreen) {
+          $('cameraStage')?.classList.remove('is-fullscreen');
+          document.body.classList.remove('camera-fullscreen-active');
+        }
         handleViewportChange();
       });
     });
