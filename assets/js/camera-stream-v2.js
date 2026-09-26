@@ -2,7 +2,7 @@
   'use strict';
 
   const BATCH_SIZE = 5;
-  const AI_MODEL = 'gemini-3.8-flash';
+  const AI_MODEL = 'deepseek-v4-pro';
 
   let sessionId = null;
   let queue = [];
@@ -39,7 +39,7 @@
 
     if (pendingTasks.length > 0) {
       if (typeof window.updateProcessingStatus === 'function') {
-        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses Gemini...`);
+        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses DeepSeek Pro...`);
       }
       await Promise.allSettled(pendingTasks);
     }
