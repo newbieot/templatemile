@@ -23,7 +23,7 @@ const ALLOWED_MODELS = new Set([
   'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro',
   'deepseek-v4.1-flash', 'deepseek-v4-pro',
   'qwen-3.8-flash', 'qwen-3.7-plus', 'qwen-3.7-flash',
-  'glm-5.3', 'glm-5.3-flashx'
+  'glm-5.3', 'glm-5.3-flashx', 'glm-5.3-flash'
 ]);
 const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',
