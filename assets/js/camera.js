@@ -310,10 +310,16 @@
     stopCamera();
 
     try {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      // 4:3 is the native sensor ratio (CamScanner uses this). Gives maximum FOV.
+      const idealW = isPortrait ? 1200 : 1600;
+      const idealH = isPortrait ? 1600 : 1200;
+      
       const deviceId = $('cameraDevice')?.value;
       const videoConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-        : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } };
+        ? { deviceId: { exact: deviceId }, width: { ideal: idealW }, height: { ideal: idealH } }
+        : { facingMode: { ideal: 'environment' }, width: { ideal: idealW }, height: { ideal: idealH } };
+      
       stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
       const video = $('cameraPreview');
       video.srcObject = stream;
