@@ -2,7 +2,7 @@
   'use strict';
 
   const BATCH_SIZE = 5;
-  const AI_MODEL = 'deepseek-v4-pro';
+  const AI_MODEL = 'qwen-3.8-flash';
 
   let sessionId = null;
   let queue = [];
@@ -39,7 +39,7 @@
 
     if (pendingTasks.length > 0) {
       if (typeof window.updateProcessingStatus === 'function') {
-        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses DeepSeek Pro...`);
+        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses Qwen...`);
       }
       await Promise.allSettled(pendingTasks);
     }
