@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260909-16.25">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-24.32-dmatrix">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-24.44-selector">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -73,6 +73,18 @@
           <div class="form-group">
             <label for="cameraDeviceName">Nama Perangkat (Opsional)</label>
             <input type="text" id="cameraDeviceName" class="table-input" placeholder="Cth: HP Gudang A, Kurir Budi..." maxlength="30" autocomplete="off" style="width: 100%; font-size: 0.9rem;">
+          </div>
+          <div class="form-group">
+            <label for="aiModelSelect">Model AI (Vision)</label>
+            <div class="select-shell">
+              <select id="aiModelSelect">
+                <option value="deepseek-v4.1-flash" selected>DeepSeek v4.1 Flash (Default)</option>
+                <option value="deepseek-v4-pro">DeepSeek v4 Pro (Akurasi Maksimal)</option>
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash (Google)</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Google)</option>
+                <option value="qwen-3.8-flash">Qwen 3.8 Flash (Alibaba)</option>
+              </select>
+            </div>
           </div>
           <div class="form-group">
             <label for="cameraDevice">Kamera</label>
@@ -185,10 +197,10 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260926-24.32-dmatrix" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-24.32-dmatrix" defer></script>
-  <script src="/assets/js/camera-stream-v2.js?v=20260926-24.32-dmatrix" defer></script>
-  <script src="/assets/js/camera.js?v=20260926-24.32-dmatrix" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260926-24.44-selector" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260926-24.44-selector" defer></script>
+  <script src="/assets/js/camera-stream-v2.js?v=20260926-24.44-selector" defer></script>
+  <script src="/assets/js/camera.js?v=20260926-24.44-selector" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

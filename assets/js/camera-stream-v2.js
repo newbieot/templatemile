@@ -2,7 +2,12 @@
   'use strict';
 
   const BATCH_SIZE = 10;
-  const AI_MODEL = 'deepseek-v4.1-flash';
+
+  function getSelectedModel() {
+    const selector = document.getElementById('aiModelSelect');
+    return selector ? selector.value : 'deepseek-v4.1-flash';
+  }
+
 
   let sessionId = null;
   let queue = [];
@@ -39,7 +44,8 @@
 
     if (pendingTasks.length > 0) {
       if (typeof window.updateProcessingStatus === 'function') {
-        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses DeepSeek...`);
+        const modelName = getSelectedModel().split('-')[0].toUpperCase();
+        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses ${modelName}...`);
       }
       await Promise.allSettled(pendingTasks);
     }
@@ -127,7 +133,7 @@ Format Wajib:
       });
 
       const body = {
-        model: AI_MODEL,
+        model: getSelectedModel(),
         stream: false,
         max_tokens: 4000,
         response_format: { type: "json_object" },
