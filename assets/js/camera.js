@@ -311,9 +311,9 @@
 
     try {
       const isPortrait = window.innerHeight > window.innerWidth;
-      // 4:3 is the native sensor ratio (CamScanner uses this). Gives maximum FOV.
-      const idealW = isPortrait ? 1200 : 1600;
-      const idealH = isPortrait ? 1600 : 1200;
+      // User specifically requested 9:16 (720x1280) in portrait to fill more vertical space
+      const idealW = isPortrait ? 720 : 1280;
+      const idealH = isPortrait ? 1280 : 720;
       
       const deviceId = $('cameraDevice')?.value;
       const videoConstraints = deviceId
