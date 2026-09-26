@@ -2,7 +2,7 @@
   'use strict';
 
   const BATCH_SIZE = 5;
-  const DEEPSEEK_MODEL = 'deepseek-v4.1-flash';
+  const AI_MODEL = 'gemini-3.8-flash';
 
   let sessionId = null;
   let queue = [];
@@ -39,7 +39,7 @@
 
     if (pendingTasks.length > 0) {
       if (typeof window.updateProcessingStatus === 'function') {
-        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses DeepSeek...`);
+        window.updateProcessingStatus('Mengekstrak AI...', `Menunggu ${pendingTasks.length} antrean gambar terakhir diproses Gemini...`);
       }
       await Promise.allSettled(pendingTasks);
     }
@@ -127,7 +127,7 @@ Format Wajib:
       });
 
       const body = {
-        model: DEEPSEEK_MODEL,
+        model: AI_MODEL,
         stream: false,
         max_tokens: 4000,
         response_format: { type: "json_object" },
