@@ -721,6 +721,7 @@ async function handleCameraBatchSave(request, env, session, url) {
 
   const now = Date.now();
   let reviewCount = 0;
+  let reviewFieldCount = 0;
   let outsideBatamCount = 0;
   let cleanCount = 0;
   body.rows.forEach(row => {
@@ -730,6 +731,7 @@ async function handleCameraBatchSave(request, env, session, url) {
     const needsReview = reviewFields.length > 0 || Boolean(row?.needsVerification);
     const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
     if (needsReview) reviewCount++;
+    reviewFieldCount += reviewFields.length ? new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean)).size : (needsReview ? 1 : 0);
     if (outsideBatam) outsideBatamCount++;
     if (!needsReview && !outsideBatam) cleanCount++;
   });
@@ -752,6 +754,7 @@ async function handleCameraBatchSave(request, env, session, url) {
     concurrency: clampMetricNumber(body.concurrency, 1, 5),
     chunkTimings: sanitizeCameraChunkTimings(body.chunkTimings),
     reviewCount,
+    reviewFieldCount,
     outsideBatamCount,
     cleanCount,
     expiresAt: (Number(body.createdAt) || now) + CAMERA_BATCH_TTL_MS,
@@ -795,6 +798,7 @@ async function handleCameraBatchList(request, env, session) {
             if (result && (result.expiresAt || 0) > now) {
               const resultRows = Array.isArray(result.rows) ? result.rows : [];
               let derivedReviewCount = 0;
+              let derivedReviewFieldCount = 0;
               let derivedOutsideBatamCount = 0;
               let derivedCleanCount = 0;
               resultRows.forEach(row => {
@@ -804,6 +808,7 @@ async function handleCameraBatchList(request, env, session) {
                 const needsReview = reviewFields.length > 0 || Boolean(row?.needsVerification);
                 const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
                 if (needsReview) derivedReviewCount++;
+                derivedReviewFieldCount += reviewFields.length ? new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean)).size : (needsReview ? 1 : 0);
                 if (outsideBatam) derivedOutsideBatamCount++;
                 if (!needsReview && !outsideBatam) derivedCleanCount++;
               });
@@ -834,6 +839,7 @@ async function handleCameraBatchList(request, env, session) {
                 captureDurationSeconds: Number(result.captureDurationSeconds) || 0,
                 totalDurationSeconds: Number(result.totalDurationSeconds) || 0,
                 reviewCount: Number.isFinite(Number(result.reviewCount)) ? Number(result.reviewCount) : derivedReviewCount,
+                reviewFieldCount: Number.isFinite(Number(result.reviewFieldCount)) ? Number(result.reviewFieldCount) : derivedReviewFieldCount,
                 outsideBatamCount: Number.isFinite(Number(result.outsideBatamCount)) ? Number(result.outsideBatamCount) : derivedOutsideBatamCount,
                 cleanCount: Number.isFinite(Number(result.cleanCount)) ? Number(result.cleanCount) : derivedCleanCount
               });

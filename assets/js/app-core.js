@@ -972,6 +972,98 @@
             'noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'
         ]);
 
+        const reviewFieldAliases = Object.freeze({
+            nosurat: 'noSurat', no_surat: 'noSurat', nomor_surat: 'noSurat', reference: 'noSurat', referensi: 'noSurat', ref: 'noSurat',
+            name: 'name', nama: 'name', nama_penerima: 'name', recipient_name: 'name',
+            address: 'address', alamat: 'address', alamat_penerima: 'address', recipient_address: 'address',
+            phone: 'phone', telepon: 'phone', telp: 'phone', nomor_hp: 'phone', no_hp: 'phone', whatsapp: 'phone', wa: 'phone',
+            cw: 'cw', berat: 'cw', weight: 'cw',
+            p: 'p', panjang: 'p', length: 'p',
+            l: 'l', lebar: 'l', width: 'l',
+            t: 't', tinggi: 't', height: 't',
+            insharga: 'insHarga', ins_harga: 'insHarga', nilai_barang: 'insHarga', item_value: 'insHarga'
+        });
+
+        const reviewFieldNames = Object.freeze({
+            noSurat: 'REF/SURAT', name: 'Nama', address: 'Alamat', phone: 'No. HP',
+            cw: 'Berat', p: 'Panjang', l: 'Lebar', t: 'Tinggi', insHarga: 'Nilai Barang'
+        });
+
+        function normalizeReviewFieldKey(value) {
+            const source = String(value ?? '').trim();
+            if (!source) return '';
+            if (reviewFieldKeys.includes(source)) return source;
+            const normalized = source
+                .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '');
+            return reviewFieldAliases[normalized] || '';
+        }
+
+        function normalizeReviewFieldList(value) {
+            const source = Array.isArray(value)
+                ? value
+                : (typeof value === 'string' ? value.split(/[,;|]/) : []);
+            return Array.from(new Set(source.map(normalizeReviewFieldKey).filter(Boolean)));
+        }
+
+        function inferLegacyReviewFields(row) {
+            const inferred = [];
+            const add = field => { if (field && !inferred.includes(field)) inferred.push(field); };
+            const name = String(row?.name || '');
+            const address = String(row?.address || '');
+            const noSurat = String(row?.noSurat || '');
+            const administrativePattern = /\b(?:CABANG|CARRIAGE|TGL\s*TRANS|TGL\s*VALUTA|NO\s*DOKUMEN|URAIAN\s+MUTASI)\b/i;
+
+            if (!name || /^\s*(?:KEPADA|YTH|ATTN)\b/i.test(name) || name.length > 72 || /\b(?:JL\.?|JALAN|RUKO|PERUM(?:AHAN)?|KOMP(?:LEK)?|KAVLING|GEDUNG)\b/i.test(name) || administrativePattern.test(name)) add('name');
+            if (!address || administrativePattern.test(address)) add('address');
+            if (administrativePattern.test(noSurat)) add('noSurat');
+
+            const confidence = Number(row?.aiConfidence);
+            if (Number.isFinite(confidence) && confidence < 0.82) {
+                add('name');
+                add('address');
+            }
+
+            // Batch lama hanya menyimpan needsVerification tanpa alasan field.
+            // Tandai dua field utama agar keraguan tidak pernah berubah menjadi "bersih" secara diam-diam.
+            if (!inferred.length) {
+                add('name');
+                add('address');
+            }
+            return inferred;
+        }
+
+        function hydrateAIReviewState(row) {
+            if (row._aiReviewHydrated) return;
+            const explicitFields = Array.from(new Set([
+                ...normalizeReviewFieldList(row.aiReviewFields),
+                ...normalizeReviewFieldList(row.reviewFields)
+            ]));
+            const fields = explicitFields.length
+                ? explicitFields
+                : (row.needsVerification ? inferLegacyReviewFields(row) : []);
+            const sourcePage = Number(row.sourcePage || row.page || 0) || 0;
+            const fallback = !explicitFields.length && Boolean(row.needsVerification);
+
+            fields.forEach(field => {
+                if (row._reviewState[field]) return;
+                row._reviewState[field] = {
+                    pending: true,
+                    dirty: false,
+                    originalValue: String(row[field] ?? ''),
+                    source: fallback ? 'ai-row' : 'ai-field',
+                    sourcePage,
+                    reason: fallback
+                        ? 'AI menandai baris ini perlu diperiksa, tetapi batch lama tidak menyimpan nama field yang spesifik.'
+                        : `AI menandai ${reviewFieldNames[field] || field} sebagai bagian yang perlu diperiksa.`,
+                    requiresChange: false
+                };
+            });
+            row._aiReviewHydrated = true;
+        }
+
         function getActiveReviewFieldKeys() {
             const isPackage = document.getElementById('itemType')?.value === 'PAKET';
             return isPackage
@@ -984,6 +1076,8 @@
                 row._reviewState = {};
             }
 
+            hydrateAIReviewState(row);
+
             // Rekonsiliasi setiap kali dipanggil. Dengan begitu, teks "perlu dicek"
             // tidak pernah dapat tersembunyi hanya karena status lama sempat ditandai selesai.
             reviewFieldKeys.forEach(field => {
@@ -995,7 +1089,10 @@
                     state = row._reviewState[field] = {
                         pending: true,
                         dirty: false,
-                        originalValue: currentValue
+                        originalValue: currentValue,
+                        source: 'text-marker',
+                        reason: 'Teks masih mengandung penanda “PERLU DICEK”.',
+                        requiresChange: true
                     };
                 } else if (hasMarker && state && !state.pending) {
                     const previousResolvedValue = String(state.resolvedValue ?? state.originalValue ?? '');
@@ -1003,6 +1100,10 @@
                     state.dirty = currentValue.trim() !== previousResolvedValue.trim();
                     state.originalValue = previousResolvedValue || currentValue;
                     delete state.resolvedValue;
+                }
+                if (hasMarker && state) {
+                    state.requiresChange = true;
+                    state.reason = 'Teks masih mengandung penanda “PERLU DICEK”.';
                 }
             });
 
@@ -1019,6 +1120,23 @@
 
         function rowNeedsReview(row) {
             return getActiveReviewFieldKeys().some(field => isFieldReviewPending(row, field));
+        }
+
+        function pendingReviewFields(row) {
+            return getActiveReviewFieldKeys().filter(field => isFieldReviewPending(row, field));
+        }
+
+        function reviewBadgeText(row, rowNumber) {
+            const labels = pendingReviewFields(row).map(field => reviewFieldNames[field] || field);
+            const sourcePage = Number(row?.sourcePage || row?.page || 0) || 0;
+            return `No. ${rowNumber} · Periksa ${labels.join(', ') || 'data'}${sourcePage ? ` · Sumber ${sourcePage}` : ''}`;
+        }
+
+        function reviewBadgeTitle(row) {
+            return pendingReviewFields(row)
+                .map(field => getFieldReviewState(row, field)?.reason)
+                .filter(Boolean)
+                .join(' ');
         }
 
         function getPendingReviewCount() {
@@ -1083,10 +1201,15 @@
                     reviewState = states[context.field] = {
                         pending: true,
                         dirty: currentValue.trim() !== previousValue.trim(),
-                        originalValue: previousValue || currentValue
+                        originalValue: previousValue || currentValue,
+                        source: 'text-marker',
+                        reason: 'Teks masih mengandung penanda “PERLU DICEK”.',
+                        requiresChange: true
                     };
                 } else {
                     reviewState.pending = true;
+                    reviewState.requiresChange = true;
+                    reviewState.reason = 'Teks masih mengandung penanda “PERLU DICEK”.';
                     delete reviewState.resolvedValue;
                 }
             }
@@ -1110,13 +1233,14 @@
 
             const currentValue = String(input.value ?? '').trim();
             const originalValue = String(context.reviewState.originalValue ?? '').trim();
+            const requiresChange = context.reviewState.requiresChange !== false;
             if (!currentValue) {
                 context.reviewState.dirty = false;
                 input.dataset.reviewDirty = 'false';
                 input.classList.remove('is-review-dirty');
                 return { resolved: false, pending: true, reason: 'empty' };
             }
-            if (currentValue === originalValue) {
+            if (currentValue === originalValue && requiresChange) {
                 context.reviewState.dirty = false;
                 input.dataset.reviewDirty = 'false';
                 input.classList.remove('is-review-dirty');
@@ -1144,7 +1268,11 @@
             context.tr.dataset.needsReview = String(rowStillPending);
             context.tr.classList.toggle('needs-review', rowStillPending);
             const badge = context.tr.querySelector('.review-row-badge');
-            if (badge) badge.hidden = !rowStillPending;
+            if (badge) {
+                badge.hidden = !rowStillPending;
+                badge.textContent = reviewBadgeText(context.row, context.tr.dataset.rowNumber || '?');
+                badge.title = reviewBadgeTitle(context.row);
+            }
 
             return { resolved: true, pending: false, reason: 'changed', rowStillPending };
         }
@@ -1421,7 +1549,10 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                         const pending = Boolean(state?.pending);
                         const dirty = Boolean(state?.dirty);
                         const original = state?.originalValue ?? '';
-                        return ` data-review-field="${field}" data-review-pending="${pending}" data-review-dirty="${dirty}" data-review-original="${escapeAttribute(original)}"`;
+                        const reason = state?.reason ?? '';
+                        const sourcePage = Number(state?.sourcePage || item.sourcePage || item.page || 0) || 0;
+                        const requiresChange = state?.requiresChange !== false;
+                        return ` data-review-field="${field}" data-review-pending="${pending}" data-review-dirty="${dirty}" data-review-original="${escapeAttribute(original)}" data-review-reason="${escapeAttribute(reason)}" data-review-source-page="${sourcePage}" data-review-requires-change="${requiresChange}"${reason ? ` title="${escapeAttribute(reason)}"` : ''}`;
                     };
                     let insValue = item.insHarga !== undefined ? item.insHarga : 0;
                     let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga${reviewClass('insHarga')}"${reviewAttributes('insHarga')} value="${escapeAttribute(insValue)}" style="color:#2e7d32; font-weight:bold;"></td>` : ``;
@@ -1445,7 +1576,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                         ${insColumn}
                         <td class="row-action-cell">
                             <span class="outside-batam-badge" ${outsidePending ? '' : 'hidden'} title="${escapeAttribute(outsideState.reason || 'AI mendeteksi alamat penerima di luar Kota Batam.')}">Alamat luar Kota Batam</span>
-                            <span class="review-row-badge" ${needsReview ? '' : 'hidden'}>No. ${counter} · Teks perlu dicek</span>
+                            <span class="review-row-badge" ${needsReview ? '' : 'hidden'} title="${escapeAttribute(reviewBadgeTitle(item))}">${escapeAttribute(reviewBadgeText(item, counter))}</span>
                             <div class="outside-batam-row-actions" ${outsidePending ? '' : 'hidden'}>
                                 <button class="outside-batam-keep-row" type="button" data-action="keep-outside-batam" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">Simpan koreksi alamat</button>
                                 <button class="outside-batam-delete-row" type="button" data-action="delete-outside-batam" data-file-id="${escapeAttribute(file.id)}" data-row-id="${escapeAttribute(rowId)}">Hapus</button>
@@ -1500,7 +1631,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             const pendingReviewCount = getPendingReviewCount();
             const unresolvedReviewInputs = Array.from(document.querySelectorAll('#resultTable tbody tr input[data-review-pending="true"]'));
             if (pendingReviewCount > 0) {
-                alert(`Masih ada ${pendingReviewCount} bagian bertuliskan “perlu dicek”. Setiap bagian wajib diubah, tidak boleh kosong, tidak boleh masih memuat “perlu dicek”, dan harus ditandai selesai sebelum ekspor.`);
+                alert(`Masih ada ${pendingReviewCount} bagian yang perlu diperiksa. Perbaiki nilai yang salah atau konfirmasi nilai yang sudah benar. Kolom tidak boleh kosong, penanda “perlu dicek” harus dihapus, dan seluruh bagian harus ditandai selesai sebelum ekspor.`);
                 const firstIssue = unresolvedReviewInputs[0];
                 firstIssue?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
                 firstIssue?.focus({ preventScroll: true });

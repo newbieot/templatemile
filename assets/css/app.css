@@ -715,6 +715,7 @@ body.camera-mode .ai-config{
 .camera-batch-stat{padding:10px 8px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;text-align:center}
 .camera-batch-stat span{display:block;margin-bottom:3px;color:#64748b;font-size:.6rem;font-weight:650;text-transform:uppercase;letter-spacing:.035em}
 .camera-batch-stat strong{display:block;color:#0f172a;font-size:1rem;line-height:1.2}
+.camera-batch-stat small{display:block;margin-top:2px;color:#64748b;font-size:.54rem;font-weight:700}
 .camera-batch-stat--clean{border-color:#bbf7d0;background:#f0fdf4}.camera-batch-stat--clean strong{color:#15803d}
 .camera-batch-stat--review{border-color:#fde68a;background:#fffbeb}.camera-batch-stat--review strong{color:#b45309}
 .camera-batch-stat--outside{border-color:#fecaca;background:#fef2f2}.camera-batch-stat--outside strong{color:#dc2626}

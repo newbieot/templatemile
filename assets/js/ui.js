@@ -67,7 +67,9 @@
     const row = input?.closest?.('tr');
     const rowNumber = String(row?.dataset?.rowNumber || row?.querySelector?.('.row-number-cell')?.textContent || '?').trim();
     const field = reviewFieldLabels.find(([className]) => input?.classList?.contains(className))?.[1] || 'Data';
-    return { rowNumber, field, label: `No. ${rowNumber} · ${field}` };
+    const reason = String(input?.dataset?.reviewReason || '').trim();
+    const sourcePage = Number(input?.dataset?.reviewSourcePage || 0) || 0;
+    return { rowNumber, field, reason, sourcePage, label: `No. ${rowNumber} · ${field}${sourcePage ? ` · Sumber ${sourcePage}` : ''}` };
   }
 
   function getPendingReviewRowNumbers() {
@@ -354,7 +356,7 @@
       const numbers = getPendingReviewRowNumbers();
       const visible = numbers.slice(0, 8).join(', ');
       const remaining = Math.max(0, numbers.length - 8);
-      reviewAlertTitle.textContent = `Wajib dikoreksi pada No. ${visible}${remaining ? ` dan ${remaining} nomor lainnya` : ''}`;
+      reviewAlertTitle.textContent = `Wajib diperiksa pada No. ${visible}${remaining ? ` dan ${remaining} nomor lainnya` : ''}`;
     }
     if (openReviewButton) {
       openReviewButton.disabled = reviewInputCount === 0;
@@ -408,30 +410,34 @@
     if (locationBadge) { locationBadge.textContent = location.label; locationBadge.hidden = false; }
     const currentValue = String(active.value ?? '').trim();
     const originalValue = String(active.dataset.reviewOriginal ?? '').trim();
+    const requiresChange = active.dataset.reviewRequiresChange !== 'false';
     const changed = currentValue !== '' && currentValue !== originalValue;
     const markerStillPresent = typeof window.containsReviewMarker === 'function'
       ? window.containsReviewMarker(currentValue)
       : /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(currentValue);
-    const canConfirm = changed && !markerStillPresent;
+    const canConfirm = currentValue !== '' && !markerStillPresent && (changed || !requiresChange);
     active.dataset.reviewDirty = String(changed);
     active.classList.toggle('is-review-dirty', changed);
 
     if (button) {
       button.disabled = !canConfirm;
       if (!currentValue) button.textContent = 'Isi koreksi dahulu';
-      else if (!changed) button.textContent = 'Ubah teks terlebih dahulu';
+      else if (!changed && requiresChange) button.textContent = 'Ubah teks terlebih dahulu';
       else if (markerStillPresent) button.textContent = 'Hapus “perlu dicek” dahulu';
-      else button.textContent = '✓ Tandai selesai & lanjut';
+      else if (!changed) button.textContent = '✓ Konfirmasi benar & lanjut';
+      else button.textContent = '✓ Simpan koreksi & lanjut';
     }
     if (hint) {
       if (!currentValue) {
         hint.textContent = `${location.label}: kolom tidak boleh kosong. Masukkan hasil koreksi yang benar.`;
-      } else if (!changed) {
+      } else if (!changed && requiresChange) {
         hint.textContent = `${location.label}: silakan ubah teks yang meragukan. Mengetik tidak akan memindahkan fokus.`;
       } else if (markerStillPresent) {
         hint.textContent = `${location.label}: frasa “perlu dicek” masih ada. Ganti atau hapus frasa tersebut terlebih dahulu.`;
+      } else if (!changed) {
+        hint.textContent = `${location.label}: ${location.reason || 'AI meminta bagian ini diperiksa.'} Jika sudah benar, klik konfirmasi.`;
       } else {
-        hint.textContent = `${location.label}: perubahan siap disimpan. Klik tombol centang untuk menandai selesai dan lanjut.`;
+        hint.textContent = `${location.label}: perubahan siap disimpan. Klik tombol untuk menandai selesai dan lanjut.`;
       }
     }
   }
@@ -510,13 +516,14 @@
     const currentIndex = Math.max(0, before.indexOf(input));
     const currentValue = String(input.value ?? '').trim();
     const originalValue = String(input.dataset.reviewOriginal ?? '').trim();
+    const requiresChange = input.dataset.reviewRequiresChange !== 'false';
 
     if (!currentValue) {
       showToast('Kolom koreksi tidak boleh kosong.', 'error');
       input.focus();
       return;
     }
-    if (currentValue === originalValue) {
+    if (currentValue === originalValue && requiresChange) {
       showToast('Belum ada perubahan. Selesaikan koreksinya terlebih dahulu.', 'error');
       input.focus();
       return;

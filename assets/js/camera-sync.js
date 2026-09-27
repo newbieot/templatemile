@@ -255,6 +255,7 @@
     const captureCount = Number(batch.captureCount || 0);
     const rowCount = Number(batch.rowCount || 0);
     const reviewCount = Number(batch.reviewCount || 0);
+    const reviewFieldCount = Number(batch.reviewFieldCount || reviewCount || 0);
     const outsideBatamCount = Number(batch.outsideBatamCount || 0);
     const cleanCount = Number(batch.cleanCount || Math.max(0, rowCount - reviewCount - outsideBatamCount));
     const processingSeconds = Number(batch.durationSeconds || 0);
@@ -303,7 +304,7 @@
         <div class="camera-batch-stat"><span>Foto</span><strong>${captureCount}</strong></div>
         <div class="camera-batch-stat"><span>Hasil</span><strong>${rowCount}</strong></div>
         <div class="camera-batch-stat camera-batch-stat--clean"><span>Bersih</span><strong>${cleanCount}</strong></div>
-        <div class="camera-batch-stat camera-batch-stat--review"><span>Perlu dicek</span><strong>${reviewCount}</strong></div>
+        <div class="camera-batch-stat camera-batch-stat--review" title="${reviewFieldCount} kolom perlu diperiksa"><span>Baris Perlu Dicek</span><strong>${reviewCount}</strong><small>${reviewFieldCount} kolom</small></div>
         <div class="camera-batch-stat camera-batch-stat--outside"><span>Luar Batam</span><strong>${outsideBatamCount}</strong></div>
       </div>
 
