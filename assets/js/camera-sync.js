@@ -94,6 +94,29 @@
     };
   }
 
+  function normalizeChunkTimings(value) {
+    return (Array.isArray(value) ? value : []).slice(0, 60).map((item, index) => ({
+      group: Math.max(1, Number(item?.group) || index + 1),
+      start: Math.max(1, Number(item?.start) || 1),
+      end: Math.max(1, Number(item?.end) || Number(item?.start) || 1),
+      inputBytes: Math.max(0, Number(item?.inputBytes) || 0),
+      encodedBytes: Math.max(0, Number(item?.encodedBytes) || 0),
+      prepareMs: Math.max(0, Number(item?.prepareMs) || 0),
+      encodeMs: Math.max(0, Number(item?.encodeMs) || 0),
+      uploadMs: Math.max(0, Number(item?.uploadMs) || 0),
+      waitMs: Math.max(0, Number(item?.waitMs) || 0),
+      totalMs: Math.max(0, Number(item?.totalMs) || 0),
+      auditMs: Math.max(0, Number(item?.auditMs) || 0),
+      auditPages: Math.max(0, Number(item?.auditPages) || 0),
+      rows: Math.max(0, Number(item?.rows) || 0),
+      attempts: Math.max(0, Number(item?.attempts) || 0),
+      retries: Math.max(0, Number(item?.retries) || 0),
+      model: String(item?.model || ''),
+      fallbackFrom: String(item?.fallbackFrom || ''),
+      status: String(item?.status || '')
+    }));
+  }
+
   // ——— Save batch results to server ———
 
   async function saveBatchResults(batchId, captureCount, createdAt, deviceName, durationSeconds, details = {}) {
@@ -120,6 +143,7 @@
       model: details.model || document.getElementById('aiModel')?.value || 'gemini-3.8-flash',
       chunkSize: Number(details.chunkSize || 5),
       concurrency: Number(details.concurrency || 3),
+      chunkTimings: normalizeChunkTimings(details.chunkTimings),
       reviewCount: Number.isFinite(Number(details.reviewCount)) ? Number(details.reviewCount) : rowSummary.reviewCount,
       outsideBatamCount: Number.isFinite(Number(details.outsideBatamCount)) ? Number(details.outsideBatamCount) : rowSummary.outsideBatamCount,
       cleanCount: rowSummary.cleanCount,
@@ -195,6 +219,20 @@
     return `${minutes} menit ${remainder} detik`;
   }
 
+  function formatMilliseconds(milliseconds) {
+    const value = Math.max(0, Number(milliseconds) || 0);
+    if (!value) return '—';
+    if (value < 1000) return `${Math.round(value)} ms`;
+    return formatDuration(value / 1000);
+  }
+
+  function formatBytes(bytes) {
+    const value = Math.max(0, Number(bytes) || 0);
+    if (!value) return '—';
+    if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+    return `${(value / 1024 / 1024).toLocaleString('id-ID', { maximumFractionDigits: 1 })} MB`;
+  }
+
   function formatModel(model) {
     const labels = {
       'gemini-3.8-flash': 'Gemini 3.8 Flash',
@@ -227,6 +265,23 @@
     const processScheme = batch.chunkSize && batch.concurrency
       ? `${batch.concurrency} jalur × ${batch.chunkSize} gambar`
       : '—';
+    const chunkTimings = normalizeChunkTimings(batch.chunkTimings);
+    const chunkTimingHtml = chunkTimings.length ? `
+      <details class="camera-batch-timings">
+        <summary>Rincian ${chunkTimings.length} kelompok AI</summary>
+        <div class="camera-batch-timings__list">
+          ${chunkTimings.map(timing => `
+            <div class="camera-batch-timing">
+              <strong>Kelompok ${timing.group} · Foto ${timing.start}–${timing.end}</strong>
+              <span>${escapeHtml(formatModel(timing.model))}${timing.fallbackFrom ? ` · fallback dari ${escapeHtml(formatModel(timing.fallbackFrom))}` : ''}</span>
+              <span>Persiapan ${escapeHtml(formatMilliseconds(timing.prepareMs))} · encode ${escapeHtml(formatMilliseconds(timing.encodeMs))}</span>
+              <span>Upload ${escapeHtml(formatMilliseconds(timing.uploadMs))} · tunggu AI ${escapeHtml(formatMilliseconds(timing.waitMs))}</span>
+              <span>Total ${escapeHtml(formatMilliseconds(timing.prepareMs + timing.totalMs + timing.auditMs))} · ${timing.rows} hasil · ${escapeHtml(formatBytes(timing.inputBytes))}</span>
+              <span>${timing.attempts} percobaan · ${timing.retries} retry${timing.auditPages ? ` · audit ${timing.auditPages} foto` : ''}</span>
+            </div>
+          `).join('')}
+        </div>
+      </details>` : '';
 
     card.innerHTML = `
       <div class="camera-batch-item__topbar">
@@ -266,6 +321,8 @@
         <div><dt>Jenis kiriman</dt><dd>${escapeHtml(itemLabel)}${batch.useInsurance ? ' · Asuransi' : ''}</dd></div>
         <div><dt>Disimpan server</dt><dd>${escapeHtml(formatDateTime(batch.savedAt))}</dd></div>
       </dl>
+
+      ${chunkTimingHtml}
 
       <div class="camera-batch-item__footer">
         <div class="camera-batch-item__time">

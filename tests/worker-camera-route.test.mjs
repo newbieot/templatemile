@@ -56,7 +56,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20260926-25.15-camera-log-detail');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20260927-26.00-camera-mobile-gallery');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -90,6 +90,7 @@ const saveBatch = await workerModule.default.fetch(new Request(`https://mile.pos
     model: 'gemini-3.8-flash',
     chunkSize: 5,
     concurrency: 3,
+    chunkTimings: [{ group: 1, start: 1, end: 3, inputBytes: 1024, prepareMs: 120, encodeMs: 80, uploadMs: 300, waitMs: 900, totalMs: 1280, attempts: 1, retries: 0, rows: 3, model: 'gemini-3.8-flash', status: 'success' }],
     captureDurationSeconds: 60,
     processingDurationSeconds: 25.5,
     totalDurationSeconds: 120,
@@ -116,5 +117,7 @@ assert.equal(batchList.batches[0].outsideBatamCount, 1);
 assert.equal(batchList.batches[0].cleanCount, 1);
 assert.equal(batchList.batches[0].durationSeconds, 25.5);
 assert.equal(batchList.batches[0].customerId, 'CUST-01');
+assert.equal(batchList.batches[0].chunkTimings.length, 1);
+assert.equal(batchList.batches[0].chunkTimings[0].waitMs, 900);
 
 console.log('PASS worker-camera-route: auth gate, camera-only permission, protected assets, review route, dan detail log kamera');

@@ -99,11 +99,16 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /orientationchange/);
   assert.match(cameraRuntime, /await ensureSession\(\);/);
   assert.match(cameraRuntime, /guideFallback: useGuideFallback/);
-  assert.doesNotMatch(cameraRuntime, /validateImageQuality/);
+  assert.match(cameraRuntime, /validateImageQuality/);
   assert.doesNotMatch(cameraHtml, /Start Capture Session/);
   assert.doesNotMatch(cameraRuntime, /Foto kurang jelas, silakan ulangi capture\./);
   assert.match(cameraHtml, /captureButtonFullscreen/);
   assert.match(cameraHtml, /finishCaptureButtonFullscreen/);
+  assert.match(cameraHtml, /reviewCapturesButtonFullscreen/);
+  assert.match(cameraHtml, /id="cameraCaptureGallery"/);
+  assert.match(cameraHtml, /id="deleteCaptureFromGallery"/);
+  assert.match(cameraHtml, /id="retakeCaptureFromGallery"/);
+  assert.match(cameraHtml, /id="continueCaptureFromGallery"/);
   assert.match(cameraHtml, /id="cameraFlash"/);
   assert.match(cameraHtml, /id="cameraHudToast"/);
   assert.match(cameraRuntime, /playShutterSound/);
@@ -113,6 +118,15 @@ async function runAsyncAssertions() {
   assert.match(cameraCss, /\.camera-flash/);
   assert.match(cameraCss, /\.camera-hud-toast/);
   assert.match(cameraCss, /\.camera-fullscreen-finish/);
+  assert.match(cameraCss, /\.camera-capture-gallery/);
+  assert.match(cameraCss, /env\(safe-area-inset-bottom\)/);
+  assert.match(cameraRuntime, /function openCaptureGallery/);
+  assert.match(cameraRuntime, /function retakeCaptureFromGallery/);
+  assert.match(cameraRuntime, /retakeSlotIndex/);
+  assert.match(cameraRuntime, /createThumbnailBlob/);
+  assert.match(cameraRuntime, /queueDraftSave/);
+  assert.match(cameraRuntime, /restoreLatestDraft/);
+  assert.match(cameraRuntime, /if \(stream\) startCamera\(\);/);
   assert.match(cameraRuntime, /captureId:/);
   assert.match(cameraRuntime, /sessionId,/);
   assert.match(cameraRuntime, /timestamp,/);
@@ -136,6 +150,12 @@ async function runAsyncAssertions() {
   assert.match(reviewHtml, /id="aiTransferStatus"/);
   assert.match(reviewHtml, /id="resultTable"/);
   assert.match(reviewHtml, /id="corporateTemplate"/);
+  assert.match(reviewHtml, /vendor-loader\.js/);
+  assert.doesNotMatch(reviewHtml, /<script src="\/assets\/vendor\/sheetjs\/xlsx\.full\.min\.js/);
+  assert.doesNotMatch(reviewHtml, /<script src="\/assets\/vendor\/pdfjs\/pdf\.min\.js/);
+  const vendorLoader = fs.readFileSync(path.join(root, 'assets/js/vendor-loader.js'), 'utf8');
+  assert.match(vendorLoader, /loadSheetJs/);
+  assert.match(vendorLoader, /loadPdfJs/);
   assert.match(worker, /url\.pathname === '\/review'/);
 
   const cameraImport = fs.readFileSync(path.join(root, 'assets/js/camera-import-v2.js'), 'utf8');
@@ -166,6 +186,8 @@ async function runAsyncAssertions() {
   assert.match(cameraSync, /Perlu dicek/);
   assert.match(cameraSync, /Luar Batam/);
   assert.match(cameraSync, /Waktu proses AI/);
+  assert.match(cameraSync, /Rincian \$\{chunkTimings\.length\} kelompok AI/);
+  assert.match(cameraSync, /chunkTimings: normalizeChunkTimings/);
   assert.match(cameraSync, /Skema AI/);
   assert.match(cameraSync, /Layanan \/ tarif/);
   assert.match(cameraImport, /MileCameraSync/);
@@ -195,6 +217,7 @@ async function runAsyncAssertions() {
   assert.match(worker, /captureDurationSeconds/);
   assert.match(worker, /outsideBatamCount/);
   assert.match(worker, /cleanCount/);
+  assert.match(worker, /sanitizeCameraChunkTimings/);
   assert.match(worker, /customerId: result\.form\?\.customerId/);
   assert.match(worker, /\/api\/camera\/batches/);
 

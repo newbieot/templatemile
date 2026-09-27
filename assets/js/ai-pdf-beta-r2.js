@@ -118,7 +118,7 @@
     const networkProfile = resolveNetworkProfile(networkMode);
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
     const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
-    const verificationPolicy = cameraDirect ? 'none' : (SPEED_PRESETS[speedPreset]?.verification || 'smart');
+    const verificationPolicy = cameraDirect ? 'smart' : (SPEED_PRESETS[speedPreset]?.verification || 'smart');
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
       provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy,
@@ -624,6 +624,29 @@
 
   function outsideBatamRowCount(rows) {
     return rows.filter(row => Boolean(row?.outsideBatam)).length;
+  }
+
+  function publicChunkTimings(entries) {
+    return (Array.isArray(entries) ? entries : []).map(item => ({
+      group: Number(item.group) || 0,
+      start: Number(item.start) || 0,
+      end: Number(item.end) || 0,
+      inputBytes: Math.max(0, Math.round(Number(item.inputBytes) || 0)),
+      encodedBytes: Math.max(0, Math.round(Number(item.encodedBytes) || 0)),
+      prepareMs: Math.max(0, Math.round(Number(item.prepareMs) || 0)),
+      encodeMs: Math.max(0, Math.round(Number(item.encodeMs) || 0)),
+      uploadMs: Math.max(0, Math.round(Number(item.uploadMs) || 0)),
+      waitMs: Math.max(0, Math.round(Number(item.waitMs) || 0)),
+      totalMs: Math.max(0, Math.round(Number(item.totalMs) || 0)),
+      auditMs: Math.max(0, Math.round(Number(item.auditMs) || 0)),
+      auditPages: Math.max(0, Math.round(Number(item.auditPages) || 0)),
+      rows: Math.max(0, Math.round(Number(item.rows) || 0)),
+      attempts: Math.max(0, Math.round(Number(item.attempts) || 0)),
+      retries: Math.max(0, Math.round(Number(item.retries) || 0)),
+      model: String(item.model || ''),
+      fallbackFrom: String(item.fallbackFrom || ''),
+      status: String(item.status || '')
+    }));
   }
 
   function sleep(ms) {
@@ -2203,7 +2226,11 @@ ${clipped}`
       } else {
         if (!file || file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) throw new Error('Berkas bukan PDF.');
         if (file.size > MAX_PDF_BYTES) throw new Error('Ukuran PDF melebihi 80 MB. Kompres PDF lalu coba lagi.');
-        if (typeof window.pdfjsLib === 'undefined') throw new Error('Library pembaca PDF gagal dimuat. Periksa koneksi lalu muat ulang halaman.');
+        if (typeof window.pdfjsLib === 'undefined') {
+          if (!window.MileVendorLoader?.loadPdfJs) throw new Error('Pemuat library PDF tidak tersedia. Muat ulang halaman.');
+          setProgress(1, 'Memuat pembaca PDF', 'Library PDF dimuat hanya saat jalur kompatibilitas membutuhkannya…');
+          await window.MileVendorLoader.loadPdfJs();
+        }
       }
       const configured = await checkServerConfiguration({ showFeedback: true });
       if (!configured) {
@@ -2233,7 +2260,8 @@ ${clipped}`
     const betaPerf = {
       renderMs: 0, uploadMs: 0, aiMs: 0, auditMs: 0,
       remotePages: 0, base64Pages: 0, r2Failures: 0,
-      fallbackRequests: 0, fallbackReasons: {}, fallbackModels: [], auditPages: 0, geminiSuccesses: 0
+      fallbackRequests: 0, fallbackReasons: {}, fallbackModels: [], auditPages: 0, geminiSuccesses: 0,
+      chunkTimings: []
     };
     const runRender = createTaskPool(BETA_PREPARE_CONCURRENCY);
     try {
@@ -2287,6 +2315,24 @@ ${clipped}`
         start: chunk.start, end: chunk.end, progress: 0, phase: 'Menunggu',
         active: false, waiting: false, startedAt: 0, waitingSince: 0, model: ''
       }));
+      betaPerf.chunkTimings = chunks.map((chunk, index) => ({
+        group: index + 1,
+        start: chunk.start,
+        end: chunk.end,
+        inputBytes: 0,
+        encodedBytes: 0,
+        prepareMs: 0,
+        encodeMs: 0,
+        uploadMs: 0,
+        waitMs: 0,
+        totalMs: 0,
+        auditMs: 0,
+        attempts: 0,
+        retries: 0,
+        model: config.model,
+        fallbackFrom: '',
+        status: 'queued'
+      }));
       progressLaneStates = chunkStates;
       const workerCount = Math.min(config.concurrency, BETA_MAX_AI_CONCURRENCY, chunks.length);
       let activeAiLimit = config.model === DEFAULT_MODEL
@@ -2317,39 +2363,60 @@ ${clipped}`
       const makeTransportHooks = (chunk, chunkIndex, label, startWeight, waitWeight, completeWeight) => ({
         onAttempt(attempt, maxAttempts, model) {
           const state = chunkStates[chunkIndex];
+          const timing = betaPerf.chunkTimings[chunkIndex];
+          const now = performance.now();
           state.active = true;
           state.waiting = false;
           state.waitingSince = 0;
           state.startedAt ||= performance.now();
           state.model = model;
           state.progress = Math.max(state.progress, startWeight);
+          timing.attempts++;
+          timing.model = model;
+          timing.status = 'requesting';
+          timing._firstRequestStartedAt ||= now;
+          timing._attemptStartedAt = now;
           setTransferProgress(0, `${label} halaman ${chunk.start}–${chunk.end} · ${model} · percobaan ${attempt}/${maxAttempts}`);
           updateParallelProgress(chunk, chunkIndex, label);
         },
         onTransport(event) {
           const state = chunkStates[chunkIndex];
+          const timing = betaPerf.chunkTimings[chunkIndex];
+          const now = performance.now();
           const total = Number(event.total || 0);
           const ratio = total ? Math.max(0, Math.min(1, Number(event.loaded || 0) / total)) : 0;
           state.model = event.model || state.model;
           if (event.repair && event.phase === 'encoding') {
+            timing._encodeStartedAt = now;
             state.progress = Math.max(state.progress, startWeight);
             setTransferProgress(0, `Memperbaiki format JSON halaman ${chunk.start}–${chunk.end} tanpa mengirim ulang gambar`);
           } else if (event.phase === 'encoding') {
+            timing._encodeStartedAt = now;
             state.progress = Math.max(state.progress, startWeight);
             setTransferProgress(0, `Mengemas gambar halaman ${chunk.start}–${chunk.end}`);
           } else if (event.phase === 'ready') {
+            if (timing._encodeStartedAt) timing.encodeMs += Math.max(0, now - timing._encodeStartedAt);
+            timing._encodeStartedAt = 0;
+            timing.encodedBytes = Math.max(timing.encodedBytes, total);
             setTransferProgress(0, `${formatBytes(total)} siap dikirim untuk halaman ${chunk.start}–${chunk.end}`);
           } else if (event.phase === 'uploading') {
+            timing._uploadStartedAt ||= now;
             state.waiting = false;
             state.waitingSince = 0;
             state.progress = Math.max(state.progress, startWeight + (waitWeight - startWeight) * ratio);
             setTransferProgress(ratio * 100, `Mengunggah ${formatBytes(event.loaded)} dari ${formatBytes(total)} · halaman ${chunk.start}–${chunk.end}`);
           } else if (event.phase === 'waiting') {
+            if (timing._uploadStartedAt) timing.uploadMs += Math.max(0, now - timing._uploadStartedAt);
+            timing._uploadStartedAt = 0;
+            timing._waitingStartedAt ||= now;
             state.waiting = true;
             state.waitingSince ||= performance.now();
             state.progress = Math.max(state.progress, waitWeight);
             setTransferProgress(100, `Upload halaman ${chunk.start}–${chunk.end} selesai · menunggu respons AI`, { waiting: true });
           } else if (event.phase === 'complete') {
+            if (timing._waitingStartedAt) timing.waitMs += Math.max(0, now - timing._waitingStartedAt);
+            timing._waitingStartedAt = 0;
+            timing.status = 'success';
             state.waiting = false;
             state.waitingSince = 0;
             state.progress = Math.max(state.progress, completeWeight);
@@ -2366,6 +2433,13 @@ ${clipped}`
         },
         onRetry({ nextAttempt, maxAttempts, delay }) {
           const state = chunkStates[chunkIndex];
+          const timing = betaPerf.chunkTimings[chunkIndex];
+          const now = performance.now();
+          if (timing._waitingStartedAt) timing.waitMs += Math.max(0, now - timing._waitingStartedAt);
+          timing._waitingStartedAt = 0;
+          timing._uploadStartedAt = 0;
+          timing.retries++;
+          timing.status = 'retrying';
           state.waiting = false;
           state.waitingSince = 0;
           const delayText = delay < 1000 ? '0,5 detik' : formatDuration(delay / 1000);
@@ -2374,9 +2448,13 @@ ${clipped}`
         },
         onFallback({ from, to, error }) {
           const state = chunkStates[chunkIndex];
+          const timing = betaPerf.chunkTimings[chunkIndex];
           state.waiting = false;
           state.waitingSince = 0;
           state.model = to;
+          timing.fallbackFrom ||= from;
+          timing.model = to;
+          timing.status = 'fallback';
           betaPerf.fallbackRequests++;
           if (!betaPerf.fallbackModels.includes(to)) betaPerf.fallbackModels.push(to);
           const reason = String(Number(error?.status || 0) || 'network');
@@ -2392,6 +2470,9 @@ ${clipped}`
 
       async function prepareChunk(chunk, chunkIndex) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+        const prepareStartedAt = performance.now();
+        const timing = betaPerf.chunkTimings[chunkIndex];
+        timing.status = 'preparing';
         chunkStates[chunkIndex].progress = 0.01;
         updateParallelProgress(chunk, chunkIndex, 'Menyiapkan gambar scan');
         const pageSources = [];
@@ -2468,6 +2549,10 @@ ${clipped}`
         const pageWorkerCount = Math.min(BETA_PREPARE_CONCURRENCY, pagesInChunk);
         await Promise.all(Array.from({ length: pageWorkerCount }, () => preparePageWorker()));
 
+        timing.prepareMs = Math.max(0, performance.now() - prepareStartedAt);
+        timing.inputBytes = pageSources.reduce((total, source) => total + Number(source?.blob?.size || 0), 0);
+        timing.status = 'prepared';
+
         return pageSources;
       }
 
@@ -2475,6 +2560,7 @@ ${clipped}`
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
         const pagesInChunk = chunk.end - chunk.start + 1;
         const expectedPages = Array.from({ length: pagesInChunk }, (_, index) => chunk.start + index);
+        const timing = betaPerf.chunkTimings[chunkIndex];
 
         chunkStates[chunkIndex].progress = 0.27;
         updateParallelProgress(chunk, chunkIndex, 'Ekstraksi pertama');
@@ -2524,9 +2610,10 @@ ${clipped}`
             makeTransportHooks(chunk, chunkIndex, 'Ekstraksi jalur langsung', 0.28, 0.53, 0.62)
           );
         } finally {
-          betaPerf.aiMs += performance.now() - aiStartedAt;
+          const firstPassMs = performance.now() - aiStartedAt;
+          betaPerf.aiMs += firstPassMs;
+          timing.totalMs = Math.max(0, firstPassMs);
         }
-        pageSources.forEach(source => { source.blob = null; });
         body = null;
         let usage = getUsage(payload, config.protocol);
         totalUsage.input += Number(usage.input || 0);
@@ -2545,6 +2632,8 @@ ${clipped}`
         }
 
         const auditPages = verificationPages(config, normalized, expectedPages);
+        timing.rows = normalized.length;
+        timing.auditPages = auditPages.length;
         results[chunkIndex] = normalized;
         rowsFound += normalized.length;
         const state = chunkStates[chunkIndex];
@@ -2557,7 +2646,7 @@ ${clipped}`
           state.progress = Math.max(state.progress, 0.66);
           updateParallelProgress(chunk, chunkIndex, `Menunggu audit ${auditPages.length} halaman`);
         } else {
-          pageSources.forEach(source => { source.url = ''; });
+          pageSources.forEach(source => { source.url = ''; source.blob = null; });
           completedChunks++;
           state.progress = 1;
           updateParallelProgress(chunk, chunkIndex, 'Selesai');
@@ -2566,6 +2655,9 @@ ${clipped}`
 
       async function auditChunk({ chunk, chunkIndex, pageSources, auditPages, template }) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+        const auditGroupStartedAt = performance.now();
+        const timing = betaPerf.chunkTimings[chunkIndex];
+        timing.status = 'auditing';
         const state = chunkStates[chunkIndex];
         state.active = true;
         state.startedAt = performance.now();
@@ -2578,27 +2670,32 @@ ${clipped}`
           const source = pageSources.find(item => item.page === pageNumber);
           if (!source) continue;
           const auditStartedAt = performance.now();
-          const page = await pdf.getPage(pageNumber);
+          const page = directCameraInput ? null : await pdf.getPage(pageNumber);
           let auditUrl = '';
           let directAuditUrl = '';
           try {
-            const rendered = await runRender(() => renderPageToImage(page, config.accuracyMode, config.speedPreset, config.networkProfile, true));
-            directAuditUrl = rendered.detailUrl || rendered.fullUrl;
-            auditUrl = directAuditUrl;
-            if (betaRemoteImagesAvailable) {
-              try {
-                auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl), publicR2Experiment);
-              } catch (uploadError) {
-                betaPerf.r2Failures++;
-                if (publicR2Experiment) {
-                  const strictR2Error = new Error(`Gagal mengunggah audit halaman ${pageNumber} ke R2. DeepSeek memerlukan URL R2 dan tidak akan mengirim gambar langsung dari komputer.`);
-                  strictR2Error.status = Number(uploadError?.status || 503);
-                  throw strictR2Error;
+            if (directCameraInput) {
+              directAuditUrl = source.url || await blobToDataUrl(source.blob);
+              auditUrl = directAuditUrl;
+            } else {
+              const rendered = await runRender(() => renderPageToImage(page, config.accuracyMode, config.speedPreset, config.networkProfile, true));
+              directAuditUrl = rendered.detailUrl || rendered.fullUrl;
+              auditUrl = directAuditUrl;
+              if (betaRemoteImagesAvailable) {
+                try {
+                  auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl), publicR2Experiment);
+                } catch (uploadError) {
+                  betaPerf.r2Failures++;
+                  if (publicR2Experiment) {
+                    const strictR2Error = new Error(`Gagal mengunggah audit halaman ${pageNumber} ke R2. DeepSeek memerlukan URL R2 dan tidak akan mengirim gambar langsung dari komputer.`);
+                    strictR2Error.status = Number(uploadError?.status || 503);
+                    throw strictR2Error;
+                  }
                 }
               }
             }
           } finally {
-            page.cleanup();
+            page?.cleanup?.();
             betaPerf.auditMs += performance.now() - auditStartedAt;
           }
           verificationImages.push({
@@ -2661,6 +2758,7 @@ ${clipped}`
           { ...config, expectedPages: auditPages }
         );
         const merged = mergeVerifiedRows(originalRows, verifiedRows, auditPages);
+        timing.rows = merged.length;
         rowsFound += merged.length - originalRows.length;
         results[chunkIndex] = merged;
         pageSources.forEach(source => { source.url = ''; source.blob = null; });
@@ -2669,6 +2767,8 @@ ${clipped}`
         state.waiting = false;
         state.waitingSince = 0;
         state.progress = 1;
+        timing.auditMs += Math.max(0, performance.now() - auditGroupStartedAt);
+        timing.status = 'success';
         updateParallelProgress(chunk, chunkIndex, 'Audit selesai');
       }
 
@@ -2744,6 +2844,7 @@ ${clipped}`
         totalRows: mergedRows.length,
         reviewCount: reviewRowCount(mergedRows),
         outsideBatamCount: outsideBatamRowCount(mergedRows),
+        chunkTimings: publicChunkTimings(betaPerf.chunkTimings),
         message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
       };
       void submitProcessingMetrics(metrics);

@@ -770,7 +770,7 @@
     improveModalFocus();
     window.setTimeout(syncDashboard, 0);
 
-    if (typeof XLSX === 'undefined') {
+    if (typeof XLSX === 'undefined' && !document.body.classList.contains('camera-mode')) {
       showToast('Library spreadsheet gagal dimuat. Muat ulang halaman dan periksa koneksi internet.', 'error');
     }
   });

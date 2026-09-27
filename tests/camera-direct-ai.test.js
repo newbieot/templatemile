@@ -94,7 +94,7 @@ for (const model of [
   assert.equal(config.pagesPerRequest, 5);
   assert.equal(config.concurrency, 3);
   assert.equal(config.networkMode, 'normal');
-  assert.equal(config.verificationPolicy, 'none');
+  assert.equal(config.verificationPolicy, 'smart');
 }
 
 element('aiModel').value = 'model-tidak-diizinkan';
@@ -129,6 +129,8 @@ assert.match(source, /CAMERA_GEMINI_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
 assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCameraBlobsForBatch/);
 assert.match(source, /JPEG asli siap · belum mengirim gambar/);
+assert.match(source, /directCameraInput \? null : await pdf\.getPage\(pageNumber\)/);
+assert.match(source, /chunkTimings: publicChunkTimings/);
 assert.match(cameraHtml, /gemini-3\.8-flash" selected/);
 assert.match(cameraHtml, /gemini-3\.8-flash/);
 assert.match(cameraHtml, /gemini-3\.7-flash/);

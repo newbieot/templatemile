@@ -1,4 +1,4 @@
-const APP_VERSION = '20260926-25.15-camera-log-detail';
+const APP_VERSION = '20260927-26.00-camera-mobile-gallery';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -453,6 +453,29 @@ function safeMetricText(value, maxLength = 240) {
   return String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, maxLength);
 }
 
+function sanitizeCameraChunkTimings(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 60).map((item, index) => ({
+    group: clampMetricNumber(item?.group || index + 1, 1, 60),
+    start: clampMetricNumber(item?.start, 1, 300),
+    end: clampMetricNumber(item?.end, 1, 300),
+    inputBytes: clampMetricNumber(item?.inputBytes, 0, MAX_REQUEST_BYTES),
+    encodedBytes: clampMetricNumber(item?.encodedBytes, 0, MAX_REQUEST_BYTES),
+    prepareMs: clampMetricNumber(item?.prepareMs, 0, 86400000),
+    encodeMs: clampMetricNumber(item?.encodeMs, 0, 86400000),
+    uploadMs: clampMetricNumber(item?.uploadMs, 0, 86400000),
+    waitMs: clampMetricNumber(item?.waitMs, 0, 86400000),
+    totalMs: clampMetricNumber(item?.totalMs, 0, 86400000),
+    auditMs: clampMetricNumber(item?.auditMs, 0, 86400000),
+    auditPages: clampMetricNumber(item?.auditPages, 0, 15),
+    rows: clampMetricNumber(item?.rows, 0, 1000),
+    attempts: clampMetricNumber(item?.attempts, 0, 20),
+    retries: clampMetricNumber(item?.retries, 0, 20),
+    model: safeMetricText(item?.model, 80),
+    fallbackFrom: safeMetricText(item?.fallbackFrom, 80),
+    status: safeMetricText(item?.status, 24)
+  }));
+}
+
 async function handleMetrics(request, env, session) {
   if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
   if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
@@ -727,6 +750,7 @@ async function handleCameraBatchSave(request, env, session, url) {
     model: safeMetricText(body.model, 80),
     chunkSize: clampMetricNumber(body.chunkSize, 1, 15),
     concurrency: clampMetricNumber(body.concurrency, 1, 5),
+    chunkTimings: sanitizeCameraChunkTimings(body.chunkTimings),
     reviewCount,
     outsideBatamCount,
     cleanCount,
@@ -805,6 +829,7 @@ async function handleCameraBatchList(request, env, session) {
                 model: result.model || '',
                 chunkSize: Number(result.chunkSize) || 0,
                 concurrency: Number(result.concurrency) || 0,
+                chunkTimings: sanitizeCameraChunkTimings(result.chunkTimings),
                 durationSeconds: Number(result.durationSeconds) || 0,
                 captureDurationSeconds: Number(result.captureDurationSeconds) || 0,
                 totalDurationSeconds: Number(result.totalDurationSeconds) || 0,

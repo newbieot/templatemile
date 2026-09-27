@@ -14,9 +14,9 @@
   <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260909-16.25">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.00-camera-mobile-gallery">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260926-25.15-camera-log-detail">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260927-26.00-camera-mobile-gallery">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -121,6 +121,7 @@
           <button class="camera-enter-fullscreen" id="enterFullscreenButton" type="button" aria-label="Buka layar penuh">â›¶ Fullscreen</button>
           <div class="camera-fullscreen-toolbar" aria-label="Kontrol fullscreen kamera">
             <strong id="fullscreenCapturedCount">0 gambar</strong>
+            <button id="reviewCapturesButtonFullscreen" class="camera-fullscreen-review" type="button" disabled aria-label="Lihat hasil foto yang sudah dicapture">Lihat Hasil</button>
             <button id="exitFullscreenButton" type="button" aria-label="Keluar dari tampilan layar penuh">Keluar fullscreen</button>
           </div>
           <div class="camera-fullscreen-bottom-dock" id="cameraFullscreenBottomDock">
@@ -130,6 +131,32 @@
             </button>
             <button class="camera-fullscreen-finish" id="finishCaptureButtonFullscreen" type="button" disabled aria-label="Selesai dan proses batch">Finish Capture</button>
           </div>
+          <section class="camera-capture-gallery" id="cameraCaptureGallery" hidden role="dialog" aria-modal="true" aria-labelledby="cameraGalleryTitle">
+            <div class="camera-capture-gallery__header">
+              <div>
+                <span>HASIL CAPTURE</span>
+                <strong id="cameraGalleryTitle">Periksa foto</strong>
+              </div>
+              <button id="closeCaptureGallery" type="button" aria-label="Tutup hasil capture dan lanjut foto">Lanjut Foto</button>
+            </div>
+            <div class="camera-capture-gallery__viewer">
+              <button id="previousCaptureButton" class="camera-gallery-nav camera-gallery-nav--previous" type="button" aria-label="Foto sebelumnya">‹</button>
+              <figure>
+                <img id="cameraGalleryImage" alt="Hasil capture yang sedang diperiksa">
+                <figcaption>
+                  <strong id="cameraGalleryCounter">0/0</strong>
+                  <span id="cameraGalleryDetails">Belum ada foto</span>
+                  <small id="cameraGalleryQuality"></small>
+                </figcaption>
+              </figure>
+              <button id="nextCaptureButton" class="camera-gallery-nav camera-gallery-nav--next" type="button" aria-label="Foto berikutnya">›</button>
+            </div>
+            <div class="camera-capture-gallery__actions">
+              <button id="deleteCaptureFromGallery" class="camera-gallery-delete" type="button">Hapus Foto</button>
+              <button id="retakeCaptureFromGallery" class="camera-gallery-retake" type="button">Foto Ulang</button>
+              <button id="continueCaptureFromGallery" class="camera-gallery-continue" type="button">Lanjutkan Capture</button>
+            </div>
+          </section>
         </div>
 
         <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera. Tombol Capture dan Finish Capture tersedia langsung di bawah preview.</div>
@@ -169,7 +196,7 @@
         <button class="button button--primary camera-finish-button-batch" id="finishCaptureButtonBatch" type="button" disabled>
           Finish Capturing
         </button>
-        <p class="camera-finish-hint">Batch baru diunggah setelah tombol Finish ditekan. Resolusi kecil tidak memblokir capture selama label terlihat jelas.</p>
+        <p class="camera-finish-hint">Setiap capture tersimpan otomatis di HP. Batch baru dikirim ke AI setelah tombol Finish ditekan; foto yang buram atau gelap dapat diperiksa dari tombol Lihat Hasil di fullscreen.</p>
 
         <div class="camera-processing-status" id="processingStatus" hidden aria-live="assertive">
           <span class="camera-processing-spinner" aria-hidden="true"></span>
@@ -200,9 +227,9 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260926-25.15-camera-log-detail" defer></script>
-  <script src="/assets/js/camera-store.js?v=20260926-25.15-camera-log-detail" defer></script>
-  <script src="/assets/js/camera.js?v=20260926-25.15-camera-log-detail" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
+  <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
+  <script src="/assets/js/camera.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

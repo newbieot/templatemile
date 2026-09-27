@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.00 — Galeri capture mobile dan Review lebih cepat
+
+- Menambahkan galeri hasil capture di dalam mode fullscreen dengan navigasi berurutan, swipe, hapus, foto ulang pada urutan yang sama, dan kembali melanjutkan capture.
+- Menyimpan draft capture otomatis di IndexedDB dan memulihkan sesi yang belum selesai setelah halaman dimuat ulang.
+- Menggunakan thumbnail ringan untuk daftar hasil, menampilkan peringatan foto buram/gelap, serta memperbaiki pemilih kamera perangkat.
+- Mengurangi JavaScript awal halaman Review sekitar 1,17 MB mentah dengan memuat PDF.js hanya untuk sesi PDF lama dan SheetJS hanya saat ekspor.
+- Menambahkan audit AI selektif untuk foto meragukan tanpa mengulang foto yang bersih serta rincian waktu per kelompok AI pada Log Kamera.
+
 ## v25.15 — Log Kamera lebih lengkap
 
 - Menampilkan identitas batch dan perangkat, waktu capture/proses, model serta skema AI, dan masa kedaluwarsa.

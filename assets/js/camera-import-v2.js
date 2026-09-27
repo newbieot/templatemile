@@ -69,6 +69,7 @@
       model: String(runMetrics?.model || session?.aiModel || 'gemini-3.8-flash'),
       chunkSize: Number(runMetrics?.chunkSize || 5),
       concurrency: Number(runMetrics?.concurrency || 3),
+      chunkTimings: Array.isArray(runMetrics?.chunkTimings) ? runMetrics.chunkTimings : [],
       reviewCount: Number(runMetrics?.reviewCount || 0),
       outsideBatamCount: Number(runMetrics?.outsideBatamCount || 0)
     };

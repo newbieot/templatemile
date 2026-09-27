@@ -71,6 +71,27 @@
     });
   }
 
+  function latestDraft() {
+    return runTransaction('readonly', (store, resolve, reject) => {
+      const index = store.index('createdAt');
+      const request = index.openCursor(null, 'prev');
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve(null);
+          return;
+        }
+        const session = cursor.value;
+        if (session?.draft === true && session?.route === 'camera' && Array.isArray(session?.draftCaptures) && session.draftCaptures.length) {
+          resolve(session);
+          return;
+        }
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   function cleanup() {
     const cutoff = Date.now() - MAX_SESSION_AGE_MS;
     return runTransaction('readwrite', (store, resolve, reject) => {
@@ -88,5 +109,5 @@
     });
   }
 
-  window.MileCameraStore = { save, get, remove, cleanup };
+  window.MileCameraStore = { save, get, remove, latestDraft, cleanup };
 })();

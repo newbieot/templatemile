@@ -1466,7 +1466,21 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             }
         }
 
-        function downloadFinalExcel() {
+        async function downloadFinalExcel() {
+            if (typeof window.XLSX === 'undefined') {
+                try {
+                    if (!window.MileVendorLoader?.loadSheetJs) throw new Error('Pemuat library spreadsheet tidak tersedia.');
+                    const exportButton = document.getElementById('exportButton');
+                    if (exportButton) exportButton.disabled = true;
+                    await window.MileVendorLoader.loadSheetJs();
+                    if (exportButton) exportButton.disabled = false;
+                } catch (error) {
+                    const exportButton = document.getElementById('exportButton');
+                    if (exportButton) exportButton.disabled = false;
+                    alert(error?.message || 'Library spreadsheet gagal dimuat. Periksa koneksi lalu coba lagi.');
+                    return;
+                }
+            }
             const rows = document.querySelectorAll('#resultTable tbody tr');
             if (rows.length === 0 || rows[0].querySelector('input') === null) {
                 alert("Tidak ada data untuk diekspor."); return;
