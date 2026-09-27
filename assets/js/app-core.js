@@ -1602,7 +1602,10 @@ Baris ini tidak akan ikut diekspor.`)) return false;
 
             if (counter === 0) {
                 const columnCount = 6 + (isPackage ? 2 : 0) + (useInsurance ? 1 : 0);
-                tbody.innerHTML = `<tr><td colspan="${columnCount}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.</td></tr>`;
+                const emptyMessage = document.body.dataset.primarySource === 'camera'
+                    ? 'Ambil foto melalui Camera HP atau muat batch dari Log Kamera untuk memulai.'
+                    : 'Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.';
+                tbody.innerHTML = `<tr><td colspan="${columnCount}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">${emptyMessage}</td></tr>`;
             }
         }
 

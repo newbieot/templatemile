@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.03 — Kamera HP menjadi aksi utama
+
+- Menghapus kartu “Coba versi Beta” dari halaman utama tanpa mengganggu kompatibilitas rute Beta.
+- Memusatkan hero dan CTA pada pengambilan foto sampul atau label alamat menggunakan kamera HP.
+- Memperjelas bahwa hasil foto dapat diperiksa sebelum diproses menjadi workbook Mile App.
+- Menyembunyikan panel unggah lama dan menghentikan pemuatan runtime PDF pada halaman utama agar pengalaman serta waktu muat fokus pada alur kamera.
+
 ## v26.02 — Pencarian template pelanggan
 
 - Menambahkan Bank BRI Nagoya, PT FIF Group, PT Megacentral Finance Cab Batam, PT Mandiri Utama Finance, PT Astra Sedaya Finance, Rumah Sakit Graha Hermine Batam, dan memperbarui OJK Batam.

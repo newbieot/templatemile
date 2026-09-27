@@ -486,7 +486,7 @@ tbody tr.needs-review td:first-child{box-shadow:inset 4px 0 0 #d97706}
 .outside-batam-badge{display:inline-flex;margin-bottom:.28rem;padding:.2rem .38rem;border-radius:999px;color:#7f1d1d;background:#fee2e2;font-size:.52rem;font-weight:850;white-space:nowrap}
 .outside-batam-badge[hidden]{display:none}
 tbody tr.outside-batam td{background-image:linear-gradient(rgba(254,242,242,.55),rgba(254,242,242,.55))}
-.preview-card:not(.has-data) .table-container::after{content:"Unggah berkas PDF, Excel, atau CSV untuk mulai menyiapkan data Mile App."}
+body[data-primary-source="camera"] .preview-card:not(.has-data) .table-container::after{content:"Ambil foto sampul atau label alamat dari HP untuk mulai menyiapkan data Mile App."}
 @media (max-width:640px){
   .ai-config>summary{flex-wrap:wrap}
   .ai-config-status{margin-left:42px}

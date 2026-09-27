@@ -2855,7 +2855,7 @@ ${clipped}`
         hideProgress();
         core.showWeightModal();
       } else {
-        core.uploadedFilesManager.push({ id: Date.now(), name: inputName, rows: mergedRows, source: 'AI PDF' });
+        core.uploadedFilesManager.push({ id: Date.now(), name: inputName, rows: mergedRows, source: directCameraInput ? 'Camera AI' : 'AI PDF' });
         core.updateInterface();
         setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)} · ${config.cameraDirect ? `${pageCount} gambar dikirim langsung tanpa R2` : `gambar sementara ${betaPerf.remotePages}/${pageCount} halaman`}.`, formatUsage(totalUsage));
         progressHideTimeout = window.setTimeout(hideProgress, 1200);

@@ -159,6 +159,7 @@ async function runAsyncAssertions() {
   assert.match(worker, /url\.pathname === '\/review'/);
 
   const cameraImport = fs.readFileSync(path.join(root, 'assets/js/camera-import-v2.js'), 'utf8');
+  const aiBeta = fs.readFileSync(path.join(root, 'assets/js/ai-pdf-beta-r2.js'), 'utf8');
   assert.match(cameraImport, /activateCameraMode/);
   assert.match(cameraImport, /camera-session-banner/);
   assert.match(cameraImport, /camera-mode/);
@@ -211,6 +212,19 @@ async function runAsyncAssertions() {
 
   // Desktop batch modal
   const appHtml = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
+  const appIntro = appHtml.slice(appHtml.indexOf('<section class="intro-shell"'), appHtml.indexOf('<section class="workspace-grid"'));
+  assert.doesNotMatch(appHtml, /Coba versi Beta/);
+  assert.doesNotMatch(appHtml, /href="\/beta"/);
+  assert.doesNotMatch(appIntro, /PDF|Excel|CSV/i);
+  assert.match(appHtml, /Gunakan HP untuk foto sampul atau label alamat/);
+  assert.match(appHtml, /Ambil Foto di HP/);
+  assert.match(appHtml, /data-primary-source="camera"/);
+  assert.match(appHtml, /class="panel-card upload-card" hidden aria-hidden="true"/);
+  assert.doesNotMatch(appHtml, /<script src="\/assets\/vendor\/pdfjs\/pdf\.min\.js/);
+  assert.doesNotMatch(appHtml, /<script src="\/assets\/js\/ai-pdf-v16-19\.js/);
+  assert.match(cameraImport, /source: 'Camera AI'/);
+  assert.doesNotMatch(cameraImport, /source: 'AI PDF'/);
+  assert.match(aiBeta, /source: directCameraInput \? 'Camera AI' : 'AI PDF'/);
   assert.match(appHtml, /id="cameraLogsModal"/);
   assert.match(appHtml, /id="openCameraLogsBtn"/);
   assert.match(appHtml, /id="cameraBatchesList"/);

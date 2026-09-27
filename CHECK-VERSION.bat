@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260927-26.02-customer-template-search" "_worker.js" >nul && echo [OK] Worker customer template search || (echo [GAGAL] Worker bukan versi customer template search & set "FAIL=1")
+findstr /c:"20260927-26.03-camera-primary-cta" "_worker.js" >nul && echo [OK] Worker camera primary CTA || (echo [GAGAL] Worker bukan versi camera primary CTA & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
@@ -65,6 +65,9 @@ findstr /c:"JACCS_MPM" "app.html" >nul && echo [OK] Template JACCS MPM tersedia 
 findstr /c:"FINMPMJKT04120A" "assets\js\app-core.js" >nul && echo [OK] Customer code JACCS MPM || (echo [GAGAL] Customer code JACCS MPM tidak ditemukan & set "FAIL=1")
 findstr /c:"PT JACCS MPM FINANCE INDONESIA" "assets\js\app-core.js" >nul && echo [OK] Nama pelanggan JACCS MPM || (echo [GAGAL] Nama pelanggan JACCS MPM tidak ditemukan & set "FAIL=1")
 findstr /c:"868523" "assets\js\app-core.js" >nul && echo [OK] Sub service JACCS MPM || (echo [GAGAL] Sub service JACCS MPM tidak ditemukan & set "FAIL=1")
+findstr /c:"Ambil Foto di HP" "app.html" >nul && echo [OK] Kamera HP menjadi CTA utama || (echo [GAGAL] CTA kamera HP tidak ditemukan & set "FAIL=1")
+findstr /c:"Coba versi Beta" "app.html" >nul
+if not errorlevel 1 (echo [GAGAL] CTA Beta masih tampil di halaman utama & set "FAIL=1") else (echo [OK] CTA Beta sudah dihapus dari halaman utama)
 findstr /c:"BANKBRI01294A" "assets\js\app-core.js" >nul && echo [OK] Template Bank BRI Nagoya || (echo [GAGAL] Template Bank BRI Nagoya tidak ditemukan & set "FAIL=1")
 findstr /c:"FINFIF02294A" "assets\js\app-core.js" >nul && echo [OK] Template FIF Group || (echo [GAGAL] Template FIF Group tidak ditemukan & set "FAIL=1")
 findstr /c:"FINMEGACENT02110B" "assets\js\app-core.js" >nul && echo [OK] Template Megacentral Finance || (echo [GAGAL] Template Megacentral Finance tidak ditemukan & set "FAIL=1")

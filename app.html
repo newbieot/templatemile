@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>mile.posnew.com — Persiapan Data Mile App | PosNew Hub</title>
-  <meta name="description" content="Menyiapkan data penerima dari PDF, Excel, dan CSV menjadi workbook bulk upload Mile App yang rapi dan dapat diedit, dengan bantuan ekstraksi AI.">
+  <meta name="description" content="Ambil foto sampul atau label alamat dari HP, periksa hasil ekstraksi AI, lalu siapkan workbook bulk upload Mile App.">
   <meta name="author" content="Ikhsan Radiansyah">
   <meta name="theme-color" content="#172554">
   <meta name="color-scheme" content="light">
@@ -17,18 +17,18 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="PosNew Hub">
   <meta property="og:title" content="mile.posnew.com | PosNew Hub">
-  <meta property="og:description" content="Siapkan data bulk upload Mile App yang rapi dan dapat diedit dari PDF, Excel, dan CSV.">
+  <meta property="og:description" content="Ambil foto sampul atau label alamat dari HP, periksa hasil AI, lalu siapkan data Mile App.">
   <meta property="og:url" content="https://mile.posnew.com/">
   <meta property="og:image" content="https://mile.posnew.com/og-cover.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
-  <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
+  <meta name="twitter:description" content="Ambil foto sampul atau label alamat langsung dari HP untuk diproses menjadi data Mile App.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.01-desktop-review-sync">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
   <link rel="stylesheet" href="/assets/css/template-picker.css?v=20260927-26.02-customer-template-search">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
 </head>
-<body data-accept-pdf="true">
+<body data-accept-pdf="false" data-primary-source="camera">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
 
   <header class="app-header">
@@ -42,7 +42,7 @@
       <div class="header-actions">
         <span class="privacy-pill">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          Excel lokal · PDF via AI
+          Capture HP · AI langsung
         </span>
         <button type="button" class="all-tools-link" id="openCameraLogsBtn" style="background:#eff6ff;color:#3b82f6;border:none;cursor:pointer;gap:6px;padding:6px 10px;border-radius:10px;font-weight:600" hidden>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -64,33 +64,23 @@
   <main id="workspace" class="app-main">
     <section class="intro-shell" aria-labelledby="pageTitle">
       <div class="intro-copy">
-        <span class="eyebrow">Persiapan data massal</span>
-        <h1 id="pageTitle">Siapkan data untuk Mile App dengan alur yang lebih jelas.</h1>
-        <p>Atur transaksi, unggah PDF, Excel, atau CSV, koreksi hasil ekstraksi AI bila diperlukan, lalu ekspor workbook siap unggah.</p>
-        <a class="performance-beta-card" href="/beta">
-          <span class="performance-beta-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M13.5 7.2l-3 4h3l-2 3.1"/></svg>
-          </span>
-          <span class="performance-beta-copy">
-            <strong>Komputer terasa lambat saat memproses PDF?</strong>
-            <small>Coba Mile Beta—versi yang lebih ringan dan dirancang memproses PDF lebih cepat pada komputer lama atau berspesifikasi rendah.</small>
-          </span>
-          <span class="performance-beta-action">Coba versi Beta <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
-        </a>
+        <span class="eyebrow">Foto label alamat dari HP</span>
+        <h1 id="pageTitle">Ambil foto sampul atau label alamat, lalu siapkan data Mile App.</h1>
+        <p>Gunakan kamera HP untuk mengambil beberapa foto sekaligus. Hasil ekstraksi AI dapat diperiksa dan diperbaiki sebelum diekspor ke Mile App.</p>
         <a class="performance-beta-card" href="/camera">
           <span class="performance-beta-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
           </span>
           <span class="performance-beta-copy">
-            <strong>Gunakan HP sebagai camera capture station</strong>
-            <small>Capture label alamat secara batch dari kamera belakang Android, lengkap dengan auto crop dan validasi kualitas.</small>
+            <strong>Gunakan HP untuk foto sampul atau label alamat</strong>
+            <small>Ambil foto secara berurutan dari kamera belakang HP, periksa hasilnya, lalu proses seluruh foto dengan AI dalam satu alur.</small>
           </span>
-          <span class="performance-beta-action">Buka Camera <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
+          <span class="performance-beta-action">Ambil Foto di HP <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
         </a>
       </div>
       <div class="workflow-steps" aria-label="Workflow steps">
         <div class="workflow-step is-active" data-step="1"><span>1</span><strong>Atur</strong><small>Transaksi & pengirim</small></div>
-        <div class="workflow-step" data-step="2"><span>2</span><strong>Unggah</strong><small>PDF, Excel, atau CSV</small></div>
+        <div class="workflow-step" data-step="2"><span>2</span><strong>Ambil foto</strong><small>Kamera HP langsung</small></div>
         <div class="workflow-step" data-step="3"><span>3</span><strong>Periksa</strong><small>Edit data tabel</small></div>
         <div class="workflow-step" data-step="4"><span>4</span><strong>Ekspor</strong><small>Workbook Mile App</small></div>
       </div>
@@ -207,7 +197,7 @@
           </div>
         </section>
 
-        <section class="panel-card upload-card">
+        <section class="panel-card upload-card" hidden aria-hidden="true">
           <div class="panel-heading panel-heading--compact">
             <div><span class="section-index">04</span><h2>Unggah berkas sumber</h2></div>
             <p>PDF diproses dengan AI vision. REF/SURAT memprioritaskan Nomor Surat/Ref resmi pada kepala surat, lalu memakai isi Perihal/Hal/Subject bila nomor resmi tidak ada. Nomor HP tetap opsional.</p>
@@ -348,7 +338,7 @@
         <div class="preview-card">
           <div class="preview-toolbar">
             <div class="preview-title">
-              <span class="section-index">05</span>
+              <span class="section-index">04</span>
               <div><h2>Periksa hasil</h2><p>No Ref/Surat tetap dapat diedit; nama dan alamat berdampingan agar koreksi lebih cepat.</p></div>
             </div>
             <div class="preview-actions">
@@ -361,12 +351,12 @@
 
           <div class="summary-strip" aria-label="Current workspace summary">
             <div class="summary-item"><span>Baris</span><strong id="recordCount">0</strong></div>
-            <div class="summary-item"><span>Berkas</span><strong id="fileCount">0</strong></div>
+            <div class="summary-item"><span>Batch</span><strong id="fileCount">0</strong></div>
             <div class="summary-item"><span>Mode</span><strong id="modeSummary">Corporate</strong></div>
             <div class="summary-item"><span>Asuransi</span><strong id="insuranceSummary">Off</strong></div>
             <div class="summary-item summary-item--outside"><span>Luar Kota Batam</span><strong id="outsideBatamCount">0</strong></div>
             <div class="summary-item summary-item--review"><span>Teks perlu dicek</span><strong id="reviewCount">0</strong></div>
-            <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu berkas sumber</div>
+            <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu hasil capture HP</div>
           </div>
 
           <div class="bulk-reference-editor" id="bulkPdfReferenceEditor" hidden>
@@ -529,12 +519,10 @@
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan mile.posnew.com.</div></noscript>
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260908-16.23" defer></script>
-  <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260908-16.23" defer></script>
-  <script src="/assets/js/app-core.js?v=20260927-26.02-customer-template-search" defer></script>
-  <script src="/assets/js/ai-pdf-v16-19.js?v=20260924-postal-29426" defer></script>
+  <script src="/assets/js/app-core.js?v=20260927-26.03-camera-primary-cta" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/camera-sync.js?v=20260927-26.02-customer-template-search" defer></script>
-  <script src="/assets/js/ui.js?v=20260927-26.01-desktop-review-sync" defer></script>
+  <script src="/assets/js/ui.js?v=20260927-26.03-camera-primary-cta" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>
   <script src="/assets/js/session-v16.js?v=20260926-16.47-sync" defer></script>

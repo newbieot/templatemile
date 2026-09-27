@@ -146,7 +146,7 @@
         
         // Ensure core accepts the rows directly
         if (core && core.uploadedFilesManager) {
-           core.uploadedFilesManager.push({ id: Date.now(), name: `Kamera - ${session.deviceName || sessionId}`, rows: session.streamedRows, source: 'AI PDF' });
+           core.uploadedFilesManager.push({ id: Date.now(), name: `Kamera - ${session.deviceName || sessionId}`, rows: session.streamedRows, source: 'Camera AI' });
            core.updateInterface();
         }
         

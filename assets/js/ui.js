@@ -590,6 +590,7 @@
     const clearButton = document.getElementById('clearDataButton');
     const status = document.getElementById('workspaceStatus');
     const previewCard = document.querySelector('.preview-card');
+    const cameraPrimary = document.body.dataset.primarySource === 'camera';
 
     if (recordCount) recordCount.textContent = String(rowCount);
     if (fileCount) fileCount.textContent = String(fileTotal);
@@ -622,9 +623,9 @@
         status.innerHTML = '<span class="status-dot"></span>Siap diperiksa dan diekspor';
       } else if (typeof fileProcessQueue !== 'undefined' && fileProcessQueue?.length > 0) {
         status.classList.add('is-busy');
-        status.innerHTML = '<span class="status-dot"></span>Sedang memproses berkas sumber';
+        status.innerHTML = `<span class="status-dot"></span>${cameraPrimary ? 'Sedang memproses hasil capture HP' : 'Sedang memproses berkas sumber'}`;
       } else {
-        status.innerHTML = '<span class="status-dot"></span>Menunggu berkas sumber';
+        status.innerHTML = `<span class="status-dot"></span>${cameraPrimary ? 'Menunggu hasil capture HP' : 'Menunggu berkas sumber'}`;
       }
     }
 
