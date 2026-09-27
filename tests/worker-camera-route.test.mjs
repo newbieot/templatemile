@@ -56,7 +56,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20260927-26.00-camera-mobile-gallery');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20260927-26.01-desktop-review-sync');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -97,7 +97,7 @@ const saveBatch = await workerModule.default.fetch(new Request(`https://mile.pos
     form: { corporateTemplate: 'BSN', customerId: 'CUST-01', serviceCode: 'REG', tariffCode: 'T1', itemType: 'DOKUMEN' },
     rows: [
       { name: 'A', address: 'Batam' },
-      { name: 'B', address: 'Batam', aiReviewFields: ['nama_penerima'] },
+      { name: 'B', address: 'Batam', aiReviewFields: ['nama_penerima', 'alamat_penerima'] },
       { name: 'C', address: 'Tanjungpinang', outsideBatam: true }
     ]
   })
@@ -113,6 +113,7 @@ assert.equal(batchList.batches.length, 1);
 assert.equal(batchList.batches[0].deviceName, 'HP Gudang A');
 assert.equal(batchList.batches[0].model, 'gemini-3.8-flash');
 assert.equal(batchList.batches[0].reviewCount, 1);
+assert.equal(batchList.batches[0].reviewFieldCount, 2);
 assert.equal(batchList.batches[0].outsideBatamCount, 1);
 assert.equal(batchList.batches[0].cleanCount, 1);
 assert.equal(batchList.batches[0].durationSeconds, 25.5);

@@ -304,7 +304,7 @@
         <div class="camera-batch-stat"><span>Foto</span><strong>${captureCount}</strong></div>
         <div class="camera-batch-stat"><span>Hasil</span><strong>${rowCount}</strong></div>
         <div class="camera-batch-stat camera-batch-stat--clean"><span>Bersih</span><strong>${cleanCount}</strong></div>
-        <div class="camera-batch-stat camera-batch-stat--review" title="${reviewFieldCount} kolom perlu diperiksa"><span>Baris Perlu Dicek</span><strong>${reviewCount}</strong><small>${reviewFieldCount} kolom</small></div>
+        <div class="camera-batch-stat camera-batch-stat--review" title="${reviewFieldCount} kolom perlu diperiksa"><span>Baris Perlu dicek</span><strong>${reviewCount}</strong><small>${reviewFieldCount} kolom</small></div>
         <div class="camera-batch-stat camera-batch-stat--outside"><span>Luar Batam</span><strong>${outsideBatamCount}</strong></div>
       </div>
 

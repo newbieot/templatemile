@@ -174,6 +174,8 @@ async function runAsyncAssertions() {
 
   // Camera sync to server
   const cameraSync = fs.readFileSync(path.join(root, 'assets/js/camera-sync.js'), 'utf8');
+  const appCore = fs.readFileSync(path.join(root, 'assets/js/app-core.js'), 'utf8');
+  const uiRuntime = fs.readFileSync(path.join(root, 'assets/js/ui.js'), 'utf8');
   assert.match(cameraSync, /saveBatchResults/);
   assert.match(cameraSync, /fetchAndRenderBatches/);
   assert.match(cameraSync, /loadBatchToDesktop/);
@@ -184,6 +186,7 @@ async function runAsyncAssertions() {
   assert.match(cameraSync, /function escapeHtml/);
   assert.match(cameraSync, /camera-batch-item__stats/);
   assert.match(cameraSync, /Perlu dicek/);
+  assert.match(cameraSync, /reviewFieldCount/);
   assert.match(cameraSync, /Luar Batam/);
   assert.match(cameraSync, /Waktu proses AI/);
   assert.match(cameraSync, /Rincian \$\{chunkTimings\.length\} kelompok AI/);
@@ -192,6 +195,19 @@ async function runAsyncAssertions() {
   assert.match(cameraSync, /Layanan \/ tarif/);
   assert.match(cameraImport, /MileCameraSync/);
   assert.match(reviewHtml, /camera-sync\.js/);
+
+  // Metadata keraguan AI harus tetap menjadi koreksi wajib setelah dimuat ke desktop.
+  assert.match(appCore, /const reviewFieldAliases/);
+  assert.match(appCore, /nama_penerima: 'name'/);
+  assert.match(appCore, /alamat_penerima: 'address'/);
+  assert.match(appCore, /nomor_hp: 'phone'/);
+  assert.match(appCore, /nomor_surat: 'noSurat'/);
+  assert.match(appCore, /hydrateAIReviewState\(row\)/);
+  assert.match(appCore, /row\.needsVerification \? inferLegacyReviewFields\(row\)/);
+  assert.match(appCore, /data-review-requires-change/);
+  assert.match(appCore, /Perbaiki nilai yang salah atau konfirmasi nilai yang sudah benar/);
+  assert.match(uiRuntime, /reviewRequiresChange !== 'false'/);
+  assert.match(uiRuntime, /Konfirmasi benar & lanjut/);
 
   // Desktop batch modal
   const appHtml = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
@@ -216,6 +232,7 @@ async function runAsyncAssertions() {
   assert.match(worker, /CAMERA_BATCH_TTL_MS/);
   assert.match(worker, /captureDurationSeconds/);
   assert.match(worker, /outsideBatamCount/);
+  assert.match(worker, /reviewFieldCount/);
   assert.match(worker, /cleanCount/);
   assert.match(worker, /sanitizeCameraChunkTimings/);
   assert.match(worker, /customerId: result\.form\?\.customerId/);

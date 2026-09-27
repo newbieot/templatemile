@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.01 — Sinkronisasi wajib review AI ke Desktop
+
+- Memetakan `aiReviewFields` dari hasil AI ke kolom Desktop sehingga Nama, Alamat, No. HP, dan REF/SURAT yang meragukan tetap terlihat setelah tombol Muat ke Desktop.
+- Menjaga kompatibilitas batch lama yang hanya memiliki `needsVerification` dengan peringatan aman pada field utama, tanpa diam-diam menganggap baris bersih.
+- Mengunci ekspor sampai setiap field sudah diperbaiki atau dikonfirmasi operator; teks literal “PERLU DICEK” tetap wajib diubah.
+- Menampilkan alasan, sumber foto/halaman, jumlah baris perlu dicek, dan jumlah kolom perlu dicek secara terpisah.
+
 ## v26.00 — Galeri capture mobile dan Review lebih cepat
 
 - Menambahkan galeri hasil capture di dalam mode fullscreen dengan navigasi berurutan, swipe, hapus, foto ulang pada urutan yang sama, dan kembali melanjutkan capture.
