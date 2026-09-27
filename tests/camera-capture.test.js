@@ -118,6 +118,10 @@ async function runAsyncAssertions() {
   assert.match(cameraCss, /\.camera-flash/);
   assert.match(cameraCss, /\.camera-hud-toast/);
   assert.match(cameraCss, /\.camera-fullscreen-finish/);
+  assert.match(cameraCss, /camera-capture-button--fullscreen\{flex:1 1 auto;min-width:0;min-height:64px/);
+  assert.match(cameraCss, /camera-fullscreen-finish\{flex:0 0 92px;width:92px;min-height:48px;align-self:flex-end/);
+  assert.match(cameraCss, /camera-fullscreen-bottom-dock\{display:none;[^{]*grid-template-columns:minmax\(0,1fr\) 92px/);
+  assert.match(cameraCss, /camera-fullscreen-bottom-dock\{display:grid!important\}/);
   assert.match(cameraCss, /\.camera-capture-gallery/);
   assert.match(cameraCss, /env\(safe-area-inset-bottom\)/);
   assert.match(cameraRuntime, /function openCaptureGallery/);
@@ -213,6 +217,16 @@ async function runAsyncAssertions() {
   // Desktop batch modal
   const appHtml = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
   const appIntro = appHtml.slice(appHtml.indexOf('<section class="intro-shell"'), appHtml.indexOf('<section class="workspace-grid"'));
+  const normalizeFooter = (html) => {
+    const footer = html.match(/<footer class="dashboard-footer">[\s\S]*?<\/footer>/);
+    assert.ok(footer, 'footer utama harus tersedia');
+    return footer[0].replace(/\s+/g, ' ').trim();
+  };
+  assert.equal(normalizeFooter(cameraHtml), normalizeFooter(appHtml));
+  assert.equal(normalizeFooter(reviewHtml), normalizeFooter(appHtml));
+  assert.doesNotMatch(cameraHtml, /Â|â/);
+  assert.match(reviewCss, /\.dashboard-footer/);
+  assert.match(reviewCss, /@media \(max-width: 430px\)/);
   assert.doesNotMatch(appHtml, /Coba versi Beta/);
   assert.doesNotMatch(appHtml, /href="\/beta"/);
   assert.doesNotMatch(appIntro, /PDF|Excel|CSV/i);

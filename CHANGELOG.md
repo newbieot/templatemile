@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.04 — Footer konsisten dan kontrol capture lebih nyaman
+
+- Menyamakan struktur, isi, warna, dan interaksi footer `/camera` serta `/review` dengan halaman utama.
+- Menambahkan perilaku responsif footer pada layar HP agar brand dan kredit pembuat tetap terbaca tanpa berdesakan.
+- Membersihkan karakter rusak pada antarmuka kamera, termasuk pemisah, tanda baca, dan ikon fullscreen.
+- Memperbesar dominasi tombol Capture pada mode fullscreen dan mengecilkan tombol Finish di ujung kanan bawah.
+
 ## v26.03 — Kamera HP menjadi aksi utama
 
 - Menghapus kartu “Coba versi Beta” dari halaman utama tanpa mengganggu kompatibilitas rute Beta.

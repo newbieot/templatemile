@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Camera Capture Batch â€” mile.posnew.com</title>
+  <title>Camera Capture Batch — mile.posnew.com</title>
   <meta name="description" content="Capture batch label alamat langsung dari kamera belakang HP Android untuk diproses di MILE.">
   <meta name="author" content="Ikhsan Radiansyah">
   <meta name="theme-color" content="#172554">
@@ -14,9 +14,9 @@
   <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.01-desktop-review-sync">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260927-26.00-camera-mobile-gallery">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260927-26.04-mobile-ui-polish">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -32,7 +32,7 @@
       <div class="header-actions">
         <span class="privacy-pill">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          Crop lokal Â· Upload setelah Finish
+          Crop lokal · Upload setelah Finish
         </span>
         <a class="all-tools-link" href="/app">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
@@ -97,7 +97,7 @@
             <label for="processingRoute">Jalur setelah Finish</label>
             <div class="select-shell">
               <select id="processingRoute">
-                <option value="review" selected>C Â· Jalur Kamera Mobile (Direct AI)</option>
+                <option value="review" selected>C · Jalur Kamera Mobile (Direct AI)</option>
               </select>
             </div>
           </div>
@@ -118,7 +118,7 @@
           <span class="crop-status" id="cropStatus" data-state="warning">Menunggu kamera</span>
           <div class="camera-flash" id="cameraFlash" aria-hidden="true"></div>
           <div class="camera-hud-toast" id="cameraHudToast" aria-live="assertive" aria-atomic="true"></div>
-          <button class="camera-enter-fullscreen" id="enterFullscreenButton" type="button" aria-label="Buka layar penuh">â›¶ Fullscreen</button>
+          <button class="camera-enter-fullscreen" id="enterFullscreenButton" type="button" aria-label="Buka layar penuh">⛶ Fullscreen</button>
           <div class="camera-fullscreen-toolbar" aria-label="Kontrol fullscreen kamera">
             <strong id="fullscreenCapturedCount">0 gambar</strong>
             <button id="reviewCapturesButtonFullscreen" class="camera-fullscreen-review" type="button" disabled aria-label="Lihat hasil foto yang sudah dicapture">Lihat Hasil</button>
@@ -175,7 +175,7 @@
         </div>
 
         <div class="camera-session-details" id="sessionDetails" hidden>
-          <span>Session ID</span><strong id="sessionIdentifier">â€”</strong>
+          <span>Session ID</span><strong id="sessionIdentifier">—</strong>
           <small>HP tetap diam; hanya sampul atau label yang diganti.</small>
         </div>
       </section>
@@ -200,7 +200,7 @@
 
         <div class="camera-processing-status" id="processingStatus" hidden aria-live="assertive">
           <span class="camera-processing-spinner" aria-hidden="true"></span>
-          <div><strong id="processingStatusStep">Preparingâ€¦</strong><p id="processingStatusMessage">Menyiapkan batch.</p></div>
+          <div><strong id="processingStatusStep">Preparing…</strong><p id="processingStatusMessage">Menyiapkan batch.</p></div>
         </div>
       </section>
     </section>
@@ -212,13 +212,16 @@
     </section>
   </main>
 
-  <footer class="site-footer">
+  <footer class="dashboard-footer">
     <a class="footer-brand" href="https://posnew.com/" aria-label="Open PosNew Hub">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4.5 7.5 7.5 4.2 7.5-4.2M12 12v8.2"/></svg>
       PosNew Hub
     </a>
-    <p class="footer-desc">Mobile capture station untuk batch label alamat.</p>
-    <span class="footer-creator-badge">MILE Camera Â· v16.47</span>
+    <p class="footer-desc">Workspace yang lebih cepat untuk menyiapkan data bulk upload Mile App secara rapi.</p>
+    <a class="footer-creator-badge" href="https://posnew.com/about-me.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9-3 3 3 3M16 9l3 3-3 3M14 5l-4 14"/></svg>
+      Created by <strong>Ikhsan Radiansyah</strong> · 2026
+    </a>
   </footer>
 
   <canvas id="cameraAnalysisCanvas" hidden></canvas>

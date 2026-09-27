@@ -44,6 +44,90 @@ body {
   padding-bottom: 96px;
 }
 
+/* Footer disamakan dengan workspace utama. */
+.dashboard-footer {
+  width: 100%;
+  height: 38px;
+  margin-top: 22px;
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  overflow: hidden;
+  border-top: 2px solid var(--orange);
+  background: #0f172a;
+  font-size: 0.72rem;
+}
+.footer-brand {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #f8fafc;
+  text-decoration: none;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.footer-brand svg,
+.footer-creator-badge svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.footer-brand svg { width: 15px; color: var(--orange); }
+.footer-desc {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  color: #94a3b8;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.footer-creator-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.62rem;
+  border: 1px solid rgba(239, 65, 35, 0.25);
+  border-radius: 999px;
+  color: #e2e8f0;
+  background: rgba(239, 65, 35, 0.08);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.25s ease, background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+.footer-creator-badge svg { width: 13px; color: var(--orange); transition: transform 0.35s ease; }
+.footer-creator-badge strong { color: var(--orange); }
+.footer-brand:hover { color: #fff; }
+.footer-creator-badge:hover {
+  transform: translateY(-1px);
+  color: #fff;
+  border-color: rgba(239, 65, 35, 0.7);
+  background: rgba(239, 65, 35, 0.22);
+}
+.footer-creator-badge:hover svg { transform: rotate(12deg) scale(1.13); }
+.footer-creator-badge:hover strong { color: #ff8a72; }
+
+@media (max-width: 900px) {
+  .footer-desc { display: none; }
+}
+
+@media (max-width: 640px) {
+  .dashboard-footer { height: 36px; padding: 0 10px; font-size: 0.65rem; }
+  .footer-creator-badge { padding-inline: 0.45rem; }
+}
+
+@media (max-width: 430px) {
+  .footer-brand svg { display: none; }
+  .footer-creator-badge { max-width: 67%; overflow: hidden; text-overflow: ellipsis; }
+}
+
 /* Header */
 .review-header {
   position: sticky;

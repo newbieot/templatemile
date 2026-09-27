@@ -1,4 +1,4 @@
-const APP_VERSION = '20260927-26.03-camera-primary-cta';
+const APP_VERSION = '20260927-26.04-mobile-ui-polish';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
