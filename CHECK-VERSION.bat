@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260927-26.01-desktop-review-sync" "_worker.js" >nul && echo [OK] Worker desktop review sync || (echo [GAGAL] Worker bukan versi desktop review sync & set "FAIL=1")
+findstr /c:"20260927-26.02-customer-template-search" "_worker.js" >nul && echo [OK] Worker customer template search || (echo [GAGAL] Worker bukan versi customer template search & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
@@ -65,6 +65,16 @@ findstr /c:"JACCS_MPM" "app.html" >nul && echo [OK] Template JACCS MPM tersedia 
 findstr /c:"FINMPMJKT04120A" "assets\js\app-core.js" >nul && echo [OK] Customer code JACCS MPM || (echo [GAGAL] Customer code JACCS MPM tidak ditemukan & set "FAIL=1")
 findstr /c:"PT JACCS MPM FINANCE INDONESIA" "assets\js\app-core.js" >nul && echo [OK] Nama pelanggan JACCS MPM || (echo [GAGAL] Nama pelanggan JACCS MPM tidak ditemukan & set "FAIL=1")
 findstr /c:"868523" "assets\js\app-core.js" >nul && echo [OK] Sub service JACCS MPM || (echo [GAGAL] Sub service JACCS MPM tidak ditemukan & set "FAIL=1")
+findstr /c:"BANKBRI01294A" "assets\js\app-core.js" >nul && echo [OK] Template Bank BRI Nagoya || (echo [GAGAL] Template Bank BRI Nagoya tidak ditemukan & set "FAIL=1")
+findstr /c:"FINFIF02294A" "assets\js\app-core.js" >nul && echo [OK] Template FIF Group || (echo [GAGAL] Template FIF Group tidak ditemukan & set "FAIL=1")
+findstr /c:"FINMEGACENT02110B" "assets\js\app-core.js" >nul && echo [OK] Template Megacentral Finance || (echo [GAGAL] Template Megacentral Finance tidak ditemukan & set "FAIL=1")
+findstr /c:"FINMUF02120A" "assets\js\app-core.js" >nul && echo [OK] Template Mandiri Utama Finance || (echo [GAGAL] Template Mandiri Utama Finance tidak ditemukan & set "FAIL=1")
+findstr /c:"FINSEDAYA02294A" "assets\js\app-core.js" >nul && echo [OK] Template Astra Sedaya Finance || (echo [GAGAL] Template Astra Sedaya Finance tidak ditemukan & set "FAIL=1")
+findstr /c:"KESRSGHBTAM01294A" "assets\js\app-core.js" >nul && echo [OK] Template RS Graha Hermine || (echo [GAGAL] Template RS Graha Hermine tidak ditemukan & set "FAIL=1")
+findstr /c:"senderNameFromReference: true" "assets\js\app-core.js" >nul && echo [OK] Nama pengirim dari No Surat/No Ref || (echo [GAGAL] Aturan Nama Pengirim dari No Ref tidak ditemukan & set "FAIL=1")
+findstr /c:"publishTariff" "assets\js\app-core.js" >nul && echo [OK] Tarif Publish dikunci kosong || (echo [GAGAL] Guard Tarif Publish tidak ditemukan & set "FAIL=1")
+if exist "assets\js\template-picker.js" (echo [OK] Pencarian template pelanggan tersedia) else (echo [GAGAL] Pencarian template pelanggan tidak ditemukan & set "FAIL=1")
+if exist "assets\css\template-picker.css" (echo [OK] UI mobile template pelanggan tersedia) else (echo [GAGAL] UI mobile template pelanggan tidak ditemukan & set "FAIL=1")
 
 findstr /c:"MILE_SESSION_SECRET" "_worker.js" >nul && echo [OK] Session secret tetap aktif || (echo [GAGAL] Session secret hilang & set "FAIL=1")
 findstr /c:"COSMOS_API_KEY" "_worker.js" >nul && echo [OK] Cosmos secret tetap aktif || (echo [GAGAL] Cosmos secret hilang & set "FAIL=1")

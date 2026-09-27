@@ -1,4 +1,4 @@
-const APP_VERSION = '20260927-26.01-desktop-review-sync';
+const APP_VERSION = '20260927-26.02-customer-template-search';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

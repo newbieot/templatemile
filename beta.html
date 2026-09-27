@@ -25,6 +25,7 @@
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.01-desktop-review-sync">
+  <link rel="stylesheet" href="/assets/css/template-picker.css?v=20260927-26.02-customer-template-search">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
 </head>
 <body data-accept-pdf="true">
@@ -113,23 +114,29 @@
 
             <div class="form-group full-width" id="wrapTemplate">
               <label for="corporateTemplate">Template pelanggan</label>
-              <div class="select-shell">
+              <div class="select-shell template-picker-host">
                 <select id="corporateTemplate">
-                  <option value="MANUAL">Input manual / pelanggan baru</option>
-                  <option value="PN_BATAM">Pengadilan Negeri Batam · LNMAPN01294A</option>
-                  <option value="MENSA">Mensa Bina Sukses Batam · DAGMBS01294A</option>
-                  <option value="TOYOTA">PT Toyota Astra Finance · FINTOYOTA02294A</option>
-                  <option value="JACCS_MPM">PT JACCS MPM Finance Indonesia · FINMPMJKT04120A</option>
-                  <option value="POLRES">Satlantas Polresta Barelang · LNPOLRES01294A</option>
-                  <option value="BNI">Bank BNI Batam · BANKBNIBTAM02294A</option>
-                  <option value="BTN">Bank Tabungan Negara Batam · BANKBTNBTAM02294A</option>
-                  <option value="ASTRA">Astra Daihatsu Motor Batam · INDASTRADAI01294A</option>
-                  <option value="BSN_BATAM">Bank Syariah Nasional KC Batam · FINBSN01294A</option>
-                  <option value="OJK">Kantor Pusat Otoritas Jasa Keuangan · LNOJK02294A</option>
-                  <option value="BP_BATAM">BP Batam · LNBPBATAM02294A</option>
+                  <option value="MANUAL" data-name="Input manual / pelanggan baru" data-note="Isi data pelanggan sendiri">Input manual / pelanggan baru</option>
+                  <option value="PN_BATAM" data-name="Pengadilan Negeri Batam" data-customer-id="LNMAPN01294A" data-tariff="897924" data-note="Nama pengirim dari No Surat/No Ref">Pengadilan Negeri Batam · LNMAPN01294A</option>
+                  <option value="MENSA" data-name="Mensa Bina Sukses Batam" data-customer-id="DAGMBS01294A" data-tariff="914556">Mensa Bina Sukses Batam · DAGMBS01294A</option>
+                  <option value="TOYOTA" data-name="PT Toyota Astra Finance" data-customer-id="FINTOYOTA02294A">PT Toyota Astra Finance · FINTOYOTA02294A</option>
+                  <option value="JACCS_MPM" data-name="PT JACCS MPM Finance Indonesia" data-customer-id="FINMPMJKT04120A" data-tariff="868523" data-service="PKH">PT JACCS MPM Finance Indonesia · FINMPMJKT04120A</option>
+                  <option value="POLRES" data-name="Satlantas Polresta Barelang" data-customer-id="LNPOLRES01294A">Satlantas Polresta Barelang · LNPOLRES01294A</option>
+                  <option value="BNI" data-name="Bank BNI Batam" data-customer-id="BANKBNIBTAM02294A" data-tariff="907675">Bank BNI Batam · BANKBNIBTAM02294A</option>
+                  <option value="BTN" data-name="Bank Tabungan Negara Batam" data-customer-id="BANKBTNBTAM02294A" data-tariff="876577">Bank Tabungan Negara Batam · BANKBTNBTAM02294A</option>
+                  <option value="ASTRA" data-name="Astra Daihatsu Motor Batam" data-customer-id="INDASTRADAI01294A">Astra Daihatsu Motor Batam · INDASTRADAI01294A</option>
+                  <option value="BRI_NAGOYA" data-name="Bank BRI Nagoya" data-customer-id="BANKBRI01294A" data-note="Tarif Publish">Bank BRI Nagoya · BANKBRI01294A</option>
+                  <option value="FIF_GROUP" data-name="PT FIF Group" data-customer-id="FINFIF02294A" data-note="Tarif Publish">PT FIF Group · FINFIF02294A</option>
+                  <option value="MEGACENTRAL" data-name="PT Megacentral Finance Cab Batam" data-customer-id="FINMEGACENT02110B" data-note="Tarif Publish">PT Megacentral Finance Cab Batam · FINMEGACENT02110B</option>
+                  <option value="MANDIRI_UTAMA" data-name="PT Mandiri Utama Finance" data-customer-id="FINMUF02120A" data-tariff="884916" data-service="PKH">PT Mandiri Utama Finance · FINMUF02120A</option>
+                  <option value="ASTRA_SEDAYA" data-name="PT Astra Sedaya Finance" data-customer-id="FINSEDAYA02294A" data-note="Tarif Publish">PT Astra Sedaya Finance · FINSEDAYA02294A</option>
+                  <option value="RS_GRAHA_HERMINE" data-name="Rumah Sakit Graha Hermine Batam" data-customer-id="KESRSGHBTAM01294A" data-note="Tarif Publish">Rumah Sakit Graha Hermine Batam · KESRSGHBTAM01294A</option>
+                  <option value="BSN_BATAM" data-name="Bank Syariah Nasional KC Batam" data-customer-id="FINBSN01294A" data-tariff="915616" data-service="PKH">Bank Syariah Nasional KC Batam · FINBSN01294A</option>
+                  <option value="OJK" data-name="Otoritas Jasa Keuangan Batam" data-customer-id="LNOJK02294A" data-note="Tarif Publish · Nama pengirim dari No Surat/No Ref">Otoritas Jasa Keuangan Batam · LNOJK02294A</option>
+                  <option value="BP_BATAM" data-name="BP Batam" data-customer-id="LNBPBATAM02294A">BP Batam · LNBPBATAM02294A</option>
                 </select>
               </div>
-              <span class="field-hint">Template mengisi account, pengirim, tarif, dan aturan tujuan yang telah disiapkan.</span>
+              <span class="field-hint">Cari dengan nama atau ID pelanggan. Template mengisi account, pengirim, tarif, dan aturan tujuan.</span>
             </div>
           </div>
         </section>
@@ -506,11 +513,12 @@
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/app-core.js?v=20260927-26.01-desktop-review-sync" defer></script>
+  <script src="/assets/js/app-core.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/ai-pdf-beta-r2.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/camera-import.js?v=20260926-16.44-review" defer></script>
   <script src="/assets/js/ui.js?v=20260927-26.01-desktop-review-sync" defer></script>
+  <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>
 </body>

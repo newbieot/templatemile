@@ -80,7 +80,7 @@
         // bukan dari input tersembunyi. Ini mencegah kiriman invoice jatuh menjadi ritel
         // apabila field UI ter-reset/kosong sebelum ekspor.
         const corporateTemplatePresets = Object.freeze({
-            PN_BATAM: Object.freeze({ customerId: 'LNMAPN01294A', senderName: 'PENGADILAN NEGERI BATAM', tariffCode: '897924', lockTariff: true, defaultItemType: 'DOKUMEN' }),
+            PN_BATAM: Object.freeze({ customerId: 'LNMAPN01294A', senderName: 'PENGADILAN NEGERI BATAM', tariffCode: '897924', lockTariff: true, defaultItemType: 'DOKUMEN', senderNameFromReference: true }),
             MENSA: Object.freeze({ customerId: 'DAGMBS01294A', senderName: 'MENSA BINA SUKSES BATAM', tariffCode: '914556', lockTariff: true, destinationZoneCode: '29100' }),
             TOYOTA: Object.freeze({ customerId: 'FINTOYOTA02294A', senderName: 'PT TOYOTA ASTRA FINANCE' }),
             JACCS_MPM: Object.freeze({ customerId: 'FINMPMJKT04120A', senderName: 'PT JACCS MPM FINANCE INDONESIA', tariffCode: '868523', lockTariff: true, defaultServiceCode: 'PKH' }),
@@ -88,7 +88,13 @@
             BNI: Object.freeze({ customerId: 'BANKBNIBTAM02294A', senderName: 'BANK BNI BATAM', tariffCode: '907675', lockTariff: true }),
             BTN: Object.freeze({ customerId: 'BANKBTNBTAM02294A', senderName: 'BANK TABUNGAN NEGARA BATAM', tariffCode: '876577', lockTariff: true }),
             ASTRA: Object.freeze({ customerId: 'INDASTRADAI01294A', senderName: 'ASTRA DAIHATSU MOTOR BATAM' }),
-            OJK: Object.freeze({ customerId: 'LNOJK02294A', senderName: 'KANTOR PUSAT OTORITAS JASA KEUANGAN' }),
+            BRI_NAGOYA: Object.freeze({ customerId: 'BANKBRI01294A', senderName: 'BANK BRI NAGOYA', lockSenderName: true, publishTariff: true }),
+            FIF_GROUP: Object.freeze({ customerId: 'FINFIF02294A', senderName: 'PT FIF GROUP', lockSenderName: true, publishTariff: true }),
+            MEGACENTRAL: Object.freeze({ customerId: 'FINMEGACENT02110B', senderName: 'PT MEGACENTRAL FINANCE CAB BATAM', lockSenderName: true, publishTariff: true }),
+            MANDIRI_UTAMA: Object.freeze({ customerId: 'FINMUF02120A', senderName: 'PT MANDIRI UTAMA FINANCE', lockSenderName: true, tariffCode: '884916', lockTariff: true, defaultServiceCode: 'PKH', lockService: true }),
+            ASTRA_SEDAYA: Object.freeze({ customerId: 'FINSEDAYA02294A', senderName: 'PT ASTRA SEDAYA FINANCE', lockSenderName: true, publishTariff: true }),
+            RS_GRAHA_HERMINE: Object.freeze({ customerId: 'KESRSGHBTAM01294A', senderName: 'RUMAH SAKIT GRAHA HERMINE BATAM', lockSenderName: true, publishTariff: true }),
+            OJK: Object.freeze({ customerId: 'LNOJK02294A', senderName: 'OTORITAS JASA KEUANGAN BATAM', publishTariff: true, senderNameFromReference: true }),
             BP_BATAM: Object.freeze({ customerId: 'LNBPBATAM02294A', senderName: 'BP BATAM' }),
             BSN_BATAM: Object.freeze({
                 customerId: 'FINBSN01294A',
@@ -118,8 +124,11 @@
                 if (!preset.customerId || !String(preset.customerId).trim()) {
                     throw new Error(`Konfigurasi fatal: ID Pelanggan template ${template} kosong.`);
                 }
-                if (preset.lockSenderName && !String(preset.senderName || '').trim()) {
+                if ((preset.lockSenderName || preset.senderNameFromReference) && !String(preset.senderName || '').trim()) {
                     throw new Error(`Konfigurasi fatal: Nama Pelanggan template ${template} kosong.`);
+                }
+                if (preset.publishTariff && preset.lockTariff) {
+                    throw new Error(`Konfigurasi fatal: template ${template} tidak boleh memakai Tarif Publish dan tarif terkunci sekaligus.`);
                 }
                 if (preset.lockTariff && !String(preset.tariffCode || '').trim()) {
                     throw new Error(`Konfigurasi fatal: Kode Tarif template ${template} kosong.`);
@@ -385,12 +394,12 @@
                 custIdInput.readOnly = true;
                 sNameInput.value = preset.senderName || '';
                 tariffInput.value = preset.tariffCode || '';
-                tariffInput.readOnly = Boolean(preset.lockTariff);
+                tariffInput.readOnly = Boolean(preset.lockTariff || preset.publishTariff);
                 if (preset.defaultServiceCode) serviceSelect.value = preset.defaultServiceCode;
                 if (preset.defaultItemType) itemInput.value = preset.defaultItemType;
                 serviceSelect.disabled = Boolean(preset.lockService);
                 itemInput.disabled = Boolean(preset.lockItemType);
-                sNameInput.readOnly = Boolean(preset.lockSenderName);
+                sNameInput.readOnly = Boolean(preset.lockSenderName || preset.senderNameFromReference);
                 cardPengirim.style.display = 'none';
                 sNameInput.placeholder = 'Nama perusahaan atau pengirim';
             }
@@ -1672,7 +1681,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     // Semua preset mengunci ID Pelanggan dari konfigurasi, termasuk ASTRA dan BSN Batam.
                     // Field UI tidak pernah menjadi sumber kebenaran customer_code untuk template preset.
                     finalCustomerId = preset.customerId;
-                    if (preset.tariffCode && preset.lockTariff) finalTariffCode = preset.tariffCode;
+                    if (preset.publishTariff) finalTariffCode = '';
+                    else if (preset.tariffCode && preset.lockTariff) finalTariffCode = preset.tariffCode;
                     if (preset.defaultServiceCode && preset.lockService) serviceCode = preset.defaultServiceCode;
                     if (preset.defaultItemType && preset.lockItemType) itemType = preset.defaultItemType;
                     if (preset.destinationZoneCode) destZoneCodeGlobal = preset.destinationZoneCode;
@@ -1754,9 +1764,9 @@ Baris ini tidak akan ikut diekspor.`)) return false;
 
                 let senderNameFinal, senderAddrFinal, senderPhoneFinal;
 
-                if (mode === 'KORPORAT' && template === 'PN_BATAM') {
+                if (mode === 'KORPORAT' && activeCorporatePreset?.senderNameFromReference) {
                     if (!dNoSurat) {
-                        alert(`No Ref/Surat pada Baris ke-${index + 1} wajib diisi karena menjadi Nama Pengirim untuk Pengadilan Negeri Batam.`);
+                        alert(`No Ref/Surat pada Baris ke-${index + 1} wajib diisi karena menjadi Nama Pengirim untuk ${baseSenderName}.`);
                         validationFailed = true;
                         return;
                     }
@@ -1838,6 +1848,10 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 }
                 if (preset?.lockTariff && finalExportRows.some(row => row.connote_sub_service_code !== preset.tariffCode)) {
                     alert('FATAL: Kode Tarif hasil ekspor tidak sesuai template. File dibatalkan.');
+                    return;
+                }
+                if (preset?.publishTariff && finalExportRows.some(row => String(row.connote_sub_service_code || '').trim())) {
+                    alert('FATAL: Tarif Publish harus kosong. File dibatalkan.');
                     return;
                 }
                 if (preset?.lockService && finalExportRows.some(row => row.service_code !== preset.defaultServiceCode)) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.02 — Pencarian template pelanggan
+
+- Menambahkan Bank BRI Nagoya, PT FIF Group, PT Megacentral Finance Cab Batam, PT Mandiri Utama Finance, PT Astra Sedaya Finance, Rumah Sakit Graha Hermine Batam, dan memperbarui OJK Batam.
+- Mengganti dropdown template pelanggan dengan pemilih yang bisa dicari berdasarkan nama, ID, tarif, atau layanan; pada HP tampil sebagai panel bawah yang mudah disentuh.
+- Mengunci Tarif Publish tetap kosong, serta mengunci tarif `884916` dan layanan `PKH` untuk PT Mandiri Utama Finance.
+- Mewajibkan No Surat/No Ref untuk OJK Batam dan memakainya sebagai Nama Pengirim saat ekspor.
+- Menyinkronkan ulang batch kamera setelah template atau hasil review diubah, sehingga pilihan terbaru tetap sama ketika batch dimuat ke Desktop.
+
 ## v26.01 — Sinkronisasi wajib review AI ke Desktop
 
 - Memetakan `aiReviewFields` dari hasil AI ke kolom Desktop sehingga Nama, Alamat, No. HP, dan REF/SURAT yang meragukan tetap terlihat setelah tombol Muat ke Desktop.

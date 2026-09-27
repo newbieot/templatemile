@@ -1,6 +1,14 @@
 (() => {
   'use strict';
 
+  const CAMERA_FORM_FIELD_IDS = new Set([
+    'clientMode', 'corporateTemplate', 'customerId', 'senderName', 'senderPhone',
+    'senderAddress', 'serviceCode', 'tariffCode', 'itemType', 'useInsurance'
+  ]);
+  let latestCameraBatchPayload = null;
+  let cameraBatchSaveQueue = Promise.resolve(false);
+  let cameraBatchResyncTimer = 0;
+
   /**
    * camera-sync.js — Sinkronisasi hasil form kamera ke server (R2)
    *
@@ -117,6 +125,48 @@
     }));
   }
 
+  function persistCameraBatch(payload) {
+    const request = async () => {
+      const response = await fetch(`/api/camera/batch/${encodeURIComponent(payload.id)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
+      });
+      const result = await response.json();
+      return Boolean(result?.ok);
+    };
+
+    // Penulisan dibuat berurutan agar respons simpan yang lebih lama tidak dapat
+    // menimpa pilihan template atau koreksi pengguna yang lebih baru.
+    cameraBatchSaveQueue = cameraBatchSaveQueue.catch(() => false).then(request);
+    return cameraBatchSaveQueue;
+  }
+
+  function scheduleCameraBatchResync() {
+    if (!latestCameraBatchPayload || !window.location.pathname.startsWith('/review')) return;
+    window.clearTimeout(cameraBatchResyncTimer);
+    cameraBatchResyncTimer = window.setTimeout(async () => {
+      const rows = getAllRows();
+      if (!rows.length || !latestCameraBatchPayload) return;
+      const rowSummary = summarizeRows(rows);
+      const payload = {
+        ...latestCameraBatchPayload,
+        form: getFormValues(),
+        rows,
+        reviewCount: rowSummary.reviewCount,
+        outsideBatamCount: rowSummary.outsideBatamCount,
+        cleanCount: rowSummary.cleanCount
+      };
+      latestCameraBatchPayload = payload;
+      try {
+        await persistCameraBatch(payload);
+      } catch (_) {
+        // Simpan awal tetap tersedia. Perubahan berikutnya akan mencoba sinkronisasi lagi.
+      }
+    }, 650);
+  }
+
   // ——— Save batch results to server ———
 
   async function saveBatchResults(batchId, captureCount, createdAt, deviceName, durationSeconds, details = {}) {
@@ -151,15 +201,10 @@
       rows: rows
     };
 
+    latestCameraBatchPayload = payload;
     try {
-      const response = await fetch(`/api/camera/batch/${encodeURIComponent(batchId)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'same-origin'
-      });
-      const result = await response.json();
-      if (result?.ok) {
+      const saved = await persistCameraBatch(payload);
+      if (saved) {
         if (typeof window.showToast === 'function') {
           window.showToast(`Batch ${batchId} tersimpan di server (3 hari). Bisa dibuka di desktop.`, 'success');
         }
@@ -550,6 +595,11 @@
     loadBatchToDesktop,
     deleteBatch
   };
+
+  document.addEventListener('change', event => {
+    if (CAMERA_FORM_FIELD_IDS.has(event.target?.id)) scheduleCameraBatchResync();
+    else if (event.target?.closest?.('#resultTable')) scheduleCameraBatchResync();
+  });
 
   // Initialize desktop panel if elements exist
   document.addEventListener('DOMContentLoaded', () => {
