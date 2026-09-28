@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.08-native-camera-view">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.09-camera-simple-flow">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -69,38 +69,19 @@
           <p id="cameraState">Kamera belum aktif</p>
         </div>
 
-        <div class="camera-settings">
-          <div class="form-group">
-            <label for="cameraDeviceName">Nama Perangkat (Opsional)</label>
-            <input type="text" id="cameraDeviceName" class="table-input" placeholder="Cth: HP Gudang A, Kurir Budi..." maxlength="30" autocomplete="off" style="width: 100%; font-size: 0.9rem;">
+        <div class="camera-launch">
+          <div class="camera-device-setup" id="deviceNameSetup" hidden>
+            <label for="cameraDeviceName">Nama perangkat <span>opsional · cukup sekali</span></label>
+            <input type="text" id="cameraDeviceName" class="table-input" placeholder="Contoh: HP Gudang A" maxlength="30" autocomplete="off">
+            <small>Nama disimpan hanya di HP ini untuk membantu identifikasi Log Kamera.</small>
           </div>
-          <div class="form-group">
-            <label for="aiModelSelect">Model AI (Vision)</label>
-            <div class="select-shell">
-              <select id="aiModelSelect">
-                <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash (Default)</option>
-                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Fallback)</option>
-                <option value="glm-5.3-flashx">GLM 5.3 FlashX</option>
-                <option value="glm-5.3">GLM 5.3 (ZhipuAI Pro)</option>
-                <option value="glm-5.3-flash">GLM 5.3 Flash (ZhipuAI)</option>
-                <option value="deepseek-v4.1-flash">DeepSeek v4.1 Flash</option>
-                <option value="deepseek-v4-pro">DeepSeek v4 Pro (Akurasi Maksimal)</option>
-              </select>
-            </div>
-            <span class="field-hint">15 gambar per gelombang diproses sebagai 3 kelompok paralel × 5 tanpa R2.</span>
-          </div>
-          <div class="form-group">
-            <label for="cameraDevice">Kamera</label>
-            <div class="select-shell"><select id="cameraDevice" disabled><option value="">Kamera belakang otomatis</option></select></div>
-          </div>
-          <div class="form-group" hidden>
-            <label for="processingRoute">Jalur setelah Finish</label>
-            <div class="select-shell">
-              <select id="processingRoute">
-                <option value="review" selected>C · Jalur Kamera Mobile (Direct AI)</option>
-              </select>
-            </div>
-          </div>
+          <button class="camera-open-button" id="openCameraButton" type="button">
+            <span class="camera-open-button__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
+            </span>
+            <span class="camera-open-button__copy"><strong>Open Camera</strong><small>Kamera belakang otomatis · tanpa pengaturan tambahan</small></span>
+            <span class="camera-open-button__arrow" aria-hidden="true">→</span>
+          </button>
         </div>
 
         <div class="camera-stage" id="cameraStage">
@@ -114,7 +95,9 @@
           <span class="crop-status" id="cropStatus" data-state="ready">Area crop tetap</span>
           <div class="camera-flash" id="cameraFlash" aria-hidden="true"></div>
           <div class="camera-hud-toast" id="cameraHudToast" aria-live="assertive" aria-atomic="true"></div>
-          <button class="camera-enter-fullscreen" id="enterFullscreenButton" type="button" aria-label="Buka layar penuh">⛶ Fullscreen</button>
+          <button class="camera-preview-fullscreen" id="cameraPreviewFullscreenButton" type="button" aria-label="Buka live camera preview dalam layar penuh">
+            <span aria-hidden="true">⛶</span><strong>Ketuk preview untuk fullscreen</strong>
+          </button>
           <div class="camera-fullscreen-toolbar" aria-label="Kontrol fullscreen kamera">
             <strong id="fullscreenCapturedCount">0 gambar</strong>
             <button id="reviewCapturesButtonFullscreen" class="camera-fullscreen-review" type="button" disabled aria-label="Lihat hasil foto yang sudah dicapture">Lihat Hasil</button>
@@ -155,11 +138,10 @@
           </section>
         </div>
 
-        <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera. Tombol Capture dan Finish Capture tersedia langsung di bawah preview.</div>
+        <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera untuk mengaktifkan kamera belakang.</div>
 
         <div class="camera-primary-actions">
-          <button class="button button--ghost camera-open-button" id="openCameraButton" type="button">Open Camera</button>
-          <div class="camera-action-dock" id="cameraActionDock">
+          <div class="camera-action-dock" id="cameraActionDock" hidden>
             <button class="camera-capture-button" id="captureButton" type="button" disabled aria-label="Capture label alamat">
               <span aria-hidden="true"></span>
               Capture
@@ -224,9 +206,9 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260928-26.08-native-camera-view" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260928-26.09-camera-simple-flow" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera.js?v=20260928-26.08-native-camera-view" defer></script>
+  <script src="/assets/js/camera.js?v=20260928-26.09-camera-simple-flow" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

@@ -8,6 +8,8 @@
   const THUMBNAIL_MAX_SIDE = 360;
   const DRAFT_SAVE_DELAY_MS = 2400;
   const DRAFT_SAVE_MAX_WAIT_MS = 5000;
+  const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
+  const DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name';
   const core = window.MileCameraCore;
   const store = window.MileCameraStore;
   const $ = id => document.getElementById(id);
@@ -26,6 +28,7 @@
   let draftSaveTimer = 0;
   let draftSaveUsesIdleCallback = false;
   let draftRestorePromise = Promise.resolve();
+  let savedDeviceName = '';
 
   const constrainedDevice = (() => {
     const memory = Number(navigator.deviceMemory || 0);
@@ -167,10 +170,6 @@
     } catch (_) {}
   }
 
-  function requestCameraFullscreen() {
-    enterFullscreenMode();
-  }
-
   function exitCameraFullscreen() {
     userExitedFullscreen = true;
     const stage = $('cameraStage');
@@ -184,14 +183,6 @@
     stage?.classList.remove('is-fullscreen');
     document.body.classList.remove('camera-fullscreen-active');
     handleViewportChange();
-  }
-
-  function toggleCameraFullscreen() {
-    if (isCameraFullscreen() && !userExitedFullscreen) {
-      exitCameraFullscreen();
-    } else {
-      enterFullscreenMode();
-    }
   }
 
   function randomId(prefix) {
@@ -276,71 +267,67 @@
     guide.style.height = display ? `${bounds.height * display.height}px` : `${bounds.height * 100}%`;
   }
 
+  function rememberDeviceName(value = $('cameraDeviceName')?.value) {
+    const name = String(value || '').trim().slice(0, 30);
+    if (!name) return savedDeviceName;
+    savedDeviceName = name;
+    const input = $('cameraDeviceName');
+    if (input) input.value = name;
+    try { localStorage.setItem(DEVICE_NAME_STORAGE_KEY, name); } catch (_) {}
+    return savedDeviceName;
+  }
+
+  function currentDeviceName() {
+    return savedDeviceName || String($('cameraDeviceName')?.value || '').trim();
+  }
+
   function stopCamera() {
     stream?.getTracks?.().forEach(track => track.stop());
     stream = null;
     const video = $('cameraPreview');
     if (video) video.srcObject = null;
     $('cameraStage')?.classList.remove('is-active');
+    if ($('cameraActionDock')) $('cameraActionDock').hidden = true;
     setCaptureDisabled(true);
     $('cameraState').textContent = 'Kamera belum aktif';
-  }
-
-  async function populateCameras(selectedDeviceId = '') {
-    const select = $('cameraDevice');
-    if (!select || !navigator.mediaDevices?.enumerateDevices) return;
-    const devices = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'videoinput');
-    const currentValue = selectedDeviceId || select.value;
-    select.replaceChildren();
-    devices.forEach((device, index) => {
-      const option = document.createElement('option');
-      option.value = device.deviceId;
-      option.textContent = device.label || `Kamera ${index + 1}`;
-      select.appendChild(option);
-    });
-    if (devices.some(device => device.deviceId === currentValue)) select.value = currentValue;
-    select.disabled = devices.length < 2;
   }
 
   async function startCamera() {
     await draftRestorePromise;
     const button = $('openCameraButton');
+    const buttonLabel = button?.querySelector('.camera-open-button__copy strong');
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setStatus('Camera API tidak tersedia. Buka halaman ini melalui HTTPS di Chrome Android.', 'error');
       return;
     }
     getAudioContext();
-    requestCameraFullscreen();
+    rememberDeviceName();
     button.disabled = true;
-    button.textContent = 'Membuka kamera…';
+    if (buttonLabel) buttonLabel.textContent = 'Membuka Kamera…';
     setStatus('Izinkan akses kamera ketika Chrome menampilkan permintaan.', 'info');
     stopCamera();
 
     try {
-      const deviceId = $('cameraDevice')?.value;
-      
       const sharedConstraints = {
         width: { ideal: constrainedDevice ? 1600 : 1920, max: 1920 },
         frameRate: { ideal: 24, max: 30 },
         advanced: [{ zoom: 1 }]
       };
-      const videoConstraints = deviceId
-        ? { ...sharedConstraints, deviceId: { exact: deviceId } }
-        : { ...sharedConstraints, facingMode: { ideal: 'environment' } };
+      const videoConstraints = { ...sharedConstraints, facingMode: { ideal: 'environment' } };
       
       stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
       const video = $('cameraPreview');
       video.srcObject = stream;
       await video.play();
       $('cameraStage')?.classList.add('is-active');
-      enterFullscreenMode();
       updateStageAspect();
       const track = stream.getVideoTracks()[0];
       const settings = track.getSettings?.() || {};
       $('cameraState').textContent = `${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} · kamera belakang diprioritaskan`;
       ensureSession();
       setCaptureDisabled(false);
-      setStatus('Kamera aktif dan siap Capture. Posisi portrait maupun landscape didukung.', 'success');
+      if ($('cameraActionDock')) $('cameraActionDock').hidden = false;
+      setStatus('Kamera siap. Ketuk live preview untuk membuka mode capture fullscreen.', 'success');
       renderFixedGuide();
 
       // Konfigurasi tambahan tidak boleh menahan kamera siap digunakan pada HP lama.
@@ -356,7 +343,6 @@
           }
           if (advanced.length) await track.applyConstraints({ advanced });
         } catch (_) {}
-        populateCameras(settings.deviceId || '').catch(() => {});
       }, 0);
     } catch (error) {
       const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
@@ -369,7 +355,7 @@
       exitCameraFullscreen();
     } finally {
       button.disabled = false;
-      button.textContent = stream ? 'Buka ulang kamera' : 'Open Camera';
+      if (buttonLabel) buttonLabel.textContent = stream ? 'Buka Ulang Kamera' : 'Open Camera';
     }
   }
 
@@ -389,7 +375,6 @@
     sessionStartedAt = new Date().toISOString();
     $('sessionIdentifier').textContent = sessionId;
     $('sessionDetails').hidden = false;
-    $('processingRoute').disabled = true;
     updateBatchUi();
     void requestWakeLock();
   }
@@ -413,8 +398,8 @@
       draft: true,
       captureCount: draftCaptures.length,
       draftCaptures,
-      deviceName: $('cameraDeviceName')?.value?.trim() || '',
-      aiModel: $('aiModelSelect')?.value || 'gemini-3.8-flash'
+      deviceName: currentDeviceName(),
+      aiModel: DEFAULT_AI_MODEL
     };
     draftSaveChain = draftSaveChain
       .catch(() => {})
@@ -485,9 +470,11 @@
       }
       $('sessionIdentifier').textContent = sessionId;
       $('sessionDetails').hidden = false;
-      $('processingRoute').disabled = true;
-      if ($('cameraDeviceName') && draft.deviceName) $('cameraDeviceName').value = draft.deviceName;
-      if ($('aiModelSelect') && draft.aiModel) $('aiModelSelect').value = draft.aiModel;
+      if (draft.deviceName) {
+        rememberDeviceName(draft.deviceName);
+        const setup = $('deviceNameSetup');
+        if (setup) setup.hidden = true;
+      }
       updateBatchUi();
       setStatus(`${captures.length} capture dari sesi sebelumnya berhasil dipulihkan. Buka kamera untuk melanjutkan.`, 'success');
       toast(`${captures.length} foto dipulihkan otomatis`, 'success');
@@ -881,8 +868,8 @@
         ...capture,
         blob
       }));
-      const deviceName = $('cameraDeviceName')?.value?.trim() || '';
-      const aiModel = $('aiModelSelect')?.value || 'gemini-3.8-flash';
+      const deviceName = rememberDeviceName();
+      const aiModel = DEFAULT_AI_MODEL;
       const captureFinishedAt = new Date();
       const captureStartedMs = Date.parse(sessionStartedAt);
       const captureDurationSeconds = Number.isFinite(captureStartedMs)
@@ -922,7 +909,9 @@
     $('openCameraButton').addEventListener('click', startCamera);
     $('captureButton').addEventListener('click', captureImage);
     $('captureButtonFullscreen').addEventListener('click', captureImage);
-    $('enterFullscreenButton')?.addEventListener('click', toggleCameraFullscreen);
+    $('cameraPreviewFullscreenButton')?.addEventListener('click', () => {
+      if (stream) enterFullscreenMode();
+    });
     $('exitFullscreenButton').addEventListener('click', exitCameraFullscreen);
     $('finishCaptureButton').addEventListener('click', finishCapturing);
     $('finishCaptureButtonFullscreen')?.addEventListener('click', finishCapturing);
@@ -934,24 +923,19 @@
     $('nextCaptureButton')?.addEventListener('click', () => moveCaptureGallery(1));
     $('deleteCaptureFromGallery')?.addEventListener('click', deleteCaptureFromGallery);
     $('retakeCaptureFromGallery')?.addEventListener('click', retakeCaptureFromGallery);
-    $('cameraDevice').addEventListener('change', () => {
-      if (stream) startCamera();
-    });
-    
     const deviceNameInput = $('cameraDeviceName');
+    const deviceNameSetup = $('deviceNameSetup');
     if (deviceNameInput) {
       try {
-        const storedName = localStorage.getItem('mile_camera_device_name');
-        if (storedName) deviceNameInput.value = storedName;
+        savedDeviceName = String(localStorage.getItem(DEVICE_NAME_STORAGE_KEY) || '').trim().slice(0, 30);
       } catch (_) {}
-      deviceNameInput.addEventListener('input', () => {
-        try { localStorage.setItem('mile_camera_device_name', deviceNameInput.value.trim()); } catch (_) {}
+      if (savedDeviceName) deviceNameInput.value = savedDeviceName;
+      if (deviceNameSetup) deviceNameSetup.hidden = Boolean(savedDeviceName);
+      deviceNameInput.addEventListener('change', () => {
+        rememberDeviceName();
         if (sessionId && captures.length) void queueDraftSave();
       });
     }
-    $('aiModelSelect')?.addEventListener('change', () => {
-      if (sessionId && captures.length) void queueDraftSave();
-    });
 
     let galleryTouchStartX = 0;
     $('cameraGalleryImage')?.addEventListener('touchstart', event => {
@@ -973,7 +957,8 @@
         if (nativeActive) {
           $('cameraStage')?.classList.add('is-fullscreen');
           document.body.classList.add('camera-fullscreen-active');
-        } else if (userExitedFullscreen) {
+        } else {
+          userExitedFullscreen = true;
           $('cameraStage')?.classList.remove('is-fullscreen');
           document.body.classList.remove('camera-fullscreen-active');
         }

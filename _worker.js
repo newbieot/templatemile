@@ -1,4 +1,4 @@
-const APP_VERSION = '20260928-26.08-native-camera-view';
+const APP_VERSION = '20260928-26.09-camera-simple-flow';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

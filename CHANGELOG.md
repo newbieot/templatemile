@@ -1,5 +1,14 @@
 # Changelog
 
+## v26.09 — Halaman kamera fokus ke operator
+
+- Merombak alur halaman kamera menjadi tiga tindakan utama: Open Camera, ketuk preview untuk fullscreen, lalu Capture.
+- Menampilkan isian nama perangkat hanya pada penggunaan pertama; setelah tersimpan di HP, kolom tidak muncul lagi.
+- Menghapus pilihan model AI dari UI dan menetapkan Gemini 3.8 Flash secara internal dengan fallback yang sudah ada.
+- Menghapus pilihan perangkat kamera dan selalu memprioritaskan kamera belakang secara otomatis.
+- Menjadikan Open Camera sebagai CTA besar serta membuat seluruh live preview dapat diketuk untuk masuk fullscreen.
+- Menyembunyikan tombol Capture halaman sampai kamera benar-benar aktif.
+
 ## v26.08 — Preview kamera normal tanpa zoom
 
 - Menampilkan seluruh bidang pandang kamera dengan `object-fit: contain`, termasuk ketika fullscreen.

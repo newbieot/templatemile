@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'assets/js/ai-pdf-beta-r2.js'), 'utf8');
 const cameraHtml = fs.readFileSync(path.join(root, 'camera.html'), 'utf8');
+const cameraRuntime = fs.readFileSync(path.join(root, 'assets/js/camera.js'), 'utf8');
 const reviewHtml = fs.readFileSync(path.join(root, 'review.html'), 'utf8');
 
 const values = {
@@ -131,9 +132,9 @@ assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCamer
 assert.match(source, /JPEG asli siap · belum mengirim gambar/);
 assert.match(source, /directCameraInput \? null : await pdf\.getPage\(pageNumber\)/);
 assert.match(source, /chunkTimings: publicChunkTimings/);
-assert.match(cameraHtml, /gemini-3\.8-flash" selected/);
-assert.match(cameraHtml, /gemini-3\.8-flash/);
-assert.match(cameraHtml, /gemini-3\.7-flash/);
+assert.doesNotMatch(cameraHtml, /id="aiModelSelect"|Model AI \(Vision\)/);
+assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gemini-3\.8-flash'/);
+assert.match(cameraRuntime, /aiModel: DEFAULT_AI_MODEL/);
 assert.match(reviewHtml, /value="gemini-3\.8-flash" selected/);
 assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="5" selected/);
 assert.match(reviewHtml, /id="aiConcurrency"><option value="3" selected/);
