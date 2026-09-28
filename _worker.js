@@ -1,4 +1,4 @@
-const APP_VERSION = '20260928-26.15-pdf-upload-sensor-orientation';
+const APP_VERSION = '20260928-26.16-landscape-fullscreen';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -39,7 +39,7 @@ function securityHeaders(extra = {}) {
     'x-content-type-options': 'nosniff',
     'x-frame-options': 'DENY',
     'referrer-policy': 'strict-origin-when-cross-origin',
-    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()',
     'cross-origin-opener-policy': 'same-origin',
     'cross-origin-resource-policy': 'same-origin',
     'content-security-policy': [
@@ -1015,7 +1015,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
   if (path === '/camera' || path === '/camera.html') {
-    headers.set('permissions-policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
+    headers.set('permissions-policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
   }
   headers.set('cache-control', cacheControl);
   headers.set('x-mile-app-version', APP_VERSION);

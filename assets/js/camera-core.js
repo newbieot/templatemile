@@ -3,6 +3,40 @@
 
   const textEncoder = new TextEncoder();
 
+  function fullscreenLayout({ width, height, orientation, rotation = 90 }) {
+    const layoutRotation = orientation === 'landscape' && height > width
+      ? (rotation === -90 ? 90 : -90) : 0;
+    return {
+      rotation: layoutRotation,
+      width: layoutRotation ? height : width,
+      height: layoutRotation ? width : height
+    };
+  }
+
+  function previewCaptureRect({ sourceWidth, sourceHeight, rotation = 0, viewWidth, viewHeight, frame, cover = true }) {
+    const rotated = Math.abs(rotation) === 90;
+    const width = rotated ? sourceHeight : sourceWidth;
+    const height = rotated ? sourceWidth : sourceHeight;
+    const fitScale = cover && viewWidth > 0 && viewHeight > 0
+      ? Math.max(viewWidth / width, viewHeight / height) : 1;
+    const visibleWidth = cover ? viewWidth / fitScale : width;
+    const visibleHeight = cover ? viewHeight / fitScale : height;
+    return {
+      fullWidth: width,
+      fullHeight: height,
+      x: (width - visibleWidth) / 2 + visibleWidth * frame.x,
+      y: (height - visibleHeight) / 2 + visibleHeight * frame.y,
+      width: visibleWidth * frame.width,
+      height: visibleHeight * frame.height
+    };
+  }
+
+  function cameraViewPoint({ x, y, width, height, rotation = 0 }) {
+    if (rotation === 90) return { x: y, y: width - x };
+    if (rotation === -90) return { x: height - y, y: x };
+    return { x, y };
+  }
+
   function calculateSharpness(imageData) {
     if (!imageData?.data || imageData.width < 3 || imageData.height < 3) return 0;
     const { data, width, height } = imageData;
@@ -120,7 +154,7 @@
     return new Blob(parts, { type: 'application/pdf' });
   }
 
-  const api = { calculateSharpness, averageBrightness, validateImageQuality, buildJpegPdf };
+  const api = { fullscreenLayout, previewCaptureRect, cameraViewPoint, calculateSharpness, averageBrightness, validateImageQuality, buildJpegPdf };
   if (typeof window !== 'undefined') window.MileCameraCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

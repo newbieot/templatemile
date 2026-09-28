@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.15-sensor-orientation">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.16-landscape-fullscreen">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -85,6 +85,7 @@
         </div>
 
         <div class="camera-stage" id="cameraStage">
+          <div class="camera-view" id="cameraView">
           <video id="cameraPreview" autoplay muted playsinline aria-label="Live preview kamera belakang"></video>
           <div class="camera-placeholder" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -136,6 +137,7 @@
               <button id="continueCaptureFromGallery" class="camera-gallery-continue" type="button">Lanjutkan Capture</button>
             </div>
           </section>
+          </div>
         </div>
 
         <div class="camera-message" id="cameraMessage" data-type="info">Tekan Open Camera untuk mengaktifkan kamera belakang.</div>
@@ -206,9 +208,9 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260928-26.12-ai-resume-tap-focus" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260928-26.16-landscape-fullscreen" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera.js?v=20260928-26.15-sensor-orientation" defer></script>
+  <script src="/assets/js/camera.js?v=20260928-26.16-landscape-fullscreen" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

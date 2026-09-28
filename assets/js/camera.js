@@ -264,6 +264,7 @@
 
   function handleDeviceMotionOrientation(event) {
     const gravity = event.accelerationIncludingGravity;
+    if (gravity?.x == null || gravity?.y == null) return;
     const x = Number(gravity?.x);
     const y = Number(gravity?.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -283,13 +284,15 @@
   function handleDeviceOrientationSensor(event) {
     // DeviceMotion lebih stabil untuk mendeteksi gravitasi dan diprioritaskan.
     if (Date.now() - lastMotionOrientationAt < 1200) return;
+    if (event.beta == null || event.gamma == null) return;
     const beta = Number(event.beta);
     const gamma = Number(event.gamma);
     if (!Number.isFinite(beta) || !Number.isFinite(gamma)) return;
     const absBeta = Math.abs(beta);
     const absGamma = Math.abs(gamma);
     if (absGamma >= 48) {
-      applyPhysicalOrientationCandidate('landscape', gamma > 0 ? -90 : 90);
+      const gravityX = -Math.cos(beta * Math.PI / 180) * Math.sin(gamma * Math.PI / 180);
+      applyPhysicalOrientationCandidate('landscape', gravityX > 0 ? -90 : 90);
     } else if (absGamma <= 26 && absBeta >= 42) {
       applyPhysicalOrientationCandidate('portrait', 0);
     }
@@ -325,11 +328,22 @@
     if (!stage) return;
     const viewportOrientation = window.matchMedia?.('(orientation: landscape)').matches
       || window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-    const usesPhysicalSensor = isCameraFullscreen() && Boolean(physicalOrientation);
+    const fullscreen = isCameraFullscreen();
+    const usesPhysicalSensor = fullscreen && Boolean(physicalOrientation);
     const cameraOrientation = usesPhysicalSensor ? physicalOrientation : viewportOrientation;
     stage.dataset.orientation = cameraOrientation;
     stage.dataset.orientationSource = usesPhysicalSensor ? 'sensor' : 'viewport';
     document.documentElement.dataset.cameraOrientation = cameraOrientation;
+    const layout = core.fullscreenLayout({
+      width: stage.clientWidth || window.innerWidth,
+      height: stage.clientHeight || window.innerHeight,
+      orientation: fullscreen ? cameraOrientation : viewportOrientation,
+      rotation: physicalOrientationRotation
+    });
+    stage.dataset.layoutRotation = String(fullscreen ? layout.rotation : 0);
+    stage.style.setProperty('--camera-view-width', `${layout.width}px`);
+    stage.style.setProperty('--camera-view-height', `${layout.height}px`);
+    stage.style.setProperty('--camera-view-rotation', `${fullscreen ? layout.rotation : 0}deg`);
     if (!video?.videoWidth || !video?.videoHeight) return;
     const frameOrientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
     const screenAngle = Number(window.screen?.orientation?.angle ?? window.orientation ?? 0);
@@ -340,6 +354,9 @@
       : 0;
     stage.dataset.frameOrientation = frameOrientation;
     stage.dataset.previewRotation = String(previewRotation);
+    stage.style.setProperty('--camera-video-width', `${previewRotation ? layout.height : layout.width}px`);
+    stage.style.setProperty('--camera-video-height', `${previewRotation ? layout.width : layout.height}px`);
+    stage.style.setProperty('--camera-video-rotation', `${previewRotation}deg`);
     stage.style.setProperty('--camera-aspect', previewRotation
       ? `${video.videoHeight}/${video.videoWidth}`
       : `${video.videoWidth}/${video.videoHeight}`);
@@ -382,13 +399,25 @@
     return savedDeviceName || String($('cameraDeviceName')?.value || '').trim();
   }
 
+  function pointInCameraView(event) {
+    const stage = $('cameraStage');
+    const rect = stage.getBoundingClientRect();
+    return core.cameraViewPoint({
+      x: event.clientX - rect.left, y: event.clientY - rect.top,
+      width: rect.width, height: rect.height,
+      rotation: Number(stage.dataset.layoutRotation || 0)
+    });
+  }
+
   function showFocusIndicator(event) {
     const stage = $('cameraStage');
     const indicator = $('cameraFocusIndicator');
     if (!stage || !indicator) return;
     const rect = stage.getBoundingClientRect();
-    indicator.style.left = `${Math.max(24, Math.min(rect.width - 24, event.clientX - rect.left))}px`;
-    indicator.style.top = `${Math.max(24, Math.min(rect.height - 24, event.clientY - rect.top))}px`;
+    const view = $('cameraView');
+    const point = pointInCameraView(event);
+    indicator.style.left = `${Math.max(24, Math.min((view?.clientWidth || rect.width) - 24, point.x))}px`;
+    indicator.style.top = `${Math.max(24, Math.min((view?.clientHeight || rect.height) - 24, point.y))}px`;
     indicator.hidden = false;
     indicator.classList.remove('is-focusing');
     void indicator.offsetWidth;
@@ -772,18 +801,24 @@
       const video = $('cameraPreview');
       const sourceWidth = video.videoWidth;
       const sourceHeight = video.videoHeight;
+      updateStageAspect();
+      const previewRotation = currentPreviewRotation();
+      const view = $('cameraView');
+      const crop = core.previewCaptureRect({
+        sourceWidth, sourceHeight, rotation: previewRotation,
+        viewWidth: view.clientWidth, viewHeight: view.clientHeight,
+        frame: captureFrameRatios(), cover: isCameraFullscreen()
+      });
       const maxOutputSide = constrainedDevice ? LOW_END_OUTPUT_MAX_SIDE : OUTPUT_MAX_SIDE;
-      const scale = Math.min(1, maxOutputSide / Math.max(sourceWidth, sourceHeight));
+      const scale = Math.min(1, maxOutputSide / Math.max(crop.width, crop.height));
       const renderWidth = Math.max(1, Math.round(sourceWidth * scale));
       const renderHeight = Math.max(1, Math.round(sourceHeight * scale));
-      const previewRotation = currentPreviewRotation();
       const fullWidth = previewRotation ? renderHeight : renderWidth;
       const fullHeight = previewRotation ? renderWidth : renderHeight;
-      const frame = captureFrameRatios();
-      const cropX = Math.round(fullWidth * frame.x);
-      const cropY = Math.round(fullHeight * frame.y);
-      const cropWidth = Math.max(1, Math.round(fullWidth * frame.width));
-      const cropHeight = Math.max(1, Math.round(fullHeight * frame.height));
+      const cropX = crop.x * scale;
+      const cropY = crop.y * scale;
+      const cropWidth = Math.max(1, Math.round(crop.width * scale));
+      const cropHeight = Math.max(1, Math.round(crop.height * scale));
       const outputCanvas = $('cameraOutputCanvas');
       outputCanvas.width = cropWidth;
       outputCanvas.height = cropHeight;
@@ -1150,10 +1185,11 @@
 
     let galleryTouchStartX = 0;
     $('cameraGalleryImage')?.addEventListener('touchstart', event => {
-      galleryTouchStartX = Number(event.changedTouches?.[0]?.clientX || 0);
+      if (event.changedTouches?.[0]) galleryTouchStartX = pointInCameraView(event.changedTouches[0]).x;
     }, { passive: true });
     $('cameraGalleryImage')?.addEventListener('touchend', event => {
-      const endX = Number(event.changedTouches?.[0]?.clientX || 0);
+      if (!event.changedTouches?.[0]) return;
+      const endX = pointInCameraView(event.changedTouches[0]).x;
       const distance = endX - galleryTouchStartX;
       if (Math.abs(distance) >= 48) moveCaptureGallery(distance > 0 ? -1 : 1);
     }, { passive: true });

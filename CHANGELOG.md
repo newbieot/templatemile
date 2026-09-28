@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.16 — Fullscreen landscape saat portrait dikunci
+
+- Memutar seluruh tampilan fullscreen sesuai posisi fisik HP: preview, area crop, tombol Capture/Finish, toolbar, dan galeri hasil.
+- Menyesuaikan ukuran tampilan landscape di dalam viewport portrait dan memenuhi layar tanpa ruang hitam.
+- Menghitung crop dari bagian gambar yang benar-benar terlihat agar JPEG tersimpan sesuai bingkai preview.
+- Menyesuaikan koordinat tap-focus, swipe galeri, dan safe area saat tampilan diputar.
+- Mengizinkan accelerometer dan gyroscope pada respons route kamera di Worker; kebijakan server sebelumnya menimpa pengaturan sensor di `_headers`.
+
 ## v26.15 — Landscape fisik saat orientation lock aktif
 
 - Membaca gravitasi dari sensor gerak perangkat untuk mengenali posisi fisik portrait atau landscape walaupun orientation lock HP tetap portrait.

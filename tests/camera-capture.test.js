@@ -141,7 +141,8 @@ async function runAsyncAssertions() {
   assert.match(headers, /gyroscope=\(self\)/);
   assert.match(cameraRuntime, /scheduleContinuousAutofocus\(stream\?\.getVideoTracks/);
   assert.match(cameraCss, /is-fullscreen\[data-orientation="landscape"\]/);
-  assert.match(cameraCss, /data-preview-rotation="90"/);
+  assert.match(cameraCss, /camera-view-rotation/);
+  assert.match(cameraCss, /camera-stage\.is-fullscreen video\{[^}]*object-fit:cover/);
   assert.match(cameraRuntime, /ensureSession\(\);/);
   assert.doesNotMatch(cameraRuntime, /await ensureSession\(\);/);
   assert.match(cameraRuntime, /frameRate: \{ ideal: 24, max: 30 \}/);

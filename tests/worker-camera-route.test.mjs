@@ -55,8 +55,8 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
   headers: { cookie: `__Host-mile_session=${token}` }
 }), env);
 assert.equal(authenticated.status, 200);
-assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20260928-26.15-pdf-upload-sensor-orientation');
+assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20260928-26.16-landscape-fullscreen');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -67,6 +67,7 @@ const authenticatedReview = await workerModule.default.fetch(new Request('https:
   headers: { cookie: `__Host-mile_session=${token}` }
 }), env);
 assert.equal(authenticatedReview.status, 200);
+assert.match(authenticatedReview.headers.get('permissions-policy'), /accelerometer=\(\), gyroscope=\(\)/);
 assert.match(await authenticatedReview.text(), /Review Hasil Kamera/);
 
 const protectedAsset = await workerModule.default.fetch(new Request('https://mile.posnew.com/assets/js/camera.js', {
