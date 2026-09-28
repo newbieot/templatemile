@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.10-open-camera-fullscreen" "_worker.js" >nul && echo [OK] Worker open camera fullscreen || (echo [GAGAL] Worker bukan versi open camera fullscreen & set "FAIL=1")
+findstr /c:"20260928-26.11-full-frame-capture" "_worker.js" >nul && echo [OK] Worker full frame capture || (echo [GAGAL] Worker bukan versi full frame capture & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")

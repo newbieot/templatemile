@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.11 — Capture seluruh area kamera
+
+- Menghapus area crop, kotak panduan hijau, dan status crop dari preview maupun fullscreen.
+- Menyimpan seluruh frame kamera tanpa pemotongan agar label atau alamat tidak terpotong.
+- Menghapus perhitungan koordinat crop serta metadata deteksi yang tidak lagi diperlukan.
+- Mempertahankan batas resolusi 1600–2000 px dan kompresi adaptif agar full-frame tetap ringan dikirim ke AI.
+- Menampilkan thumbnail dengan `contain` supaya seluruh hasil capture terlihat saat pemeriksaan.
+
 ## v26.10 — Open Camera langsung fullscreen
 
 - Memindahkan pemicu fullscreen ke awal event klik Open Camera, sebelum operasi asynchronous apa pun.

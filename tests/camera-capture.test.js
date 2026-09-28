@@ -36,14 +36,7 @@ function syntheticDocument(width = 320, height = 180) {
   return { data, width, height };
 }
 
-assert.deepEqual(cameraCore.fixedGuideBounds(), {
-  x: 0.08,
-  y: 0.13,
-  width: 0.84,
-  height: 0.74,
-  confidence: 0,
-  method: 'fixed-guide'
-});
+assert.equal(cameraCore.fixedGuideBounds, undefined);
 assert.equal(cameraCore.detectDocumentBounds, undefined);
 assert.ok(cameraCore.calculateSharpness(syntheticDocument()) > 58);
 assert.equal(cameraCore.validateImageQuality({ imageData: syntheticDocument(), width: 1200, height: 800 }).ok, true);
@@ -105,8 +98,7 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /capabilities\.zoom/);
   assert.match(cameraCss, /\.camera-stage video\{[^}]*object-fit:contain/);
   assert.doesNotMatch(cameraCss, /\.camera-stage video\{[^}]*object-fit:cover/);
-  assert.match(cameraRuntime, /const scale = stageHeight \/ video\.videoHeight/);
-  assert.match(cameraRuntime, /const scale = stageWidth \/ video\.videoWidth/);
+  assert.doesNotMatch(cameraRuntime, /videoDisplayRect/);
   assert.match(cameraRuntime, /requestFullscreen/);
   assert.match(cameraRuntime, /cameraPreviewFullscreenButton/);
   assert.doesNotMatch(cameraRuntime, /requestCameraFullscreen/);
@@ -122,16 +114,17 @@ async function runAsyncAssertions() {
   assert.doesNotMatch(cameraRuntime, /scheduleLiveDetection/);
   assert.doesNotMatch(cameraRuntime, /detectDocumentBounds/);
   assert.doesNotMatch(cameraRuntime, /cameraAnalysisCanvas/);
-  assert.match(cameraRuntime, /const cropBounds = core\.fixedGuideBounds\(\)/);
-  assert.match(cameraRuntime, /renderFixedGuide/);
-  assert.match(cameraRuntime, /drawImage\(video, sx, sy, sw, sh, 0, 0, outputCanvas\.width, outputCanvas\.height\)/);
+  assert.doesNotMatch(cameraRuntime, /fixedGuideBounds|renderFixedGuide|cropBounds/);
+  assert.doesNotMatch(cameraHtml, /id="cropGuide"|id="cropStatus"/);
+  assert.doesNotMatch(cameraCss, /\.crop-guide|\.crop-status/);
+  assert.match(cameraRuntime, /drawImage\(video, 0, 0, sourceWidth, sourceHeight, 0, 0, outputCanvas\.width, outputCanvas\.height\)/);
   assert.doesNotMatch(cameraRuntime, /sourceCanvas\.getContext\('2d'\)\.drawImage\(video/);
   assert.match(cameraRuntime, /yieldForPaint/);
   assert.match(cameraRuntime, /DRAFT_SAVE_DELAY_MS = 2400/);
   assert.match(cameraRuntime, /requestIdleCallback/);
   assert.match(cameraRuntime, /cancelScheduledDraftSave/);
   assert.doesNotMatch(cameraCoreSource, /detectByBackground|detectByEdges|detectDocumentBounds/);
-  assert.match(cameraRuntime, /method: 'fixed-guide'/);
+  assert.doesNotMatch(cameraRuntime, /detection:/);
   assert.match(cameraRuntime, /validateImageQuality/);
   assert.doesNotMatch(cameraHtml, /Start Capture Session/);
   assert.doesNotMatch(cameraRuntime, /Foto kurang jelas, silakan ulangi capture\./);
@@ -309,7 +302,7 @@ async function runAsyncAssertions() {
   assert.match(worker, /customerId: result\.form\?\.customerId/);
   assert.match(worker, /\/api\/camera\/batches/);
 
-  console.log('PASS camera-capture: fullscreen, capture feedback, fixed guide crop, direct JPEG finish tanpa PDF, protected review, server sync 72h & desktop batch panel');
+  console.log('PASS camera-capture: fullscreen, capture feedback, full-frame JPEG tanpa crop/PDF, protected review, server sync 72h & desktop batch panel');
 }
 
 runAsyncAssertions().catch(error => {

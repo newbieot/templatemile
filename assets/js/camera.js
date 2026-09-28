@@ -223,48 +223,16 @@
     return `${(bytes / 1024 / 1024).toLocaleString('id-ID', { maximumFractionDigits: 1 })} MB`;
   }
 
-  function videoDisplayRect() {
-    const stage = $('cameraStage');
-    const video = $('cameraPreview');
-    if (!stage?.clientWidth || !stage?.clientHeight || !video?.videoWidth || !video?.videoHeight) return null;
-    const stageWidth = stage.clientWidth;
-    const stageHeight = stage.clientHeight;
-    const videoRatio = video.videoWidth / video.videoHeight;
-    const stageRatio = stageWidth / stageHeight;
-    
-    // For object-fit: contain, show the camera's complete field of view without cropping or zooming.
-    if (stageRatio > videoRatio) {
-      const scale = stageHeight / video.videoHeight;
-      const width = video.videoWidth * scale;
-      return { x: (stageWidth - width) / 2, y: 0, width, height: stageHeight };
-    }
-    const scale = stageWidth / video.videoWidth;
-    const height = video.videoHeight * scale;
-    return { x: 0, y: (stageHeight - height) / 2, width: stageWidth, height };
-  }
-
   function updateStageAspect() {
     const stage = $('cameraStage');
     const video = $('cameraPreview');
     if (!stage || !video?.videoWidth || !video?.videoHeight) return;
     stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
     stage.dataset.orientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
-    window.requestAnimationFrame(renderFixedGuide);
   }
 
   function handleViewportChange() {
     updateStageAspect();
-  }
-
-  function renderFixedGuide() {
-    const guide = $('cropGuide');
-    if (!guide || !core) return;
-    const bounds = core.fixedGuideBounds();
-    const display = videoDisplayRect();
-    guide.style.left = display ? `${display.x + bounds.x * display.width}px` : `${bounds.x * 100}%`;
-    guide.style.top = display ? `${display.y + bounds.y * display.height}px` : `${bounds.y * 100}%`;
-    guide.style.width = display ? `${bounds.width * display.width}px` : `${bounds.width * 100}%`;
-    guide.style.height = display ? `${bounds.height * display.height}px` : `${bounds.height * 100}%`;
   }
 
   function rememberDeviceName(value = $('cameraDeviceName')?.value) {
@@ -330,7 +298,6 @@
       setCaptureDisabled(false);
       if ($('cameraActionDock')) $('cameraActionDock').hidden = false;
       setStatus('Kamera aktif dan mode capture fullscreen siap digunakan.', 'success');
-      renderFixedGuide();
 
       // Konfigurasi tambahan tidak boleh menahan kamera siap digunakan pada HP lama.
       window.setTimeout(async () => {
@@ -541,7 +508,7 @@
     if (quality.code === 'blur') return 'Foto mungkin buram · disarankan foto ulang';
     if (quality.code === 'dark') return 'Foto terlalu gelap · disarankan foto ulang';
     if (quality.code === 'bright') return 'Foto terlalu terang · kurangi pantulan';
-    if (quality.code === 'resolution') return 'Resolusi crop rendah · dekatkan kamera';
+    if (quality.code === 'resolution') return 'Resolusi foto rendah · dekatkan kamera';
     return quality.reason || 'Periksa kembali kualitas foto';
   }
 
@@ -563,7 +530,7 @@
     captureBusy = true;
     setCaptureDisabled(true);
     setFinishDisabled(true);
-    setStatus('Mengambil foto sesuai area panduan…', 'info');
+    setStatus('Mengambil foto seluruh area kamera…', 'info');
     playShutterSound();
     flashCameraStage();
     showHudToast('Capture diterima · sedang menyimpan...');
@@ -574,18 +541,12 @@
       const video = $('cameraPreview');
       const sourceWidth = video.videoWidth;
       const sourceHeight = video.videoHeight;
-      const cropBounds = core.fixedGuideBounds();
-      renderFixedGuide();
-      const sx = Math.round(cropBounds.x * sourceWidth);
-      const sy = Math.round(cropBounds.y * sourceHeight);
-      const sw = Math.max(1, Math.round(cropBounds.width * sourceWidth));
-      const sh = Math.max(1, Math.round(cropBounds.height * sourceHeight));
       const maxOutputSide = constrainedDevice ? LOW_END_OUTPUT_MAX_SIDE : OUTPUT_MAX_SIDE;
-      const scale = Math.min(1, maxOutputSide / Math.max(sw, sh));
+      const scale = Math.min(1, maxOutputSide / Math.max(sourceWidth, sourceHeight));
       const outputCanvas = $('cameraOutputCanvas');
-      outputCanvas.width = Math.max(1, Math.round(sw * scale));
-      outputCanvas.height = Math.max(1, Math.round(sh * scale));
-      outputCanvas.getContext('2d', { alpha: false }).drawImage(video, sx, sy, sw, sh, 0, 0, outputCanvas.width, outputCanvas.height);
+      outputCanvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      outputCanvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      outputCanvas.getContext('2d', { alpha: false }).drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, outputCanvas.width, outputCanvas.height);
 
       const quality = captureQualityMetadata(outputCanvas);
       const thumbnailPromise = createThumbnailBlob(outputCanvas).catch(() => null);
@@ -612,11 +573,6 @@
         blob,
         width: outputWidth,
         height: outputHeight,
-        detection: {
-          method: 'fixed-guide',
-          confidence: 0,
-          guideFallback: true
-        },
         quality: {
           code: quality.code,
           ok: quality.ok !== false,
@@ -794,8 +750,8 @@
       const detail = card.querySelector('.capture-card__body small');
       detail.textContent = `${formatTime(capture.timestamp)} · ${capture.width} × ${capture.height} · ${formatBytes(capture.blob.size)}`;
       const quality = card.querySelector('.capture-card__quality');
-      const cropLabel = 'Crop area tetap';
-      quality.textContent = capture.quality?.ok === false ? `${cropLabel} · ${qualityLabel(capture.quality)}` : `${cropLabel} · kualitas baik`;
+      const frameLabel = 'Foto penuh';
+      quality.textContent = capture.quality?.ok === false ? `${frameLabel} · ${qualityLabel(capture.quality)}` : `${frameLabel} · kualitas baik`;
       quality.classList.toggle('is-warning', capture.quality?.ok === false);
       const removeButton = card.querySelector('.capture-card__remove');
       removeButton.setAttribute('aria-label', `Hapus ${capture.fileName}`);
@@ -996,7 +952,6 @@
     });
     store.cleanup().catch(() => {});
     updateBatchUi();
-    renderFixedGuide();
     draftRestorePromise = restoreLatestDraft();
   }
 

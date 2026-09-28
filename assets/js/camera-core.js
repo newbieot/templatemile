@@ -3,10 +3,6 @@
 
   const textEncoder = new TextEncoder();
 
-  function fixedGuideBounds() {
-    return { x: 0.08, y: 0.13, width: 0.84, height: 0.74, confidence: 0, method: 'fixed-guide' };
-  }
-
   function calculateSharpness(imageData) {
     if (!imageData?.data || imageData.width < 3 || imageData.height < 3) return 0;
     const { data, width, height } = imageData;
@@ -56,7 +52,7 @@
     const longSide = Math.max(Number(width) || 0, Number(height) || 0);
     const shortSide = Math.min(Number(width) || 0, Number(height) || 0);
     if (longSide < minLongSide || shortSide < minShortSide) {
-      return { ok: false, code: 'resolution', reason: `Resolusi crop terlalu kecil (${width} × ${height}). Dekatkan kamera atau gunakan resolusi lebih tinggi.` };
+      return { ok: false, code: 'resolution', reason: `Resolusi foto terlalu kecil (${width} × ${height}). Dekatkan kamera atau gunakan resolusi lebih tinggi.` };
     }
     const brightness = averageBrightness(imageData);
     const sharpness = calculateSharpness(imageData);
@@ -124,7 +120,7 @@
     return new Blob(parts, { type: 'application/pdf' });
   }
 
-  const api = { fixedGuideBounds, calculateSharpness, averageBrightness, validateImageQuality, buildJpegPdf };
+  const api = { calculateSharpness, averageBrightness, validateImageQuality, buildJpegPdf };
   if (typeof window !== 'undefined') window.MileCameraCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
