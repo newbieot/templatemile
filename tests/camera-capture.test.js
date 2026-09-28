@@ -110,6 +110,11 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /requestFullscreen/);
   assert.match(cameraRuntime, /cameraPreviewFullscreenButton/);
   assert.doesNotMatch(cameraRuntime, /requestCameraFullscreen/);
+  const startCameraSource = cameraRuntime.slice(
+    cameraRuntime.indexOf('async function startCamera()'),
+    cameraRuntime.indexOf('async function requestWakeLock()')
+  );
+  assert.ok(startCameraSource.indexOf('enterFullscreenMode();') < startCameraSource.indexOf('await draftRestorePromise;'));
   assert.match(cameraRuntime, /orientationchange/);
   assert.match(cameraRuntime, /ensureSession\(\);/);
   assert.doesNotMatch(cameraRuntime, /await ensureSession\(\);/);

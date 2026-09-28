@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.10 — Open Camera langsung fullscreen
+
+- Memindahkan pemicu fullscreen ke awal event klik Open Camera, sebelum operasi asynchronous apa pun.
+- Memastikan native fullscreen tetap memiliki user activation pada Chrome Android, dengan CSS fullscreen sebagai fallback.
+- Tetap menyediakan aksi ketuk preview untuk kembali ke fullscreen setelah operator keluar dari mode capture.
+
 ## v26.09 — Halaman kamera fokus ke operator
 
 - Merombak alur halaman kamera menjadi tiga tindakan utama: Open Camera, ketuk preview untuk fullscreen, lalu Capture.

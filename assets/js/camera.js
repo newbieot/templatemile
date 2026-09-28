@@ -293,7 +293,6 @@
   }
 
   async function startCamera() {
-    await draftRestorePromise;
     const button = $('openCameraButton');
     const buttonLabel = button?.querySelector('.camera-open-button__copy strong');
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -301,6 +300,9 @@
       return;
     }
     getAudioContext();
+    // Harus dipanggil sebelum await agar native fullscreen masih berada dalam user gesture klik.
+    enterFullscreenMode();
+    await draftRestorePromise;
     rememberDeviceName();
     button.disabled = true;
     if (buttonLabel) buttonLabel.textContent = 'Membuka Kamera…';
@@ -327,7 +329,7 @@
       ensureSession();
       setCaptureDisabled(false);
       if ($('cameraActionDock')) $('cameraActionDock').hidden = false;
-      setStatus('Kamera siap. Ketuk live preview untuk membuka mode capture fullscreen.', 'success');
+      setStatus('Kamera aktif dan mode capture fullscreen siap digunakan.', 'success');
       renderFixedGuide();
 
       // Konfigurasi tambahan tidak boleh menahan kamera siap digunakan pada HP lama.
