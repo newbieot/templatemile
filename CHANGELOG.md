@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.24 — GPT-6 Luna untuk ekstraksi kamera
+
+- Mengubah model default ekstraksi kamera ke `gpt-6-luna`.
+- Menetapkan `deepseek-v4.1-flash` sebagai fallback langsung jika model utama gagal atau belum didukung CosmosHub.
+- Menambahkan model utama ke allowlist browser dan gateway serta memperbarui model yang dicatat di log kamera.
+
 ## v26.23 — Batas tunggu AI kamera dan fallback HTTP 520
 
 - Menggunakan empat gambar per permintaan dengan maksimal tiga jalur paralel; HTTP 429 atau 520 menurunkan sisa batch menjadi satu jalur.

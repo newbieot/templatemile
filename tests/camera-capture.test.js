@@ -89,7 +89,7 @@ async function runAsyncAssertions() {
   assert.match(cameraHtml, /id="cameraPreviewFullscreenButton"/);
   assert.doesNotMatch(cameraHtml, /id="aiModelSelect"|Model AI \(Vision\)/);
   assert.doesNotMatch(cameraHtml, /id="cameraDevice"|<label for="cameraDevice">Kamera<\/label>/);
-  assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gemini-3\.8-flash'/);
+  assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gpt-6-luna'/);
   assert.match(cameraRuntime, /DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name'/);
   assert.match(cameraRuntime, /deviceNameSetup\.hidden = Boolean\(savedDeviceName\)/);
   assert.doesNotMatch(cameraRuntime, /enumerateDevices|populateCameras/);

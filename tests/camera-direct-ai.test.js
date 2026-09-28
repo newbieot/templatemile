@@ -82,6 +82,7 @@ assert.equal(normalizedCameraImages[0].blob, directJpeg);
 assert.equal(normalizedCameraImages[0].name, '001.jpg');
 
 for (const model of [
+  'gpt-6-luna',
   'gemini-3.8-flash',
   'gemini-3.7-flash',
   'gemini-3.6-flash',
@@ -99,7 +100,7 @@ for (const model of [
 }
 
 element('aiModel').value = 'model-tidak-diizinkan';
-assert.equal(ai.getConfig().model, 'gemini-3.8-flash');
+assert.equal(ai.getConfig().model, 'gpt-6-luna');
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 400 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash', cameraDirect: true }, { status: 503 }), true);
@@ -128,8 +129,8 @@ assert.match(source, /const CAMERA_AI_CONCURRENCY = 3/);
 assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 \* 1024 \* 1024/);
 assert.match(source, /onError\(\{ error \}\)[\s\S]*?activeAiLimit = 1/);
 assert.match(source, /config\.cameraDirect && \[429, 520\]\.includes\(timing\.errorStatus\)/);
-assert.match(source, /const CAMERA_DEFAULT_MODEL = 'gemini-3\.8-flash'/);
-assert.match(source, /CAMERA_GEMINI_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL, DEEPSEEK_R2_MODEL\]\)/);
+assert.match(source, /const CAMERA_DEFAULT_MODEL = GPT_6_LUNA_MODEL/);
+assert.match(source, /CAMERA_FALLBACK_CHAIN = Object\.freeze\(\[GPT_6_LUNA_MODEL, DEEPSEEK_R2_MODEL\]\)/);
 assert.match(source, /const CAMERA_REQUEST_TIMEOUT_MS = 45 \* 1000;[\s\S]*?const CAMERA_GEMINI_REQUEST_TIMEOUT_MS = 30 \* 1000/);
 assert.match(source, /const CAMERA_MODEL_MAX_ATTEMPTS = 1/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
@@ -138,9 +139,9 @@ assert.match(source, /Foto asli siap · belum mengirim gambar/);
 assert.match(source, /directCameraInput \? null : await pdf\.getPage\(pageNumber\)/);
 assert.match(source, /chunkTimings: publicChunkTimings/);
 assert.doesNotMatch(cameraHtml, /id="aiModelSelect"|Model AI \(Vision\)/);
-assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gemini-3\.8-flash'/);
+assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gpt-6-luna'/);
 assert.match(cameraRuntime, /aiModel: DEFAULT_AI_MODEL/);
-assert.match(reviewHtml, /value="gemini-3\.8-flash" selected/);
+assert.match(reviewHtml, /value="gpt-6-luna" selected/);
 assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="4" selected/);
 assert.match(reviewHtml, /id="aiConcurrency"><option value="3" selected/);
 for (const requiredProgressId of [

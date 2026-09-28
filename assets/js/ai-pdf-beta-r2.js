@@ -45,15 +45,17 @@
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
+    'gpt-6-luna',
     'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
     'deepseek-v4.1-flash','deepseek-v4-pro',
     'qwen-3.8-flash','qwen-3.7-plus','qwen-3.7-flash',
     'glm-5.3','glm-5.3-flashx','glm-5.3-flash'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
+  const GPT_6_LUNA_MODEL = 'gpt-6-luna';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
-  const CAMERA_DEFAULT_MODEL = 'gemini-3.8-flash';
+  const CAMERA_DEFAULT_MODEL = GPT_6_LUNA_MODEL;
   const CAMERA_BATCH_SIZE = 4;
   const CAMERA_AI_CONCURRENCY = 3;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
@@ -61,12 +63,12 @@
   // five original 4 MB images still fit the gateway's 28 MB JSON/base64 limit.
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
-    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',
+    GPT_6_LUNA_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',
     'deepseek-v4.1-flash', 'deepseek-v4-pro'
   ]);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const CAMERA_GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL, DEEPSEEK_R2_MODEL]);
+  const CAMERA_FALLBACK_CHAIN = Object.freeze([GPT_6_LUNA_MODEL, DEEPSEEK_R2_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
@@ -441,6 +443,7 @@
   }
 
   function shortModelLabel(model) {
+    if (model === GPT_6_LUNA_MODEL) return 'GPT-6 Luna';
     if (model === GEMINI_38_MODEL) return 'Gemini 3.8';
     if (model === PRIMARY_FALLBACK_MODEL) return 'Gemini 3.7';
     if (model === SECONDARY_FALLBACK_MODEL) return 'Gemini 3.6';
@@ -1531,8 +1534,9 @@ ${clipped}`
   }
 
   function nextFallbackModel(model, config = {}) {
-    const chain = config.cameraDirect ? CAMERA_GEMINI_FALLBACK_CHAIN : GEMINI_FALLBACK_CHAIN;
+    const chain = config.cameraDirect ? CAMERA_FALLBACK_CHAIN : GEMINI_FALLBACK_CHAIN;
     const index = chain.indexOf(String(model || '').trim());
+    if (config.cameraDirect && index < 0 && isGeminiModel(model)) return DEEPSEEK_R2_MODEL;
     return index >= 0 ? (chain[index + 1] || '') : '';
   }
 
@@ -1540,7 +1544,9 @@ ${clipped}`
     if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model, config)) return false;
     if (isR2BridgeFailure(error)) return false;
     const status = Number(error?.status || 0);
+    if (config?.cameraDirect && config?.model === GPT_6_LUNA_MODEL && status === 400) return true;
     if (config?.cameraDirect && status === 400 && isGeminiModel(config?.model)) return true;
+    if (config?.cameraDirect && status === 400 && /model.{0,48}(?:not allowed|not found|unsupported|tidak diizinkan|tidak ditemukan|tidak didukung)/i.test(String(error?.message || ''))) return true;
     if (!status) return true;
     if ([404, 408, 409, 425, 429].includes(status) || (status >= 500 && status <= 599)) return true;
     return /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
