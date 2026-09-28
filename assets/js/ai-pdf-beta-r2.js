@@ -57,7 +57,9 @@
   const CAMERA_BATCH_SIZE = 5;
   const CAMERA_AI_CONCURRENCY = 3;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
-  const CAMERA_DIRECT_BATCH_RAW_BYTES = 8 * 1024 * 1024;
+  // New captures are WebP <= 2 MB. Also preserve older JPEGs up to 4 MB:
+  // five original 4 MB images still fit the gateway's 28 MB JSON/base64 limit.
+  const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
     'glm-5.3-flashx', 'glm-5.3', 'glm-5.3-flash',
     'gemini-3.8-flash', 'gemini-3.7-flash',
@@ -789,7 +791,7 @@
     return images.map((item, index) => {
       const blob = item?.blob;
       if (!blob || typeof blob.size !== 'number' || typeof blob.arrayBuffer !== 'function') {
-        throw new Error(`Data JPEG kamera ${index + 1} tidak valid.`);
+        throw new Error(`Data gambar kamera ${index + 1} tidak valid.`);
       }
       if (!/^image\/(?:jpeg|jpg|png|webp)$/i.test(String(blob.type || 'image/jpeg'))) {
         throw new Error(`Format gambar kamera ${index + 1} tidak didukung.`);
@@ -801,7 +803,7 @@
         blob,
         width: Math.max(1, Math.round(Number(item?.width) || 1)),
         height: Math.max(1, Math.round(Number(item?.height) || 1)),
-        name: String(item?.fileName || item?.name || `${String(index + 1).padStart(3, '0')}.jpg`)
+        name: String(item?.fileName || item?.name || `${String(index + 1).padStart(3, '0')}.${blob.type === 'image/webp' ? 'webp' : 'jpg'}`)
       };
     });
   }
@@ -2247,14 +2249,14 @@ ${clipped}`
       : String(file?.name || 'PDF');
     const startedAt = performance.now();
     startStopwatch(startedAt);
-    setProgress(1, 'Memeriksa berkas dan koneksi', `${directCameraInput ? 'Validasi JPEG kamera' : 'Validasi PDF'} dan layanan AI sedang dilakukan…`);
+    setProgress(1, 'Memeriksa berkas dan koneksi', `${directCameraInput ? 'Validasi foto kamera' : 'Validasi PDF'} dan layanan AI sedang dilakukan…`);
     setTransferProgress(0, 'Belum ada data yang dikirim');
     setProgressStats({ renderedPages: 0, totalPages: 0, completedChunks: 0, totalChunks: 0 });
 
     let config;
     try {
       if (directCameraInput) {
-        if (!isCameraDirectMode()) throw new Error('Jalur JPEG langsung hanya tersedia dari halaman kamera.');
+        if (!isCameraDirectMode()) throw new Error('Jalur gambar langsung hanya tersedia dari halaman kamera.');
         if (cameraImages.length > MAX_PAGES) throw new Error(`Jumlah gambar melebihi batas ${MAX_PAGES}.`);
       } else {
         if (!file || file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) throw new Error('Berkas bukan PDF.');
@@ -2302,8 +2304,8 @@ ${clipped}`
         pageCount = cameraImages.length;
         pdf = { numPages: pageCount, cleanup() {}, destroy() {} };
         const totalBytes = cameraImages.reduce((total, image) => total + image.blob.size, 0);
-        setProgress(3, 'JPEG kamera siap', `${pageCount} foto (${formatBytes(totalBytes)}) dibaca langsung tanpa membuat PDF.`);
-        setTransferProgress(0, 'JPEG asli siap · belum mengirim gambar');
+        setProgress(3, 'Foto kamera siap', `${pageCount} foto (${formatBytes(totalBytes)}) dibaca langsung tanpa membuat PDF.`);
+        setTransferProgress(0, 'Foto asli siap · belum mengirim gambar');
       } else {
         setProgress(2, 'Membaca PDF', `Membuka ${file.name}…`);
         setTransferProgress(0, `Membaca ${formatBytes(file.size)} dari perangkat`);
@@ -2518,8 +2520,8 @@ ${clipped}`
             const pageNumber = nextPageNumber++;
             if (pageNumber > chunk.end) return;
             if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
-            markProgressActivity(`${directCameraInput ? 'Membaca JPEG' : 'Merender scan'} ${pageNumber}/${pdf.numPages}`);
-            updateParallelProgress(chunk, chunkIndex, `${directCameraInput ? 'Membaca JPEG' : 'Merender scan'} ${pageNumber}`);
+            markProgressActivity(`${directCameraInput ? 'Membaca foto' : 'Merender scan'} ${pageNumber}/${pdf.numPages}`);
+            updateParallelProgress(chunk, chunkIndex, `${directCameraInput ? 'Membaca foto' : 'Merender scan'} ${pageNumber}`);
             const page = directCameraInput ? null : await pdf.getPage(pageNumber);
             try {
               const blob = directCameraInput
@@ -2572,7 +2574,7 @@ ${clipped}`
               renderedPages++;
               const renderedInChunk = pageSources.filter(Boolean).length;
               chunkStates[chunkIndex].progress = 0.03 + (renderedInChunk / pagesInChunk) * 0.22;
-              updateParallelProgress(chunk, chunkIndex, `${directCameraInput ? 'JPEG' : 'Gambar scan'} ${pageNumber} siap`);
+              updateParallelProgress(chunk, chunkIndex, `${directCameraInput ? 'Foto' : 'Gambar scan'} ${pageNumber} siap`);
               await yieldToBrowser();
             } finally {
               page?.cleanup?.();
@@ -2817,7 +2819,7 @@ ${clipped}`
         ? 'tautan gambar R2 sementara ke DeepSeek'
         : (betaRemoteImagesAvailable ? 'R2 pemulihan' : `gambar base64 langsung ke ${shortModelLabel(config.model)}`);
       const preparationExplanation = config.cameraDirect
-        ? 'JPEG hasil capture dibaca langsung tanpa render PDF.'
+        ? 'Foto hasil capture dibaca langsung tanpa render PDF.'
         : 'Maksimal dua halaman dirender bersamaan agar PC tetap responsif.';
       setProgress(5, 'Memulai mode Turbo', `${chunks.length} kelompok disiapkan. ${preparationExplanation} ${networkExplanation} Pengiriman: ${imageTransport}.`, formatUsage(totalUsage));
       setProgressStats({ renderedPages: 0, totalPages: pdf.numPages, completedChunks: 0, totalChunks: chunks.length });

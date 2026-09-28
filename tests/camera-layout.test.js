@@ -1,7 +1,34 @@
 const assert = require('node:assert/strict');
-const { fullscreenLayout, previewCaptureRect, cameraViewPoint } = require('../assets/js/camera-core.js');
+const { fullscreenLayout, previewCaptureRect, previewVideoRect, previewGuideLayout, cameraViewPoint, viewportFrameRatios } = require('../assets/js/camera-core.js');
 
 const frame = { x: 0.08, y: 0.10, width: 0.84, height: 0.72 };
+for (const layoutRotation of [90, -90]) {
+  const physicalFrame = viewportFrameRatios(frame, layoutRotation);
+  const rootCrop = previewCaptureRect({ sourceWidth: 1440, sourceHeight: 1920, viewWidth: 393, viewHeight: 852, frame: physicalFrame });
+  const outputRatio = rootCrop.height / rootCrop.width;
+  assert.ok(Math.abs(outputRatio - (852 * frame.width) / (393 * frame.height)) < 1e-10);
+  // Rotated UI guide maps onto the unrotated video in viewport coordinates.
+  const rootScale = Math.max(393 / 1440, 852 / 1920);
+  const offsetX = (393 - 1440 * rootScale) / 2;
+  assert.ok(Math.abs(rootCrop.x * rootScale + offsetX - physicalFrame.x * 393) < 1e-8);
+  assert.ok(Math.abs(rootCrop.y * rootScale - physicalFrame.y * 852) < 1e-8);
+}
+assert.deepEqual(viewportFrameRatios(frame), frame);
+for (const [sourceWidth, sourceHeight] of [[1920, 1080], [1080, 1920], [1920, 1440], [1440, 1920]]) {
+  for (const layoutRotation of [0, -90, 90]) {
+    const viewWidth = 393, viewHeight = 852;
+    const video = previewVideoRect({ sourceWidth, sourceHeight, viewWidth, viewHeight });
+    const guide = previewGuideLayout({ sourceWidth, sourceHeight, viewWidth, viewHeight, layoutRotation, frame });
+    const crop = previewCaptureRect({ sourceWidth, sourceHeight, viewWidth, viewHeight, frame: guide.frame, cover: false });
+    assert.ok(crop.x >= -1e-8 && crop.y >= -1e-8);
+    assert.ok(crop.x + crop.width <= sourceWidth + 1e-8 && crop.y + crop.height <= sourceHeight + 1e-8);
+    const rootScale = video.width / sourceWidth;
+    assert.ok(Math.abs(crop.x * rootScale + video.x - guide.frame.x * viewWidth) < 1e-8);
+    assert.ok(Math.abs(crop.y * rootScale + video.y - guide.frame.y * viewHeight) < 1e-8);
+    const targetRatio = (layoutRotation ? viewHeight : viewWidth) * frame.width / ((layoutRotation ? viewWidth : viewHeight) * frame.height);
+    assert.ok(Math.abs((layoutRotation ? crop.height / crop.width : crop.width / crop.height) - targetRatio) < 1e-8);
+  }
+}
 for (const direction of [-90, 90]) {
   const layout = fullscreenLayout({ width: 393, height: 852, orientation: 'landscape', rotation: direction });
   assert.deepEqual(layout, { width: 852, height: 393, rotation: -direction });

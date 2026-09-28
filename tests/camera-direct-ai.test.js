@@ -126,7 +126,7 @@ assert.match(source, /const testViaR2 = !config\.cameraDirect/);
 assert.match(source, /const CAMERA_WAVE_SIZE = 15/);
 assert.match(source, /const CAMERA_BATCH_SIZE = 5/);
 assert.match(source, /const CAMERA_AI_CONCURRENCY = 3/);
-assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 8 \* 1024 \* 1024/);
+assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 \* 1024 \* 1024/);
 assert.match(source, /activeAiLimit = Math\.max\(1, activeAiLimit - 1\)/);
 assert.match(source, /const stagger = chunkIndex \* 1250/);
 assert.match(source, /const CAMERA_DEFAULT_MODEL = 'gemini-3\.8-flash'/);
@@ -135,7 +135,7 @@ assert.match(source, /const CAMERA_REQUEST_TIMEOUT_MS = 35 \* 1000/);
 assert.match(source, /const CAMERA_MODEL_MAX_ATTEMPTS = 1/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
 assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCameraBlobsForBatch/);
-assert.match(source, /JPEG asli siap · belum mengirim gambar/);
+assert.match(source, /Foto asli siap · belum mengirim gambar/);
 assert.match(source, /directCameraInput \? null : await pdf\.getPage\(pageNumber\)/);
 assert.match(source, /chunkTimings: publicChunkTimings/);
 assert.doesNotMatch(cameraHtml, /id="aiModelSelect"|Model AI \(Vision\)/);
@@ -166,4 +166,26 @@ for (const requiredProgressId of [
 assert.doesNotMatch(reviewHtml, /id="aiModal"/);
 assert.match(source, /const modal = \$\('aiProgressModal'\)/);
 
-console.log('PASS camera-direct-ai: JPEG tanpa PDF/R2, Gemini 3.8 → 3.7 → GLM FlashX, dan gelombang 15 sebagai 3 request paralel × 5');
+async function runQualityAssertions() {
+  const webp = new Blob([new Uint8Array(2 * 1024 * 1024)], { type: 'image/webp' });
+  const mixed = ai.normalizeCameraImages([{ blob: webp, width: 3200, height: 2400 }, { blob: directJpeg, fileName: '002.jpg' }]);
+  assert.equal(mixed[0].name, '001.webp');
+  assert.equal(mixed[1].name, '002.jpg');
+  const mixedPrepared = await ai.prepareCameraBlobsForBatch(mixed);
+  assert.equal(mixedPrepared[0], webp);
+  assert.equal(mixedPrepared[1], directJpeg);
+  const webpUrl = `data:image/webp;base64,${Buffer.from(await webp.arrayBuffer()).toString('base64')}`;
+  const webpBody = ai.buildApiBody({ model: 'gemini-3.8-flash' }, 'uji webp', [{ page: 1, label: 'GAMBAR 1', url: webpUrl }], 1200);
+  assert.equal(webpBody.messages[1].content.find(part => part.type === 'image_url').image_url.url, webpUrl);
+  // Original high-resolution camera images must reach AI byte-for-byte,
+  // including the largest legal five-photo batch (base64 still fits gateway).
+  const largeJpeg = new Blob([new Uint8Array(4 * 1024 * 1024)], { type: 'image/jpeg' });
+  const originals = ai.normalizeCameraImages(Array.from({ length: 5 }, () => ({ blob: largeJpeg, width: 4096, height: 3072 })));
+  const prepared = await ai.prepareCameraBlobsForBatch(originals);
+  prepared.forEach(blob => assert.equal(blob, largeJpeg));
+  const dataUrl = `data:image/jpeg;base64,${Buffer.alloc(largeJpeg.size).toString('base64')}`;
+  const maxBody = ai.buildApiBody({ model: 'gemini-3.8-flash' }, 'uji foto resolusi tinggi', Array.from({ length: 5 }, (_, index) => ({ page: index + 1, label: `GAMBAR ${index + 1}`, url: dataUrl })), 3500);
+  assert.ok(Buffer.byteLength(JSON.stringify({ body: maxBody })) < 28 * 1024 * 1024 - 64 * 1024);
+  console.log('PASS camera-direct-ai: original 5 × 4 MB JPEG preserved, gateway budget, Gemini fallback, 15 images / 3 requests');
+}
+runQualityAssertions().catch(error => { console.error(error); process.exitCode = 1; });

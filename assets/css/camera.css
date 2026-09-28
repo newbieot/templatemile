@@ -51,7 +51,7 @@ body.camera-fullscreen-active .camera-hud-toast{position:absolute;z-index:35;top
 .camera-stage.is-fullscreen[data-orientation="landscape"]{width:100dvw!important;height:100dvh!important}
 .camera-stage.is-fullscreen[data-orientation="portrait"]{width:100dvw!important;height:100dvh!important}
 .camera-stage.is-fullscreen .camera-view{inset:auto;top:50%;left:50%;width:var(--camera-view-width,100%);height:var(--camera-view-height,100%);transform:translate(-50%,-50%) rotate(var(--camera-view-rotation,0deg));transform-origin:center center;overflow:hidden}
-.camera-stage.is-fullscreen video{inset:auto;top:50%;left:50%;width:var(--camera-video-width,100%);height:var(--camera-video-height,100%);max-width:none;max-height:none;object-fit:cover;transform:translate(-50%,-50%) rotate(var(--camera-video-rotation,0deg));transform-origin:center center}
+.camera-stage.is-fullscreen video{inset:0;top:0;left:0;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;transform:none}
 .camera-stage[data-layout-rotation="90"] .camera-view{--camera-safe-top:env(safe-area-inset-right);--camera-safe-right:env(safe-area-inset-bottom);--camera-safe-bottom:env(safe-area-inset-left);--camera-safe-left:env(safe-area-inset-top)}
 .camera-stage[data-layout-rotation="-90"] .camera-view{--camera-safe-top:env(safe-area-inset-left);--camera-safe-right:env(safe-area-inset-top);--camera-safe-bottom:env(safe-area-inset-right);--camera-safe-left:env(safe-area-inset-bottom)}
 body.camera-fullscreen-active{overflow:hidden!important}

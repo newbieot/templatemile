@@ -3,8 +3,7 @@
 
   const MAX_CAPTURES = 150;
   const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-  const OUTPUT_MAX_SIDE = 1600;
-  const LOW_END_OUTPUT_MAX_SIDE = 1440;
+  const OUTPUT_MAX_SIDE = 4096;
   const THUMBNAIL_MAX_SIDE = 360;
   const FOCUS_RESET_DELAY_MS = 650;
   const DRAFT_SAVE_DELAY_MS = 2400;
@@ -12,10 +11,13 @@
   const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
   const DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name';
   const core = window.MileCameraCore;
+  const photo = window.MileCameraPhoto;
   const store = window.MileCameraStore;
   const $ = id => document.getElementById(id);
 
   let stream = null;
+  let stillCamera = null;
+  let fallbackUpgradeTrack = null;
   let captures = [];
   let sessionId = '';
   let sessionStartedAt = '';
@@ -346,32 +348,46 @@
     stage.style.setProperty('--camera-view-rotation', `${fullscreen ? layout.rotation : 0}deg`);
     if (!video?.videoWidth || !video?.videoHeight) return;
     const frameOrientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
-    const screenAngle = Number(window.screen?.orientation?.angle ?? window.orientation ?? 0);
-    const previewRotation = cameraOrientation === 'landscape' && frameOrientation === 'portrait'
-      ? (usesPhysicalSensor
-        ? physicalOrientationRotation
-        : (screenAngle === 270 || screenAngle === -90 ? -90 : 90))
-      : 0;
+    // Browser/camera drivers already orient the video. Rotate the controls only:
+    // a second CSS rotation flips Chrome Android's live image when portrait is locked.
     stage.dataset.frameOrientation = frameOrientation;
-    stage.dataset.previewRotation = String(previewRotation);
-    stage.style.setProperty('--camera-video-width', `${previewRotation ? layout.height : layout.width}px`);
-    stage.style.setProperty('--camera-video-height', `${previewRotation ? layout.width : layout.height}px`);
-    stage.style.setProperty('--camera-video-rotation', `${previewRotation}deg`);
-    stage.style.setProperty('--camera-aspect', previewRotation
-      ? `${video.videoHeight}/${video.videoWidth}`
-      : `${video.videoWidth}/${video.videoHeight}`);
+    stage.dataset.previewRotation = '0';
+    stage.dataset.captureRotation = String(fullscreen ? -layout.rotation : 0);
+    stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
+    // Keep the guide inside the real, uncropped camera image, not the letterbox.
+    const guideLayout = core.previewGuideLayout({
+      sourceWidth: video.videoWidth, sourceHeight: video.videoHeight,
+      viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
+      layoutRotation: fullscreen ? layout.rotation : 0, frame: cameraFrameInView()
+    });
+    const guide = $('captureFrameGuide');
+    if (guide) Object.assign(guide.style, {
+      left: `${guideLayout.x}px`, top: `${guideLayout.y}px`,
+      width: `${guideLayout.width}px`, height: `${guideLayout.height}px`,
+      right: 'auto', bottom: 'auto'
+    });
   }
 
-  function currentPreviewRotation() {
-    const value = Number($('cameraStage')?.dataset?.previewRotation || 0);
+  function currentCaptureRotation() {
+    const value = Number($('cameraStage')?.dataset?.captureRotation || 0);
     return value === 90 || value === -90 ? value : 0;
   }
 
-  function captureFrameRatios() {
+  function cameraFrameInView() {
     const landscape = $('cameraStage')?.dataset?.orientation === 'landscape';
     return landscape
       ? { x: 0.08, y: 0.10, width: 0.84, height: 0.72 }
       : { x: 0.06, y: 0.12, width: 0.88, height: 0.72 };
+  }
+
+  function captureFrameRatios() {
+    const stage = $('cameraStage');
+    const video = $('cameraPreview');
+    return core.previewGuideLayout({
+      sourceWidth: video.videoWidth, sourceHeight: video.videoHeight,
+      viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
+      layoutRotation: Number(stage?.dataset?.layoutRotation || 0), frame: cameraFrameInView()
+    }).frame;
   }
 
   function handleViewportChange() {
@@ -512,6 +528,8 @@
     continuousFocusEnabled = false;
     stream?.getTracks?.().forEach(track => track.stop());
     stream = null;
+    stillCamera = null;
+    fallbackUpgradeTrack = null;
     const video = $('cameraPreview');
     if (video) video.srcObject = null;
     $('cameraStage')?.classList.remove('is-active');
@@ -541,11 +559,7 @@
     stopCamera();
 
     try {
-      const sharedConstraints = {
-        width: { ideal: constrainedDevice ? 1600 : 1920, max: 1920 },
-        frameRate: { ideal: 24, max: 30 },
-        advanced: [{ focusMode: 'continuous' }, { zoom: 1 }]
-      };
+      const sharedConstraints = photo.previewConstraints();
       const videoConstraints = { ...sharedConstraints, facingMode: { ideal: 'environment' } };
       
       stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
@@ -555,6 +569,10 @@
       $('cameraStage')?.classList.add('is-active');
       updateStageAspect();
       const track = stream.getVideoTracks()[0];
+      stillCamera = photo.createStillCamera(track);
+      stillCamera?.ready.then(available => {
+        if (!available && stream?.getVideoTracks()[0] === track) upgradeFallbackPreview(track);
+      });
       track.addEventListener?.('unmute', () => scheduleContinuousAutofocus(track, [0, 260], true));
       const settings = track.getSettings?.() || {};
       $('cameraState').textContent = `${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} · kamera belakang diprioritaskan`;
@@ -606,6 +624,20 @@
     $('sessionDetails').hidden = false;
     updateBatchUi();
     void requestWakeLock();
+  }
+
+  function upgradeFallbackPreview(track) {
+    if (!track || fallbackUpgradeTrack === track || track.readyState === 'ended') return;
+    fallbackUpgradeTrack = track;
+    // Only browsers/devices without usable native still photos need a heavier
+    // stream. Do this in the background once, never on every shutter press.
+    Promise.resolve().then(() => track.applyConstraints(photo.previewConstraints(false))).then(() => {
+      if (stream?.getVideoTracks()[0] !== track) return;
+      updateStageAspect();
+      const settings = track.getSettings?.() || {};
+      $('cameraState').textContent = `${settings.width || $('cameraPreview').videoWidth} × ${settings.height || $('cameraPreview').videoHeight} · kamera belakang diprioritaskan`;
+      scheduleContinuousAutofocus(track, [0, 260], true);
+    }).catch(() => {});
   }
 
   function draftCapturePayload(capture) {
@@ -688,7 +720,7 @@
         .map((item, index) => ({
           ...item,
           sequence: index + 1,
-          fileName: `${String(index + 1).padStart(3, '0')}.jpg`,
+          fileName: `${String(index + 1).padStart(3, '0')}.${photo.fileExtension(item.blob)}`,
           previewUrl: URL.createObjectURL(item.thumbnailBlob instanceof Blob ? item.thumbnailBlob : item.blob)
         }));
       if (!captures.length) {
@@ -776,7 +808,7 @@
     captures = captures.map((item, index) => ({
       ...item,
       sequence: index + 1,
-      fileName: `${String(index + 1).padStart(3, '0')}.jpg`
+      fileName: `${String(index + 1).padStart(3, '0')}.${photo.fileExtension(item.blob)}`
     }));
   }
 
@@ -796,51 +828,74 @@
     showHudToast('Capture diterima · sedang menyimpan...');
     if (navigator.vibrate) navigator.vibrate(35);
 
+    let photoSource = null;
     try {
       await yieldForPaint();
       const video = $('cameraPreview');
-      const sourceWidth = video.videoWidth;
-      const sourceHeight = video.videoHeight;
+      const activeTrack = stream.getVideoTracks()[0];
+      let previewWidth = video.videoWidth;
+      let previewHeight = video.videoHeight;
+      if (!(previewWidth > 0 && previewHeight > 0)) throw new Error('Tunggu kamera menampilkan gambar sebelum capture.');
       updateStageAspect();
-      const previewRotation = currentPreviewRotation();
-      const view = $('cameraView');
-      const crop = core.previewCaptureRect({
-        sourceWidth, sourceHeight, rotation: previewRotation,
-        viewWidth: view.clientWidth, viewHeight: view.clientHeight,
-        frame: captureFrameRatios(), cover: isCameraFullscreen()
+      let captureRotation = currentCaptureRotation();
+      const stage = $('cameraStage');
+      let previewCrop = core.previewCaptureRect({
+        sourceWidth: previewWidth, sourceHeight: previewHeight,
+        viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
+        frame: captureFrameRatios(), cover: false
       });
-      const maxOutputSide = constrainedDevice ? LOW_END_OUTPUT_MAX_SIDE : OUTPUT_MAX_SIDE;
-      const scale = Math.min(1, maxOutputSide / Math.max(crop.width, crop.height));
+      photoSource = await stillCamera?.take(previewWidth, previewHeight);
+      if (stream?.getVideoTracks()[0] !== activeTrack || activeTrack.readyState === 'ended') {
+        throw new Error('Kamera berubah saat mengambil foto. Silakan capture ulang.');
+      }
+      if (!photoSource) {
+        // The live stream may resize/rotate while a native photo times out.
+        // Use its current geometry rather than the old shutter-time rectangle.
+        updateStageAspect();
+        previewWidth = video.videoWidth;
+        previewHeight = video.videoHeight;
+        captureRotation = currentCaptureRotation();
+        previewCrop = core.previewCaptureRect({
+          sourceWidth: previewWidth, sourceHeight: previewHeight,
+          viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
+          frame: captureFrameRatios(), cover: false
+        });
+      }
+      const source = photoSource?.source || video;
+      const sourceWidth = photoSource?.width || previewWidth;
+      const sourceHeight = photoSource?.height || previewHeight;
+      const crop = photoSource ? photo.mapPreviewCrop(previewCrop, sourceWidth, sourceHeight) : previewCrop;
+      const scale = Math.min(1, OUTPUT_MAX_SIDE / Math.max(crop.width, crop.height));
       const renderWidth = Math.max(1, Math.round(sourceWidth * scale));
       const renderHeight = Math.max(1, Math.round(sourceHeight * scale));
-      const fullWidth = previewRotation ? renderHeight : renderWidth;
-      const fullHeight = previewRotation ? renderWidth : renderHeight;
       const cropX = crop.x * scale;
       const cropY = crop.y * scale;
       const cropWidth = Math.max(1, Math.round(crop.width * scale));
       const cropHeight = Math.max(1, Math.round(crop.height * scale));
-      const outputCanvas = $('cameraOutputCanvas');
-      outputCanvas.width = cropWidth;
-      outputCanvas.height = cropHeight;
-      const outputContext = outputCanvas.getContext('2d', { alpha: false });
-      outputContext.translate(-cropX, -cropY);
-      if (previewRotation) {
-        outputContext.translate(fullWidth / 2, fullHeight / 2);
-        outputContext.rotate(previewRotation * Math.PI / 180);
-        outputContext.drawImage(video, 0, 0, sourceWidth, sourceHeight, -renderWidth / 2, -renderHeight / 2, renderWidth, renderHeight);
-      } else {
-        outputContext.drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, renderWidth, renderHeight);
+      if (Math.max(cropWidth, cropHeight) < 900) {
+        upgradeFallbackPreview(activeTrack);
+        throw new Error(`Resolusi kamera hanya menghasilkan ${cropWidth} × ${cropHeight}. Foto terlalu kecil dan belum disimpan. Tunggu penyesuaian kamera lalu capture ulang.`);
       }
+      const outputCanvas = $('cameraOutputCanvas');
+      outputCanvas.width = captureRotation ? cropHeight : cropWidth;
+      outputCanvas.height = captureRotation ? cropWidth : cropHeight;
+      const outputContext = outputCanvas.getContext('2d', { alpha: false });
+      if (captureRotation) {
+        outputContext.translate(outputCanvas.width / 2, outputCanvas.height / 2);
+        outputContext.rotate(captureRotation * Math.PI / 180);
+        outputContext.translate(-cropX - cropWidth / 2, -cropY - cropHeight / 2);
+      } else {
+        outputContext.translate(-cropX, -cropY);
+      }
+      outputContext.drawImage(source, 0, 0, sourceWidth, sourceHeight, 0, 0, renderWidth, renderHeight);
+      photoSource?.close();
+      const resolutionSource = photoSource ? 'native-photo' : 'video-frame';
+      photoSource = null;
+      if (resolutionSource === 'video-frame' && stillCamera && !stillCamera.available) upgradeFallbackPreview(activeTrack);
 
       const quality = captureQualityMetadata(outputCanvas);
       const thumbnailPromise = createThumbnailBlob(outputCanvas).catch(() => null);
-      let blob = await canvasToBlob(outputCanvas, 0.86);
-      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.76);
-      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.66);
-      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.58);
-      if (blob.size > MAX_IMAGE_BYTES) {
-        throw new Error('Ukuran foto melewati batas 2 MB. Dekatkan label atau gunakan pencahayaan yang lebih stabil.');
-      }
+      const { blob, quality: encodingQuality } = await photo.encodeImage(outputCanvas, MAX_IMAGE_BYTES);
       const thumbnailBlob = await thumbnailPromise;
       const outputWidth = outputCanvas.width;
       const outputHeight = outputCanvas.height;
@@ -848,7 +903,7 @@
       const timestamp = new Date().toISOString();
       const targetIndex = retakeSlotIndex >= 0 && retakeSlotIndex <= captures.length ? retakeSlotIndex : captures.length;
       const sequence = targetIndex + 1;
-      const fileName = `${String(sequence).padStart(3, '0')}.jpg`;
+      const fileName = `${String(sequence).padStart(3, '0')}.${photo.fileExtension(blob)}`;
       const capture = {
         captureId: randomId('IMG'),
         timestamp,
@@ -858,6 +913,11 @@
         blob,
         width: outputWidth,
         height: outputHeight,
+        sourceWidth,
+        sourceHeight,
+        resolutionSource,
+        imageFormat: blob.type,
+        encodingQuality,
         quality: {
           code: quality.code,
           ok: quality.ok !== false,
@@ -882,13 +942,15 @@
       setStatus(
         qualityWarning
           ? `${fileName} tersimpan, tetapi ${qualityLabel(quality).toLowerCase()}. Gunakan Lihat Hasil untuk foto ulang.`
-          : `Capture ${sequence} tersimpan. Ganti sampul berikutnya tanpa mengubah posisi HP.`,
+          : `Capture ${sequence} tersimpan (${outputWidth} × ${outputHeight}). Ganti sampul berikutnya tanpa mengubah posisi HP.`,
         qualityWarning ? 'info' : 'success'
       );
       toast(qualityWarning ? `${fileName}: ${qualityLabel(quality)}` : `${fileName} tersimpan`, qualityWarning ? 'info' : 'success');
     } catch (error) {
       setStatus(`Capture gagal: ${error?.message || 'gambar tidak dapat disimpan.'}`, 'error');
+      showHudToast(`Foto belum tersimpan · ${error?.message || 'silakan capture ulang'}`);
     } finally {
+      photoSource?.close();
       const outputCanvas = $('cameraOutputCanvas');
       if (outputCanvas && (outputCanvas.width > 1 || outputCanvas.height > 1)) {
         outputCanvas.width = outputCanvas.height = 1;
@@ -1100,7 +1162,7 @@
     setFinishDisabled(true);
     setCaptureDisabled(true);
     exitCameraFullscreen();
-    updateProcessingStatus('Menyiapkan JPEG...', `Menyiapkan ${captures.length} foto asli untuk jalur AI langsung...`);
+    updateProcessingStatus('Menyiapkan foto...', `Menyiapkan ${captures.length} foto asli untuk jalur AI langsung...`);
     showHudToast('Menyiapkan batch...');
 
     try {
@@ -1129,7 +1191,7 @@
         captureCount: captures.length,
         captures: metadata,
         images,
-        inputFormat: 'direct-jpeg',
+        inputFormat: 'direct-image',
         deviceName,
         aiModel,
         captureDurationSeconds: Number(captureDurationSeconds.toFixed(3))

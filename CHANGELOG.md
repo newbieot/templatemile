@@ -1,5 +1,17 @@
 # Changelog
 
+## v26.17 — Foto WebP resolusi tinggi, rotasi kontrol, dan preview tanpa zoom
+
+- Memisahkan foto native resolusi tinggi (ImageCapture bila didukung) dari preview video agar preview tidak harus berjalan pada resolusi foto penuh.
+- Meminta lebar dan tinggi preview sekaligus; tidak lagi membatasi hasil foto ke 1600/1440 piksel berdasarkan memori HP.
+- Menyimpan detail asli hingga sisi panjang 4096 piksel, tanpa memperbesar sumber beresolusi rendah; WebP mulai 0,94 dan tidak di bawah 0,86, maksimal 2 MB per foto. JPEG kualitas tinggi menjadi fallback bila WebP tidak didukung atau tidak muat dalam budget.
+- Memetakan foto native ke area panduan preview termasuk landscape dan perbedaan rasio sensor; memakai frame video jika foto native gagal, timeout, atau orientasinya tidak cocok.
+- Menambah metadata resolusi sumber, jalur capture, format gambar, dan kualitas encoding pada draft lokal; ukuran aktual foto ditampilkan setelah capture.
+- Mempertahankan WebP asli di jalur AI tanpa konversi ulang; foto/sesi JPEG lama sampai 5 × 4 MB tetap kompatibel dan di bawah batas gateway 28 MB setelah base64, tanpa R2.
+- Memisahkan layer video dari kontrol yang diputar sensor: preview tidak diberi rotasi CSS tambahan saat portrait lock; crop dan foto tersimpan tetap mengikuti area panduan yang terlihat.
+- Menolak hasil sangat kecil (sisi panjang di bawah 900 piksel) dengan pesan resolusi aktual, lalu mencoba meningkatkan stream cadangan tanpa memperbesar piksel buatan.
+- Menampilkan seluruh bidang kamera dengan `object-fit: contain`, bukan zoom semu dari `cover`; panduan crop menyesuaikan area gambar nyata dan tidak mencakup letterbox. Zoom perangkat tetap meminta 1× bila didukung.
+
 ## v26.16 — Fullscreen landscape saat portrait dikunci
 
 - Memutar seluruh tampilan fullscreen sesuai posisi fisik HP: preview, area crop, tombol Capture/Finish, toolbar, dan galeri hasil.

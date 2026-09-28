@@ -17,24 +17,77 @@
     const rotated = Math.abs(rotation) === 90;
     const width = rotated ? sourceHeight : sourceWidth;
     const height = rotated ? sourceWidth : sourceHeight;
-    const fitScale = cover && viewWidth > 0 && viewHeight > 0
-      ? Math.max(viewWidth / width, viewHeight / height) : 1;
-    const visibleWidth = cover ? viewWidth / fitScale : width;
-    const visibleHeight = cover ? viewHeight / fitScale : height;
+    if (!(viewWidth > 0 && viewHeight > 0)) return {
+      fullWidth: width, fullHeight: height,
+      x: width * frame.x, y: height * frame.y,
+      width: width * frame.width, height: height * frame.height
+    };
+    const fitScale = cover ? Math.max(viewWidth / width, viewHeight / height)
+      : Math.min(viewWidth / width, viewHeight / height);
     return {
       fullWidth: width,
       fullHeight: height,
-      x: (width - visibleWidth) / 2 + visibleWidth * frame.x,
-      y: (height - visibleHeight) / 2 + visibleHeight * frame.y,
-      width: visibleWidth * frame.width,
-      height: visibleHeight * frame.height
+      x: (viewWidth * frame.x - (viewWidth - width * fitScale) / 2) / fitScale,
+      y: (viewHeight * frame.y - (viewHeight - height * fitScale) / 2) / fitScale,
+      width: viewWidth * frame.width / fitScale,
+      height: viewHeight * frame.height / fitScale
     };
+  }
+
+  function previewVideoRect({ sourceWidth, sourceHeight, viewWidth, viewHeight }) {
+    const scale = Math.min(viewWidth / sourceWidth, viewHeight / sourceHeight);
+    const width = sourceWidth * scale;
+    const height = sourceHeight * scale;
+    return { x: (viewWidth - width) / 2, y: (viewHeight - height) / 2, width, height };
   }
 
   function cameraViewPoint({ x, y, width, height, rotation = 0 }) {
     if (rotation === 90) return { x: y, y: width - x };
     if (rotation === -90) return { x: height - y, y: x };
     return { x, y };
+  }
+
+  function viewportFrameRatios(frame, layoutRotation = 0) {
+    if (layoutRotation === 90) return {
+      x: 1 - frame.y - frame.height, y: frame.x,
+      width: frame.height, height: frame.width
+    };
+    if (layoutRotation === -90) return {
+      x: frame.y, y: 1 - frame.x - frame.width,
+      width: frame.height, height: frame.width
+    };
+    return { ...frame };
+  }
+
+  function previewGuideLayout({ sourceWidth, sourceHeight, viewWidth, viewHeight, layoutRotation = 0, frame }) {
+    const video = previewVideoRect({ sourceWidth, sourceHeight, viewWidth, viewHeight });
+    const points = [
+      { x: video.x, y: video.y },
+      { x: video.x + video.width, y: video.y + video.height }
+    ].map(point => cameraViewPoint({ ...point, width: viewWidth, height: viewHeight, rotation: layoutRotation }));
+    const image = {
+      x: Math.min(points[0].x, points[1].x), y: Math.min(points[0].y, points[1].y),
+      width: Math.abs(points[1].x - points[0].x), height: Math.abs(points[1].y - points[0].y)
+    };
+    const uiWidth = layoutRotation ? viewHeight : viewWidth;
+    const uiHeight = layoutRotation ? viewWidth : viewHeight;
+    const ratio = uiWidth * frame.width / (uiHeight * frame.height);
+    const width = Math.min(image.width * frame.width, image.height * frame.height * ratio);
+    const height = width / ratio;
+    const x = image.x + image.width * (frame.x + frame.width / 2) - width / 2;
+    const y = image.y + image.height * (frame.y + frame.height / 2) - height / 2;
+    const root = [{ x, y }, { x: x + width, y: y + height }].map(point => cameraViewPoint({
+      ...point, width: uiWidth, height: uiHeight, rotation: -layoutRotation
+    }));
+    return {
+      x, y, width, height,
+      frame: {
+        x: Math.min(root[0].x, root[1].x) / viewWidth,
+        y: Math.min(root[0].y, root[1].y) / viewHeight,
+        width: Math.abs(root[1].x - root[0].x) / viewWidth,
+        height: Math.abs(root[1].y - root[0].y) / viewHeight
+      }
+    };
   }
 
   function calculateSharpness(imageData) {
@@ -154,7 +207,7 @@
     return new Blob(parts, { type: 'application/pdf' });
   }
 
-  const api = { fullscreenLayout, previewCaptureRect, cameraViewPoint, calculateSharpness, averageBrightness, validateImageQuality, buildJpegPdf };
+  const api = { fullscreenLayout, previewCaptureRect, previewVideoRect, previewGuideLayout, cameraViewPoint, viewportFrameRatios, calculateSharpness, averageBrightness, validateImageQuality, buildJpegPdf };
   if (typeof window !== 'undefined') window.MileCameraCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

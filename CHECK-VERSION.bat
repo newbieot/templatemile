@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.16-landscape-fullscreen" "_worker.js" >nul && echo [OK] Worker fullscreen landscape terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260928-26.17-camera-high-resolution" "_worker.js" >nul && echo [OK] Worker kamera resolusi tinggi terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
@@ -120,7 +120,9 @@ findstr /c:"cameraFlash" "camera.html" "assets\js\camera.js" >nul && echo [OK] A
 findstr /c:"Start Capture Session" "camera.html" >nul
 if not errorlevel 1 (echo [GAGAL] Tombol Start Capture Session masih tampil & set "FAIL=1") else (echo [OK] Open Camera langsung membuat sesi)
 findstr /c:"Foto kurang jelas, silakan ulangi capture." "assets\js\camera.js" >nul
-if not errorlevel 1 (echo [GAGAL] Validasi kualitas masih memblokir capture & set "FAIL=1") else (echo [OK] Resolusi dan kualitas tidak memblokir capture)
+if not errorlevel 1 (echo [GAGAL] Validasi lama masih memblokir capture & set "FAIL=1") else (echo [OK] Validasi blur memakai peringatan, bukan guard lama)
+findstr /c:"Foto terlalu kecil dan belum disimpan" "assets\js\camera.js" >nul && echo [OK] Guard foto sangat kecil aktif || (echo [GAGAL] Guard resolusi sangat kecil tidak ditemukan & set "FAIL=1")
+if exist "assets\js\camera-photo.js" (echo [OK] Capture native resolusi tinggi tersedia) else (echo [GAGAL] Runtime foto resolusi tinggi tidak ditemukan & set "FAIL=1")
 findstr /c:"orientationchange" "assets\js\camera.js" >nul && echo [OK] Perubahan orientasi kamera ditangani || (echo [GAGAL] Dukungan orientasi tidak ditemukan & set "FAIL=1")
 findstr /c:"startPhysicalOrientationTracking" "assets\js\camera.js" >nul && echo [OK] Landscape fisik saat orientation lock aktif || (echo [GAGAL] Sensor orientasi fisik tidak ditemukan & set "FAIL=1")
 findstr /c:"camera=(self)" "_worker.js" "_headers" >nul && echo [OK] Permission camera dibatasi ke halaman camera || (echo [GAGAL] Permission camera route tidak ditemukan & set "FAIL=1")

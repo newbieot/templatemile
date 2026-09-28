@@ -224,7 +224,7 @@
       
       if (Array.isArray(session.images) && session.images.length > 0) {
         const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
-        notify(`${session.captureCount} JPEG kamera siap dikirim langsung ke AI...`, 'success');
+        notify(`${session.captureCount} foto kamera siap dikirim langsung ke AI...`, 'success');
         aiProcessingActive = true;
         await requestReviewWakeLock();
         const runMetrics = await ai.processCameraImages(session.images, {
@@ -248,7 +248,7 @@
           }
         } else {
           window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}`);
-          throw new Error('Batch kamera belum menghasilkan data. JPEG tetap tersimpan; muat ulang halaman untuk mencoba lagi.');
+          throw new Error('Batch kamera belum menghasilkan data. Foto tetap tersimpan; muat ulang halaman untuk mencoba lagi.');
         }
         return;
       }
