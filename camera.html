@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.18-camera-120kb">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.20-fast-shutter-720p-jpeg">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -95,7 +95,6 @@
           <div class="camera-flash" id="cameraFlash" aria-hidden="true"></div>
           <div class="camera-hud-toast" id="cameraHudToast" aria-live="assertive" aria-atomic="true"></div>
           <div class="camera-focus-indicator" id="cameraFocusIndicator" hidden aria-hidden="true"></div>
-          <div class="camera-frame-guide" id="captureFrameGuide" aria-hidden="true"><span>Area label yang disimpan</span></div>
           <button class="camera-preview-fullscreen" id="cameraPreviewFullscreenButton" type="button" aria-label="Buka live camera preview dalam layar penuh">
             <span aria-hidden="true">⛶</span><strong>Ketuk preview untuk fullscreen</strong>
           </button>
@@ -188,7 +187,7 @@
     <section class="camera-notes" aria-label="Tips setup">
       <div><strong>Posisi tetap</strong><span>Gunakan holder overhead; jangan pegang HP saat capture.</span></div>
       <div><strong>Cahaya merata</strong><span>Hindari bayangan tangan dan pantulan lampu langsung.</span></div>
-      <div><strong>Isi frame</strong><span>Dekatkan label secukupnya dan pastikan seluruh alamat terlihat jelas.</span></div>
+      <div><strong>Isi layar</strong><span>Tanpa bingkai crop: dekatkan HP hingga label memenuhi layar, tetapi jangan sampai teks alamat terpotong.</span></div>
     </section>
   </main>
 
@@ -204,14 +203,13 @@
     </a>
   </footer>
 
-  <canvas id="cameraOutputCanvas" hidden></canvas>
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260928-26.18-camera-120kb" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260928-26.20-fast-shutter-720p-jpeg" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera-photo.js?v=20260928-26.18-camera-120kb" defer></script>
-  <script src="/assets/js/camera.js?v=20260928-26.18-camera-120kb" defer></script>
+  <script src="/assets/js/camera-photo.js?v=20260928-26.20-fast-shutter-720p-jpeg" defer></script>
+  <script src="/assets/js/camera.js?v=20260928-26.20-fast-shutter-720p-jpeg" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

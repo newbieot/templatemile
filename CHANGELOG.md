@@ -1,5 +1,21 @@
 # Changelog
 
+## v26.20 — Shutter cepat dengan antrean JPEG
+
+- Tap shutter langsung mengambil snapshot frame kamera; kompresi JPEG maksimal 720p/120 KB berjalan berurutan di background agar tap berikutnya tidak menunggu proses simpan.
+- Shutter tetap aktif saat kompresi berjalan; antrean dibatasi 3 frame pada perangkat terbatas dan 5 pada perangkat lain untuk menjaga memori HP.
+- Menampilkan jumlah foto yang masih diproses dan hanya menonaktifkan capture saat kamera belum aktif, galeri terbuka, batch difinalisasi, atau batas sesi tercapai.
+- Memastikan antrean menjaga urutan foto termasuk saat retake, dan memungkinkan tap fokus tetap berfungsi ketika JPEG sedang diproses.
+- Menghapus canvas output bersama agar setiap tap memiliki snapshot independen.
+
+## v26.19 — Kamera 720p JPEG tanpa bingkai crop
+
+- Menghapus bingkai panduan crop dan menyimpan seluruh frame kamera.
+- Meminta stream kamera HD dan membatasi foto tersimpan sampai 921.600 piksel (setara maksimal 720p); foto baru selalu JPEG dan maksimal 120.000 byte.
+- Mengatur zoom perangkat ke 1× hanya bila kamera mendukung rentang tersebut; tidak menambahkan zoom digital.
+- Menghapus jalur foto native resolusi tinggi supaya resolusi dan format hasil tetap konsisten dengan stream 720p.
+- Mempertahankan pembacaan JPEG/WebP pada draft lama, tetapi encoder foto baru tidak lagi menghasilkan WebP.
+
 ## v26.18 — Batas ukuran 120 KB per foto kamera
 
 - Membatasi setiap foto baru yang tersimpan dan dikirim ke AI hingga maksimal 120.000 byte.

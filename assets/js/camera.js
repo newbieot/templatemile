@@ -3,7 +3,8 @@
 
   const MAX_CAPTURES = 150;
   const MAX_IMAGE_BYTES = 120 * 1000;
-  const OUTPUT_MAX_SIDE = 4096;
+  const OUTPUT_MAX_SIDE = 1280;
+  const OUTPUT_MAX_PIXELS = 1280 * 720;
   const THUMBNAIL_MAX_SIDE = 360;
   const FOCUS_RESET_DELAY_MS = 650;
   const DRAFT_SAVE_DELAY_MS = 2400;
@@ -16,9 +17,10 @@
   const $ = id => document.getElementById(id);
 
   let stream = null;
-  let stillCamera = null;
-  let fallbackUpgradeTrack = null;
   let captures = [];
+  let pendingCaptureQueue = [];
+  let pendingCaptureCount = 0;
+  let captureQueueRunning = false;
   let sessionId = '';
   let sessionStartedAt = '';
   let captureBusy = false;
@@ -51,6 +53,7 @@
     const cores = Number(navigator.hardwareConcurrency || 0);
     return (memory > 0 && memory <= 4) || (cores > 0 && cores <= 4);
   })();
+  const MAX_PENDING_CAPTURE_FRAMES = constrainedDevice ? 3 : 5;
   document.documentElement.classList.toggle('camera-low-power', constrainedDevice);
 
   function captureButtons() {
@@ -354,40 +357,11 @@
     stage.dataset.previewRotation = '0';
     stage.dataset.captureRotation = String(fullscreen ? -layout.rotation : 0);
     stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
-    // Keep the guide inside the real, uncropped camera image, not the letterbox.
-    const guideLayout = core.previewGuideLayout({
-      sourceWidth: video.videoWidth, sourceHeight: video.videoHeight,
-      viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
-      layoutRotation: fullscreen ? layout.rotation : 0, frame: cameraFrameInView()
-    });
-    const guide = $('captureFrameGuide');
-    if (guide) Object.assign(guide.style, {
-      left: `${guideLayout.x}px`, top: `${guideLayout.y}px`,
-      width: `${guideLayout.width}px`, height: `${guideLayout.height}px`,
-      right: 'auto', bottom: 'auto'
-    });
   }
 
   function currentCaptureRotation() {
     const value = Number($('cameraStage')?.dataset?.captureRotation || 0);
     return value === 90 || value === -90 ? value : 0;
-  }
-
-  function cameraFrameInView() {
-    const landscape = $('cameraStage')?.dataset?.orientation === 'landscape';
-    return landscape
-      ? { x: 0.08, y: 0.10, width: 0.84, height: 0.72 }
-      : { x: 0.06, y: 0.12, width: 0.88, height: 0.72 };
-  }
-
-  function captureFrameRatios() {
-    const stage = $('cameraStage');
-    const video = $('cameraPreview');
-    return core.previewGuideLayout({
-      sourceWidth: video.videoWidth, sourceHeight: video.videoHeight,
-      viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
-      layoutRotation: Number(stage?.dataset?.layoutRotation || 0), frame: cameraFrameInView()
-    }).frame;
   }
 
   function handleViewportChange() {
@@ -490,7 +464,7 @@
   }
 
   async function focusCameraAt(event) {
-    if (!stream || captureBusy || !isCameraFullscreen()) return;
+    if (!stream || !isCameraFullscreen()) return;
     if (event.target?.closest?.('button,.camera-capture-gallery')) return;
     showFocusIndicator(event);
     const track = stream.getVideoTracks?.()[0];
@@ -528,8 +502,6 @@
     continuousFocusEnabled = false;
     stream?.getTracks?.().forEach(track => track.stop());
     stream = null;
-    stillCamera = null;
-    fallbackUpgradeTrack = null;
     const video = $('cameraPreview');
     if (video) video.srcObject = null;
     $('cameraStage')?.classList.remove('is-active');
@@ -569,24 +541,21 @@
       $('cameraStage')?.classList.add('is-active');
       updateStageAspect();
       const track = stream.getVideoTracks()[0];
-      stillCamera = photo.createStillCamera(track);
-      stillCamera?.ready.then(available => {
-        if (!available && stream?.getVideoTracks()[0] === track) upgradeFallbackPreview(track);
-      });
       track.addEventListener?.('unmute', () => scheduleContinuousAutofocus(track, [0, 260], true));
       const settings = track.getSettings?.() || {};
-      $('cameraState').textContent = `${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} · kamera belakang diprioritaskan`;
+      $('cameraState').textContent = `${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} sumber · JPEG maks 720p / 120 KB · zoom 1×`;
       ensureSession();
-      setCaptureDisabled(false);
       if ($('cameraActionDock')) $('cameraActionDock').hidden = false;
+      updateBatchUi();
       setStatus('Kamera aktif dan mode capture fullscreen siap digunakan.', 'success');
 
       // Konfigurasi tambahan tidak boleh menahan kamera siap digunakan pada HP lama.
       window.setTimeout(async () => {
         const capabilities = track.getCapabilities?.() || {};
-        if (Number.isFinite(capabilities.zoom?.min) && Number.isFinite(capabilities.zoom?.max)) {
+        if (Number.isFinite(capabilities.zoom?.min) && Number.isFinite(capabilities.zoom?.max)
+            && capabilities.zoom.min <= 1 && capabilities.zoom.max >= 1) {
           try {
-            await track.applyConstraints({ advanced: [{ zoom: Math.max(capabilities.zoom.min, Math.min(capabilities.zoom.max, 1)) }] });
+            await track.applyConstraints({ advanced: [{ zoom: 1 }] });
           } catch (_) {}
         }
         scheduleContinuousAutofocus(track);
@@ -624,20 +593,6 @@
     $('sessionDetails').hidden = false;
     updateBatchUi();
     void requestWakeLock();
-  }
-
-  function upgradeFallbackPreview(track) {
-    if (!track || fallbackUpgradeTrack === track || track.readyState === 'ended') return;
-    fallbackUpgradeTrack = track;
-    // Only browsers/devices without usable native still photos need a heavier
-    // stream. Do this in the background once, never on every shutter press.
-    Promise.resolve().then(() => track.applyConstraints(photo.previewConstraints(false))).then(() => {
-      if (stream?.getVideoTracks()[0] !== track) return;
-      updateStageAspect();
-      const settings = track.getSettings?.() || {};
-      $('cameraState').textContent = `${settings.width || $('cameraPreview').videoWidth} × ${settings.height || $('cameraPreview').videoHeight} · kamera belakang diprioritaskan`;
-      scheduleContinuousAutofocus(track, [0, 260], true);
-    }).catch(() => {});
   }
 
   function draftCapturePayload(capture) {
@@ -772,12 +727,6 @@
     });
   }
 
-  function yieldForPaint() {
-    return new Promise(resolve => {
-      window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
-    });
-  }
-
   async function createThumbnailBlob(sourceCanvas) {
     const scale = Math.min(1, THUMBNAIL_MAX_SIDE / Math.max(sourceCanvas.width, sourceCanvas.height));
     const canvas = document.createElement('canvas');
@@ -812,153 +761,157 @@
     }));
   }
 
-  async function captureImage() {
-    if (captureBusy || !stream || !sessionId) return;
-    if (captures.length >= MAX_CAPTURES) {
+  function captureImage() {
+    if (!stream || !sessionId || finalizingBatch) return;
+    const galleryOpen = Boolean($('cameraCaptureGallery') && !$('cameraCaptureGallery').hidden);
+    if (galleryOpen) return;
+    if (captures.length + pendingCaptureCount >= MAX_CAPTURES) {
       setStatus(`Maksimal ${MAX_CAPTURES} gambar per sesi. Selesaikan batch ini lebih dahulu.`, 'error');
       return;
     }
+    if (pendingCaptureCount >= MAX_PENDING_CAPTURE_FRAMES) {
+      showHudToast('Antrean foto penuh · tunggu sebentar lalu capture lagi');
+      setStatus('Foto sedang disimpan. Tunggu sebentar agar antrean kosong, lalu capture lagi.', 'info');
+      return;
+    }
     getAudioContext();
-    captureBusy = true;
-    setCaptureDisabled(true);
-    setFinishDisabled(true);
-    setStatus('Mengambil foto di dalam area panduan…', 'info');
     playShutterSound();
     flashCameraStage();
-    showHudToast('Capture diterima · sedang menyimpan...');
     if (navigator.vibrate) navigator.vibrate(35);
 
-    let photoSource = null;
+    let snapshotCanvas = null;
     try {
-      await yieldForPaint();
       const video = $('cameraPreview');
       const activeTrack = stream.getVideoTracks()[0];
-      let previewWidth = video.videoWidth;
-      let previewHeight = video.videoHeight;
-      if (!(previewWidth > 0 && previewHeight > 0)) throw new Error('Tunggu kamera menampilkan gambar sebelum capture.');
+      const sourceWidth = video.videoWidth;
+      const sourceHeight = video.videoHeight;
+      if (!(sourceWidth > 0 && sourceHeight > 0)) throw new Error('Tunggu kamera menampilkan gambar sebelum capture.');
       updateStageAspect();
-      let captureRotation = currentCaptureRotation();
-      const stage = $('cameraStage');
-      let previewCrop = core.previewCaptureRect({
-        sourceWidth: previewWidth, sourceHeight: previewHeight,
-        viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
-        frame: captureFrameRatios(), cover: false
-      });
-      photoSource = await stillCamera?.take(previewWidth, previewHeight);
       if (stream?.getVideoTracks()[0] !== activeTrack || activeTrack.readyState === 'ended') {
         throw new Error('Kamera berubah saat mengambil foto. Silakan capture ulang.');
       }
-      if (!photoSource) {
-        // The live stream may resize/rotate while a native photo times out.
-        // Use its current geometry rather than the old shutter-time rectangle.
-        updateStageAspect();
-        previewWidth = video.videoWidth;
-        previewHeight = video.videoHeight;
-        captureRotation = currentCaptureRotation();
-        previewCrop = core.previewCaptureRect({
-          sourceWidth: previewWidth, sourceHeight: previewHeight,
-          viewWidth: stage.clientWidth, viewHeight: stage.clientHeight,
-          frame: captureFrameRatios(), cover: false
-        });
+      const captureRotation = currentCaptureRotation();
+      const scale = Math.min(
+        1,
+        OUTPUT_MAX_SIDE / Math.max(sourceWidth, sourceHeight),
+        Math.sqrt(OUTPUT_MAX_PIXELS / (sourceWidth * sourceHeight))
+      );
+      let renderWidth = Math.max(1, Math.round(sourceWidth * scale));
+      let renderHeight = Math.max(1, Math.round(sourceHeight * scale));
+      while (renderWidth * renderHeight > OUTPUT_MAX_PIXELS) {
+        if (renderWidth >= renderHeight) renderWidth -= 1;
+        else renderHeight -= 1;
       }
-      const source = photoSource?.source || video;
-      const sourceWidth = photoSource?.width || previewWidth;
-      const sourceHeight = photoSource?.height || previewHeight;
-      const crop = photoSource ? photo.mapPreviewCrop(previewCrop, sourceWidth, sourceHeight) : previewCrop;
-      const scale = Math.min(1, OUTPUT_MAX_SIDE / Math.max(crop.width, crop.height));
-      const renderWidth = Math.max(1, Math.round(sourceWidth * scale));
-      const renderHeight = Math.max(1, Math.round(sourceHeight * scale));
-      const cropX = crop.x * scale;
-      const cropY = crop.y * scale;
-      const cropWidth = Math.max(1, Math.round(crop.width * scale));
-      const cropHeight = Math.max(1, Math.round(crop.height * scale));
-      if (Math.max(cropWidth, cropHeight) < 900) {
-        upgradeFallbackPreview(activeTrack);
-        throw new Error(`Resolusi kamera hanya menghasilkan ${cropWidth} × ${cropHeight}. Foto terlalu kecil dan belum disimpan. Tunggu penyesuaian kamera lalu capture ulang.`);
-      }
-      const outputCanvas = $('cameraOutputCanvas');
-      outputCanvas.width = captureRotation ? cropHeight : cropWidth;
-      outputCanvas.height = captureRotation ? cropWidth : cropHeight;
-      const outputContext = outputCanvas.getContext('2d', { alpha: false });
+      // Snapshot frame langsung saat tap. Setiap tap memiliki canvas sendiri sehingga
+      // JPEG dapat dikompresi berurutan tanpa menghalangi shutter berikutnya.
+      snapshotCanvas = document.createElement('canvas');
+      snapshotCanvas.width = captureRotation ? renderHeight : renderWidth;
+      snapshotCanvas.height = captureRotation ? renderWidth : renderHeight;
+      const outputContext = snapshotCanvas.getContext('2d', { alpha: false });
+      if (!outputContext) throw new Error('Browser tidak dapat menyiapkan gambar.');
       if (captureRotation) {
-        outputContext.translate(outputCanvas.width / 2, outputCanvas.height / 2);
+        outputContext.translate(snapshotCanvas.width / 2, snapshotCanvas.height / 2);
         outputContext.rotate(captureRotation * Math.PI / 180);
-        outputContext.translate(-cropX - cropWidth / 2, -cropY - cropHeight / 2);
-      } else {
-        outputContext.translate(-cropX, -cropY);
+        outputContext.translate(-renderWidth / 2, -renderHeight / 2);
       }
-      outputContext.drawImage(source, 0, 0, sourceWidth, sourceHeight, 0, 0, renderWidth, renderHeight);
-      photoSource?.close();
-      const resolutionSource = photoSource ? 'native-photo' : 'video-frame';
-      photoSource = null;
-      if (resolutionSource === 'video-frame' && stillCamera && !stillCamera.available) upgradeFallbackPreview(activeTrack);
-
-      const quality = captureQualityMetadata(outputCanvas);
-      const thumbnailPromise = createThumbnailBlob(outputCanvas).catch(() => null);
-      const { blob, quality: encodingQuality, width: storedWidth, height: storedHeight } = await photo.encodeImage(outputCanvas, MAX_IMAGE_BYTES);
-      const thumbnailBlob = await thumbnailPromise;
-      const outputWidth = outputCanvas.width;
-      const outputHeight = outputCanvas.height;
-      outputCanvas.width = outputCanvas.height = 1;
-      const timestamp = new Date().toISOString();
-      const targetIndex = retakeSlotIndex >= 0 && retakeSlotIndex <= captures.length ? retakeSlotIndex : captures.length;
-      const sequence = targetIndex + 1;
-      const fileName = `${String(sequence).padStart(3, '0')}.${photo.fileExtension(blob)}`;
-      const capture = {
-        captureId: randomId('IMG'),
-        timestamp,
-        sessionId,
-        sequence,
-        fileName,
-        blob,
-        width: storedWidth || outputWidth,
-        height: storedHeight || outputHeight,
+      outputContext.drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, renderWidth, renderHeight);
+      const quality = captureQualityMetadata(snapshotCanvas);
+      const queuedRetakeIndex = retakeSlotIndex >= 0 ? retakeSlotIndex : -1;
+      if (queuedRetakeIndex >= 0) retakeSlotIndex = -1;
+      pendingCaptureQueue.push({
+        canvas: snapshotCanvas,
+        quality,
         sourceWidth,
         sourceHeight,
-        resolutionSource,
-        imageFormat: blob.type,
-        encodingQuality,
-        quality: {
-          code: quality.code,
-          ok: quality.ok !== false,
-          reason: quality.reason || '',
-          brightness: Number.isFinite(Number(quality.brightness)) ? Number(Number(quality.brightness).toFixed(1)) : 0,
-          sharpness: Number.isFinite(Number(quality.sharpness)) ? Number(Number(quality.sharpness).toFixed(1)) : 0
-        },
-        thumbnailBlob,
-        previewUrl: URL.createObjectURL(thumbnailBlob || blob)
-      };
-      if (retakeSlotIndex >= 0) captures.splice(targetIndex, 0, capture);
-      else captures.push(capture);
-      retakeSlotIndex = -1;
-      renumberCaptures();
-      void queueDraftSave();
-      
-      if (window.MileCameraStream) {
-        window.MileCameraStream.queueCapture(blob);
-      }
-      const qualityWarning = quality.ok === false;
-      showHudToast(qualityWarning ? `Capture ${sequence} tersimpan · periksa kualitas` : `Capture ${sequence} (${fileName}) tersimpan`);
-      setStatus(
-        qualityWarning
-          ? `${fileName} tersimpan, tetapi ${qualityLabel(quality).toLowerCase()}. Gunakan Lihat Hasil untuk foto ulang.`
-          : `Capture ${sequence} tersimpan (${outputWidth} × ${outputHeight}). Ganti sampul berikutnya tanpa mengubah posisi HP.`,
-        qualityWarning ? 'info' : 'success'
-      );
-      toast(qualityWarning ? `${fileName}: ${qualityLabel(quality)}` : `${fileName} tersimpan`, qualityWarning ? 'info' : 'success');
+        timestamp: new Date().toISOString(),
+        retakeIndex: queuedRetakeIndex
+      });
+      pendingCaptureCount += 1;
+      captureBusy = true;
+      updateBatchUi();
+      setFinishDisabled(true);
+      showHudToast(pendingCaptureCount > 1 ? `Foto masuk antrean · ${pendingCaptureCount} sedang disimpan` : 'Foto diterima · menyimpan JPEG…');
+      setStatus('Foto langsung diambil. Penyimpanan JPEG berjalan di antrean agar shutter tetap responsif.', 'info');
+      snapshotCanvas = null;
+      void processCaptureQueue();
     } catch (error) {
+      if (snapshotCanvas) snapshotCanvas.width = snapshotCanvas.height = 1;
       setStatus(`Capture gagal: ${error?.message || 'gambar tidak dapat disimpan.'}`, 'error');
       showHudToast(`Foto belum tersimpan · ${error?.message || 'silakan capture ulang'}`);
-    } finally {
-      photoSource?.close();
-      const outputCanvas = $('cameraOutputCanvas');
-      if (outputCanvas && (outputCanvas.width > 1 || outputCanvas.height > 1)) {
-        outputCanvas.width = outputCanvas.height = 1;
-      }
-      captureBusy = false;
-      setCaptureDisabled(!stream || !sessionId);
       updateBatchUi();
-      scheduleContinuousAutofocus(stream?.getVideoTracks?.()[0], [0, 260], true);
+    }
+  }
+
+  async function processCaptureQueue() {
+    if (captureQueueRunning) return;
+    captureQueueRunning = true;
+    try {
+      while (pendingCaptureQueue.length) {
+        const task = pendingCaptureQueue.shift();
+        try {
+          const { canvas, quality, sourceWidth, sourceHeight, timestamp, retakeIndex } = task;
+          const thumbnailPromise = createThumbnailBlob(canvas).catch(() => null);
+          const { blob, quality: encodingQuality, width: storedWidth, height: storedHeight } = await photo.encodeImage(canvas, MAX_IMAGE_BYTES);
+          const thumbnailBlob = await thumbnailPromise;
+          const outputWidth = canvas.width;
+          const outputHeight = canvas.height;
+          const targetIndex = retakeIndex >= 0 ? Math.min(retakeIndex, captures.length) : captures.length;
+          const sequence = targetIndex + 1;
+          const fileName = `${String(sequence).padStart(3, '0')}.${photo.fileExtension(blob)}`;
+          const capture = {
+            captureId: randomId('IMG'),
+            timestamp,
+            sessionId,
+            sequence,
+            fileName,
+            blob,
+            width: storedWidth || outputWidth,
+            height: storedHeight || outputHeight,
+            sourceWidth,
+            sourceHeight,
+            resolutionSource: 'video-frame',
+            imageFormat: blob.type,
+            encodingQuality,
+            quality: {
+              code: quality.code,
+              ok: quality.ok !== false,
+              reason: quality.reason || '',
+              brightness: Number.isFinite(Number(quality.brightness)) ? Number(Number(quality.brightness).toFixed(1)) : 0,
+              sharpness: Number.isFinite(Number(quality.sharpness)) ? Number(Number(quality.sharpness).toFixed(1)) : 0
+            },
+            thumbnailBlob,
+            previewUrl: URL.createObjectURL(thumbnailBlob || blob)
+          };
+          captures.splice(targetIndex, 0, capture);
+          renumberCaptures();
+          void queueDraftSave();
+
+          if (window.MileCameraStream) window.MileCameraStream.queueCapture(blob);
+          const qualityWarning = quality.ok === false;
+          showHudToast(qualityWarning ? `Capture ${sequence} tersimpan · periksa kualitas` : `Capture ${sequence} (${capture.fileName}) tersimpan`);
+          setStatus(
+            qualityWarning
+              ? `${capture.fileName} tersimpan, tetapi ${qualityLabel(quality).toLowerCase()}. Gunakan Lihat Hasil untuk foto ulang.`
+              : `Capture ${sequence} tersimpan (${capture.width} × ${capture.height}, ${formatBytes(blob.size)} JPEG). Seluruh frame tersimpan.`,
+            qualityWarning ? 'info' : 'success'
+          );
+          toast(qualityWarning ? `${capture.fileName}: ${qualityLabel(quality)}` : `${capture.fileName} tersimpan`, qualityWarning ? 'info' : 'success');
+        } catch (error) {
+          if (task.retakeIndex >= 0) retakeSlotIndex = Math.min(task.retakeIndex, captures.length);
+          setStatus(`Capture gagal: ${error?.message || 'gambar tidak dapat disimpan.'}`, 'error');
+          showHudToast(`Foto belum tersimpan · ${error?.message || 'silakan capture ulang'}`);
+        } finally {
+          task.canvas.width = task.canvas.height = 1;
+          pendingCaptureCount = Math.max(0, pendingCaptureCount - 1);
+          captureBusy = pendingCaptureCount > 0;
+          updateBatchUi();
+        }
+      }
+    } finally {
+      captureQueueRunning = false;
+      captureBusy = pendingCaptureCount > 0;
+      updateBatchUi();
+      if (!captureBusy) scheduleContinuousAutofocus(stream?.getVideoTracks?.()[0], [0, 260], true);
     }
   }
 
@@ -1002,6 +955,10 @@
 
   function openCaptureGallery(index = captures.length - 1) {
     const gallery = $('cameraCaptureGallery');
+    if (captureBusy) {
+      showHudToast('Tunggu antrean foto selesai disimpan sebelum membuka hasil');
+      return;
+    }
     if (!gallery || !captures.length || !isCameraFullscreen()) return;
     galleryIndex = Math.max(0, Math.min(Number(index) || 0, captures.length - 1));
     gallery.hidden = false;
@@ -1018,8 +975,7 @@
     gallery.hidden = true;
     $('cameraStage')?.classList.remove('is-gallery-open');
     releaseGalleryObjectUrl();
-    setCaptureDisabled(!stream || !sessionId || captureBusy);
-    setFinishDisabled(!captures.length || captureBusy || retakeSlotIndex >= 0);
+    updateBatchUi();
     $('reviewCapturesButtonFullscreen')?.focus({ preventScroll: true });
   }
 
@@ -1052,9 +1008,13 @@
   }
 
   function updateBatchUi() {
-    $('capturedCount').textContent = `${captures.length} gambar`;
-    $('fullscreenCapturedCount').textContent = `${captures.length} gambar`;
+    const countLabel = pendingCaptureCount
+      ? `${captures.length} gambar · ${pendingCaptureCount} proses`
+      : `${captures.length} gambar`;
+    $('capturedCount').textContent = countLabel;
+    $('fullscreenCapturedCount').textContent = countLabel;
     const galleryOpen = Boolean($('cameraCaptureGallery') && !$('cameraCaptureGallery').hidden);
+    setCaptureDisabled(!stream || !sessionId || finalizingBatch || galleryOpen || captures.length + pendingCaptureCount >= MAX_CAPTURES);
     setFinishDisabled(!captures.length || captureBusy || galleryOpen || retakeSlotIndex >= 0);
     setReviewDisabled(!captures.length || captureBusy || galleryOpen);
     const list = $('captureList');
@@ -1098,7 +1058,7 @@
       const detail = card.querySelector('.capture-card__body small');
       detail.textContent = `${formatTime(capture.timestamp)} · ${capture.width} × ${capture.height} · ${formatBytes(capture.blob.size)}`;
       const quality = card.querySelector('.capture-card__quality');
-      const frameLabel = 'Area panduan';
+      const frameLabel = 'Foto penuh';
       quality.textContent = capture.quality?.ok === false ? `${frameLabel} · ${qualityLabel(capture.quality)}` : `${frameLabel} · kualitas baik`;
       quality.classList.toggle('is-warning', capture.quality?.ok === false);
       const removeButton = card.querySelector('.capture-card__remove');
@@ -1202,8 +1162,7 @@
       finalizingBatch = false;
       hideProcessingStatus();
       setStatus(error?.message || 'Batch tidak dapat disiapkan.', 'error');
-      setFinishDisabled(false);
-      setCaptureDisabled(!stream || !sessionId);
+      updateBatchUi();
     }
   }
 

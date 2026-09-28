@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.18-camera-120kb" "_worker.js" >nul && echo [OK] Worker kamera maksimal 120 KB terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260928-26.20-fast-shutter-720p-jpeg" "_worker.js" >nul && echo [OK] Worker shutter cepat kamera 720p JPEG terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
@@ -117,14 +117,22 @@ findstr /c:"finishCaptureButtonFullscreen" "camera.html" "assets\js\camera.js" >
 findstr /c:"playShutterSound" "assets\js\camera.js" >nul && echo [OK] Suara shutter capture aktif || (echo [GAGAL] Suara shutter tidak ditemukan & set "FAIL=1")
 findstr /c:"const MAX_IMAGE_BYTES = 120 * 1000" "assets\js\camera.js" >nul && echo [OK] Batas foto kamera maksimal 120 KB || (echo [GAGAL] Batas foto 120 KB tidak ditemukan & set "FAIL=1")
 findstr /c:"const DEFAULT_IMAGE_MAX_BYTES = 120 * 1000" "assets\js\camera-photo.js" >nul && echo [OK] Encoder foto menerapkan batas default 120 KB || (echo [GAGAL] Batas encoder 120 KB tidak ditemukan & set "FAIL=1")
+findstr /c:"const OUTPUT_MAX_SIDE = 1280" "assets\js\camera.js" >nul && echo [OK] Output kamera dibatasi ke sisi 720p || (echo [GAGAL] Batas sisi 720p tidak ditemukan & set "FAIL=1")
+findstr /c:"const OUTPUT_MAX_PIXELS = 1280 * 720" "assets\js\camera.js" >nul && echo [OK] Output kamera maksimal 720p || (echo [GAGAL] Batas piksel 720p tidak ditemukan & set "FAIL=1")
+findstr /c:"'image/jpeg', quality" "assets\js\camera-photo.js" >nul && echo [OK] Foto kamera baru dikodekan sebagai JPEG || (echo [GAGAL] Encoder JPEG tidak ditemukan & set "FAIL=1")
+findstr /c:"for (const type of ['image/webp'" "assets\js\camera-photo.js" >nul
+if not errorlevel 1 (echo [GAGAL] Encoder masih membuat WebP & set "FAIL=1") else (echo [OK] Encoder tidak membuat WebP baru)
 findstr /c:"cameraHudToast" "camera.html" "assets\js\camera.js" >nul && echo [OK] Notifikasi HUD capture aktif || (echo [GAGAL] Notifikasi HUD capture tidak ditemukan & set "FAIL=1")
 findstr /c:"cameraFlash" "camera.html" "assets\js\camera.js" >nul && echo [OK] Animasi flash capture aktif || (echo [GAGAL] Animasi flash tidak ditemukan & set "FAIL=1")
 findstr /c:"Start Capture Session" "camera.html" >nul
 if not errorlevel 1 (echo [GAGAL] Tombol Start Capture Session masih tampil & set "FAIL=1") else (echo [OK] Open Camera langsung membuat sesi)
 findstr /c:"Foto kurang jelas, silakan ulangi capture." "assets\js\camera.js" >nul
 if not errorlevel 1 (echo [GAGAL] Validasi lama masih memblokir capture & set "FAIL=1") else (echo [OK] Validasi blur memakai peringatan, bukan guard lama)
-findstr /c:"Foto terlalu kecil dan belum disimpan" "assets\js\camera.js" >nul && echo [OK] Guard foto sangat kecil aktif || (echo [GAGAL] Guard resolusi sangat kecil tidak ditemukan & set "FAIL=1")
-if exist "assets\js\camera-photo.js" (echo [OK] Capture native resolusi tinggi tersedia) else (echo [GAGAL] Runtime foto resolusi tinggi tidak ditemukan & set "FAIL=1")
+findstr /c:"camera-frame-guide" "camera.html" "assets\css\camera.css" >nul
+if not errorlevel 1 (echo [GAGAL] Bingkai crop kamera masih aktif & set "FAIL=1") else (echo [OK] Bingkai crop kamera sudah dihapus)
+findstr /c:"const PHOTO_MAX_SIDE = 1280" "assets\js\camera-photo.js" >nul && echo [OK] Stream foto diminta maksimal 720p || (echo [GAGAL] Batas resolusi foto tidak ditemukan & set "FAIL=1")
+findstr /c:"const PHOTO_MAX_PIXELS = 1280 * 720" "assets\js\camera-photo.js" >nul && echo [OK] Encoder menjaga ukuran piksel 720p || (echo [GAGAL] Batas piksel encoder 720p tidak ditemukan & set "FAIL=1")
+findstr /c:"advanced: [{ focusMode: 'continuous' }, { zoom: 1 }]" "assets\js\camera-photo.js" >nul && echo [OK] Kamera meminta autofocus berkelanjutan dan zoom 1x || (echo [GAGAL] Zoom 1x tidak diminta & set "FAIL=1")
 findstr /c:"orientationchange" "assets\js\camera.js" >nul && echo [OK] Perubahan orientasi kamera ditangani || (echo [GAGAL] Dukungan orientasi tidak ditemukan & set "FAIL=1")
 findstr /c:"startPhysicalOrientationTracking" "assets\js\camera.js" >nul && echo [OK] Landscape fisik saat orientation lock aktif || (echo [GAGAL] Sensor orientasi fisik tidak ditemukan & set "FAIL=1")
 findstr /c:"camera=(self)" "_worker.js" "_headers" >nul && echo [OK] Permission camera dibatasi ke halaman camera || (echo [GAGAL] Permission camera route tidak ditemukan & set "FAIL=1")
