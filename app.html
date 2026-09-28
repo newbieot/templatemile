@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>mile.posnew.com — Persiapan Data Mile App | PosNew Hub</title>
-  <meta name="description" content="Ambil foto sampul atau label alamat dari HP, periksa hasil ekstraksi AI, lalu siapkan workbook bulk upload Mile App.">
+  <meta name="description" content="Ambil foto dari HP atau unggah PDF, periksa hasil ekstraksi AI, lalu siapkan workbook bulk upload Mile App.">
   <meta name="author" content="Ikhsan Radiansyah">
   <meta name="theme-color" content="#172554">
   <meta name="color-scheme" content="light">
@@ -17,18 +17,18 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="PosNew Hub">
   <meta property="og:title" content="mile.posnew.com | PosNew Hub">
-  <meta property="og:description" content="Ambil foto sampul atau label alamat dari HP, periksa hasil AI, lalu siapkan data Mile App.">
+  <meta property="og:description" content="Ambil foto dari HP atau unggah PDF, periksa hasil AI, lalu siapkan data Mile App.">
   <meta property="og:url" content="https://mile.posnew.com/">
   <meta property="og:image" content="https://mile.posnew.com/og-cover.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
-  <meta name="twitter:description" content="Ambil foto sampul atau label alamat langsung dari HP untuk diproses menjadi data Mile App.">
+  <meta name="twitter:description" content="Ambil foto langsung dari HP atau unggah PDF untuk diproses menjadi data Mile App.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20260928-26.14-pdf-upload-restored">
   <link rel="stylesheet" href="/assets/css/template-picker.css?v=20260927-26.02-customer-template-search">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
 </head>
-<body data-accept-pdf="false" data-primary-source="camera">
+<body data-accept-pdf="true" data-primary-source="hybrid" data-pdf-default-model="gemini-3.8-flash">
   <a class="skip-link" href="#workspace">Lewati ke workspace</a>
 
   <header class="app-header">
@@ -42,7 +42,7 @@
       <div class="header-actions">
         <span class="privacy-pill">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
-          Capture HP · AI langsung
+          Kamera HP · PDF via AI
         </span>
         <button type="button" class="all-tools-link" id="openCameraLogsBtn" style="background:#eff6ff;color:#3b82f6;border:none;cursor:pointer;gap:6px;padding:6px 10px;border-radius:10px;font-weight:600" hidden>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -64,9 +64,9 @@
   <main id="workspace" class="app-main">
     <section class="intro-shell" aria-labelledby="pageTitle">
       <div class="intro-copy">
-        <span class="eyebrow">Foto label alamat dari HP</span>
-        <h1 id="pageTitle">Ambil foto sampul atau label alamat, lalu siapkan data Mile App.</h1>
-        <p>Gunakan kamera HP untuk mengambil beberapa foto sekaligus. Hasil ekstraksi AI dapat diperiksa dan diperbaiki sebelum diekspor ke Mile App.</p>
+        <span class="eyebrow">Kamera HP & unggah PDF</span>
+        <h1 id="pageTitle">Ambil foto atau unggah PDF, lalu siapkan data Mile App.</h1>
+        <p>Gunakan kamera HP untuk mengambil beberapa foto sekaligus, atau unggah PDF yang sudah tersedia. Hasil ekstraksi AI dapat diperiksa dan diperbaiki sebelum diekspor.</p>
         <a class="performance-beta-card" href="/camera">
           <span class="performance-beta-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -77,10 +77,20 @@
           </span>
           <span class="performance-beta-action">Ambil Foto di HP <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
         </a>
+        <a class="performance-beta-card performance-beta-card--active" href="#uploadSource">
+          <span class="performance-beta-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+          </span>
+          <span class="performance-beta-copy">
+            <strong>Sudah memiliki PDF?</strong>
+            <small>Unggah PDF dan biarkan AI mengekstrak data penerima. Excel dan CSV tetap dapat diproses secara lokal.</small>
+          </span>
+          <span class="performance-beta-action">Pilih PDF <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
+        </a>
       </div>
       <div class="workflow-steps" aria-label="Workflow steps">
         <div class="workflow-step is-active" data-step="1"><span>1</span><strong>Atur</strong><small>Transaksi & pengirim</small></div>
-        <div class="workflow-step" data-step="2"><span>2</span><strong>Ambil foto</strong><small>Kamera HP langsung</small></div>
+        <div class="workflow-step" data-step="2"><span>2</span><strong>Foto / PDF</strong><small>Kamera HP atau unggah</small></div>
         <div class="workflow-step" data-step="3"><span>3</span><strong>Periksa</strong><small>Edit data tabel</small></div>
         <div class="workflow-step" data-step="4"><span>4</span><strong>Ekspor</strong><small>Workbook Mile App</small></div>
       </div>
@@ -197,7 +207,7 @@
           </div>
         </section>
 
-        <section class="panel-card upload-card" hidden aria-hidden="true">
+        <section class="panel-card upload-card" id="uploadSource">
           <div class="panel-heading panel-heading--compact">
             <div><span class="section-index">04</span><h2>Unggah berkas sumber</h2></div>
             <p>PDF diproses dengan AI vision. REF/SURAT memprioritaskan Nomor Surat/Ref resmi pada kepala surat, lalu memakai isi Perihal/Hal/Subject bila nomor resmi tidak ada. Nomor HP tetap opsional.</p>
@@ -219,6 +229,10 @@
                 <div class="form-group">
                   <label for="aiModel">Model AI</label>
                   <div class="select-shell"><select id="aiModel">
+                    <optgroup label="DeepSeek Vision">
+                      <option value="deepseek-v4.1-flash">DeepSeek V4.1 Flash · R2 URL</option>
+                      <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+                    </optgroup>
                     <optgroup label="Gemini Vision · Antigravity">
                       <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash · Default</option>
                       <option value="gemini-3.7-flash">Gemini 3.7 Flash · Fallback pertama</option>
@@ -235,8 +249,13 @@
                       <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
                       <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
                     </optgroup>
+                    <optgroup label="GLM Vision">
+                      <option value="glm-5.3-flashx">GLM 5.3 FlashX</option>
+                      <option value="glm-5.3">GLM 5.3</option>
+                      <option value="glm-5.3-flash">GLM 5.3 Flash</option>
+                    </optgroup>
                     </select></div>
-                  <span class="field-hint">Fallback otomatis: Gemini 3.8 Flash → Gemini 3.7 Flash → Gemini 3.6 Flash. Qwen hanya dapat dipilih manual.</span>
+                  <span class="field-hint">Default PDF: Gemini 3.8 Flash melalui jalur langsung tanpa R2, dengan fallback Gemini 3.7 lalu 3.6. GLM, DeepSeek, Qwen, dan Claude dapat dipilih manual.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiAccuracyMode">Mode ekstraksi</label>
@@ -303,7 +322,7 @@
 
           <button class="dropzone-area" id="dropzone" type="button" aria-describedby="uploadHelp">
             <span class="dropzone-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span>
-            <span class="dropzone-copy"><strong>Lepaskan berkas di sini atau pilih</strong><small id="uploadHelp">Format: .pdf, .xlsx, .xls, dan .csv · PDF maksimal 120 MB / 300 halaman</small></span>
+            <span class="dropzone-copy"><strong>Lepaskan PDF di sini atau pilih berkas</strong><small id="uploadHelp">Format: .pdf, .xlsx, .xls, dan .csv · PDF maksimal 80 MB / 300 halaman</small></span>
             <span class="browse-chip">Pilih berkas</span>
           </button>
           <input id="excelInput" type="file" accept=".pdf,.xlsx,.xls,.csv" multiple hidden>
@@ -338,7 +357,7 @@
         <div class="preview-card">
           <div class="preview-toolbar">
             <div class="preview-title">
-              <span class="section-index">04</span>
+              <span class="section-index">05</span>
               <div><h2>Periksa hasil</h2><p>No Ref/Surat tetap dapat diedit; nama dan alamat berdampingan agar koreksi lebih cepat.</p></div>
             </div>
             <div class="preview-actions">
@@ -351,12 +370,12 @@
 
           <div class="summary-strip" aria-label="Current workspace summary">
             <div class="summary-item"><span>Baris</span><strong id="recordCount">0</strong></div>
-            <div class="summary-item"><span>Batch</span><strong id="fileCount">0</strong></div>
+            <div class="summary-item"><span>Berkas</span><strong id="fileCount">0</strong></div>
             <div class="summary-item"><span>Mode</span><strong id="modeSummary">Corporate</strong></div>
             <div class="summary-item"><span>Asuransi</span><strong id="insuranceSummary">Off</strong></div>
             <div class="summary-item summary-item--outside"><span>Luar Kota Batam</span><strong id="outsideBatamCount">0</strong></div>
             <div class="summary-item summary-item--review"><span>Teks perlu dicek</span><strong id="reviewCount">0</strong></div>
-            <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu hasil capture HP</div>
+            <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu foto atau berkas PDF</div>
           </div>
 
           <div class="bulk-reference-editor" id="bulkPdfReferenceEditor" hidden>
@@ -520,6 +539,7 @@
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260908-16.23" defer></script>
   <script src="/assets/js/app-core.js?v=20260927-26.03-camera-primary-cta" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260928-26.14-pdf-upload-direct" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/camera-sync.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/ui.js?v=20260927-26.03-camera-primary-cta" defer></script>

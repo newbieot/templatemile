@@ -33,6 +33,13 @@
   let focusIndicatorTimer = 0;
   let focusResetTimer = 0;
   let orientationSyncTimer = 0;
+  let physicalOrientation = '';
+  let physicalOrientationRotation = 0;
+  let orientationCandidate = '';
+  let orientationCandidateCount = 0;
+  let orientationSensorStarted = false;
+  let orientationPermissionPromise = null;
+  let lastMotionOrientationAt = 0;
   let continuousFocusTrack = null;
   let continuousFocusEnabled = false;
   let continuousFocusRetryTimers = [];
@@ -230,19 +237,106 @@
     return `${(bytes / 1024 / 1024).toLocaleString('id-ID', { maximumFractionDigits: 1 })} MB`;
   }
 
+  function applyPhysicalOrientationCandidate(orientation, rotation = 0) {
+    if (!['portrait', 'landscape'].includes(orientation)) return;
+    const normalizedRotation = orientation === 'landscape' && rotation === -90 ? -90
+      : orientation === 'landscape' ? 90 : 0;
+    const candidate = `${orientation}:${normalizedRotation}`;
+    const current = `${physicalOrientation}:${physicalOrientationRotation}`;
+    if (candidate === current) {
+      orientationCandidate = candidate;
+      orientationCandidateCount = 0;
+      return;
+    }
+    if (orientationCandidate !== candidate) {
+      orientationCandidate = candidate;
+      orientationCandidateCount = 1;
+      return;
+    }
+    orientationCandidateCount += 1;
+    // Tiga sampel berurutan mencegah preview bolak-balik saat HP hampir datar.
+    if (orientationCandidateCount < 3) return;
+    physicalOrientation = orientation;
+    physicalOrientationRotation = normalizedRotation;
+    orientationCandidateCount = 0;
+    window.requestAnimationFrame(updateStageAspect);
+  }
+
+  function handleDeviceMotionOrientation(event) {
+    const gravity = event.accelerationIncludingGravity;
+    const x = Number(gravity?.x);
+    const y = Number(gravity?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const absX = Math.abs(x);
+    const absY = Math.abs(y);
+    // Abaikan posisi hampir datar karena gravitasi tidak cukup untuk menentukan
+    // apakah sisi panjang HP sedang portrait atau landscape.
+    if (Math.hypot(absX, absY) < 3.8) return;
+    lastMotionOrientationAt = Date.now();
+    if (absX > 4.5 && absX > absY + 1.6) {
+      applyPhysicalOrientationCandidate('landscape', x > 0 ? -90 : 90);
+    } else if (absY > 4.5 && absY > absX + 1.6) {
+      applyPhysicalOrientationCandidate('portrait', 0);
+    }
+  }
+
+  function handleDeviceOrientationSensor(event) {
+    // DeviceMotion lebih stabil untuk mendeteksi gravitasi dan diprioritaskan.
+    if (Date.now() - lastMotionOrientationAt < 1200) return;
+    const beta = Number(event.beta);
+    const gamma = Number(event.gamma);
+    if (!Number.isFinite(beta) || !Number.isFinite(gamma)) return;
+    const absBeta = Math.abs(beta);
+    const absGamma = Math.abs(gamma);
+    if (absGamma >= 48) {
+      applyPhysicalOrientationCandidate('landscape', gamma > 0 ? -90 : 90);
+    } else if (absGamma <= 26 && absBeta >= 42) {
+      applyPhysicalOrientationCandidate('portrait', 0);
+    }
+  }
+
+  function startPhysicalOrientationTracking() {
+    if (orientationSensorStarted) return Promise.resolve(true);
+    if (orientationPermissionPromise) return orientationPermissionPromise;
+    orientationPermissionPromise = (async () => {
+      try {
+        const MotionEvent = window.DeviceMotionEvent;
+        const OrientationEvent = window.DeviceOrientationEvent;
+        const requestPermission = typeof MotionEvent?.requestPermission === 'function'
+          ? MotionEvent.requestPermission.bind(MotionEvent)
+          : typeof OrientationEvent?.requestPermission === 'function'
+            ? OrientationEvent.requestPermission.bind(OrientationEvent)
+            : null;
+        if (requestPermission && await requestPermission() !== 'granted') return false;
+        window.addEventListener('devicemotion', handleDeviceMotionOrientation, { passive: true });
+        window.addEventListener('deviceorientation', handleDeviceOrientationSensor, { passive: true });
+        orientationSensorStarted = true;
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+    return orientationPermissionPromise;
+  }
+
   function updateStageAspect() {
     const stage = $('cameraStage');
     const video = $('cameraPreview');
     if (!stage) return;
     const viewportOrientation = window.matchMedia?.('(orientation: landscape)').matches
       || window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-    stage.dataset.orientation = viewportOrientation;
-    document.documentElement.dataset.cameraOrientation = viewportOrientation;
+    const usesPhysicalSensor = isCameraFullscreen() && Boolean(physicalOrientation);
+    const cameraOrientation = usesPhysicalSensor ? physicalOrientation : viewportOrientation;
+    stage.dataset.orientation = cameraOrientation;
+    stage.dataset.orientationSource = usesPhysicalSensor ? 'sensor' : 'viewport';
+    document.documentElement.dataset.cameraOrientation = cameraOrientation;
     if (!video?.videoWidth || !video?.videoHeight) return;
     const frameOrientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
     const screenAngle = Number(window.screen?.orientation?.angle ?? window.orientation ?? 0);
-    const previewRotation = viewportOrientation === 'landscape' && frameOrientation === 'portrait'
-      ? (screenAngle === 270 || screenAngle === -90 ? -90 : 90)
+    const previewRotation = cameraOrientation === 'landscape' && frameOrientation === 'portrait'
+      ? (usesPhysicalSensor
+        ? physicalOrientationRotation
+        : (screenAngle === 270 || screenAngle === -90 ? -90 : 90))
       : 0;
     stage.dataset.frameOrientation = frameOrientation;
     stage.dataset.previewRotation = String(previewRotation);
@@ -405,6 +499,9 @@
       return;
     }
     getAudioContext();
+    // Dipicu dari klik pengguna agar iOS dapat meminta izin sensor. Proses kamera
+    // tidak menunggu sensor sehingga Android lama tetap membuka preview secepatnya.
+    void startPhysicalOrientationTracking();
     // Harus dipanggil sebelum await agar native fullscreen masih berada dalam user gesture klik.
     enterFullscreenMode();
     await draftRestorePromise;

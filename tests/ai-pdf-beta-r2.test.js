@@ -70,6 +70,12 @@ vm.runInContext(aiRuntimeSource, sandbox, {
 const core = sandbox.__mileCore;
 const ai = sandbox.MileAI._test;
 
+sandbox.document.body = { dataset: { pdfDefaultModel: 'gemini-3.8-flash' } };
+assert.equal(ai.pageDefaultModel(), 'gemini-3.8-flash');
+sandbox.document.body = { dataset: { pdfDefaultModel: 'model-tidak-valid' } };
+assert.equal(ai.pageDefaultModel(), 'deepseek-v4.1-flash');
+delete sandbox.document.body;
+
 sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);

@@ -1,5 +1,22 @@
 # Changelog
 
+## v26.15 — Landscape fisik saat orientation lock aktif
+
+- Membaca gravitasi dari sensor gerak perangkat untuk mengenali posisi fisik portrait atau landscape walaupun orientation lock HP tetap portrait.
+- Memutar preview, area crop, dan hasil JPEG berdasarkan posisi fisik yang terdeteksi tanpa meminta browser mengubah kunci orientasi sistem.
+- Memakai tiga sampel berurutan dan ambang gravitasi agar orientasi stabil, tidak berkedip, dan tidak membebani preview kamera.
+- Meminta izin sensor dari klik Open Camera bila diwajibkan iOS, tanpa menahan pembukaan kamera pada Android atau HP lama.
+- Mempertahankan deteksi viewport sebagai fallback pada perangkat yang tidak menyediakan atau menolak izin sensor.
+
+## v26.14 — Upload PDF kembali tersedia
+
+- Mengaktifkan kembali upload PDF pada halaman utama sebagai alternatif dari capture kamera HP.
+- Memuat runtime AI PDF produksi dan PDF.js secara lazy agar tombol upload benar-benar memproses dokumen tanpa membebani pembukaan halaman.
+- Menetapkan Gemini 3.8 Flash sebagai default PDF melalui jalur langsung tanpa R2, dengan fallback Gemini 3.7 lalu 3.6.
+- Tetap menyediakan GLM, DeepSeek, Qwen, dan Claude sebagai pilihan manual tanpa mengubah default eksperimen DeepSeek di halaman beta.
+- Menyamakan batas UI dengan validasi runtime: maksimal 80 MB dan 300 halaman per PDF.
+- Memperbarui alur, status, dan empty state untuk mendukung kamera HP serta PDF tanpa mengurangi visibilitas tombol kamera.
+
 ## v26.13 — Kamera fokus, rotasi landscape, dan pemulihan AI
 
 - Menjaga kamera pada mode autofocus `continuous` selama live preview aktif.

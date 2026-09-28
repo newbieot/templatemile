@@ -88,6 +88,11 @@
 
   const $ = id => document.getElementById(id);
 
+  function pageDefaultModel() {
+    const configured = String(document.body?.dataset?.pdfDefaultModel || '').trim();
+    return COSMOS_MODELS.has(configured) ? configured : DEFAULT_MODEL;
+  }
+
   function isGeminiModel(model) {
     return String(model || '').startsWith('gemini-');
   }
@@ -124,7 +129,7 @@
   function getConfig() {
     const cameraDirect = isCameraDirectMode();
     const protocol = 'openai';
-    const selectedModel = String($('aiModel')?.value || (cameraDirect ? CAMERA_DEFAULT_MODEL : DEFAULT_MODEL)).trim();
+    const selectedModel = String($('aiModel')?.value || (cameraDirect ? CAMERA_DEFAULT_MODEL : pageDefaultModel())).trim();
     const model = cameraDirect && !CAMERA_MODELS.has(selectedModel) ? CAMERA_DEFAULT_MODEL : selectedModel;
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
@@ -233,9 +238,9 @@
       if ($('aiConcurrency')) $('aiConcurrency').value = String(CAMERA_AI_CONCURRENCY);
       return;
     }
-    // Model selalu kembali ke default DeepSeek V4.1 Flash saat halaman dimuat.
-    // Pengguna tetap dapat mengganti model selama sesi berjalan.
-    if ($('aiModel')) $('aiModel').value = DEFAULT_MODEL;
+    // Setiap halaman dapat menentukan default PDF sendiri. Halaman utama memakai
+    // Gemini langsung tanpa R2, sedangkan halaman eksperimen tetap memakai DeepSeek.
+    if ($('aiModel')) $('aiModel').value = pageDefaultModel();
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
       ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6','mile-ai-config-beta-r2-v7'].forEach(key => sessionStorage.removeItem(key));
@@ -2986,7 +2991,7 @@ ${clipped}`
     processCameraImages,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
+    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, pageDefaultModel, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

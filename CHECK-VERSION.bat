@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.13-camera-focus-ai-recovery" "_worker.js" >nul && echo [OK] Worker camera focus dan AI recovery || (echo [GAGAL] Worker bukan versi camera focus dan AI recovery & set "FAIL=1")
+findstr /c:"20260928-26.15-pdf-upload-sensor-orientation" "_worker.js" >nul && echo [OK] Worker upload PDF dan sensor orientasi aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
@@ -122,6 +122,7 @@ if not errorlevel 1 (echo [GAGAL] Tombol Start Capture Session masih tampil & se
 findstr /c:"Foto kurang jelas, silakan ulangi capture." "assets\js\camera.js" >nul
 if not errorlevel 1 (echo [GAGAL] Validasi kualitas masih memblokir capture & set "FAIL=1") else (echo [OK] Resolusi dan kualitas tidak memblokir capture)
 findstr /c:"orientationchange" "assets\js\camera.js" >nul && echo [OK] Perubahan orientasi kamera ditangani || (echo [GAGAL] Dukungan orientasi tidak ditemukan & set "FAIL=1")
+findstr /c:"startPhysicalOrientationTracking" "assets\js\camera.js" >nul && echo [OK] Landscape fisik saat orientation lock aktif || (echo [GAGAL] Sensor orientasi fisik tidak ditemukan & set "FAIL=1")
 findstr /c:"camera=(self)" "_worker.js" "_headers" >nul && echo [OK] Permission camera dibatasi ke halaman camera || (echo [GAGAL] Permission camera route tidak ditemukan & set "FAIL=1")
 findstr /c:"url.pathname === '/camera'" "_worker.js" >nul && echo [OK] Route camera terlindungi tersedia || (echo [GAGAL] Route camera terlindungi tidak ditemukan & set "FAIL=1")
 if exist "tests\camera-capture.test.js" (echo [OK] Tes camera capture tersedia) else (echo [GAGAL] Tes camera capture tidak ditemukan & set "FAIL=1")
