@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.22 — Audit kamera hanya untuk keyakinan rendah
+
+- Mengubah kamera menjadi empat gambar per permintaan dengan maksimal empat permintaan paralel.
+- Membatasi audit otomatis ke foto tanpa hasil, nama/alamat yang hilang atau bertanda PERLU DICEK, serta skor keyakinan AI di bawah 0,65.
+- Meminta skor keterbacaan nama/alamat pada ekstraksi pertama dan membedakan skor AI dari skor perkiraan untuk review pengguna.
+- Menyerahkan keraguan ringan, field opsional, format nama, klasifikasi wilayah, dan beberapa baris per foto kepada pemeriksaan operator tanpa request audit tambahan.
+
 ## v26.21 — Kamera 3 gambar per permintaan, 4 paralel
 
 - Mengubah jalur AI kamera menjadi kelompok tiga gambar dengan hingga empat permintaan paralel untuk uji latensi.

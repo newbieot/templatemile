@@ -92,10 +92,10 @@ for (const model of [
   const config = ai.getConfig();
   assert.equal(config.model, model);
   assert.equal(config.cameraDirect, true);
-  assert.equal(config.pagesPerRequest, 3);
+  assert.equal(config.pagesPerRequest, 4);
   assert.equal(config.concurrency, 4);
   assert.equal(config.networkMode, 'normal');
-  assert.equal(config.verificationPolicy, 'smart');
+  assert.equal(config.verificationPolicy, 'low-confidence');
 }
 
 element('aiModel').value = 'model-tidak-diizinkan';
@@ -110,21 +110,20 @@ const sources = Array.from({ length: 15 }, (_, index) => ({
   label: `GAMBAR ${index + 1}`,
   url: `data:image/jpeg;base64,${Buffer.from(String(index + 1)).toString('base64')}`
 }));
-const groups = [sources.slice(0, 3), sources.slice(3, 6), sources.slice(6, 9), sources.slice(9, 12), sources.slice(12, 15)];
+const groups = [sources.slice(0, 4), sources.slice(4, 8), sources.slice(8, 12), sources.slice(12, 15)];
 const bodies = groups.map((group, index) => ai.buildApiBody({ model: 'glm-5.3-flashx' }, `uji kelompok ${index + 1}`, group, 3500));
-assert.equal(bodies.length, 5);
+assert.equal(bodies.length, 4);
 assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.filter(part => part.type === 'image_url').length, 0), 15);
-bodies.forEach(body => {
+bodies.forEach((body, index) => {
   const content = body.messages[1].content;
   assert.equal(body.response_format.type, 'json_object');
-  assert.equal(content.filter(part => part.type === 'image_url').length, 3);
-  assert.equal(content.filter(part => part.type === 'text').length, 4);
+  assert.equal(content.filter(part => part.type === 'image_url').length, groups[index].length);
+  assert.equal(content.filter(part => part.type === 'text').length, groups[index].length + 1);
 });
 
 assert.match(source, /betaRemoteImagesAvailable = !config\.cameraDirect/);
 assert.match(source, /const testViaR2 = !config\.cameraDirect/);
-assert.match(source, /const CAMERA_WAVE_SIZE = 15/);
-assert.match(source, /const CAMERA_BATCH_SIZE = 3/);
+assert.match(source, /const CAMERA_BATCH_SIZE = 4/);
 assert.match(source, /const CAMERA_AI_CONCURRENCY = 4/);
 assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 \* 1024 \* 1024/);
 assert.match(source, /activeAiLimit = Math\.max\(1, activeAiLimit - 1\)/);
@@ -142,7 +141,7 @@ assert.doesNotMatch(cameraHtml, /id="aiModelSelect"|Model AI \(Vision\)/);
 assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gemini-3\.8-flash'/);
 assert.match(cameraRuntime, /aiModel: DEFAULT_AI_MODEL/);
 assert.match(reviewHtml, /value="gemini-3\.8-flash" selected/);
-assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="3" selected/);
+assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="4" selected/);
 assert.match(reviewHtml, /id="aiConcurrency"><option value="4" selected/);
 for (const requiredProgressId of [
   'aiProgressModal',
@@ -186,6 +185,6 @@ async function runQualityAssertions() {
   const dataUrl = `data:image/jpeg;base64,${Buffer.alloc(largeJpeg.size).toString('base64')}`;
   const maxBody = ai.buildApiBody({ model: 'gemini-3.8-flash' }, 'uji foto resolusi tinggi', Array.from({ length: 5 }, (_, index) => ({ page: index + 1, label: `GAMBAR ${index + 1}`, url: dataUrl })), 3500);
   assert.ok(Buffer.byteLength(JSON.stringify({ body: maxBody })) < 28 * 1024 * 1024 - 64 * 1024);
-  console.log('PASS camera-direct-ai: original 5 × 4 MB JPEG preserved, gateway budget, Gemini fallback, 15 images / 3 requests');
+  console.log('PASS camera-direct-ai: original JPEG preserved, gateway budget, Gemini fallback, 15 images / 4 requests');
 }
 runQualityAssertions().catch(error => { console.error(error); process.exitCode = 1; });

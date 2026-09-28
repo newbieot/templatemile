@@ -191,7 +191,7 @@
           <select id="aiAccuracyMode"><option value="auto" selected></option></select>
           <select id="aiNetworkMode"><option value="normal" selected></option></select>
           <select id="aiSpeedPreset"><option value="fast" selected></option></select>
-          <select id="aiPagesPerRequest"><option value="3" selected></option></select>
+          <select id="aiPagesPerRequest"><option value="4" selected></option></select>
           <select id="aiConcurrency"><option value="4" selected></option></select>
           <button id="testAiConnection" type="button"></button>
           <div id="aiConfigFeedback"></div>
@@ -321,7 +321,7 @@
       <div class="modal-heading ai-progress-heading">
         <span class="modal-step" id="aiProgressStep">Memproses AI</span>
         <h3 id="aiProgressTitle">Menganalisis hasil capture</h3>
-        <p id="aiProgressMessage">15 gambar diproses per 3 gambar/request, hingga 4 permintaan paralel tanpa R2…</p>
+        <p id="aiProgressMessage">Foto diproses per 4 gambar/request, hingga 4 permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah…</p>
       </div>
       <div class="ai-progress-stopwatch" aria-live="off">
         <span>Waktu berjalan</span>
@@ -389,10 +389,10 @@
   <!-- Runtime Scripts -->
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/app-core.js?v=20260927-26.03-camera-primary-cta" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260928-26.21-camera-3x4" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260928-26.22-camera-confidence-audit" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/camera-sync.js?v=20260927-26.02-customer-template-search" defer></script>
-  <script src="/assets/js/camera-import-v2.js?v=20260928-26.21-camera-3x4" defer></script>
+  <script src="/assets/js/camera-import-v2.js?v=20260928-26.22-camera-confidence-audit" defer></script>
   <script src="/assets/js/ui.js?v=20260927-26.03-camera-primary-cta" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>

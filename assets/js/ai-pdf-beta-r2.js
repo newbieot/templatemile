@@ -24,6 +24,7 @@
   const AUDIT_JPEG_QUALITY = 0.91;
   const MAX_JSON_REPAIR_CHARS = 48000;
   const SMART_CONFIDENCE_THRESHOLD = 0.82;
+  const CAMERA_AUDIT_CONFIDENCE_THRESHOLD = 0.65;
   const MAX_RETRIES = 3;
   const REQUEST_TIMEOUT_MS = 3 * 60 * 1000;
   const GEMINI_REQUEST_TIMEOUT_MS = 75 * 1000;
@@ -53,8 +54,7 @@
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
   const CAMERA_DEFAULT_MODEL = 'gemini-3.8-flash';
-  const CAMERA_WAVE_SIZE = 15;
-  const CAMERA_BATCH_SIZE = 3;
+  const CAMERA_BATCH_SIZE = 4;
   const CAMERA_AI_CONCURRENCY = 4;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
   // New captures are WebP <= 2 MB. Also preserve older JPEGs up to 4 MB:
@@ -146,7 +146,7 @@
     const networkProfile = resolveNetworkProfile(networkMode);
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
     const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
-    const verificationPolicy = cameraDirect ? 'smart' : (SPEED_PRESETS[speedPreset]?.verification || 'smart');
+    const verificationPolicy = cameraDirect ? 'low-confidence' : (SPEED_PRESETS[speedPreset]?.verification || 'smart');
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
       provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy,
@@ -278,7 +278,7 @@
     if (!hint) return;
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     if (isCameraDirectMode()) {
-      hint.textContent = 'Mode Kamera: 15 gambar per batch, 3 gambar per permintaan, hingga 4 permintaan paralel tanpa R2.';
+      hint.textContent = `Mode Kamera: ${CAMERA_BATCH_SIZE} gambar per permintaan, hingga ${CAMERA_AI_CONCURRENCY} permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah atau data utama tidak terbaca.`;
       return;
     }
     const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
@@ -1227,8 +1227,15 @@
   }
 
   function buildPrompt(startPage, endPage, options = {}) {
+    const readabilityRule = options.cameraDirect
+      ? 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca. Gunakan "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca. Bila teks masih terbaca tetapi ada keraguan kecil, pertahankan bacaannya dan tandai kolom di perlu_dicek_fields untuk pemeriksaan operator.'
+      : 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" pada bagian meragukan.';
+    const confidenceRule = options.cameraDirect
+      ? '\n8. confidence: angka 0 sampai 1 untuk keyakinan membaca nama_penerima dan alamat_penerima. Nilai hanya keterbacaan dua field utama; nomor_hp/nomor_surat yang kosong atau keraguan apakah kota termasuk Batam tidak menurunkan confidence. Keraguan kecil tetap ditandai di perlu_dicek_fields untuk pemeriksaan operator.'
+      : '';
+    const confidenceField = options.cameraDirect ? ',"confidence":0.95' : '';
     return `Tolong ubah dokumen ini menjadi data terstruktur.
-Baca HANYA sebagai HASIL SCAN. Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" pada bagian meragukan.
+Baca HANYA sebagai HASIL SCAN. ${readabilityRule}
 Kembalikan HANYA JSON valid tanpa markdown, tanpa penjelasan, dan TANPA whitespace berlebih.
 
 Aturan:
@@ -1238,10 +1245,10 @@ Aturan:
 4. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
 5. nomor_surat: PRIORITAS PERTAMA adalah nomor surat resmi setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh pada kepala surat "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara di bagian Jenis Surat bila nomor kepala surat tersedia. Jika nomor surat resmi tidak ada, gunakan isi setelah label PERIHAL/HAL/SUBJECT tanpa kata label; contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)" dan "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Setelah itu barulah gunakan ID Pesanan atau Resi. Nilai boleh berupa teks.
 6. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
-7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.
+7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.${confidenceRule}
 
 Format Wajib:
-{"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]}]}
+{"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]${confidenceField}}]}
 `;
   }
 
@@ -2017,6 +2024,14 @@ ${clipped}`
     return false;
   }
 
+  function needsCameraAudit(row) {
+    if (!row.name || !row.address) return true;
+    if (containsReviewMarker(row.name) || containsReviewMarker(row.address)) return true;
+    // Skor perkiraan dari penanda review bukan keyakinan yang diberikan AI.
+    // Keraguan ringan dan field opsional tetap ditangani pemeriksaan operator.
+    return row.aiConfidenceExplicit === true && row.aiConfidence < CAMERA_AUDIT_CONFIDENCE_THRESHOLD;
+  }
+
   function normalizeRows(aiRows, template, pageOffset = 0, options = {}) {
     const core = window.__mileCore;
     const expectedPages = Array.isArray(options.expectedPages)
@@ -2059,9 +2074,12 @@ ${clipped}`
       if (containsReviewMarker(address) && !aiReviewFields.includes('alamat_penerima')) aiReviewFields.push('alamat_penerima');
 
       const rawConfidence = pick(item, ['confidence', 'keyakinan', 'score'], null);
-      const hasConfidence = rawConfidence !== null && rawConfidence !== '';
-      // Prompt ringkas tidak lagi meminta confidence. Baris bersih dianggap mantap;
-      // penanda PERLU DICEK/review_fields tetap memicu audit selektif.
+      const confidenceNumber = Number(rawConfidence);
+      const hasConfidence = ['number', 'string'].includes(typeof rawConfidence) &&
+        String(rawConfidence).trim() !== '' && Number.isFinite(confidenceNumber) &&
+        confidenceNumber >= 0 && confidenceNumber <= 1;
+      // Simpan apakah skor benar-benar diberikan AI agar skor perkiraan untuk
+      // review pengguna tidak ikut memicu audit kamera.
       const aiConfidence = hasConfidence
         ? clampConfidence(rawConfidence)
         : (aiReviewFields.length ? 0.74 : 0.95);
@@ -2073,7 +2091,7 @@ ${clipped}`
         noSurat, name, phone: phone || '0', zip, address,
         act: 0.2, p: 10, l: 10, t: 10, cw: '0.20',
         outsideBatam, outsideBatamReason: outsideAssessment.reason,
-        sourcePage: page, aiConfidence, aiReviewFields,
+        sourcePage: page, aiConfidence, aiConfidenceExplicit: hasConfidence, aiReviewFields,
         rawLines: cleanedRawLines, bniMode: false
       };
       row.needsVerification = looksSuspiciousRow(row);
@@ -2095,9 +2113,9 @@ ${clipped}`
 
   function verificationPages(config, rows, expectedPages = []) {
     const profile = IMAGE_PROFILES[config.accuracyMode] || IMAGE_PROFILES[DEFAULT_ACCURACY_MODE];
-    const policy = ['all', 'none'].includes(profile.verify)
-      ? profile.verify
-      : (config.verificationPolicy || profile.verify);
+    const policy = config.cameraDirect
+      ? 'low-confidence'
+      : (['all', 'none'].includes(profile.verify) ? profile.verify : (config.verificationPolicy || profile.verify));
     const expected = [...new Set((expectedPages.length ? expectedPages : rows.map(row => row.sourcePage))
       .map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
     if (policy === 'none') return [];
@@ -2115,7 +2133,10 @@ ${clipped}`
     const audit = new Set();
     expected.forEach(page => {
       const pageRows = rowsByPage.get(page) || [];
-      if (pageRows.length !== 1 || pageRows.some(row => row.needsVerification || looksSuspiciousRow(row))) audit.add(page);
+      const needsAudit = policy === 'low-confidence'
+        ? (!pageRows.length || pageRows.some(needsCameraAudit))
+        : (pageRows.length !== 1 || pageRows.some(row => row.needsVerification || looksSuspiciousRow(row)));
+      if (needsAudit) audit.add(page);
     });
     return [...audit].sort((a, b) => a - b);
   }
@@ -2335,7 +2356,7 @@ ${clipped}`
           ? 'Eksperimen DeepSeek siap · gambar dikirim sebagai tautan R2 sementara.'
           : 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.')
         : (config.cameraDirect
-          ? `Mode Kamera Direct siap · ${CAMERA_WAVE_SIZE} gambar per batch, ${CAMERA_BATCH_SIZE} gambar per permintaan × hingga ${CAMERA_AI_CONCURRENCY} jalur paralel tanpa R2.`
+          ? `Mode Kamera Direct siap · ${CAMERA_BATCH_SIZE} gambar per permintaan × hingga ${CAMERA_AI_CONCURRENCY} jalur paralel tanpa R2. Audit hanya bila keyakinan rendah atau data utama tidak terbaca.`
           : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.'));
       setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar melalui R2' : 'Mulai menyiapkan gambar langsung');
 
@@ -2811,7 +2832,7 @@ ${clipped}`
       const networkExplanation = limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`
         : (config.cameraDirect
-          ? `${CAMERA_WAVE_SIZE} gambar diproses per batch dalam kelompok ${CAMERA_BATCH_SIZE}, hingga ${CAMERA_AI_CONCURRENCY} permintaan paralel.`
+          ? `Foto diproses dalam kelompok ${CAMERA_BATCH_SIZE}, hingga ${CAMERA_AI_CONCURRENCY} permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah.`
           : GEMINI_FALLBACK_CHAIN.includes(config.model)
           ? `Gemini berjalan dengan ${activeAiLimit} jalur Turbo langsung.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
