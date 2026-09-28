@@ -6,7 +6,9 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.20-fast-shutter-720p-jpeg" "_worker.js" >nul && echo [OK] Worker shutter cepat kamera 720p JPEG terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260928-26.21-camera-3x4" "_worker.js" >nul && echo [OK] Worker konfigurasi kamera 3 gambar x 4 jalur terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"const CAMERA_BATCH_SIZE = 3" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 3 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
+findstr /c:"const CAMERA_AI_CONCURRENCY = 4" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 4 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")

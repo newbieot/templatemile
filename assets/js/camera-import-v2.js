@@ -86,8 +86,8 @@
       processingDurationSeconds: Number(runMetrics?.durationSeconds || session?.durationSeconds || 0),
       totalDurationSeconds,
       model: String(runMetrics?.model || session?.aiModel || 'gemini-3.8-flash'),
-      chunkSize: Number(runMetrics?.chunkSize || 5),
-      concurrency: Number(runMetrics?.concurrency || 3),
+      chunkSize: Number(runMetrics?.chunkSize || 3),
+      concurrency: Number(runMetrics?.concurrency || 4),
       chunkTimings: Array.isArray(runMetrics?.chunkTimings) ? runMetrics.chunkTimings : [],
       reviewCount: Number(runMetrics?.reviewCount || 0),
       outsideBatamCount: Number(runMetrics?.outsideBatamCount || 0)
@@ -190,13 +190,13 @@
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
                 model: session.aiModel || 'gemini-3.8-flash',
-                chunkSize: 5,
-                concurrency: 3,
+                chunkSize: 3,
+                concurrency: 4,
                 durationSeconds: session.durationSeconds || 0,
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · 15 gambar per gelombang · 3 kelompok paralel × 5 · tanpa R2'
+                message: 'Camera Direct · 15 gambar per batch · hingga 4 permintaan paralel × 3 gambar · tanpa R2'
               }),
               credentials: 'same-origin'
             });
@@ -212,8 +212,8 @@
             buildSyncDetails(session, {
               durationSeconds: session.durationSeconds,
               model: session.aiModel,
-              chunkSize: 5,
-              concurrency: 3,
+              chunkSize: 3,
+              concurrency: 4,
               reviewCount,
               outsideBatamCount: outOfTown
             })

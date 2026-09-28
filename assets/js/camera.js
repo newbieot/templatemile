@@ -1156,7 +1156,7 @@
         aiModel,
         captureDurationSeconds: Number(captureDurationSeconds.toFixed(3))
       });
-      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Setiap 15 gambar diproses sebagai 3 kelompok paralel × 5 tanpa R2...');
+      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Setiap 15 gambar diproses per 3 gambar/request, hingga 4 permintaan paralel tanpa R2...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       finalizingBatch = false;

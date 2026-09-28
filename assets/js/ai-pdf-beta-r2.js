@@ -54,8 +54,8 @@
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
   const CAMERA_DEFAULT_MODEL = 'gemini-3.8-flash';
   const CAMERA_WAVE_SIZE = 15;
-  const CAMERA_BATCH_SIZE = 5;
-  const CAMERA_AI_CONCURRENCY = 3;
+  const CAMERA_BATCH_SIZE = 3;
+  const CAMERA_AI_CONCURRENCY = 4;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
   // New captures are WebP <= 2 MB. Also preserve older JPEGs up to 4 MB:
   // five original 4 MB images still fit the gateway's 28 MB JSON/base64 limit.
@@ -278,7 +278,7 @@
     if (!hint) return;
     const presetName = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
     if (isCameraDirectMode()) {
-      hint.textContent = 'Mode Kamera: 15 gambar per gelombang dibagi menjadi 3 kelompok × 5 gambar paralel, tanpa R2.';
+      hint.textContent = 'Mode Kamera: 15 gambar per batch, 3 gambar per permintaan, hingga 4 permintaan paralel tanpa R2.';
       return;
     }
     const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
@@ -2335,7 +2335,7 @@ ${clipped}`
           ? 'Eksperimen DeepSeek siap · gambar dikirim sebagai tautan R2 sementara.'
           : 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.')
         : (config.cameraDirect
-          ? `Mode Kamera Direct siap · ${CAMERA_WAVE_SIZE} gambar per gelombang, ${CAMERA_BATCH_SIZE} gambar per kelompok × ${CAMERA_AI_CONCURRENCY} jalur paralel tanpa R2.`
+          ? `Mode Kamera Direct siap · ${CAMERA_WAVE_SIZE} gambar per batch, ${CAMERA_BATCH_SIZE} gambar per permintaan × hingga ${CAMERA_AI_CONCURRENCY} jalur paralel tanpa R2.`
           : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.'));
       setTransferProgress(0, betaRemoteImagesAvailable ? 'Mulai menyiapkan gambar melalui R2' : 'Mulai menyiapkan gambar langsung');
 
@@ -2811,7 +2811,7 @@ ${clipped}`
       const networkExplanation = limitedByNetwork
         ? `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`
         : (config.cameraDirect
-          ? `${CAMERA_WAVE_SIZE} gambar diproses sebagai ${CAMERA_AI_CONCURRENCY} kelompok paralel × ${CAMERA_BATCH_SIZE} gambar.`
+          ? `${CAMERA_WAVE_SIZE} gambar diproses per batch dalam kelompok ${CAMERA_BATCH_SIZE}, hingga ${CAMERA_AI_CONCURRENCY} permintaan paralel.`
           : GEMINI_FALLBACK_CHAIN.includes(config.model)
           ? `Gemini berjalan dengan ${activeAiLimit} jalur Turbo langsung.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);

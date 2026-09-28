@@ -241,7 +241,7 @@ async function runAsyncAssertions() {
   assert.match(reviewHtml, /assets\/css\/review\.css/);
   assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
   assert.match(reviewHtml, /camera-import-v2\.js/);
-  assert.match(reviewHtml, /15 gambar diproses sebagai 3 kelompok paralel × 5 langsung tanpa R2/);
+  assert.match(reviewHtml, /15 gambar diproses per 3 gambar\/request, hingga 4 permintaan paralel tanpa R2/);
   assert.match(reviewHtml, /id="aiProgressModal"/);
   assert.match(reviewHtml, /id="aiProgressStep"/);
   assert.match(reviewHtml, /id="aiProgressMessage"/);

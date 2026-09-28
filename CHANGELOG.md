@@ -1,5 +1,10 @@
 # Changelog
 
+## v26.21 — Kamera 3 gambar per permintaan, 4 paralel
+
+- Mengubah jalur AI kamera menjadi kelompok tiga gambar dengan hingga empat permintaan paralel untuk uji latensi.
+- Memperbarui petunjuk proses, metadata batch, dokumentasi, dan versi cache agar skema baru tampil konsisten.
+
 ## v26.20 — Shutter cepat dengan antrean JPEG
 
 - Tap shutter langsung mengambil snapshot frame kamera; kompresi JPEG maksimal 720p/120 KB berjalan berurutan di background agar tap berikutnya tidak menunggu proses simpan.
