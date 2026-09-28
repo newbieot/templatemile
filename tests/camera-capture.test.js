@@ -113,6 +113,7 @@ async function runAsyncAssertions() {
 
   const cameraHtml = fs.readFileSync(path.join(root, 'camera.html'), 'utf8');
   const cameraRuntime = fs.readFileSync(path.join(root, 'assets/js/camera.js'), 'utf8');
+  const cameraCoreSource = fs.readFileSync(path.join(root, 'assets/js/camera-core.js'), 'utf8');
   const cameraCss = fs.readFileSync(path.join(root, 'assets/css/camera.css'), 'utf8');
   const worker = fs.readFileSync(path.join(root, '_worker.js'), 'utf8');
   assert.match(cameraRuntime, /navigator\.mediaDevices\.getUserMedia/);
@@ -126,7 +127,19 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /facingMode: \{ ideal: 'environment' \}/);
   assert.match(cameraRuntime, /requestFullscreen/);
   assert.match(cameraRuntime, /orientationchange/);
-  assert.match(cameraRuntime, /await ensureSession\(\);/);
+  assert.match(cameraRuntime, /ensureSession\(\);/);
+  assert.doesNotMatch(cameraRuntime, /await ensureSession\(\);/);
+  assert.match(cameraRuntime, /const ANALYSIS_MAX_WIDTH = 240/);
+  assert.match(cameraRuntime, /frameRate: \{ ideal: 24, max: 30 \}/);
+  assert.match(cameraRuntime, /scheduleLiveDetection\(120\)/);
+  assert.match(cameraRuntime, /hasFreshDetection/);
+  assert.match(cameraRuntime, /drawImage\(video, sx, sy, sw, sh, 0, 0, outputCanvas\.width, outputCanvas\.height\)/);
+  assert.doesNotMatch(cameraRuntime, /sourceCanvas\.getContext\('2d'\)\.drawImage\(video/);
+  assert.match(cameraRuntime, /yieldForPaint/);
+  assert.match(cameraRuntime, /DRAFT_SAVE_DELAY_MS = 2400/);
+  assert.match(cameraRuntime, /requestIdleCallback/);
+  assert.match(cameraRuntime, /cancelScheduledDraftSave/);
+  assert.match(cameraCoreSource, /new Int32Array\(mask\.length\)/);
   assert.match(cameraRuntime, /guideFallback: useGuideFallback/);
   assert.match(cameraRuntime, /validateImageQuality/);
   assert.doesNotMatch(cameraHtml, /Start Capture Session/);
@@ -146,6 +159,15 @@ async function runAsyncAssertions() {
   assert.match(cameraCss, /\.camera-stage\.is-fullscreen/);
   assert.match(cameraCss, /\.camera-flash/);
   assert.match(cameraCss, /\.camera-hud-toast/);
+  assert.match(cameraCss, /will-change:left,top,width,height/);
+  assert.doesNotMatch(cameraCss, /transition:left \.2s ease/);
+  assert.match(cameraRuntime, /GUIDE_ANIMATION_MS = 280/);
+  assert.match(cameraRuntime, /GUIDE_FRAME_MS = 32/);
+  assert.match(cameraRuntime, /camera-low-power/);
+  assert.match(cameraRuntime, /const width = Math\.min\(240, canvas\.width\)/);
+  assert.match(cameraRuntime, /Math\.pow\(1 - progress, 3\)/);
+  assert.doesNotMatch(cameraCss, /0 0 0 999px/);
+  assert.match(cameraCss, /camera-low-power \.camera-hud-toast/);
   assert.match(cameraCss, /\.camera-fullscreen-finish/);
   assert.match(cameraCss, /camera-capture-button--fullscreen\{flex:1 1 auto;min-width:0;min-height:64px/);
   assert.match(cameraCss, /camera-fullscreen-finish\{flex:0 0 92px;width:92px;min-height:48px;align-self:flex-end/);

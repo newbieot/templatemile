@@ -1,5 +1,15 @@
 # Changelog
 
+## v26.06 — Kamera lebih ringan untuk HP lama
+
+- Membuka kamera tanpa menunggu konfigurasi fokus, enumerasi perangkat, atau wake lock selesai.
+- Membatasi preview ke profil 24–30 FPS dan menurunkan beban analisis autocrop lebih dari separuh pada HP terbatas.
+- Menggunakan hasil deteksi terbaru saat Capture dan menggambar crop langsung dari video tanpa canvas foto penuh perantara.
+- Memberikan flash, suara, getar, dan status segera sebelum encoding JPEG berjalan.
+- Menunda, menggabungkan, dan menjalankan penyimpanan draft saat browser idle agar IndexedDB tidak mengganggu capture berikutnya.
+- Menghaluskan perpindahan kotak autocrop dengan animasi 280 ms tanpa mengubah koordinat crop sebenarnya.
+- Menghapus bayangan masking autocrop berukuran sangat besar dan efek blur pada profil HP terbatas agar preview tetap lancar.
+
 ## v26.05 — Autocrop label lebih tahan objek pengganggu
 
 - Memprioritaskan bidang label yang terang dan netral dibanding objek besar berwarna dengan kontras tinggi.

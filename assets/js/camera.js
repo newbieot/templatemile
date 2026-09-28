@@ -4,8 +4,15 @@
   const MAX_CAPTURES = 150;
   const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
   const OUTPUT_MAX_SIDE = 2000;
+  const LOW_END_OUTPUT_MAX_SIDE = 1600;
   const THUMBNAIL_MAX_SIDE = 360;
-  const ANALYSIS_MAX_WIDTH = 360;
+  const ANALYSIS_MAX_WIDTH = 240;
+  const ANALYSIS_INTERVAL_MS = 950;
+  const DETECTION_MAX_AGE_MS = 2400;
+  const DRAFT_SAVE_DELAY_MS = 2400;
+  const DRAFT_SAVE_MAX_WAIT_MS = 5000;
+  const GUIDE_ANIMATION_MS = 280;
+  const GUIDE_FRAME_MS = 32;
   const MIN_DETECTION_CONFIDENCE = 0.55;
   const core = window.MileCameraCore;
   const store = window.MileCameraStore;
@@ -17,13 +24,26 @@
   let sessionStartedAt = '';
   let analysisTimer = 0;
   let liveDetection = core?.fixedGuideBounds?.() || { x: 0.08, y: 0.13, width: 0.84, height: 0.74, confidence: 0, method: 'fixed-guide' };
+  let liveDetectionAt = 0;
+  let displayedGuide = null;
+  let guideAnimationFrame = 0;
   let captureBusy = false;
+  let finalizingBatch = false;
   let wakeLock = null;
   let galleryIndex = 0;
   let galleryObjectUrl = '';
   let retakeSlotIndex = -1;
   let draftSaveChain = Promise.resolve();
+  let draftSaveTimer = 0;
+  let draftSaveUsesIdleCallback = false;
   let draftRestorePromise = Promise.resolve();
+
+  const constrainedDevice = (() => {
+    const memory = Number(navigator.deviceMemory || 0);
+    const cores = Number(navigator.hardwareConcurrency || 0);
+    return (memory > 0 && memory <= 4) || (cores > 0 && cores <= 4);
+  })();
+  document.documentElement.classList.toggle('camera-low-power', constrainedDevice);
 
   function captureButtons() {
     return [$('captureButton'), $('captureButtonFullscreen')].filter(Boolean);
@@ -264,26 +284,91 @@
     updateStageAspect();
   }
 
-  function updateGuide(detection) {
+  function renderGuide(detection) {
     const guide = $('cropGuide');
-    const label = $('cropStatus');
     if (!guide || !detection) return;
     const display = videoDisplayRect();
     guide.style.left = display ? `${display.x + detection.x * display.width}px` : `${detection.x * 100}%`;
     guide.style.top = display ? `${display.y + detection.y * display.height}px` : `${detection.y * 100}%`;
     guide.style.width = display ? `${detection.width * display.width}px` : `${detection.width * 100}%`;
     guide.style.height = display ? `${detection.height * display.height}px` : `${detection.height * 100}%`;
+  }
+
+  function updateGuide(detection, { immediate = false } = {}) {
+    const guide = $('cropGuide');
+    const label = $('cropStatus');
+    if (!guide || !detection) return;
     const accepted = detection.method === 'fixed-guide' || Number(detection.confidence || 0) >= MIN_DETECTION_CONFIDENCE;
     guide.classList.toggle('is-low-confidence', !accepted);
     if (label) {
       label.textContent = detectionLabel(detection);
       label.dataset.state = accepted ? 'ready' : 'warning';
     }
+
+    let target = {
+      x: Number(detection.x || 0),
+      y: Number(detection.y || 0),
+      width: Number(detection.width || 0),
+      height: Number(detection.height || 0)
+    };
+    if (displayedGuide) {
+      const movement = Math.max(
+        Math.abs(target.x - displayedGuide.x),
+        Math.abs(target.y - displayedGuide.y),
+        Math.abs(target.width - displayedGuide.width),
+        Math.abs(target.height - displayedGuide.height)
+      );
+      if (movement < 0.08) {
+        target = {
+          x: displayedGuide.x + (target.x - displayedGuide.x) * 0.42,
+          y: displayedGuide.y + (target.y - displayedGuide.y) * 0.42,
+          width: displayedGuide.width + (target.width - displayedGuide.width) * 0.42,
+          height: displayedGuide.height + (target.height - displayedGuide.height) * 0.42
+        };
+      }
+    }
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (immediate || reducedMotion || !displayedGuide) {
+      if (guideAnimationFrame) window.cancelAnimationFrame(guideAnimationFrame);
+      guideAnimationFrame = 0;
+      displayedGuide = target;
+      renderGuide(displayedGuide);
+      return;
+    }
+
+    if (guideAnimationFrame) window.cancelAnimationFrame(guideAnimationFrame);
+    const start = { ...displayedGuide };
+    const startedAt = performance.now();
+    let lastRenderedAt = startedAt - GUIDE_FRAME_MS;
+    const animate = now => {
+      const progress = Math.min(1, (now - startedAt) / GUIDE_ANIMATION_MS);
+      if (progress < 1 && now - lastRenderedAt < GUIDE_FRAME_MS) {
+        guideAnimationFrame = window.requestAnimationFrame(animate);
+        return;
+      }
+      lastRenderedAt = now;
+      const eased = 1 - Math.pow(1 - progress, 3);
+      displayedGuide = {
+        x: start.x + (target.x - start.x) * eased,
+        y: start.y + (target.y - start.y) * eased,
+        width: start.width + (target.width - start.width) * eased,
+        height: start.height + (target.height - start.height) * eased
+      };
+      renderGuide(displayedGuide);
+      if (progress < 1) guideAnimationFrame = window.requestAnimationFrame(animate);
+      else guideAnimationFrame = 0;
+    };
+    guideAnimationFrame = window.requestAnimationFrame(animate);
   }
 
   function stopCamera() {
-    if (analysisTimer) window.clearInterval(analysisTimer);
+    if (analysisTimer) window.clearTimeout(analysisTimer);
     analysisTimer = 0;
+    if (guideAnimationFrame) window.cancelAnimationFrame(guideAnimationFrame);
+    guideAnimationFrame = 0;
+    displayedGuide = null;
+    liveDetectionAt = 0;
+    liveDetection = core?.fixedGuideBounds?.() || liveDetection;
     stream?.getTracks?.().forEach(track => track.stop());
     stream = null;
     const video = $('cameraPreview');
@@ -331,9 +416,14 @@
       // Ini menyelesaikan masalah bug di mana OS HP selalu mengirim video mendatar.
       const ratio = isPortrait ? (3/4) : (4/3);
       
+      const sharedConstraints = {
+        aspectRatio: { ideal: ratio },
+        width: { ideal: constrainedDevice ? 1600 : 1920, max: 1920 },
+        frameRate: { ideal: 24, max: 30 }
+      };
       const videoConstraints = deviceId
-        ? { deviceId: { exact: deviceId }, aspectRatio: { ideal: ratio }, width: { ideal: 1920 } }
-        : { facingMode: { ideal: 'environment' }, aspectRatio: { ideal: ratio }, width: { ideal: 1920 } };
+        ? { ...sharedConstraints, deviceId: { exact: deviceId } }
+        : { ...sharedConstraints, facingMode: { ideal: 'environment' } };
       
       stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
       const video = $('cameraPreview');
@@ -344,19 +434,22 @@
       updateStageAspect();
       const track = stream.getVideoTracks()[0];
       const settings = track.getSettings?.() || {};
-      try {
-        const capabilities = track.getCapabilities?.() || {};
-        if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
-          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-        }
-      } catch (_) {}
-      await populateCameras(settings.deviceId || '');
       $('cameraState').textContent = `${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} · kamera belakang diprioritaskan`;
-      await ensureSession();
+      ensureSession();
       setCaptureDisabled(false);
       setStatus('Kamera aktif dan siap Capture. Posisi portrait maupun landscape didukung.', 'success');
-      updateLiveDetection();
-      analysisTimer = window.setInterval(updateLiveDetection, 650);
+      scheduleLiveDetection(120);
+
+      // Konfigurasi tambahan tidak boleh menahan kamera siap digunakan pada HP lama.
+      window.setTimeout(async () => {
+        try {
+          const capabilities = track.getCapabilities?.() || {};
+          if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
+            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+          }
+        } catch (_) {}
+        populateCameras(settings.deviceId || '').catch(() => {});
+      }, 0);
     } catch (error) {
       const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
       setStatus(
@@ -389,11 +482,26 @@
     if (!stream || captureBusy || !core) return;
     try {
       const fixedMode = $('fixedGuideMode')?.checked;
-      const frame = analysisFrame();
-      if (!frame) return;
-      liveDetection = fixedMode ? core.fixedGuideBounds() : core.detectDocumentBounds(frame);
+      if (fixedMode) {
+        liveDetection = core.fixedGuideBounds();
+      } else {
+        const frame = analysisFrame();
+        if (!frame) return;
+        liveDetection = core.detectDocumentBounds(frame);
+      }
+      liveDetectionAt = Date.now();
       updateGuide(liveDetection);
     } catch (_) {}
+  }
+
+  function scheduleLiveDetection(delay = constrainedDevice ? ANALYSIS_INTERVAL_MS + 250 : ANALYSIS_INTERVAL_MS) {
+    if (analysisTimer) window.clearTimeout(analysisTimer);
+    if (!stream) return;
+    analysisTimer = window.setTimeout(() => {
+      analysisTimer = 0;
+      updateLiveDetection();
+      scheduleLiveDetection();
+    }, delay);
   }
 
   async function requestWakeLock() {
@@ -405,7 +513,7 @@
     } catch (_) {}
   }
 
-  async function ensureSession() {
+  function ensureSession() {
     if (sessionId) return;
     sessionId = randomId('CAM');
     if (window.MileCameraStream) window.MileCameraStream.init(sessionId);
@@ -413,8 +521,8 @@
     $('sessionIdentifier').textContent = sessionId;
     $('sessionDetails').hidden = false;
     $('processingRoute').disabled = true;
-    await requestWakeLock();
     updateBatchUi();
+    void requestWakeLock();
   }
 
   function draftCapturePayload(capture) {
@@ -422,8 +530,8 @@
     return stored;
   }
 
-  function queueDraftSave() {
-    if (!store || !sessionId) return draftSaveChain;
+  function persistDraftSnapshot() {
+    if (!store || !sessionId || finalizingBatch) return draftSaveChain;
     const id = sessionId;
     const startedAt = sessionStartedAt;
     const draftCaptures = captures.map(draftCapturePayload);
@@ -447,6 +555,41 @@
         toast('Penyimpanan otomatis belum berhasil. Jangan tutup halaman sebelum Finish.', 'error');
       });
     return draftSaveChain;
+  }
+
+  function queueDraftSave({ immediate = false } = {}) {
+    cancelScheduledDraftSave();
+    if (immediate) return persistDraftSnapshot();
+    const saveWhenIdle = () => {
+      draftSaveTimer = 0;
+      draftSaveUsesIdleCallback = false;
+      if (captureBusy) {
+        queueDraftSave();
+        return;
+      }
+      void persistDraftSnapshot();
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      draftSaveUsesIdleCallback = true;
+      draftSaveTimer = window.requestIdleCallback(saveWhenIdle, { timeout: DRAFT_SAVE_MAX_WAIT_MS });
+    } else {
+      draftSaveTimer = window.setTimeout(saveWhenIdle, DRAFT_SAVE_DELAY_MS);
+    }
+    return draftSaveChain;
+  }
+
+  function cancelScheduledDraftSave() {
+    if (draftSaveTimer) {
+      if (draftSaveUsesIdleCallback && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(draftSaveTimer);
+      else window.clearTimeout(draftSaveTimer);
+    }
+    draftSaveTimer = 0;
+    draftSaveUsesIdleCallback = false;
+  }
+
+  function flushDraftSave() {
+    cancelScheduledDraftSave();
+    return persistDraftSnapshot();
   }
 
   async function restoreLatestDraft() {
@@ -488,7 +631,7 @@
 
   function validationFrame(canvas) {
     const validationCanvas = $('cameraValidationCanvas');
-    const width = Math.min(360, canvas.width);
+    const width = Math.min(240, canvas.width);
     const height = Math.max(1, Math.round(width * canvas.height / canvas.width));
     validationCanvas.width = width;
     validationCanvas.height = height;
@@ -509,6 +652,12 @@
   function canvasToBlob(canvas, quality = 0.9) {
     return new Promise((resolve, reject) => {
       canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Gambar gagal dibuat oleh browser.')), 'image/jpeg', quality);
+    });
+  }
+
+  function yieldForPaint() {
+    return new Promise(resolve => {
+      window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
     });
   }
 
@@ -557,38 +706,45 @@
     setCaptureDisabled(true);
     setFinishDisabled(true);
     setStatus('Mengambil foto dan menyiapkan crop…', 'info');
+    playShutterSound();
+    flashCameraStage();
+    showHudToast('Capture diterima · sedang menyimpan...');
+    if (navigator.vibrate) navigator.vibrate(35);
 
     try {
+      await yieldForPaint();
       const video = $('cameraPreview');
-      const sourceCanvas = $('cameraCaptureCanvas');
-      sourceCanvas.width = video.videoWidth;
-      sourceCanvas.height = video.videoHeight;
-      sourceCanvas.getContext('2d').drawImage(video, 0, 0, sourceCanvas.width, sourceCanvas.height);
-
-      const frame = analysisFrame();
-      const detectedBounds = $('fixedGuideMode')?.checked ? core.fixedGuideBounds() : core.detectDocumentBounds(frame);
+      const sourceWidth = video.videoWidth;
+      const sourceHeight = video.videoHeight;
+      const fixedMode = $('fixedGuideMode')?.checked;
+      const hasFreshDetection = liveDetectionAt > 0 && Date.now() - liveDetectionAt <= DETECTION_MAX_AGE_MS;
+      const detectedBounds = fixedMode
+        ? core.fixedGuideBounds()
+        : hasFreshDetection ? liveDetection : core.fixedGuideBounds();
       const useGuideFallback = detectedBounds.method === 'fixed-guide' || Number(detectedBounds.confidence || 0) < MIN_DETECTION_CONFIDENCE;
       const cropBounds = useGuideFallback ? core.fixedGuideBounds() : detectedBounds;
       updateGuide(cropBounds);
-      const sx = Math.round(cropBounds.x * sourceCanvas.width);
-      const sy = Math.round(cropBounds.y * sourceCanvas.height);
-      const sw = Math.max(1, Math.round(cropBounds.width * sourceCanvas.width));
-      const sh = Math.max(1, Math.round(cropBounds.height * sourceCanvas.height));
-      const scale = Math.min(1, OUTPUT_MAX_SIDE / Math.max(sw, sh));
+      const sx = Math.round(cropBounds.x * sourceWidth);
+      const sy = Math.round(cropBounds.y * sourceHeight);
+      const sw = Math.max(1, Math.round(cropBounds.width * sourceWidth));
+      const sh = Math.max(1, Math.round(cropBounds.height * sourceHeight));
+      const maxOutputSide = constrainedDevice ? LOW_END_OUTPUT_MAX_SIDE : OUTPUT_MAX_SIDE;
+      const scale = Math.min(1, maxOutputSide / Math.max(sw, sh));
       const outputCanvas = $('cameraOutputCanvas');
       outputCanvas.width = Math.max(1, Math.round(sw * scale));
       outputCanvas.height = Math.max(1, Math.round(sh * scale));
-      outputCanvas.getContext('2d').drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, outputCanvas.width, outputCanvas.height);
+      outputCanvas.getContext('2d', { alpha: false }).drawImage(video, sx, sy, sw, sh, 0, 0, outputCanvas.width, outputCanvas.height);
 
       const quality = captureQualityMetadata(outputCanvas);
-
+      const thumbnailPromise = createThumbnailBlob(outputCanvas).catch(() => null);
       let blob = await canvasToBlob(outputCanvas, 0.9);
       if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.78);
       if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.68);
       if (blob.size > MAX_IMAGE_BYTES) {
         throw new Error('Ukuran foto melewati batas 4 MB. Kurangi resolusi kamera atau gunakan pencahayaan yang lebih stabil.');
       }
-      const thumbnailBlob = await createThumbnailBlob(outputCanvas);
+      const thumbnailBlob = await thumbnailPromise;
+      outputCanvas.width = outputCanvas.height = 1;
       const timestamp = new Date().toISOString();
       const targetIndex = retakeSlotIndex >= 0 && retakeSlotIndex <= captures.length ? retakeSlotIndex : captures.length;
       const sequence = targetIndex + 1;
@@ -626,8 +782,6 @@
       if (window.MileCameraStream) {
         window.MileCameraStream.queueCapture(blob);
       }
-      playShutterSound();
-      flashCameraStage();
       const qualityWarning = quality.ok === false;
       showHudToast(qualityWarning ? `Capture ${sequence} tersimpan · periksa kualitas` : `Capture ${sequence} (${fileName}) tersimpan`);
       setStatus(
@@ -637,10 +791,13 @@
         qualityWarning ? 'info' : 'success'
       );
       toast(qualityWarning ? `${fileName}: ${qualityLabel(quality)}` : `${fileName} tersimpan`, qualityWarning ? 'info' : 'success');
-      if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
     } catch (error) {
       setStatus(`Capture gagal: ${error?.message || 'gambar tidak dapat disimpan.'}`, 'error');
     } finally {
+      const outputCanvas = $('cameraOutputCanvas');
+      if (outputCanvas && (outputCanvas.width > 1 || outputCanvas.height > 1)) {
+        outputCanvas.width = outputCanvas.height = 1;
+      }
       captureBusy = false;
       setCaptureDisabled(!stream || !sessionId);
       updateBatchUi();
@@ -844,7 +1001,8 @@
   }
 
   async function finishCapturing() {
-    if (!captures.length || !sessionId || captureBusy) return;
+    if (!captures.length || !sessionId || captureBusy || finalizingBatch) return;
+    finalizingBatch = true;
     setFinishDisabled(true);
     setCaptureDisabled(true);
     exitCameraFullscreen();
@@ -853,6 +1011,7 @@
 
     try {
       updateProcessingStatus('Menyimpan...', 'Menyimpan batch sementara di HP sebelum membuka pipeline AI...');
+      cancelScheduledDraftSave();
       await draftSaveChain.catch(() => {});
       const metadata = captures.map(({ blob, thumbnailBlob, previewUrl, ...capture }) => capture);
       const images = captures.map(({ blob, thumbnailBlob, previewUrl, ...capture }) => ({
@@ -884,6 +1043,7 @@
       updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Setiap 15 gambar diproses sebagai 3 kelompok paralel × 5 tanpa R2...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
+      finalizingBatch = false;
       hideProcessingStatus();
       setStatus(error?.message || 'Batch tidak dapat disiapkan.', 'error');
       setFinishDisabled(false);
@@ -976,8 +1136,10 @@
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && sessionId && !wakeLock) requestWakeLock();
+      else if (document.visibilityState === 'hidden' && sessionId && captures.length && !finalizingBatch) void flushDraftSave();
     });
     window.addEventListener('beforeunload', () => {
+      cancelScheduledDraftSave();
       stopCamera();
       releaseGalleryObjectUrl();
       captures.forEach(capture => URL.revokeObjectURL(capture.previewUrl));

@@ -75,12 +75,14 @@
     }
 
     const visited = new Uint8Array(mask.length);
+    const queue = new Int32Array(mask.length);
     const totalPixels = width * height;
     let best = null;
 
     for (let start = 0; start < mask.length; start++) {
       if (!mask[start] || visited[start]) continue;
-      const queue = [start];
+      let queueLength = 1;
+      queue[0] = start;
       visited[start] = 1;
       let cursor = 0;
       let count = 0;
@@ -91,7 +93,7 @@
       let luminanceTotal = 0;
       let neutralLightCount = 0;
 
-      while (cursor < queue.length) {
+      while (cursor < queueLength) {
         const pixel = queue[cursor++];
         const x = pixel % width;
         const y = Math.floor(pixel / width);
@@ -114,7 +116,7 @@
           const neighborX = neighbor % width;
           if (Math.abs(neighborX - x) > 1) continue;
           visited[neighbor] = 1;
-          queue.push(neighbor);
+          queue[queueLength++] = neighbor;
         }
       }
 
