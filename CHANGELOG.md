@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.07 — Crop area tetap tanpa auto-crop
+
+- Menghapus auto-crop dan seluruh analisis deteksi tepi/background dari alur kamera.
+- Menetapkan kotak panduan hijau sebagai satu-satunya area crop agar bingkai tidak bergerak atau salah memilih objek.
+- Mengurangi beban CPU di HP lama karena tidak ada lagi analisis frame berkala saat preview aktif.
+- Memperbaiki metadata resolusi hasil capture agar menyimpan ukuran output sebenarnya, bukan ukuran canvas setelah dibersihkan.
+
 ## v26.06 — Kamera lebih ringan untuk HP lama
 
 - Membuka kamera tanpa menunggu konfigurasi fokus, enumerasi perangkat, atau wake lock selesai.

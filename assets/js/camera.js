@@ -6,14 +6,8 @@
   const OUTPUT_MAX_SIDE = 2000;
   const LOW_END_OUTPUT_MAX_SIDE = 1600;
   const THUMBNAIL_MAX_SIDE = 360;
-  const ANALYSIS_MAX_WIDTH = 240;
-  const ANALYSIS_INTERVAL_MS = 950;
-  const DETECTION_MAX_AGE_MS = 2400;
   const DRAFT_SAVE_DELAY_MS = 2400;
   const DRAFT_SAVE_MAX_WAIT_MS = 5000;
-  const GUIDE_ANIMATION_MS = 280;
-  const GUIDE_FRAME_MS = 32;
-  const MIN_DETECTION_CONFIDENCE = 0.55;
   const core = window.MileCameraCore;
   const store = window.MileCameraStore;
   const $ = id => document.getElementById(id);
@@ -22,11 +16,6 @@
   let captures = [];
   let sessionId = '';
   let sessionStartedAt = '';
-  let analysisTimer = 0;
-  let liveDetection = core?.fixedGuideBounds?.() || { x: 0.08, y: 0.13, width: 0.84, height: 0.74, confidence: 0, method: 'fixed-guide' };
-  let liveDetectionAt = 0;
-  let displayedGuide = null;
-  let guideAnimationFrame = 0;
   let captureBusy = false;
   let finalizingBatch = false;
   let wakeLock = null;
@@ -243,12 +232,6 @@
     return `${(bytes / 1024 / 1024).toLocaleString('id-ID', { maximumFractionDigits: 1 })} MB`;
   }
 
-  function detectionLabel(detection) {
-    if (!detection || detection.method === 'fixed-guide') return 'Guide tetap aktif';
-    const confidence = Math.round(Number(detection.confidence || 0) * 100);
-    return confidence >= 70 ? `Auto crop ${confidence}%` : `Auto crop dibantu guide ${confidence}%`;
-  }
-
   function videoDisplayRect() {
     const stage = $('cameraStage');
     const video = $('cameraPreview');
@@ -277,98 +260,25 @@
     if (!stage || !video?.videoWidth || !video?.videoHeight) return;
     stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
     stage.dataset.orientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
-    window.requestAnimationFrame(() => updateGuide(liveDetection));
+    window.requestAnimationFrame(renderFixedGuide);
   }
 
   function handleViewportChange() {
     updateStageAspect();
   }
 
-  function renderGuide(detection) {
+  function renderFixedGuide() {
     const guide = $('cropGuide');
-    if (!guide || !detection) return;
+    if (!guide || !core) return;
+    const bounds = core.fixedGuideBounds();
     const display = videoDisplayRect();
-    guide.style.left = display ? `${display.x + detection.x * display.width}px` : `${detection.x * 100}%`;
-    guide.style.top = display ? `${display.y + detection.y * display.height}px` : `${detection.y * 100}%`;
-    guide.style.width = display ? `${detection.width * display.width}px` : `${detection.width * 100}%`;
-    guide.style.height = display ? `${detection.height * display.height}px` : `${detection.height * 100}%`;
-  }
-
-  function updateGuide(detection, { immediate = false } = {}) {
-    const guide = $('cropGuide');
-    const label = $('cropStatus');
-    if (!guide || !detection) return;
-    const accepted = detection.method === 'fixed-guide' || Number(detection.confidence || 0) >= MIN_DETECTION_CONFIDENCE;
-    guide.classList.toggle('is-low-confidence', !accepted);
-    if (label) {
-      label.textContent = detectionLabel(detection);
-      label.dataset.state = accepted ? 'ready' : 'warning';
-    }
-
-    let target = {
-      x: Number(detection.x || 0),
-      y: Number(detection.y || 0),
-      width: Number(detection.width || 0),
-      height: Number(detection.height || 0)
-    };
-    if (displayedGuide) {
-      const movement = Math.max(
-        Math.abs(target.x - displayedGuide.x),
-        Math.abs(target.y - displayedGuide.y),
-        Math.abs(target.width - displayedGuide.width),
-        Math.abs(target.height - displayedGuide.height)
-      );
-      if (movement < 0.08) {
-        target = {
-          x: displayedGuide.x + (target.x - displayedGuide.x) * 0.42,
-          y: displayedGuide.y + (target.y - displayedGuide.y) * 0.42,
-          width: displayedGuide.width + (target.width - displayedGuide.width) * 0.42,
-          height: displayedGuide.height + (target.height - displayedGuide.height) * 0.42
-        };
-      }
-    }
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    if (immediate || reducedMotion || !displayedGuide) {
-      if (guideAnimationFrame) window.cancelAnimationFrame(guideAnimationFrame);
-      guideAnimationFrame = 0;
-      displayedGuide = target;
-      renderGuide(displayedGuide);
-      return;
-    }
-
-    if (guideAnimationFrame) window.cancelAnimationFrame(guideAnimationFrame);
-    const start = { ...displayedGuide };
-    const startedAt = performance.now();
-    let lastRenderedAt = startedAt - GUIDE_FRAME_MS;
-    const animate = now => {
-      const progress = Math.min(1, (now - startedAt) / GUIDE_ANIMATION_MS);
-      if (progress < 1 && now - lastRenderedAt < GUIDE_FRAME_MS) {
-        guideAnimationFrame = window.requestAnimationFrame(animate);
-        return;
-      }
-      lastRenderedAt = now;
-      const eased = 1 - Math.pow(1 - progress, 3);
-      displayedGuide = {
-        x: start.x + (target.x - start.x) * eased,
-        y: start.y + (target.y - start.y) * eased,
-        width: start.width + (target.width - start.width) * eased,
-        height: start.height + (target.height - start.height) * eased
-      };
-      renderGuide(displayedGuide);
-      if (progress < 1) guideAnimationFrame = window.requestAnimationFrame(animate);
-      else guideAnimationFrame = 0;
-    };
-    guideAnimationFrame = window.requestAnimationFrame(animate);
+    guide.style.left = display ? `${display.x + bounds.x * display.width}px` : `${bounds.x * 100}%`;
+    guide.style.top = display ? `${display.y + bounds.y * display.height}px` : `${bounds.y * 100}%`;
+    guide.style.width = display ? `${bounds.width * display.width}px` : `${bounds.width * 100}%`;
+    guide.style.height = display ? `${bounds.height * display.height}px` : `${bounds.height * 100}%`;
   }
 
   function stopCamera() {
-    if (analysisTimer) window.clearTimeout(analysisTimer);
-    analysisTimer = 0;
-    if (guideAnimationFrame) window.cancelAnimationFrame(guideAnimationFrame);
-    guideAnimationFrame = 0;
-    displayedGuide = null;
-    liveDetectionAt = 0;
-    liveDetection = core?.fixedGuideBounds?.() || liveDetection;
     stream?.getTracks?.().forEach(track => track.stop());
     stream = null;
     const video = $('cameraPreview');
@@ -438,7 +348,7 @@
       ensureSession();
       setCaptureDisabled(false);
       setStatus('Kamera aktif dan siap Capture. Posisi portrait maupun landscape didukung.', 'success');
-      scheduleLiveDetection(120);
+      renderFixedGuide();
 
       // Konfigurasi tambahan tidak boleh menahan kamera siap digunakan pada HP lama.
       window.setTimeout(async () => {
@@ -463,45 +373,6 @@
       button.disabled = false;
       button.textContent = stream ? 'Buka ulang kamera' : 'Open Camera';
     }
-  }
-
-  function analysisFrame() {
-    const video = $('cameraPreview');
-    const canvas = $('cameraAnalysisCanvas');
-    if (!video?.videoWidth || !video?.videoHeight || !canvas) return null;
-    const width = Math.min(ANALYSIS_MAX_WIDTH, video.videoWidth);
-    const height = Math.max(1, Math.round(width * video.videoHeight / video.videoWidth));
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    context.drawImage(video, 0, 0, width, height);
-    return context.getImageData(0, 0, width, height);
-  }
-
-  function updateLiveDetection() {
-    if (!stream || captureBusy || !core) return;
-    try {
-      const fixedMode = $('fixedGuideMode')?.checked;
-      if (fixedMode) {
-        liveDetection = core.fixedGuideBounds();
-      } else {
-        const frame = analysisFrame();
-        if (!frame) return;
-        liveDetection = core.detectDocumentBounds(frame);
-      }
-      liveDetectionAt = Date.now();
-      updateGuide(liveDetection);
-    } catch (_) {}
-  }
-
-  function scheduleLiveDetection(delay = constrainedDevice ? ANALYSIS_INTERVAL_MS + 250 : ANALYSIS_INTERVAL_MS) {
-    if (analysisTimer) window.clearTimeout(analysisTimer);
-    if (!stream) return;
-    analysisTimer = window.setTimeout(() => {
-      analysisTimer = 0;
-      updateLiveDetection();
-      scheduleLiveDetection();
-    }, delay);
   }
 
   async function requestWakeLock() {
@@ -705,7 +576,7 @@
     captureBusy = true;
     setCaptureDisabled(true);
     setFinishDisabled(true);
-    setStatus('Mengambil foto dan menyiapkan crop…', 'info');
+    setStatus('Mengambil foto sesuai area panduan…', 'info');
     playShutterSound();
     flashCameraStage();
     showHudToast('Capture diterima · sedang menyimpan...');
@@ -716,14 +587,8 @@
       const video = $('cameraPreview');
       const sourceWidth = video.videoWidth;
       const sourceHeight = video.videoHeight;
-      const fixedMode = $('fixedGuideMode')?.checked;
-      const hasFreshDetection = liveDetectionAt > 0 && Date.now() - liveDetectionAt <= DETECTION_MAX_AGE_MS;
-      const detectedBounds = fixedMode
-        ? core.fixedGuideBounds()
-        : hasFreshDetection ? liveDetection : core.fixedGuideBounds();
-      const useGuideFallback = detectedBounds.method === 'fixed-guide' || Number(detectedBounds.confidence || 0) < MIN_DETECTION_CONFIDENCE;
-      const cropBounds = useGuideFallback ? core.fixedGuideBounds() : detectedBounds;
-      updateGuide(cropBounds);
+      const cropBounds = core.fixedGuideBounds();
+      renderFixedGuide();
       const sx = Math.round(cropBounds.x * sourceWidth);
       const sy = Math.round(cropBounds.y * sourceHeight);
       const sw = Math.max(1, Math.round(cropBounds.width * sourceWidth));
@@ -744,6 +609,8 @@
         throw new Error('Ukuran foto melewati batas 4 MB. Kurangi resolusi kamera atau gunakan pencahayaan yang lebih stabil.');
       }
       const thumbnailBlob = await thumbnailPromise;
+      const outputWidth = outputCanvas.width;
+      const outputHeight = outputCanvas.height;
       outputCanvas.width = outputCanvas.height = 1;
       const timestamp = new Date().toISOString();
       const targetIndex = retakeSlotIndex >= 0 && retakeSlotIndex <= captures.length ? retakeSlotIndex : captures.length;
@@ -756,12 +623,12 @@
         sequence,
         fileName,
         blob,
-        width: outputCanvas.width,
-        height: outputCanvas.height,
+        width: outputWidth,
+        height: outputHeight,
         detection: {
-          method: cropBounds.method,
-          confidence: Number(detectedBounds.confidence || 0),
-          guideFallback: useGuideFallback
+          method: 'fixed-guide',
+          confidence: 0,
+          guideFallback: true
         },
         quality: {
           code: quality.code,
@@ -940,9 +807,7 @@
       const detail = card.querySelector('.capture-card__body small');
       detail.textContent = `${formatTime(capture.timestamp)} · ${capture.width} × ${capture.height} · ${formatBytes(capture.blob.size)}`;
       const quality = card.querySelector('.capture-card__quality');
-      const cropLabel = capture.detection.guideFallback
-        ? 'Crop guide'
-        : `Auto crop ${Math.round(capture.detection.confidence * 100)}%`;
+      const cropLabel = 'Crop area tetap';
       quality.textContent = capture.quality?.ok === false ? `${cropLabel} · ${qualityLabel(capture.quality)}` : `${cropLabel} · kualitas baik`;
       quality.classList.toggle('is-warning', capture.quality?.ok === false);
       const removeButton = card.querySelector('.capture-card__remove');
@@ -1100,7 +965,6 @@
       if (Math.abs(distance) >= 48) moveCaptureGallery(distance > 0 ? -1 : 1);
     }, { passive: true });
 
-    $('fixedGuideMode').addEventListener('change', updateLiveDetection);
     $('cameraPreview').addEventListener('resize', updateStageAspect);
     window.addEventListener('resize', handleViewportChange);
     window.addEventListener('orientationchange', handleViewportChange);
@@ -1147,7 +1011,7 @@
     });
     store.cleanup().catch(() => {});
     updateBatchUi();
-    updateGuide(liveDetection);
+    renderFixedGuide();
     draftRestorePromise = restoreLatestDraft();
   }
 

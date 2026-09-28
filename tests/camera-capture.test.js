@@ -36,42 +36,15 @@ function syntheticDocument(width = 320, height = 180) {
   return { data, width, height };
 }
 
-function syntheticLabelWithCornerDistractor(width = 360, height = 640) {
-  const data = new Uint8ClampedArray(width * height * 4);
-  const paint = (x1, y1, x2, y2, color) => {
-    for (let y = y1; y < y2; y++) {
-      for (let x = x1; x < x2; x++) {
-        const offset = (y * width + x) * 4;
-        data[offset] = color[0];
-        data[offset + 1] = color[1];
-        data[offset + 2] = color[2];
-        data[offset + 3] = 255;
-      }
-    }
-  };
-  paint(0, 0, width, height, [120, 82, 58]);
-  paint(18, 210, 342, 630, [128, 92, 66]);
-  paint(0, 0, 214, 205, [18, 86, 116]);
-  paint(70, 390, 286, 474, [214, 214, 208]);
-  for (let line = 0; line < 6; line++) {
-    paint(84, 403 + line * 10, 255 - line * 7, 407 + line * 10, [45, 47, 50]);
-  }
-  return { data, width, height };
-}
-
-const detection = cameraCore.detectDocumentBounds(syntheticDocument());
-assert.equal(detection.method, 'background');
-assert.ok(detection.confidence >= 0.58, `confidence ${detection.confidence}`);
-assert.ok(detection.x < 0.2 && detection.x > 0.08, `x ${detection.x}`);
-assert.ok(detection.y < 0.2 && detection.y > 0.05, `y ${detection.y}`);
-assert.ok(detection.width > 0.65 && detection.width < 0.9, `width ${detection.width}`);
-assert.ok(detection.height > 0.65 && detection.height < 0.9, `height ${detection.height}`);
-const labelDetection = cameraCore.detectDocumentBounds(syntheticLabelWithCornerDistractor());
-assert.equal(labelDetection.method, 'light-label');
-assert.ok(labelDetection.x > 0.12 && labelDetection.x < 0.25, `label x ${labelDetection.x}`);
-assert.ok(labelDetection.y > 0.52 && labelDetection.y < 0.7, `label y ${labelDetection.y}`);
-assert.ok(labelDetection.width > 0.5 && labelDetection.width < 0.72, `label width ${labelDetection.width}`);
-assert.ok(labelDetection.height > 0.1 && labelDetection.height < 0.2, `label height ${labelDetection.height}`);
+assert.deepEqual(cameraCore.fixedGuideBounds(), {
+  x: 0.08,
+  y: 0.13,
+  width: 0.84,
+  height: 0.74,
+  confidence: 0,
+  method: 'fixed-guide'
+});
+assert.equal(cameraCore.detectDocumentBounds, undefined);
 assert.ok(cameraCore.calculateSharpness(syntheticDocument()) > 58);
 assert.equal(cameraCore.validateImageQuality({ imageData: syntheticDocument(), width: 1200, height: 800 }).ok, true);
 
@@ -129,18 +102,20 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /orientationchange/);
   assert.match(cameraRuntime, /ensureSession\(\);/);
   assert.doesNotMatch(cameraRuntime, /await ensureSession\(\);/);
-  assert.match(cameraRuntime, /const ANALYSIS_MAX_WIDTH = 240/);
   assert.match(cameraRuntime, /frameRate: \{ ideal: 24, max: 30 \}/);
-  assert.match(cameraRuntime, /scheduleLiveDetection\(120\)/);
-  assert.match(cameraRuntime, /hasFreshDetection/);
+  assert.doesNotMatch(cameraRuntime, /scheduleLiveDetection/);
+  assert.doesNotMatch(cameraRuntime, /detectDocumentBounds/);
+  assert.doesNotMatch(cameraRuntime, /cameraAnalysisCanvas/);
+  assert.match(cameraRuntime, /const cropBounds = core\.fixedGuideBounds\(\)/);
+  assert.match(cameraRuntime, /renderFixedGuide/);
   assert.match(cameraRuntime, /drawImage\(video, sx, sy, sw, sh, 0, 0, outputCanvas\.width, outputCanvas\.height\)/);
   assert.doesNotMatch(cameraRuntime, /sourceCanvas\.getContext\('2d'\)\.drawImage\(video/);
   assert.match(cameraRuntime, /yieldForPaint/);
   assert.match(cameraRuntime, /DRAFT_SAVE_DELAY_MS = 2400/);
   assert.match(cameraRuntime, /requestIdleCallback/);
   assert.match(cameraRuntime, /cancelScheduledDraftSave/);
-  assert.match(cameraCoreSource, /new Int32Array\(mask\.length\)/);
-  assert.match(cameraRuntime, /guideFallback: useGuideFallback/);
+  assert.doesNotMatch(cameraCoreSource, /detectByBackground|detectByEdges|detectDocumentBounds/);
+  assert.match(cameraRuntime, /method: 'fixed-guide'/);
   assert.match(cameraRuntime, /validateImageQuality/);
   assert.doesNotMatch(cameraHtml, /Start Capture Session/);
   assert.doesNotMatch(cameraRuntime, /Foto kurang jelas, silakan ulangi capture\./);
@@ -159,13 +134,11 @@ async function runAsyncAssertions() {
   assert.match(cameraCss, /\.camera-stage\.is-fullscreen/);
   assert.match(cameraCss, /\.camera-flash/);
   assert.match(cameraCss, /\.camera-hud-toast/);
-  assert.match(cameraCss, /will-change:left,top,width,height/);
-  assert.doesNotMatch(cameraCss, /transition:left \.2s ease/);
-  assert.match(cameraRuntime, /GUIDE_ANIMATION_MS = 280/);
-  assert.match(cameraRuntime, /GUIDE_FRAME_MS = 32/);
+  assert.doesNotMatch(cameraCss, /will-change:left,top,width,height/);
+  assert.doesNotMatch(cameraRuntime, /GUIDE_ANIMATION_MS|GUIDE_FRAME_MS|liveDetection/);
   assert.match(cameraRuntime, /camera-low-power/);
   assert.match(cameraRuntime, /const width = Math\.min\(240, canvas\.width\)/);
-  assert.match(cameraRuntime, /Math\.pow\(1 - progress, 3\)/);
+  assert.doesNotMatch(cameraRuntime, /Math\.pow\(1 - progress, 3\)/);
   assert.doesNotMatch(cameraCss, /0 0 0 999px/);
   assert.match(cameraCss, /camera-low-power \.camera-hud-toast/);
   assert.match(cameraCss, /\.camera-fullscreen-finish/);
@@ -317,7 +290,7 @@ async function runAsyncAssertions() {
   assert.match(worker, /customerId: result\.form\?\.customerId/);
   assert.match(worker, /\/api\/camera\/batches/);
 
-  console.log('PASS camera-capture: fullscreen, capture feedback, auto crop, direct JPEG finish tanpa PDF, protected review, server sync 72h & desktop batch panel');
+  console.log('PASS camera-capture: fullscreen, capture feedback, fixed guide crop, direct JPEG finish tanpa PDF, protected review, server sync 72h & desktop batch panel');
 }
 
 runAsyncAssertions().catch(error => {

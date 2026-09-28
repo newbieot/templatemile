@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.06-fast-legacy-camera">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.07-fixed-guide-crop">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -101,10 +101,6 @@
               </select>
             </div>
           </div>
-          <label class="camera-check">
-            <input id="fixedGuideMode" type="checkbox">
-            <span><strong>Gunakan guide tetap</strong><small>Cadangan jika auto crop sulit mendeteksi warna sampul yang sama dengan meja.</small></span>
-          </label>
         </div>
 
         <div class="camera-stage" id="cameraStage">
@@ -115,7 +111,7 @@
             <small>Chrome akan meminta izin kamera</small>
           </div>
           <div class="crop-guide" id="cropGuide" aria-hidden="true"><span>Posisikan sampul/label di dalam area</span></div>
-          <span class="crop-status" id="cropStatus" data-state="warning">Menunggu kamera</span>
+          <span class="crop-status" id="cropStatus" data-state="ready">Area crop tetap</span>
           <div class="camera-flash" id="cameraFlash" aria-hidden="true"></div>
           <div class="camera-hud-toast" id="cameraHudToast" aria-live="assertive" aria-atomic="true"></div>
           <button class="camera-enter-fullscreen" id="enterFullscreenButton" type="button" aria-label="Buka layar penuh">⛶ Fullscreen</button>
@@ -189,7 +185,7 @@
         <div class="empty-capture-state" id="emptyCaptureState">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m7 15 3-3 2 2 2-2 3 3M8 9h.01"/></svg>
           <strong>Belum ada capture</strong>
-          <p>Setiap foto akan langsung di-crop dan masuk ke daftar untuk diperiksa operator.</p>
+          <p>Setiap foto dipotong mengikuti area panduan tetap lalu masuk ke daftar untuk diperiksa operator.</p>
         </div>
         <div class="capture-list" id="captureList" aria-live="polite"></div>
 
@@ -208,7 +204,7 @@
     <section class="camera-notes" aria-label="Tips setup">
       <div><strong>Posisi tetap</strong><span>Gunakan holder overhead; jangan pegang HP saat capture.</span></div>
       <div><strong>Cahaya merata</strong><span>Hindari bayangan tangan dan pantulan lampu langsung.</span></div>
-      <div><strong>Meja kontras</strong><span>Alas gelap membantu auto crop membaca tepi sampul putih.</span></div>
+      <div><strong>Ikuti panduan</strong><span>Pastikan seluruh label berada di dalam kotak hijau sebelum Capture.</span></div>
     </section>
   </main>
 
@@ -224,15 +220,13 @@
     </a>
   </footer>
 
-  <canvas id="cameraAnalysisCanvas" hidden></canvas>
-  <canvas id="cameraCaptureCanvas" hidden></canvas>
   <canvas id="cameraOutputCanvas" hidden></canvas>
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260928-26.06-fast-legacy-camera" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260928-26.07-fixed-guide-crop" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera.js?v=20260928-26.06-fast-legacy-camera" defer></script>
+  <script src="/assets/js/camera.js?v=20260928-26.07-fixed-guide-crop" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>
