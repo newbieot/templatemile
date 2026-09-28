@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.24-camera-gpt6-luna" "_worker.js" >nul && echo [OK] Worker timeout dan fallback kamera terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260928-26.25-camera-gpt6-session" "_worker.js" >nul && echo [OK] Worker timeout dan fallback kamera terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 4" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 4 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 3" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 3 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_DEFAULT_MODEL = GPT_6_LUNA_MODEL" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] GPT-6 Luna menjadi default kamera || (echo [GAGAL] Default GPT-6 Luna tidak ditemukan & set "FAIL=1")

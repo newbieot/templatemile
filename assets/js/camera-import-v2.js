@@ -144,13 +144,15 @@
       const core = window.__mileCore;
       if (session.aiModel && document.getElementById('aiModel')) {
         const modelSelect = document.getElementById('aiModel');
-        if (!Array.from(modelSelect.options).some(o => o.value === session.aiModel)) {
+        // Retry stored Gemini-default sessions using the current GPT-6 Luna default.
+        const sessionModel = session.aiModel === 'gemini-3.8-flash' ? 'gpt-6-luna' : session.aiModel;
+        if (!Array.from(modelSelect.options).some(o => o.value === sessionModel)) {
           const opt = document.createElement('option');
-          opt.value = session.aiModel;
-          opt.textContent = session.aiModel;
+          opt.value = sessionModel;
+          opt.textContent = sessionModel;
           modelSelect.appendChild(opt);
         }
-        modelSelect.value = session.aiModel;
+        modelSelect.value = sessionModel;
       }
       
       if (session.streamedRows && session.streamedRows.length > 0) {
@@ -189,7 +191,7 @@
                 status: 'SUCCESS',
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
-                model: session.aiModel || 'gpt-6-luna',
+                model: session.aiModel === 'gemini-3.8-flash' ? 'gpt-6-luna' : (session.aiModel || 'gpt-6-luna'),
                 chunkSize: 4,
                 concurrency: 3,
                 durationSeconds: session.durationSeconds || 0,

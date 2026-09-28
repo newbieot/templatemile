@@ -1,5 +1,9 @@
 # Changelog
 
+## v26.25 — Sesi kamera lama memakai default baru
+
+- Mengalihkan sesi foto tersimpan yang masih mencatat Gemini 3.8 ke GPT-6 Luna saat percobaan ulang, agar foto lama dapat langsung menguji model default baru.
+
 ## v26.24 — GPT-6 Luna untuk ekstraksi kamera
 
 - Mengubah model default ekstraksi kamera ke `gpt-6-luna`.
