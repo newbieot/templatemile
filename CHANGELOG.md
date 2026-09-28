@@ -1,5 +1,14 @@
 # Changelog
 
+## v26.23 — Batas tunggu AI kamera dan fallback HTTP 520
+
+- Menggunakan empat gambar per permintaan dengan maksimal tiga jalur paralel; HTTP 429 atau 520 menurunkan sisa batch menjadi satu jalur.
+- Menghentikan request Gemini kamera setelah 20 detik dan DeepSeek setelah 35 detik di gateway, sebelum batas tunggu browser.
+- Mengaktifkan fallback kamera Gemini 3.8 → 3.7 → 3.6 → DeepSeek 4.1 Flash tanpa GLM, dan melewati model yang gagal untuk sisa batch.
+- Memperlakukan HTTP 5xx, respons kosong, serta error dalam HTTP 200 sebagai kegagalan; menghapus request perbaikan JSON tambahan untuk kamera.
+- Menyimpan hasil kelompok yang berhasil dan hasil awal bila audit gagal, dengan baris PERLU DICEK untuk foto tanpa hasil. Foto asli dipertahankan pada hasil parsial atau pembatalan.
+- Menambahkan durasi upstream, status kegagalan, dan ID request ke log kelompok untuk diagnosis provider.
+
 ## v26.22 — Audit kamera hanya untuk keyakinan rendah
 
 - Mengubah kamera menjadi empat gambar per permintaan dengan maksimal empat permintaan paralel.

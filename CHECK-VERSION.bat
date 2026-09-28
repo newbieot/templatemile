@@ -6,9 +6,9 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.22-camera-confidence-audit" "_worker.js" >nul && echo [OK] Worker audit kamera keyakinan rendah terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260928-26.23-camera-timeout-fallback" "_worker.js" >nul && echo [OK] Worker timeout dan fallback kamera terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 4" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 4 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
-findstr /c:"const CAMERA_AI_CONCURRENCY = 4" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 4 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
+findstr /c:"const CAMERA_AI_CONCURRENCY = 3" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 3 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")

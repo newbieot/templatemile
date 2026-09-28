@@ -30,7 +30,8 @@
   const GEMINI_REQUEST_TIMEOUT_MS = 75 * 1000;
   const GEMINI_MAX_ATTEMPTS = 2;
   const GEMINI_RETRY_DELAY_MS = 500;
-  const CAMERA_REQUEST_TIMEOUT_MS = 35 * 1000;
+  const CAMERA_REQUEST_TIMEOUT_MS = 45 * 1000;
+  const CAMERA_GEMINI_REQUEST_TIMEOUT_MS = 30 * 1000;
   const CAMERA_MODEL_MAX_ATTEMPTS = 1;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
@@ -50,24 +51,22 @@
     'glm-5.3','glm-5.3-flashx','glm-5.3-flash'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
-  const GLM_FLASHX_MODEL = 'glm-5.3-flashx';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
   const CAMERA_DEFAULT_MODEL = 'gemini-3.8-flash';
   const CAMERA_BATCH_SIZE = 4;
-  const CAMERA_AI_CONCURRENCY = 4;
+  const CAMERA_AI_CONCURRENCY = 3;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
   // New captures are WebP <= 2 MB. Also preserve older JPEGs up to 4 MB:
   // five original 4 MB images still fit the gateway's 28 MB JSON/base64 limit.
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
-    'glm-5.3-flashx', 'glm-5.3', 'glm-5.3-flash',
-    'gemini-3.8-flash', 'gemini-3.7-flash',
+    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',
     'deepseek-v4.1-flash', 'deepseek-v4-pro'
   ]);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const CAMERA_GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, GLM_FLASHX_MODEL]);
+  const CAMERA_GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL, DEEPSEEK_R2_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
@@ -673,6 +672,9 @@
       retries: Math.max(0, Math.round(Number(item.retries) || 0)),
       model: String(item.model || ''),
       fallbackFrom: String(item.fallbackFrom || ''),
+      errorStatus: Number(item.errorStatus) || 0,
+      upstreamMs: Math.max(0, Math.round(Number(item.upstreamMs) || 0)),
+      requestId: String(item.requestId || ''),
       status: String(item.status || '')
     }));
   }
@@ -1364,7 +1366,8 @@ ${clipped}`
       payload = { error: { message: conciseResponseError(text, response.status, transport) } };
     }
 
-    if (!response.ok) {
+    if (!response.ok || payload?.error) {
+      const status = response.ok ? 502 : response.status;
       let message = payload?.error?.message || payload?.message || `API gagal dengan HTTP ${response.status}`;
       if (response.status === 401) {
         message = 'Sesi login telah berakhir. Silakan masuk kembali.';
@@ -1378,14 +1381,20 @@ ${clipped}`
       else if (response.status === 429) message = 'CosmosHub membatasi terlalu banyak permintaan. Turunkan Permintaan paralel menjadi 1–2 lalu coba lagi.';
       else if (response.status === 413) message = 'Kelompok halaman terlalu besar. Turunkan Halaman per permintaan menjadi 2–4.';
       const error = new Error(message);
-      error.status = response.status;
+      error.status = status;
       error.details = payload;
+      error.upstreamMs = Number(response.headers.get('x-mile-upstream-ms') || 0);
+      error.requestId = response.headers.get('x-mile-request-id') || '';
       error.transport = transport;
-      error.gateway = response.status >= 500 && /bad gateway|server .*html|halaman html|upstream/i.test(message);
+      error.gateway = status >= 500 && /bad gateway|server .*html|halaman html|upstream/i.test(message);
       throw error;
     }
 
-    if (payload && typeof payload === 'object') payload._mileTransport = transport;
+    if (payload && typeof payload === 'object') {
+      payload._mileTransport = transport;
+      payload._mileUpstreamMs = Number(response.headers.get('x-mile-upstream-ms') || 0);
+      payload._mileRequestId = response.headers.get('x-mile-request-id') || '';
+    }
     lastSuccessfulTransport = transport;
     return payload;
   }
@@ -1393,7 +1402,7 @@ ${clipped}`
   async function callViaProxy(config, body, onTransport = () => {}) {
     onTransport({ phase: 'encoding', loaded: 0, total: 0 });
     await yieldToBrowser();
-    const requestBody = JSON.stringify({ body });
+    const requestBody = JSON.stringify({ body, requestProfile: config?.cameraDirect ? 'camera' : 'document' });
     const totalBytes = new Blob([requestBody]).size;
     onTransport({ phase: 'ready', loaded: 0, total: totalBytes });
     await yieldToBrowser();
@@ -1431,7 +1440,7 @@ ${clipped}`
       xhr.open('POST', '/api/ai-proxy', true);
       xhr.withCredentials = true;
       const requestTimeoutMs = config?.cameraDirect
-        ? CAMERA_REQUEST_TIMEOUT_MS
+        ? (isGeminiModel(config?.model) ? CAMERA_GEMINI_REQUEST_TIMEOUT_MS : CAMERA_REQUEST_TIMEOUT_MS)
         : (isGeminiModel(config?.model) ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
       xhr.timeout = requestTimeoutMs;
       xhr.setRequestHeader('content-type', 'application/json');
@@ -1465,9 +1474,13 @@ ${clipped}`
         if (!cleanup()) return;
         const actualTransport = xhr.getResponseHeader('x-mile-transport') || 'proxy Cloudflare';
         const headers = new Headers({ 'content-type': xhr.getResponseHeader('content-type') || 'application/json' });
+        for (const header of ['x-mile-upstream-ms', 'x-mile-request-id']) {
+          const value = xhr.getResponseHeader(header);
+          if (value) headers.set(header, value);
+        }
         const response = new Response(xhr.responseText || '', { status: xhr.status, statusText: xhr.statusText, headers });
         parseApiResponse(response, actualTransport).then(payload => {
-          onTransport({ phase: 'complete', loaded: totalBytes, total: totalBytes });
+          onTransport({ phase: 'complete', loaded: totalBytes, total: totalBytes, upstreamMs: payload._mileUpstreamMs, requestId: payload._mileRequestId });
           resolve(payload);
         }, reject);
       };
@@ -1477,7 +1490,7 @@ ${clipped}`
       };
       xhr.ontimeout = () => {
         const error = new Error(config?.cameraDirect
-          ? `${shortModelLabel(config?.model)} tidak memberi respons dalam 35 detik. Kelompok ini langsung dialihkan ke model berikutnya.`
+          ? `${shortModelLabel(config?.model)} tidak memberi respons dalam ${requestTimeoutMs / 1000} detik. Kelompok ini langsung dialihkan ke model berikutnya.`
           : (isGeminiModel(config?.model)
             ? 'Gemini tidak memberi respons dalam 75 detik. Kelompok ini akan dialihkan tanpa mengubah kelompok lain.'
             : 'Permintaan AI melewati batas 3 menit dan akan dicoba ulang.'));
@@ -1506,7 +1519,15 @@ ${clipped}`
   function isRetryable(error) {
     if (cancelled || error?.name === 'AbortError') return false;
     if (!error?.status) return true;
-    return [408, 409, 425, 429, 500, 502, 503, 504].includes(Number(error.status));
+    const status = Number(error.status);
+    return [408, 409, 425, 429].includes(status) || (status >= 500 && status <= 599);
+  }
+
+  function isRetryableCameraFailure(error) {
+    if (cancelled || error?.name === 'AbortError') return false;
+    const status = Number(error?.status || 0);
+    return !status || [400, 404, 408, 409, 425, 429].includes(status) ||
+      (status >= 500 && status <= 599) || /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
   }
 
   function nextFallbackModel(model, config = {}) {
@@ -1521,7 +1542,7 @@ ${clipped}`
     const status = Number(error?.status || 0);
     if (config?.cameraDirect && status === 400 && isGeminiModel(config?.model)) return true;
     if (!status) return true;
-    if ([404, 408, 409, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+    if ([404, 408, 409, 425, 429].includes(status) || (status >= 500 && status <= 599)) return true;
     return /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
   }
 
@@ -1532,7 +1553,16 @@ ${clipped}`
 
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
     const configuredModel = String(config?.model || body?.model || '').trim();
-    const requestModel = String(body?.model || configuredModel).trim();
+    let requestModel = String(body?.model || configuredModel).trim();
+    const modelState = config?.cameraDirect ? config.cameraModelState : null;
+    // Share failures within this batch so queued groups avoid a route that just stalled.
+    while (modelState?.blocked.has(requestModel)) {
+      const nextModel = nextFallbackModel(requestModel, config);
+      const error = modelState.errors.get(requestModel);
+      if (!nextModel) throw error || new Error('Model kamera sedang tidak memberi respons. Foto tetap tersimpan untuk dicoba ulang.');
+      hooks.onFallback?.({ from: requestModel, to: nextModel, error });
+      requestModel = nextModel;
+    }
     const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
     const requestBody = adaptRequestBodyForModel(body, requestModel);
     const isGeminiFallbackModel = GEMINI_FALLBACK_CHAIN.includes(requestModel);
@@ -1548,10 +1578,17 @@ ${clipped}`
         const payload = await callCosmos(requestConfig, requestBody, event => hooks.onTransport?.({ ...event, attempt, maxAttempts, model: requestModel }));
         try {
           // Validasi JSON di sini agar respons terpotong bisa diperbaiki atau dicoba ulang.
-          parseRows(payload, requestConfig.protocol);
+          const rows = parseRows(payload, requestConfig.protocol);
+          if (requestConfig.cameraDirect && !rows.length) {
+            const emptyError = new Error('AI mengembalikan array rows kosong tanpa hasil ekstraksi.');
+            emptyError.status = 502;
+            throw emptyError;
+          }
           payload._mileEffectiveModel = requestModel;
           return payload;
         } catch (parseError) {
+          // Camera falls back once instead of adding a second request to repair the same model.
+          if (requestConfig.cameraDirect) throw parseError;
           let rawText = '';
           try { rawText = extractTextFromResponse(payload, requestConfig.protocol); } catch (_) {}
           if (!rawText || rawText.length > MAX_JSON_REPAIR_CHARS) throw parseError;
@@ -1575,6 +1612,11 @@ ${clipped}`
         }
       } catch (error) {
         lastError = error;
+        hooks.onError?.({ error, model: requestModel, attempt });
+        if (modelState && isRetryableCameraFailure(error)) {
+          modelState.blocked.add(requestModel);
+          modelState.errors.set(requestModel, error);
+        }
         const status = Number(error?.status || 0);
         const malformed = /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
         const bridgeFailure = isR2BridgeFailure(error);
@@ -1582,7 +1624,7 @@ ${clipped}`
           status !== 408 &&
           (bridgeFailure
             ? (isRetryable(error) && !/worker exceeded resource limits|error\s*1102/i.test(String(error?.message || '')))
-            : (!status || [404, 409, 425, 429, 500, 502, 503, 504].includes(status) || malformed));
+            : (!status || [404, 409, 425, 429].includes(status) || (status >= 500 && status <= 599) || malformed));
         const canRetry = isGeminiFallbackModel
           ? geminiRetryable
           : (isRetryable(error) || malformed);
@@ -1615,7 +1657,9 @@ ${clipped}`
       const transition = `${requestModel}->${nextModel}`;
       if (!fallbackAnnouncements.has(transition)) {
         fallbackAnnouncements.add(transition);
-        showToast(`Sebagian kelompok ${shortModelLabel(requestModel)} terkendala. Hanya kelompok tersebut yang dialihkan ke ${shortModelLabel(nextModel)}.`, 'info');
+        showToast(config.cameraDirect
+          ? `${shortModelLabel(requestModel)} terkendala. Memakai ${shortModelLabel(nextModel)} dan melewati model bermasalah untuk sisa batch ini.`
+          : `Sebagian kelompok ${shortModelLabel(requestModel)} terkendala. Hanya kelompok tersebut yang dialihkan ke ${shortModelLabel(nextModel)}.`, 'info');
       }
       const fallbackConfig = { ...requestConfig, model: nextModel };
       const fallbackPayload = await callProxyWithRetry(fallbackConfig, adaptRequestBodyForModel(requestBody, nextModel), label, hooks);
@@ -1636,7 +1680,7 @@ ${clipped}`
         return payload.content.map(block => block?.text || block?.content || '').filter(Boolean).join('\n');
       }
     }
-    const content = payload?.choices?.[0]?.message?.content ?? payload?.choices?.[0]?.message?.reasoning_content ?? payload?.choices?.[0]?.text ?? payload?.output_text;
+    const content = payload?.choices?.[0]?.message?.content ?? payload?.choices?.[0]?.text ?? payload?.output_text;
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) return content.map(part => part?.text || part?.content || '').filter(Boolean).join('\n');
     if (payload?.rows || Array.isArray(payload)) return JSON.stringify(payload);
@@ -2262,7 +2306,7 @@ ${clipped}`
     } catch (error) {
       showToast(error.message, 'error');
       core.processNextInQueue();
-      return;
+      return { status: 'FAILED', error: error.message };
     }
     const directCameraInput = cameraImages.length > 0;
     const inputName = directCameraInput
@@ -2294,6 +2338,7 @@ ${clipped}`
         throw new Error('Layanan AI belum dapat dijangkau. Periksa sinyal internet atau konfigurasi server lalu coba lagi.');
       }
       config = getConfig();
+      if (config.cameraDirect) config.cameraModelState = { blocked: new Set(), errors: new Map() };
       if (!config.cameraDirect && config.model === DEEPSEEK_R2_MODEL && !lastBetaImagesConfigured) {
         throw new Error('Eksperimen DeepSeek memerlukan penyimpanan R2 Beta yang aktif.');
       }
@@ -2305,7 +2350,7 @@ ${clipped}`
       $('aiConfigPanel')?.setAttribute('open', '');
       showToast(error?.name === 'AbortError' ? `Proses ${directCameraInput ? 'kamera' : 'PDF'} dibatalkan.` : error.message, error?.name === 'AbortError' ? 'info' : 'error');
       core.processNextInQueue();
-      return;
+      return { status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED', error: error.message };
     }
 
     let pdf = null;
@@ -2367,6 +2412,9 @@ ${clipped}`
 
       const results = new Array(chunks.length);
       const pendingAudits = new Array(chunks.length);
+      const failedPages = new Set();
+      const auditFailedPages = new Set();
+      const chunkErrors = [];
       const chunkStates = chunks.map(chunk => ({
         start: chunk.start, end: chunk.end, progress: 0, phase: 'Menunggu',
         active: false, waiting: false, startedAt: 0, waitingSince: 0, model: ''
@@ -2473,6 +2521,8 @@ ${clipped}`
             if (timing._waitingStartedAt) timing.waitMs += Math.max(0, now - timing._waitingStartedAt);
             timing._waitingStartedAt = 0;
             timing.status = 'success';
+            timing.upstreamMs = Number(event.upstreamMs || 0);
+            timing.requestId = String(event.requestId || '');
             state.waiting = false;
             state.waitingSince = 0;
             state.progress = Math.max(state.progress, completeWeight);
@@ -2480,12 +2530,20 @@ ${clipped}`
           }
           updateParallelProgress(chunk, chunkIndex, label);
         },
-        retryDelay({ delay, error }) {
-          if (!config.cameraDirect || Number(error?.status || 0) !== 429) return delay;
-          activeAiLimit = Math.max(1, activeAiLimit - 1);
-          const stagger = chunkIndex * 1250;
-          markProgressActivity(`Provider membatasi request · jalur aktif diturunkan menjadi ${activeAiLimit}`);
-          return delay + stagger;
+        onError({ error }) {
+          const timing = betaPerf.chunkTimings[chunkIndex];
+          const now = performance.now();
+          if (timing._waitingStartedAt) timing.waitMs += Math.max(0, now - timing._waitingStartedAt);
+          if (timing._uploadStartedAt) timing.uploadMs += Math.max(0, now - timing._uploadStartedAt);
+          timing._waitingStartedAt = 0;
+          timing._uploadStartedAt = 0;
+          timing.errorStatus = Number(error?.status || 0);
+          timing.upstreamMs = Number(error?.upstreamMs || 0);
+          timing.requestId = String(error?.requestId || '');
+          if (config.cameraDirect && [429, 520].includes(timing.errorStatus)) {
+            activeAiLimit = 1;
+            markProgressActivity('Provider terkendala · sisa kelompok dijalankan satu jalur');
+          }
         },
         onRetry({ nextAttempt, maxAttempts, delay }) {
           const state = chunkStates[chunkIndex];
@@ -2684,7 +2742,7 @@ ${clipped}`
 
         if (payload?._mileEffectiveModel === GEMINI_38_MODEL) {
           betaPerf.geminiSuccesses++;
-          activeAiLimit = workerCount;
+          if (!config.cameraDirect) activeAiLimit = workerCount;
         }
 
         const auditPages = verificationPages(config, normalized, expectedPages);
@@ -2698,7 +2756,7 @@ ${clipped}`
         state.waitingSince = 0;
         if (auditPages.length) {
           betaPerf.auditPages += auditPages.length;
-          pendingAudits[chunkIndex] = { chunk, chunkIndex, pageSources, auditPages, expectedPages, template };
+          pendingAudits[chunkIndex] = { chunk, chunkIndex, pageSources, auditPages, expectedPages, template, effectiveModel: payload?._mileEffectiveModel || config.model };
           state.progress = Math.max(state.progress, 0.66);
           updateParallelProgress(chunk, chunkIndex, `Menunggu audit ${auditPages.length} halaman`);
         } else {
@@ -2709,7 +2767,7 @@ ${clipped}`
         }
       }
 
-      async function auditChunk({ chunk, chunkIndex, pageSources, auditPages, template }) {
+      async function auditChunk({ chunk, chunkIndex, pageSources, auditPages, template, effectiveModel }) {
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
         const auditGroupStartedAt = performance.now();
         const timing = betaPerf.chunkTimings[chunkIndex];
@@ -2763,11 +2821,12 @@ ${clipped}`
         }
 
         const originalRows = results[chunkIndex] || [];
+        const auditConfig = config.cameraDirect ? { ...config, model: effectiveModel || config.model } : config;
         const draftRows = rowsForVerification(
           originalRows.filter(row => auditPages.includes(Number(row.sourcePage)))
         );
         let verificationBody = buildApiBody(
-          config,
+          auditConfig,
           buildVerificationPrompt(chunk.start, chunk.end, draftRows, { ...config, pages: auditPages }),
           verificationImages,
           verificationTokenLimit(auditPages.length)
@@ -2776,7 +2835,7 @@ ${clipped}`
         let verifiedPayload;
         try {
           verifiedPayload = await callProxyWithRetry(
-            config,
+            auditConfig,
             verificationBody,
             `audit halaman ${auditPages.join(', ')}`,
             makeTransportHooks(chunk, chunkIndex, 'Audit selektif', 0.68, 0.85, 0.93)
@@ -2789,13 +2848,13 @@ ${clipped}`
             url: source.directUrl
           }));
           verificationBody = buildApiBody(
-            config,
+            auditConfig,
             buildVerificationPrompt(chunk.start, chunk.end, draftRows, { ...config, pages: auditPages }),
             directVerificationImages,
             verificationTokenLimit(auditPages.length)
           );
           verifiedPayload = await callProxyWithRetry(
-            config,
+            auditConfig,
             verificationBody,
             `audit halaman ${auditPages.join(', ')} jalur langsung`,
             makeTransportHooks(chunk, chunkIndex, 'Audit jalur langsung', 0.68, 0.85, 0.93)
@@ -2813,6 +2872,16 @@ ${clipped}`
           chunk.start - 1,
           { ...config, expectedPages: auditPages }
         );
+        if (config.cameraDirect) {
+          const verifiedPages = new Set(verifiedRows.map(row => Number(row.sourcePage)));
+          auditPages.filter(page => !verifiedPages.has(page)).forEach(page => {
+            auditFailedPages.add(page);
+            originalRows.filter(row => Number(row.sourcePage) === page).forEach(row => {
+              row.needsVerification = true;
+              row.aiReviewFields = [...new Set([...(row.aiReviewFields || []), 'nama_penerima', 'alamat_penerima'])];
+            });
+          });
+        }
         const merged = mergeVerifiedRows(originalRows, verifiedRows, auditPages);
         timing.rows = merged.length;
         rowsFound += merged.length - originalRows.length;
@@ -2824,7 +2893,7 @@ ${clipped}`
         state.waitingSince = 0;
         state.progress = 1;
         timing.auditMs += Math.max(0, performance.now() - auditGroupStartedAt);
-        timing.status = 'success';
+        timing.status = config.cameraDirect && auditPages.some(page => auditFailedPages.has(page)) ? 'audit-partial' : 'success';
         updateParallelProgress(chunk, chunkIndex, 'Audit selesai');
       }
 
@@ -2859,7 +2928,21 @@ ${clipped}`
         if (pipelineError) throw pipelineError;
         const task = processChunk(chunk, chunkIndex, pageSources)
           .catch(error => {
-            pipelineError ||= error;
+            if (!config.cameraDirect || !isRetryableCameraFailure(error)) {
+              pipelineError ||= error;
+              return;
+            }
+            chunkErrors.push(error);
+            for (let page = chunk.start; page <= chunk.end; page++) failedPages.add(page);
+            const state = chunkStates[chunkIndex];
+            state.active = false;
+            state.waiting = false;
+            state.waitingSince = 0;
+            state.progress = 1;
+            betaPerf.chunkTimings[chunkIndex].status = 'failed';
+            pageSources.forEach(source => { source.url = ''; source.blob = null; });
+            completedChunks++;
+            updateParallelProgress(chunk, chunkIndex, 'Foto perlu dicoba ulang');
           })
           .finally(() => inFlight.delete(task));
         inFlight.add(task);
@@ -2871,13 +2954,49 @@ ${clipped}`
       if (audits.length) {
         setTransferProgress(0, `${audits.length} kelompok perlu audit · dijalankan satu jalur`);
         for (const audit of audits) {
-          await auditChunk(audit);
+          try {
+            await auditChunk(audit);
+          } catch (error) {
+            if (!config.cameraDirect || cancelled || error?.name === 'AbortError') throw error;
+            // Keep first-pass rows and let the operator review when an optional audit fails.
+            audit.auditPages.forEach(page => auditFailedPages.add(page));
+            (results[audit.chunkIndex] || []).forEach(row => {
+              if (!audit.auditPages.includes(Number(row.sourcePage))) return;
+              row.needsVerification = true;
+              row.aiReviewFields = [...new Set([...(row.aiReviewFields || []), 'nama_penerima', 'alamat_penerima'])];
+            });
+            const state = chunkStates[audit.chunkIndex];
+            state.active = false;
+            state.waiting = false;
+            state.waitingSince = 0;
+            state.progress = 1;
+            betaPerf.chunkTimings[audit.chunkIndex].status = 'audit-failed';
+            audit.pageSources.forEach(source => { source.url = ''; source.blob = null; });
+            completedChunks++;
+            updateParallelProgress(audit.chunk, audit.chunkIndex, 'Hasil awal perlu dicek pengguna');
+          }
         }
       }
-      setTransferProgress(100, 'Semua respons AI telah diterima');
 
       const mergedRows = results.flat().filter(Boolean);
-      if (!mergedRows.length) throw new Error(`AI tidak menemukan data penerima pada ${directCameraInput ? 'foto kamera' : 'PDF'} ini.`);
+      if (!mergedRows.length) throw chunkErrors[0] || new Error(`AI tidak menemukan data penerima pada ${directCameraInput ? 'foto kamera' : 'PDF'} ini.`);
+      if (config.cameraDirect) {
+        const coveredPages = new Set(mergedRows.map(row => Number(row.sourcePage)));
+        for (let page = 1; page <= pageCount; page++) {
+          if (coveredPages.has(page)) continue;
+          failedPages.add(page);
+          // A visible review row preserves the photo's position without inventing recipient data.
+          mergedRows.push({
+            noSurat: '', name: 'PERLU DICEK', address: 'PERLU DICEK', phone: '0', zip: '',
+            act: 0.2, p: 10, l: 10, t: 10, cw: '0.20', outsideBatam: false, outsideBatamReason: '',
+            sourcePage: page, aiConfidence: 0, aiConfidenceExplicit: false,
+            aiReviewFields: ['nama_penerima', 'alamat_penerima'], needsVerification: true,
+            aiExtractionFailed: true, rawLines: [], bniMode: false
+          });
+        }
+      }
+      const partial = failedPages.size > 0 || auditFailedPages.size > 0;
+      setTransferProgress(100, partial ? 'Hasil berhasil disimpan · sebagian foto perlu dicek' : 'Semua respons AI telah diterima');
       mergedRows.sort((a, b) => Number(a.sourcePage || 0) - Number(b.sourcePage || 0));
       completedRowCount = mergedRows.length;
       const elapsed = (performance.now() - startedAt) / 1000;
@@ -2890,7 +3009,9 @@ ${clipped}`
       );
 
       const metrics = {
-        status: 'SUCCESS',
+        status: partial ? 'PARTIAL' : 'SUCCESS',
+        failedPages: [...failedPages].sort((a, b) => a - b),
+        auditFailedPages: [...auditFailedPages].sort((a, b) => a - b),
         fileCount: 1,
         pageCount,
         model: betaPerf.fallbackModels.length ? [config.model, ...betaPerf.fallbackModels].join(' -> ') : config.model,
@@ -2901,7 +3022,7 @@ ${clipped}`
         reviewCount: reviewRowCount(mergedRows),
         outsideBatamCount: outsideBatamRowCount(mergedRows),
         chunkTimings: publicChunkTimings(betaPerf.chunkTimings),
-        message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
+        message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};failed_pages=${[...failedPages].join(',')};audit_failed=${[...auditFailedPages].join(',')};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
       };
       void submitProcessingMetrics(metrics);
 
@@ -2913,9 +3034,13 @@ ${clipped}`
       } else {
         core.uploadedFilesManager.push({ id: Date.now(), name: inputName, rows: mergedRows, source: directCameraInput ? 'Camera AI' : 'AI PDF' });
         core.updateInterface();
-        setProgress(100, 'Selesai', `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)} · ${config.cameraDirect ? `${pageCount} gambar dikirim langsung tanpa R2` : `gambar sementara ${betaPerf.remotePages}/${pageCount} halaman`}.`, formatUsage(totalUsage));
+        setProgress(100, partial ? 'Hasil perlu dicek' : 'Selesai', partial
+          ? `${mergedRows.length} baris masuk tabel. ${failedPages.size} foto belum berhasil diekstrak dan ${auditFailedPages.size} foto belum selesai diaudit. Foto asli tetap tersimpan untuk dicoba ulang.`
+          : `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)} · ${config.cameraDirect ? `${pageCount} gambar dikirim langsung tanpa R2` : `gambar sementara ${betaPerf.remotePages}/${pageCount} halaman`}.`, formatUsage(totalUsage));
         progressHideTimeout = window.setTimeout(hideProgress, 1200);
-        showToast(`${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, 'success');
+        showToast(partial
+          ? 'Hasil yang berhasil sudah masuk tabel. Foto bertanda PERLU DICEK perlu diperiksa atau dicoba ulang; foto asli tetap tersimpan.'
+          : `${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, partial ? 'info' : 'success');
         core.processNextInQueue();
       }
       return metrics;
@@ -2936,6 +3061,8 @@ ${clipped}`
         totalRows: completedRowCount,
         reviewCount: 0,
         outsideBatamCount: 0,
+        chunkTimings: publicChunkTimings(betaPerf.chunkTimings),
+        error: String(error?.message || 'Kesalahan pemrosesan'),
         message: error?.name === 'AbortError'
           ? 'Dibatalkan pengguna'
           : `${config?.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};audit_pages=${betaPerf.auditPages};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};error=${String(error?.message || 'Kesalahan pemrosesan')}`.slice(0, 400)
@@ -2945,6 +3072,7 @@ ${clipped}`
       if (error?.name === 'AbortError') showToast(`Proses ${directCameraInput ? 'kamera' : 'PDF'} dibatalkan setelah ${formatPreciseDuration(elapsed)}.`, 'info');
       else showToast(`Gagal memproses ${directCameraInput ? 'kamera' : 'PDF'} setelah ${formatPreciseDuration(elapsed)}: ${error.message}`, 'error');
       core.processNextInQueue();
+      return failedMetrics;
     } finally {
       activeControllers.forEach(controller => controller.abort());
       activeControllers.clear();

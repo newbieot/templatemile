@@ -87,7 +87,7 @@
       totalDurationSeconds,
       model: String(runMetrics?.model || session?.aiModel || 'gemini-3.8-flash'),
       chunkSize: Number(runMetrics?.chunkSize || 4),
-      concurrency: Number(runMetrics?.concurrency || 4),
+      concurrency: Number(runMetrics?.concurrency || 3),
       chunkTimings: Array.isArray(runMetrics?.chunkTimings) ? runMetrics.chunkTimings : [],
       reviewCount: Number(runMetrics?.reviewCount || 0),
       outsideBatamCount: Number(runMetrics?.outsideBatamCount || 0)
@@ -191,12 +191,12 @@
                 pageCount: session.captureCount || mRows.length,
                 model: session.aiModel || 'gemini-3.8-flash',
                 chunkSize: 4,
-                concurrency: 4,
+                concurrency: 3,
                 durationSeconds: session.durationSeconds || 0,
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · hingga 4 permintaan paralel × 4 gambar · audit keyakinan rendah · tanpa R2'
+                message: 'Camera Direct · hingga 3 permintaan paralel × 4 gambar · audit keyakinan rendah · tanpa R2'
               }),
               credentials: 'same-origin'
             });
@@ -213,7 +213,7 @@
               durationSeconds: session.durationSeconds,
               model: session.aiModel,
               chunkSize: 4,
-              concurrency: 4,
+              concurrency: 3,
               reviewCount,
               outsideBatamCount: outOfTown
             })
@@ -230,12 +230,26 @@
         const runMetrics = await ai.processCameraImages(session.images, {
           name: `Kamera - ${session.deviceName || sessionId}`
         });
+        if (['FAILED', 'CANCELLED'].includes(runMetrics?.status)) {
+          window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}${window.location.hash || ''}`);
+          notify(String(runMetrics.error?.message || runMetrics.error || 'AI belum berhasil memproses foto. Foto asli tetap tersimpan untuk dicoba kembali.'), runMetrics.status === 'CANCELLED' ? 'info' : 'error');
+          return;
+        }
+        const failedPages = Array.isArray(runMetrics?.failedPages)
+          ? [...new Set(runMetrics.failedPages.map(Number).filter(page => Number.isInteger(page) && page > 0))].sort((a, b) => a - b)
+          : [];
+        const auditFailedPages = Array.isArray(runMetrics?.auditFailedPages)
+          ? [...new Set(runMetrics.auditFailedPages.map(Number).filter(page => Number.isInteger(page) && page > 0))].sort((a, b) => a - b)
+          : [];
+        const partial = runMetrics?.status === 'PARTIAL' || failedPages.length > 0 || auditFailedPages.length > 0;
         const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount
           || Number(core?.tempExtractedRows?.length || 0) > 0;
         if (completed) {
-          await store.remove(sessionId);
-          const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
-          window.history.replaceState({}, document.title, cleanUrl);
+          if (!partial) await store.remove(sessionId);
+          const reviewUrl = partial
+            ? `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}${window.location.hash || ''}`
+            : `${window.location.pathname}${window.location.hash || ''}`;
+          window.history.replaceState({}, document.title, reviewUrl);
           if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
             await window.MileCameraSync.saveBatchResults(
               sessionId,
@@ -245,6 +259,14 @@
               runMetrics?.durationSeconds || session.durationSeconds,
               buildSyncDetails(session, runMetrics)
             );
+          }
+          if (partial) {
+            const messages = [];
+            if (failedPages.length) messages.push(`Foto ${failedPages.join(', ')} belum berhasil dibaca AI. Hasil sudah tersedia untuk diperiksa dan diisi manual.`);
+            if (auditFailedPages.length) messages.push(`Audit foto ${auditFailedPages.join(', ')} belum selesai; periksa hasil awal.`);
+            if (!messages.length) messages.push('Sebagian hasil masih perlu diperiksa dan diisi manual.');
+            messages.push('Foto asli tetap tersimpan; muat ulang halaman untuk mencoba kembali.');
+            notify(messages.join(' '), 'warning');
           }
         } else {
           window.history.replaceState({}, document.title, `${window.location.pathname}?cameraSession=${encodeURIComponent(sessionId)}`);

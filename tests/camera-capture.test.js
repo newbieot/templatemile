@@ -241,7 +241,7 @@ async function runAsyncAssertions() {
   assert.match(reviewHtml, /assets\/css\/review\.css/);
   assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
   assert.match(reviewHtml, /camera-import-v2\.js/);
-  assert.match(reviewHtml, /Foto diproses per 4 gambar\/request, hingga 4 permintaan paralel/);
+  assert.match(reviewHtml, /Foto diproses per 4 gambar\/request, hingga 3 permintaan paralel/);
   assert.match(reviewHtml, /id="aiProgressModal"/);
   assert.match(reviewHtml, /id="aiProgressStep"/);
   assert.match(reviewHtml, /id="aiProgressMessage"/);
@@ -271,7 +271,7 @@ async function runAsyncAssertions() {
   assert.match(cameraImport, /cameraImportRunning/);
   assert.match(cameraImport, /visibilitychange/);
   const directProcessIndex = cameraImport.indexOf('const runMetrics = await ai.processCameraImages');
-  const directCleanIndex = cameraImport.indexOf('const cleanUrl =', directProcessIndex);
+  const directCleanIndex = cameraImport.indexOf('const reviewUrl =', directProcessIndex);
   assert.ok(directProcessIndex >= 0 && directCleanIndex > directProcessIndex, 'URL sesi harus dipertahankan sampai AI selesai');
 
   const reviewCss = fs.readFileSync(path.join(root, 'assets/css/review.css'), 'utf8');

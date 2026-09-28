@@ -1,4 +1,4 @@
-const APP_VERSION = '20260928-26.22-camera-confidence-audit';
+const APP_VERSION = '20260928-26.23-camera-timeout-fallback';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -14,7 +14,11 @@ const MAX_BETA_BATCH_RAW_BYTES = 8 * 1024 * 1024;
 const BETA_IMAGE_TOKEN_TTL_SECONDS = 60 * 60;
 const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:';
 const METRICS_TIMEOUT_MS = 15000;
-const AI_UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000;
+const AI_UPSTREAM_TIMEOUTS_MS = Object.freeze({
+  camera: Object.freeze({ gemini: 20000, other: 35000 }),
+  document: Object.freeze({ gemini: 60000, other: 180000 })
+});
+const MAX_AI_RESPONSE_BYTES = 2 * 1024 * 1024;
 const VERSIONED_ASSET_CACHE = 'private, max-age=31536000, immutable';
 const SESSION_COOKIE = '__Host-mile_session';
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
@@ -472,6 +476,9 @@ function sanitizeCameraChunkTimings(value) {
     retries: clampMetricNumber(item?.retries, 0, 20),
     model: safeMetricText(item?.model, 80),
     fallbackFrom: safeMetricText(item?.fallbackFrom, 80),
+    errorStatus: clampMetricNumber(item?.errorStatus, 0, 599),
+    upstreamMs: clampMetricNumber(item?.upstreamMs, 0, 86400000),
+    requestId: safeMetricText(item?.requestId, 128),
     status: safeMetricText(item?.status, 24)
   }));
 }
@@ -903,6 +910,60 @@ async function handleCameraBatchDelete(request, env, session, url) {
   return json({ ok: true, deleted: 1 });
 }
 
+function aiUpstreamTimeoutMs(model, requestProfile) {
+  const profile = requestProfile === 'camera' ? 'camera' : 'document';
+  return AI_UPSTREAM_TIMEOUTS_MS[profile][model.startsWith('gemini-') ? 'gemini' : 'other'];
+}
+
+function safeAiDiagnostic(value, apiKey, maxLength = 600) {
+  let text = String(value || '');
+  if (apiKey) text = text.split(apiKey).join('[redacted]');
+  return text
+    .replace(/Bearer\s+[^\s"'<>]+/gi, 'Bearer [redacted]')
+    .replace(/\bsk-[a-zA-Z0-9_-]+/g, '[redacted]')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .trim().slice(0, maxLength);
+}
+
+async function readAiResponseText(upstream, signal) {
+  if (Number(upstream.headers.get('content-length') || 0) > MAX_AI_RESPONSE_BYTES) {
+    if (upstream.body) void upstream.body.cancel().catch(() => {});
+    const error = new Error('Respons CosmosHub terlalu besar.');
+    error.code = 'UPSTREAM_INVALID_RESPONSE';
+    throw error;
+  }
+  if (!upstream.body) return '';
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let result = '';
+  let complete = false;
+  const abortRead = () => { void reader.cancel().catch(() => {}); };
+  signal.addEventListener('abort', abortRead, { once: true });
+  try {
+    while (true) {
+      if (signal.aborted) throw new DOMException('Upstream request aborted.', 'AbortError');
+      const { done, value } = await reader.read();
+      if (signal.aborted) throw new DOMException('Upstream request aborted.', 'AbortError');
+      if (done) {
+        complete = true;
+        return result + decoder.decode();
+      }
+      bytes += value.byteLength;
+      if (bytes > MAX_AI_RESPONSE_BYTES) {
+        const error = new Error('Respons CosmosHub terlalu besar.');
+        error.code = 'UPSTREAM_INVALID_RESPONSE';
+        throw error;
+      }
+      result += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    signal.removeEventListener('abort', abortRead);
+    if (!complete) void reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 async function handleProxy(request, env, session) {
   if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
   if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
@@ -924,6 +985,9 @@ async function handleProxy(request, env, session) {
   if (!apiKey) return json({ error: { message: 'COSMOS_API_KEY belum tersedia pada Cloudflare Pages.' } }, 503);
   if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: { message: 'Payload API tidak valid.' } }, 400);
   if (!ALLOWED_MODELS.has(model)) return json({ error: { message: `Model CosmosHub tidak diizinkan: ${model || '(kosong)'}.` } }, 400);
+  // requestProfile controls this gateway only, never the provider payload.
+  delete body.requestProfile;
+  const upstreamTimeoutMs = aiUpstreamTimeoutMs(model, input?.requestProfile);
 
   let hydratedImages = 0;
   try {
@@ -946,16 +1010,36 @@ async function handleProxy(request, env, session) {
   }
 
   const upstreamController = new AbortController();
+  const upstreamStartedAt = Date.now();
   let upstreamTimedOut = false;
+  let upstream;
+  const upstreamHeaders = () => {
+    const elapsedMs = Math.max(0, Date.now() - upstreamStartedAt);
+    const headers = {
+      'x-mile-transport': transport,
+      'x-mile-upstream-ms': String(elapsedMs),
+      'x-mile-upstream-timeout-ms': String(upstreamTimeoutMs),
+      'server-timing': `cosmos;dur=${elapsedMs}`
+    };
+    if (upstream) {
+      headers['x-mile-upstream-status'] = String(upstream.status);
+      const requestId = safeAiDiagnostic(upstream.headers.get('x-request-id') || upstream.headers.get('request-id') || upstream.headers.get('cf-ray'), apiKey, 128)
+        .replace(/[^a-zA-Z0-9_.:-]/g, '');
+      if (requestId) headers['x-mile-request-id'] = requestId;
+    }
+    return headers;
+  };
   const abortUpstream = () => upstreamController.abort();
   const upstreamTimeout = setTimeout(() => {
     upstreamTimedOut = true;
     upstreamController.abort();
-  }, AI_UPSTREAM_TIMEOUT_MS);
+  }, upstreamTimeoutMs);
   request.signal?.addEventListener?.('abort', abortUpstream, { once: true });
 
   try {
-    const upstream = await fetch(COSMOS_ENDPOINT, {
+    if (request.signal?.aborted) abortUpstream();
+    if (upstreamController.signal.aborted) throw new DOMException('Upstream request aborted.', 'AbortError');
+    upstream = await fetch(COSMOS_ENDPOINT, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${apiKey}`,
@@ -967,40 +1051,49 @@ async function handleProxy(request, env, session) {
       redirect: 'follow'
     });
 
-    const responseText = await upstream.text();
+    if (upstream.status === 401 || upstream.status === 403) {
+      if (upstream.body) void upstream.body.cancel().catch(() => {});
+      return json({ error: { message: 'Kredensial layanan AI ditolak oleh provider. Administrator perlu memeriksa COSMOS_API_KEY.', source: 'cosmos', code: 'UPSTREAM_AUTH_ERROR', upstreamStatus: upstream.status } }, 502, upstreamHeaders());
+    }
+    const responseText = await readAiResponseText(upstream, upstreamController.signal);
     let output;
     try { output = JSON.parse(responseText); }
     catch (_) {
       const message = responseText.trim().startsWith('<')
         ? conciseHtmlError(responseText, upstream.status)
-        : (responseText.slice(0, 600) || `CosmosHub HTTP ${upstream.status}`);
-      output = { error: { message } };
+        : (responseText.trim() || 'CosmosHub mengirim respons kosong.');
+      return json({ error: { message: safeAiDiagnostic(message, apiKey), source: 'cosmos', code: 'UPSTREAM_INVALID_RESPONSE', upstreamStatus: upstream.status } }, upstream.ok ? 502 : upstream.status, upstreamHeaders());
     }
-
-    if (upstream.status === 401 || upstream.status === 403) {
-      return json({ error: { message: 'Kredensial layanan AI ditolak oleh provider. Administrator perlu memeriksa COSMOS_API_KEY.' } }, 502, {
-        'x-mile-transport': transport,
-        'x-mile-upstream-status': String(upstream.status)
-      });
+    if (!upstream.ok || output?.error) {
+      const providerError = output?.error;
+      const error = {
+        message: safeAiDiagnostic(providerError?.message || (typeof providerError === 'string' ? providerError : '') || output?.message || `CosmosHub HTTP ${upstream.status}`, apiKey),
+        source: 'cosmos',
+        code: safeAiDiagnostic(providerError?.code || 'UPSTREAM_ERROR', apiKey, 80),
+        upstreamStatus: upstream.status
+      };
+      if (providerError?.type) error.type = safeAiDiagnostic(providerError.type, apiKey, 80);
+      return json({ error }, upstream.ok ? 502 : upstream.status, upstreamHeaders());
     }
-    if (!upstream.ok && !output?.error?.message) {
-      output = { error: { message: output?.message || `CosmosHub HTTP ${upstream.status}` } };
+    if (!output || typeof output !== 'object' || Array.isArray(output)) {
+      return json({ error: { message: 'CosmosHub mengirim respons JSON yang tidak valid.', source: 'cosmos', code: 'UPSTREAM_INVALID_RESPONSE', upstreamStatus: upstream.status } }, 502, upstreamHeaders());
     }
-
-    return json(output, upstream.status, {
-      'x-mile-transport': transport,
-      'x-mile-upstream-status': String(upstream.status),
-      'x-mile-request-id': upstream.headers.get('x-request-id') || upstream.headers.get('request-id') || ''
-    });
+    return json(output, upstream.status, upstreamHeaders());
   } catch (error) {
     const timedOut = upstreamTimedOut && !request.signal?.aborted;
+    const cancelled = Boolean(request.signal?.aborted);
     return json({
       error: {
         message: timedOut
-          ? 'CosmosHub tidak memberi respons dalam 5 menit. Permintaan aman untuk dicoba ulang.'
-          : `Cloudflare Pages Function tidak dapat menghubungi CosmosHub: ${error?.message || 'kesalahan jaringan'}`
+          ? `CosmosHub tidak memberi respons lengkap dalam ${upstreamTimeoutMs / 1000} detik. Permintaan dihentikan agar proses dapat lanjut ke model cadangan.`
+          : cancelled
+            ? 'Permintaan AI dibatalkan.'
+            : `Cloudflare Pages Function tidak dapat menghubungi CosmosHub: ${safeAiDiagnostic(error?.message || 'kesalahan jaringan', apiKey)}`,
+        source: 'cosmos',
+        code: timedOut ? 'UPSTREAM_TIMEOUT' : cancelled ? 'REQUEST_ABORTED' : safeAiDiagnostic(error?.code || 'UPSTREAM_NETWORK_ERROR', apiKey, 80),
+        ...(upstream ? { upstreamStatus: upstream.status } : {})
       }
-    }, timedOut ? 504 : 502, { 'x-mile-transport': transport });
+    }, timedOut ? 504 : cancelled ? 499 : 502, upstreamHeaders());
   } finally {
     clearTimeout(upstreamTimeout);
     request.signal?.removeEventListener?.('abort', abortUpstream);
