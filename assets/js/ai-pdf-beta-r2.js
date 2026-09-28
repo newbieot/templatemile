@@ -29,6 +29,8 @@
   const GEMINI_REQUEST_TIMEOUT_MS = 75 * 1000;
   const GEMINI_MAX_ATTEMPTS = 2;
   const GEMINI_RETRY_DELAY_MS = 500;
+  const CAMERA_REQUEST_TIMEOUT_MS = 35 * 1000;
+  const CAMERA_MODEL_MAX_ATTEMPTS = 1;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
   const STORAGE_KEY = 'mile-ai-config-beta-r2-v8';
@@ -47,6 +49,7 @@
     'glm-5.3','glm-5.3-flashx','glm-5.3-flash'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
+  const GLM_FLASHX_MODEL = 'glm-5.3-flashx';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
   const CAMERA_DEFAULT_MODEL = 'gemini-3.8-flash';
@@ -62,7 +65,7 @@
   ]);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const CAMERA_GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL]);
+  const CAMERA_GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, GLM_FLASHX_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
@@ -84,6 +87,24 @@
   let progressLaneStates = [];
 
   const $ = id => document.getElementById(id);
+
+  function isGeminiModel(model) {
+    return String(model || '').startsWith('gemini-');
+  }
+
+  function adaptRequestBodyForModel(body, model) {
+    const adapted = { ...body, model };
+    if (isGeminiModel(model)) {
+      delete adapted.response_format;
+      delete adapted.temperature;
+      delete adapted.top_p;
+    } else {
+      adapted.response_format ||= { type: 'json_object' };
+      adapted.temperature ??= 0;
+      adapted.top_p ??= 0.1;
+    }
+    return adapted;
+  }
 
   function isCameraDirectMode() {
     return Boolean(document.body?.classList?.contains('camera-mode'));
@@ -1265,7 +1286,6 @@ Aturan:
       model: config.model,
       stream: false,
       max_tokens: maxTokens,
-      response_format: { type: "json_object" },
       messages: [
         {
           role: 'system',
@@ -1274,9 +1294,10 @@ Aturan:
         { role: 'user', content }
       ]
     };
-    // Gemini 3.8 menolak/mengabaikan parameter sampling lama. Model lain pada
-    // gateway CosmosHub tetap memakai parameter yang sudah teruji sebelumnya.
-    if (config.model !== GEMINI_38_MODEL) {
+    // Keluarga Gemini pada gateway tidak selalu menerima parameter OpenAI
+    // opsional. Prompt dan parser tetap memaksa serta memvalidasi JSON.
+    if (!isGeminiModel(config.model)) {
+      body.response_format = { type: 'json_object' };
       body.temperature = 0;
       body.top_p = 0.1;
     }
@@ -1289,7 +1310,6 @@ Aturan:
       model: config.model,
       stream: false,
       max_tokens: Math.max(1200, Math.min(7000, Number(maxTokens) || 2600)),
-      response_format: { type: "json_object" },
       messages: [
         {
           role: 'system',
@@ -1303,7 +1323,8 @@ ${clipped}`
         }
       ]
     };
-    if (config.model !== GEMINI_38_MODEL) {
+    if (!isGeminiModel(config.model)) {
+      body.response_format = { type: 'json_object' };
       body.temperature = 0;
       body.top_p = 0.1;
     }
@@ -1395,7 +1416,9 @@ ${clipped}`
 
       xhr.open('POST', '/api/ai-proxy', true);
       xhr.withCredentials = true;
-      const requestTimeoutMs = config?.model === GEMINI_38_MODEL ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+      const requestTimeoutMs = config?.cameraDirect
+        ? CAMERA_REQUEST_TIMEOUT_MS
+        : (isGeminiModel(config?.model) ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
       xhr.timeout = requestTimeoutMs;
       xhr.setRequestHeader('content-type', 'application/json');
       xhr.setRequestHeader('accept', 'application/json');
@@ -1439,9 +1462,11 @@ ${clipped}`
         fail(error);
       };
       xhr.ontimeout = () => {
-        const error = new Error(config?.model === GEMINI_38_MODEL
-          ? 'Gemini tidak memberi respons dalam 75 detik. Kelompok ini akan dialihkan tanpa mengubah kelompok lain.'
-          : 'Permintaan AI melewati batas 3 menit dan akan dicoba ulang.');
+        const error = new Error(config?.cameraDirect
+          ? `${shortModelLabel(config?.model)} tidak memberi respons dalam 35 detik. Kelompok ini langsung dialihkan ke model berikutnya.`
+          : (isGeminiModel(config?.model)
+            ? 'Gemini tidak memberi respons dalam 75 detik. Kelompok ini akan dialihkan tanpa mengubah kelompok lain.'
+            : 'Permintaan AI melewati batas 3 menit dan akan dicoba ulang.'));
         error.status = 408;
         fail(error);
       };
@@ -1480,6 +1505,7 @@ ${clipped}`
     if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model, config)) return false;
     if (isR2BridgeFailure(error)) return false;
     const status = Number(error?.status || 0);
+    if (config?.cameraDirect && status === 400 && isGeminiModel(config?.model)) return true;
     if (!status) return true;
     if ([404, 408, 409, 425, 429, 500, 502, 503, 504].includes(status)) return true;
     return /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
@@ -1494,9 +1520,11 @@ ${clipped}`
     const configuredModel = String(config?.model || body?.model || '').trim();
     const requestModel = String(body?.model || configuredModel).trim();
     const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
-    const requestBody = body?.model === requestModel ? body : { ...body, model: requestModel };
+    const requestBody = adaptRequestBodyForModel(body, requestModel);
     const isGeminiFallbackModel = GEMINI_FALLBACK_CHAIN.includes(requestModel);
-    const maxAttempts = isGeminiFallbackModel ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES;
+    const maxAttempts = config?.cameraDirect
+      ? CAMERA_MODEL_MAX_ATTEMPTS
+      : (isGeminiFallbackModel ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES);
     let lastError;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
@@ -1576,7 +1604,7 @@ ${clipped}`
         showToast(`Sebagian kelompok ${shortModelLabel(requestModel)} terkendala. Hanya kelompok tersebut yang dialihkan ke ${shortModelLabel(nextModel)}.`, 'info');
       }
       const fallbackConfig = { ...requestConfig, model: nextModel };
-      const fallbackPayload = await callProxyWithRetry(fallbackConfig, { ...requestBody, model: nextModel }, label, hooks);
+      const fallbackPayload = await callProxyWithRetry(fallbackConfig, adaptRequestBodyForModel(requestBody, nextModel), label, hooks);
       const existingChain = Array.isArray(fallbackPayload._mileFallbackChain)
         ? fallbackPayload._mileFallbackChain
         : [nextModel];

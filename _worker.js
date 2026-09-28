@@ -1,4 +1,4 @@
-const APP_VERSION = '20260928-26.12-ai-resume-tap-focus';
+const APP_VERSION = '20260928-26.13-camera-focus-ai-recovery';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

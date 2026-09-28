@@ -101,7 +101,9 @@ for (const model of [
 element('aiModel').value = 'model-tidak-diizinkan';
 assert.equal(ai.getConfig().model, 'gemini-3.8-flash');
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 503 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash', cameraDirect: true }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 400 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash', cameraDirect: true }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'glm-5.3-flashx', cameraDirect: true }, { status: 503 }), false);
 
 const sources = Array.from({ length: 15 }, (_, index) => ({
   page: index + 1,
@@ -114,6 +116,7 @@ assert.equal(bodies.length, 3);
 assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.filter(part => part.type === 'image_url').length, 0), 15);
 bodies.forEach(body => {
   const content = body.messages[1].content;
+  assert.equal(body.response_format.type, 'json_object');
   assert.equal(content.filter(part => part.type === 'image_url').length, 5);
   assert.equal(content.filter(part => part.type === 'text').length, 6);
 });
@@ -127,7 +130,9 @@ assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 8 \* 1024 \* 1024/);
 assert.match(source, /activeAiLimit = Math\.max\(1, activeAiLimit - 1\)/);
 assert.match(source, /const stagger = chunkIndex \* 1250/);
 assert.match(source, /const CAMERA_DEFAULT_MODEL = 'gemini-3\.8-flash'/);
-assert.match(source, /CAMERA_GEMINI_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL\]\)/);
+assert.match(source, /CAMERA_GEMINI_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, GLM_FLASHX_MODEL\]\)/);
+assert.match(source, /const CAMERA_REQUEST_TIMEOUT_MS = 35 \* 1000/);
+assert.match(source, /const CAMERA_MODEL_MAX_ATTEMPTS = 1/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
 assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCameraBlobsForBatch/);
 assert.match(source, /JPEG asli siap · belum mengirim gambar/);
@@ -161,4 +166,4 @@ for (const requiredProgressId of [
 assert.doesNotMatch(reviewHtml, /id="aiModal"/);
 assert.match(source, /const modal = \$\('aiProgressModal'\)/);
 
-console.log('PASS camera-direct-ai: JPEG tanpa PDF/R2, default Gemini 3.8 → fallback 3.7, dan gelombang 15 sebagai 3 request paralel × 5');
+console.log('PASS camera-direct-ai: JPEG tanpa PDF/R2, Gemini 3.8 → 3.7 → GLM FlashX, dan gelombang 15 sebagai 3 request paralel × 5');

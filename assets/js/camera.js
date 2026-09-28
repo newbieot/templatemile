@@ -33,6 +33,9 @@
   let focusIndicatorTimer = 0;
   let focusResetTimer = 0;
   let orientationSyncTimer = 0;
+  let continuousFocusTrack = null;
+  let continuousFocusEnabled = false;
+  let continuousFocusRetryTimers = [];
 
   const constrainedDevice = (() => {
     const memory = Number(navigator.deviceMemory || 0);
@@ -236,8 +239,28 @@
     stage.dataset.orientation = viewportOrientation;
     document.documentElement.dataset.cameraOrientation = viewportOrientation;
     if (!video?.videoWidth || !video?.videoHeight) return;
-    stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
-    stage.dataset.frameOrientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
+    const frameOrientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
+    const screenAngle = Number(window.screen?.orientation?.angle ?? window.orientation ?? 0);
+    const previewRotation = viewportOrientation === 'landscape' && frameOrientation === 'portrait'
+      ? (screenAngle === 270 || screenAngle === -90 ? -90 : 90)
+      : 0;
+    stage.dataset.frameOrientation = frameOrientation;
+    stage.dataset.previewRotation = String(previewRotation);
+    stage.style.setProperty('--camera-aspect', previewRotation
+      ? `${video.videoHeight}/${video.videoWidth}`
+      : `${video.videoWidth}/${video.videoHeight}`);
+  }
+
+  function currentPreviewRotation() {
+    const value = Number($('cameraStage')?.dataset?.previewRotation || 0);
+    return value === 90 || value === -90 ? value : 0;
+  }
+
+  function captureFrameRatios() {
+    const landscape = $('cameraStage')?.dataset?.orientation === 'landscape';
+    return landscape
+      ? { x: 0.08, y: 0.10, width: 0.84, height: 0.72 }
+      : { x: 0.06, y: 0.12, width: 0.88, height: 0.72 };
   }
 
   function handleViewportChange() {
@@ -246,6 +269,7 @@
     // Android mengubah dimensi video beberapa frame sesudah event orientasi layar.
     orientationSyncTimer = window.setTimeout(() => {
       updateStageAspect();
+      scheduleContinuousAutofocus(stream?.getVideoTracks?.()[0], [0, 320], true);
       orientationSyncTimer = 0;
     }, 180);
   }
@@ -283,6 +307,49 @@
     }, FOCUS_RESET_DELAY_MS);
   }
 
+  function clearContinuousFocusRetries() {
+    continuousFocusRetryTimers.forEach(timer => window.clearTimeout(timer));
+    continuousFocusRetryTimers = [];
+  }
+
+  async function enableContinuousAutofocus(track = stream?.getVideoTracks?.()[0], { force = false } = {}) {
+    if (!track || track.readyState === 'ended' || !track.applyConstraints) return false;
+    if (track !== continuousFocusTrack) {
+      continuousFocusTrack = track;
+      continuousFocusEnabled = false;
+    }
+    const settings = track.getSettings?.() || {};
+    if (!force && (continuousFocusEnabled || settings.focusMode === 'continuous')) {
+      continuousFocusEnabled = true;
+      return true;
+    }
+    const capabilities = track.getCapabilities?.() || {};
+    const focusModes = Array.isArray(capabilities.focusMode) ? capabilities.focusMode : [];
+    if (focusModes.length && !focusModes.includes('continuous')) {
+      $('cameraStage')?.setAttribute('data-autofocus', 'device-default');
+      return false;
+    }
+    try {
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      continuousFocusEnabled = true;
+      $('cameraStage')?.setAttribute('data-autofocus', 'continuous');
+      return true;
+    } catch (_) {
+      continuousFocusEnabled = false;
+      return false;
+    }
+  }
+
+  function scheduleContinuousAutofocus(track = stream?.getVideoTracks?.()[0], delays = [0, 260, 900], force = false) {
+    if (!track || track.readyState === 'ended') return;
+    clearContinuousFocusRetries();
+    continuousFocusRetryTimers = delays.map((delay, index) => window.setTimeout(async () => {
+      if (track !== stream?.getVideoTracks?.()[0]) return;
+      const enabled = await enableContinuousAutofocus(track, { force: force && index === 0 });
+      if (enabled) clearContinuousFocusRetries();
+    }, delay));
+  }
+
   async function focusCameraAt(event) {
     if (!stream || captureBusy || !isCameraFullscreen()) return;
     if (event.target?.closest?.('button,.camera-capture-gallery')) return;
@@ -296,13 +363,16 @@
         ? 'single-shot'
         : focusModes.includes('continuous') ? 'continuous' : '';
       if (!requestedMode) return;
+      continuousFocusEnabled = false;
       await track.applyConstraints({ advanced: [{ focusMode: requestedMode }] });
       if (requestedMode === 'single-shot' && focusModes.includes('continuous')) {
         if (focusResetTimer) window.clearTimeout(focusResetTimer);
         focusResetTimer = window.setTimeout(() => {
-          track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+          scheduleContinuousAutofocus(track, [0, 260], true);
           focusResetTimer = 0;
         }, FOCUS_RESET_DELAY_MS);
+      } else if (requestedMode === 'continuous') {
+        continuousFocusEnabled = true;
       }
     } catch (_) {}
   }
@@ -311,9 +381,12 @@
     if (focusIndicatorTimer) window.clearTimeout(focusIndicatorTimer);
     if (focusResetTimer) window.clearTimeout(focusResetTimer);
     if (orientationSyncTimer) window.clearTimeout(orientationSyncTimer);
+    clearContinuousFocusRetries();
     focusIndicatorTimer = 0;
     focusResetTimer = 0;
     orientationSyncTimer = 0;
+    continuousFocusTrack = null;
+    continuousFocusEnabled = false;
     stream?.getTracks?.().forEach(track => track.stop());
     stream = null;
     const video = $('cameraPreview');
@@ -356,6 +429,7 @@
       $('cameraStage')?.classList.add('is-active');
       updateStageAspect();
       const track = stream.getVideoTracks()[0];
+      track.addEventListener?.('unmute', () => scheduleContinuousAutofocus(track, [0, 260], true));
       const settings = track.getSettings?.() || {};
       $('cameraState').textContent = `${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} · kamera belakang diprioritaskan`;
       ensureSession();
@@ -365,17 +439,13 @@
 
       // Konfigurasi tambahan tidak boleh menahan kamera siap digunakan pada HP lama.
       window.setTimeout(async () => {
-        try {
-          const capabilities = track.getCapabilities?.() || {};
-          const advanced = [];
-          if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
-            advanced.push({ focusMode: 'continuous' });
-          }
-          if (Number.isFinite(capabilities.zoom?.min) && Number.isFinite(capabilities.zoom?.max)) {
-            advanced.push({ zoom: Math.max(capabilities.zoom.min, Math.min(capabilities.zoom.max, 1)) });
-          }
-          if (advanced.length) await track.applyConstraints({ advanced });
-        } catch (_) {}
+        const capabilities = track.getCapabilities?.() || {};
+        if (Number.isFinite(capabilities.zoom?.min) && Number.isFinite(capabilities.zoom?.max)) {
+          try {
+            await track.applyConstraints({ advanced: [{ zoom: Math.max(capabilities.zoom.min, Math.min(capabilities.zoom.max, 1)) }] });
+          } catch (_) {}
+        }
+        scheduleContinuousAutofocus(track);
       }, 0);
     } catch (error) {
       const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
@@ -594,7 +664,7 @@
     captureBusy = true;
     setCaptureDisabled(true);
     setFinishDisabled(true);
-    setStatus('Mengambil foto seluruh area kamera…', 'info');
+    setStatus('Mengambil foto di dalam area panduan…', 'info');
     playShutterSound();
     flashCameraStage();
     showHudToast('Capture diterima · sedang menyimpan...');
@@ -607,10 +677,28 @@
       const sourceHeight = video.videoHeight;
       const maxOutputSide = constrainedDevice ? LOW_END_OUTPUT_MAX_SIDE : OUTPUT_MAX_SIDE;
       const scale = Math.min(1, maxOutputSide / Math.max(sourceWidth, sourceHeight));
+      const renderWidth = Math.max(1, Math.round(sourceWidth * scale));
+      const renderHeight = Math.max(1, Math.round(sourceHeight * scale));
+      const previewRotation = currentPreviewRotation();
+      const fullWidth = previewRotation ? renderHeight : renderWidth;
+      const fullHeight = previewRotation ? renderWidth : renderHeight;
+      const frame = captureFrameRatios();
+      const cropX = Math.round(fullWidth * frame.x);
+      const cropY = Math.round(fullHeight * frame.y);
+      const cropWidth = Math.max(1, Math.round(fullWidth * frame.width));
+      const cropHeight = Math.max(1, Math.round(fullHeight * frame.height));
       const outputCanvas = $('cameraOutputCanvas');
-      outputCanvas.width = Math.max(1, Math.round(sourceWidth * scale));
-      outputCanvas.height = Math.max(1, Math.round(sourceHeight * scale));
-      outputCanvas.getContext('2d', { alpha: false }).drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, outputCanvas.width, outputCanvas.height);
+      outputCanvas.width = cropWidth;
+      outputCanvas.height = cropHeight;
+      const outputContext = outputCanvas.getContext('2d', { alpha: false });
+      outputContext.translate(-cropX, -cropY);
+      if (previewRotation) {
+        outputContext.translate(fullWidth / 2, fullHeight / 2);
+        outputContext.rotate(previewRotation * Math.PI / 180);
+        outputContext.drawImage(video, 0, 0, sourceWidth, sourceHeight, -renderWidth / 2, -renderHeight / 2, renderWidth, renderHeight);
+      } else {
+        outputContext.drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, renderWidth, renderHeight);
+      }
 
       const quality = captureQualityMetadata(outputCanvas);
       const thumbnailPromise = createThumbnailBlob(outputCanvas).catch(() => null);
@@ -676,6 +764,7 @@
       captureBusy = false;
       setCaptureDisabled(!stream || !sessionId);
       updateBatchUi();
+      scheduleContinuousAutofocus(stream?.getVideoTracks?.()[0], [0, 260], true);
     }
   }
 
@@ -815,7 +904,7 @@
       const detail = card.querySelector('.capture-card__body small');
       detail.textContent = `${formatTime(capture.timestamp)} · ${capture.width} × ${capture.height} · ${formatBytes(capture.blob.size)}`;
       const quality = card.querySelector('.capture-card__quality');
-      const frameLabel = 'Foto penuh';
+      const frameLabel = 'Area panduan';
       quality.textContent = capture.quality?.ok === false ? `${frameLabel} · ${qualityLabel(capture.quality)}` : `${frameLabel} · kualitas baik`;
       quality.classList.toggle('is-warning', capture.quality?.ok === false);
       const removeButton = card.querySelector('.capture-card__remove');
@@ -1007,7 +1096,10 @@
       }
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && sessionId && !wakeLock) requestWakeLock();
+      if (document.visibilityState === 'visible') {
+        if (sessionId && !wakeLock) requestWakeLock();
+        scheduleContinuousAutofocus(stream?.getVideoTracks?.()[0], [0, 320, 900], true);
+      }
       else if (document.visibilityState === 'hidden' && sessionId && captures.length && !finalizingBatch) void flushDraftSave();
     });
     window.addEventListener('beforeunload', () => {

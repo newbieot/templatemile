@@ -98,10 +98,16 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /capabilities\.zoom/);
   assert.match(cameraRuntime, /const FOCUS_RESET_DELAY_MS = 650/);
   assert.match(cameraRuntime, /function focusCameraAt/);
+  assert.match(cameraRuntime, /function enableContinuousAutofocus/);
+  assert.match(cameraRuntime, /function scheduleContinuousAutofocus/);
+  assert.match(cameraRuntime, /track\.addEventListener\?\.\('unmute'/);
+  assert.match(cameraRuntime, /data-autofocus', 'continuous'/);
   assert.match(cameraRuntime, /focusMode: requestedMode/);
   assert.match(cameraRuntime, /addEventListener\('pointerdown', focusCameraAt\)/);
   assert.match(cameraHtml, /id="cameraFocusIndicator"/);
+  assert.match(cameraHtml, /id="captureFrameGuide"/);
   assert.match(cameraCss, /\.camera-focus-indicator/);
+  assert.match(cameraCss, /\.camera-frame-guide/);
   assert.match(cameraCss, /\.camera-stage video\{[^}]*object-fit:contain/);
   assert.doesNotMatch(cameraCss, /\.camera-stage video\{[^}]*object-fit:cover/);
   assert.doesNotMatch(cameraRuntime, /videoDisplayRect/);
@@ -117,8 +123,16 @@ async function runAsyncAssertions() {
   assert.match(cameraRuntime, /matchMedia\?\.\('\(orientation: landscape\)'\)/);
   assert.match(cameraRuntime, /dataset\.cameraOrientation/);
   assert.match(cameraRuntime, /dataset\.frameOrientation/);
+  assert.match(cameraRuntime, /dataset\.previewRotation/);
+  assert.match(cameraRuntime, /function currentPreviewRotation/);
+  assert.match(cameraRuntime, /function captureFrameRatios/);
+  assert.match(cameraRuntime, /const cropWidth = Math\.max/);
+  assert.match(cameraRuntime, /outputContext\.translate\(-cropX, -cropY\)/);
+  assert.match(cameraRuntime, /outputContext\.rotate\(previewRotation \* Math\.PI \/ 180\)/);
   assert.match(cameraRuntime, /orientationSyncTimer/);
+  assert.match(cameraRuntime, /scheduleContinuousAutofocus\(stream\?\.getVideoTracks/);
   assert.match(cameraCss, /is-fullscreen\[data-orientation="landscape"\]/);
+  assert.match(cameraCss, /data-preview-rotation="90"/);
   assert.match(cameraRuntime, /ensureSession\(\);/);
   assert.doesNotMatch(cameraRuntime, /await ensureSession\(\);/);
   assert.match(cameraRuntime, /frameRate: \{ ideal: 24, max: 30 \}/);
@@ -131,7 +145,7 @@ async function runAsyncAssertions() {
   assert.doesNotMatch(cameraRuntime, /fixedGuideBounds|renderFixedGuide|cropBounds/);
   assert.doesNotMatch(cameraHtml, /id="cropGuide"|id="cropStatus"/);
   assert.doesNotMatch(cameraCss, /\.crop-guide|\.crop-status/);
-  assert.match(cameraRuntime, /drawImage\(video, 0, 0, sourceWidth, sourceHeight, 0, 0, outputCanvas\.width, outputCanvas\.height\)/);
+  assert.match(cameraRuntime, /drawImage\(video, 0, 0, sourceWidth, sourceHeight, 0, 0, renderWidth, renderHeight\)/);
   assert.doesNotMatch(cameraRuntime, /sourceCanvas\.getContext\('2d'\)\.drawImage\(video/);
   assert.match(cameraRuntime, /yieldForPaint/);
   assert.match(cameraRuntime, /DRAFT_SAVE_DELAY_MS = 2400/);
@@ -324,7 +338,7 @@ async function runAsyncAssertions() {
   assert.match(worker, /customerId: result\.form\?\.customerId/);
   assert.match(worker, /\/api\/camera\/batches/);
 
-  console.log('PASS camera-capture: fullscreen, capture feedback, full-frame JPEG tanpa crop/PDF, protected review, server sync 72h & desktop batch panel');
+  console.log('PASS camera-capture: fullscreen, autofocus kontinu, rotasi, crop tetap JPEG tanpa PDF, protected review, server sync 72h & desktop batch panel');
 }
 
 runAsyncAssertions().catch(error => {

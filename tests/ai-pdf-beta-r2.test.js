@@ -252,7 +252,9 @@ const gemini38Body = ai.buildApiBody(
   1200
 );
 assert.equal(gemini38Body.model, 'gemini-3.8-flash');
-assert.equal(gemini38Body.response_format.type, 'json_object');
+assert.equal(gemini38Body.response_format, undefined);
+assert.equal(gemini38Body.temperature, undefined);
+assert.equal(gemini38Body.top_p, undefined);
 assert.equal('temperature' in gemini38Body, false);
 assert.equal('top_p' in gemini38Body, false);
 
@@ -284,8 +286,9 @@ const gemini37Body = ai.buildApiBody(
   [],
   1200
 );
-assert.equal(gemini37Body.temperature, 0);
-assert.equal(gemini37Body.top_p, 0.1);
+assert.equal(gemini37Body.response_format, undefined);
+assert.equal(gemini37Body.temperature, undefined);
+assert.equal(gemini37Body.top_p, undefined);
 
 const gemini38RepairBody = ai.buildJsonRepairBody(
   { model: 'gemini-3.8-flash' },

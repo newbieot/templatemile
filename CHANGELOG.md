@@ -1,5 +1,15 @@
 # Changelog
 
+## v26.13 — Kamera fokus, rotasi landscape, dan pemulihan AI
+
+- Menjaga kamera pada mode autofocus `continuous` selama live preview aktif.
+- Mengaktifkan kembali autofocus setelah track kamera aktif kembali, layar HP dibuka, orientasi berubah, tap-focus selesai, dan setiap capture tersimpan.
+- Menggunakan retry singkat hanya pada peristiwa kamera penting agar fokus tetap tajam tanpa polling yang dapat menyebabkan preview berdenyut atau lag.
+- Memutar preview dan hasil capture ketika HP landscape tetapi track Android masih mengirim frame portrait.
+- Menampilkan bingkai crop tetap yang menyesuaikan orientasi dan hanya menyimpan area label di dalamnya, tanpa deteksi otomatis atau gerakan bingkai.
+- Membatasi setiap model kamera maksimal 35 detik dan satu percobaan sebelum fallback agar proses tidak diam 2–3 menit.
+- Menetapkan fallback kamera Gemini 3.8 → Gemini 3.7 → GLM 5.3 FlashX serta menghapus parameter OpenAI opsional pada payload Gemini.
+
 ## v26.12 — AI lebih cepat, sesi tahan layar mati, dan tap focus
 
 - Mengecilkan payload capture menjadi maksimal 2 MB per foto dengan sisi panjang 1600 px (1440 px untuk HP terbatas), tanpa mengubah urutan maupun jumlah foto.
