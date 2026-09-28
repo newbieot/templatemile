@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const values = {
-  aiModel: 'gemini-3.8-flash',
+  aiModel: 'deepseek-v4.1-flash',
   aiAccuracyMode: 'auto',
   aiSpeedPreset: 'fast',
   aiPagesPerRequest: '3',
@@ -60,8 +60,8 @@ const auditedPages = (rows, expectedPages = [1], config = cameraConfig) => Array
 );
 
 const config = ai.getConfig();
-assert.equal(config.pagesPerRequest, 4, 'Camera must use four images per request');
-assert.equal(config.concurrency, 4, 'Camera must allow four requests in parallel');
+assert.equal(config.pagesPerRequest, 7, 'Camera must use seven images per request');
+assert.equal(config.concurrency, 3, 'Camera must allow three requests in parallel');
 assert.equal(config.verificationPolicy, 'low-confidence');
 assert.deepEqual(auditedPages(normalize()), [], 'Readable data should proceed directly to user review');
 

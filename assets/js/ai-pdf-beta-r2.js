@@ -45,30 +45,28 @@
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
-    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro','kimi-k3',
+    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
     'deepseek-v4.1-flash','deepseek-v4-pro',
     'qwen-3.8-flash','qwen-3.7-plus','qwen-3.7-flash',
     'glm-5.3','glm-5.3-flashx','glm-5.3-flash'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
+  const GEMINI_31_PRO_MODEL = 'gemini-3.1-pro';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
-  const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL;
-  const CAMERA_BATCH_SIZE = 5;
+  const CAMERA_DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
+  const CAMERA_BATCH_SIZE = 7;
   const CAMERA_AI_CONCURRENCY = 3;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
-  // New captures are WebP <= 2 MB. Also preserve older JPEGs up to 4 MB:
-  // five original 4 MB images still fit the gateway's 28 MB JSON/base64 limit.
+  // New captures are JPEG <= 120 KB. Older large captures are resized only
+  // when needed so a seven-image batch still fits the gateway's JSON limit.
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
-    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',
-    'gemini-3.1-pro', 'kimi-k3',
-    'deepseek-v4.1-flash', 'deepseek-v4-pro'
+    DEEPSEEK_R2_MODEL, GEMINI_38_MODEL, GEMINI_31_PRO_MODEL
   ]);
-  const CAMERA_EXPERIMENT_MODELS = new Set(['gemini-3.1-pro', 'kimi-k3']);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_R2_MODEL]);
+  const CAMERA_FALLBACK_CHAIN = Object.freeze([DEEPSEEK_R2_MODEL, GEMINI_38_MODEL, GEMINI_31_PRO_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
@@ -1535,7 +1533,6 @@ ${clipped}`
   function nextFallbackModel(model, config = {}) {
     const chain = config.cameraDirect ? CAMERA_FALLBACK_CHAIN : GEMINI_FALLBACK_CHAIN;
     const index = chain.indexOf(String(model || '').trim());
-    if (config.cameraDirect && CAMERA_EXPERIMENT_MODELS.has(String(model || '').trim())) return DEEPSEEK_R2_MODEL;
     if (config.cameraDirect && index < 0 && isGeminiModel(model)) return DEEPSEEK_R2_MODEL;
     return index >= 0 ? (chain[index + 1] || '') : '';
   }
@@ -1544,7 +1541,7 @@ ${clipped}`
     if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model, config)) return false;
     if (isR2BridgeFailure(error)) return false;
     const status = Number(error?.status || 0);
-    if (config?.cameraDirect && status === 400 && (isGeminiModel(config?.model) || CAMERA_EXPERIMENT_MODELS.has(String(config?.model || '').trim()))) return true;
+    if (config?.cameraDirect && status === 400 && CAMERA_FALLBACK_CHAIN.includes(String(config?.model || '').trim())) return true;
     if (config?.cameraDirect && status === 400 && /model.{0,48}(?:not allowed|not found|unsupported|tidak diizinkan|tidak ditemukan|tidak didukung)/i.test(String(error?.message || ''))) return true;
     if (!status) return true;
     if ([404, 408, 409, 425, 429].includes(status) || (status >= 500 && status <= 599)) return true;

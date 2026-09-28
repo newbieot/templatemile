@@ -56,7 +56,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20260928-26.27-camera-model-experiments');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20260928-26.28-camera-deepseek-7x3');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -88,10 +88,10 @@ const saveBatch = await workerModule.default.fetch(new Request(`https://mile.pos
     finishedAt: new Date(createdAt).toISOString(),
     captureCount: 3,
     deviceName: 'HP Gudang A',
-    model: 'gemini-3.8-flash',
-    chunkSize: 5,
+    model: 'deepseek-v4.1-flash',
+    chunkSize: 7,
     concurrency: 3,
-    chunkTimings: [{ group: 1, start: 1, end: 3, inputBytes: 1024, prepareMs: 120, encodeMs: 80, uploadMs: 300, waitMs: 900, totalMs: 1280, attempts: 1, retries: 0, rows: 3, model: 'gemini-3.8-flash', status: 'success' }],
+    chunkTimings: [{ group: 1, start: 1, end: 3, inputBytes: 1024, prepareMs: 120, encodeMs: 80, uploadMs: 300, waitMs: 900, totalMs: 1280, attempts: 1, retries: 0, rows: 3, model: 'deepseek-v4.1-flash', status: 'success' }],
     captureDurationSeconds: 60,
     processingDurationSeconds: 25.5,
     totalDurationSeconds: 120,
@@ -112,7 +112,7 @@ assert.equal(batchListResponse.status, 200);
 const batchList = await batchListResponse.json();
 assert.equal(batchList.batches.length, 1);
 assert.equal(batchList.batches[0].deviceName, 'HP Gudang A');
-assert.equal(batchList.batches[0].model, 'gemini-3.8-flash');
+assert.equal(batchList.batches[0].model, 'deepseek-v4.1-flash');
 assert.equal(batchList.batches[0].reviewCount, 1);
 assert.equal(batchList.batches[0].reviewFieldCount, 2);
 assert.equal(batchList.batches[0].outsideBatamCount, 1);

@@ -4,6 +4,14 @@
   let reviewWakeLock = null;
   let cameraImportRunning = false;
   let aiProcessingActive = false;
+  const DEFAULT_CAMERA_MODEL = 'deepseek-v4.1-flash';
+  const CAMERA_CHUNK_SIZE = 7;
+  const CAMERA_CONCURRENCY = 3;
+
+  function storedCameraModel(model) {
+    const value = String(model || '').trim();
+    return !value || value === 'gpt-6-luna' ? DEFAULT_CAMERA_MODEL : value;
+  }
 
   async function requestReviewWakeLock() {
     try {
@@ -85,9 +93,9 @@
       captureDurationSeconds,
       processingDurationSeconds: Number(runMetrics?.durationSeconds || session?.durationSeconds || 0),
       totalDurationSeconds,
-      model: String(runMetrics?.model || session?.aiModel || 'gemini-3.8-flash'),
-      chunkSize: Number(runMetrics?.chunkSize || 5),
-      concurrency: Number(runMetrics?.concurrency || 3),
+      model: String(runMetrics?.model || storedCameraModel(session?.aiModel)),
+      chunkSize: Number(runMetrics?.chunkSize || CAMERA_CHUNK_SIZE),
+      concurrency: Number(runMetrics?.concurrency || CAMERA_CONCURRENCY),
       chunkTimings: Array.isArray(runMetrics?.chunkTimings) ? runMetrics.chunkTimings : [],
       reviewCount: Number(runMetrics?.reviewCount || 0),
       outsideBatamCount: Number(runMetrics?.outsideBatamCount || 0)
@@ -142,18 +150,6 @@
       }
 
       const core = window.__mileCore;
-      if (session.aiModel && document.getElementById('aiModel')) {
-        const modelSelect = document.getElementById('aiModel');
-        // Retry stored GPT-6 Luna sessions using the current Gemini 3.8 default.
-        const sessionModel = session.aiModel === 'gpt-6-luna' ? 'gemini-3.8-flash' : session.aiModel;
-        if (!Array.from(modelSelect.options).some(o => o.value === sessionModel)) {
-          const opt = document.createElement('option');
-          opt.value = sessionModel;
-          opt.textContent = sessionModel;
-          modelSelect.appendChild(opt);
-        }
-        modelSelect.value = sessionModel;
-      }
       
       if (session.streamedRows && session.streamedRows.length > 0) {
         if (session.streamedRows[0]._error) {
@@ -191,14 +187,14 @@
                 status: 'SUCCESS',
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
-                model: session.aiModel === 'gpt-6-luna' ? 'gemini-3.8-flash' : (session.aiModel || 'gemini-3.8-flash'),
-                chunkSize: 5,
-                concurrency: 3,
+                model: storedCameraModel(session.aiModel),
+                chunkSize: CAMERA_CHUNK_SIZE,
+                concurrency: CAMERA_CONCURRENCY,
                 durationSeconds: session.durationSeconds || 0,
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · hingga 3 permintaan paralel × 5 gambar · audit keyakinan rendah · tanpa R2'
+                message: 'Camera Direct · hingga 3 permintaan paralel × 7 gambar · audit keyakinan rendah · tanpa R2'
               }),
               credentials: 'same-origin'
             });
@@ -214,8 +210,8 @@
             buildSyncDetails(session, {
               durationSeconds: session.durationSeconds,
               model: session.aiModel,
-              chunkSize: 5,
-              concurrency: 3,
+              chunkSize: CAMERA_CHUNK_SIZE,
+              concurrency: CAMERA_CONCURRENCY,
               reviewCount,
               outsideBatamCount: outOfTown
             })

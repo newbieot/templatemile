@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.28 — DeepSeek default dan batch kamera 7×3
+
+- Menetapkan DeepSeek V4.1 Flash sebagai default kamera, dengan fallback berurutan ke Gemini 3.8 Flash lalu Gemini 3.1 Pro.
+- Menaikkan ukuran kelompok menjadi tujuh gambar per permintaan dengan maksimal tiga jalur paralel.
+- Menghapus pilihan model eksperimen dari halaman Camera dan mengeluarkan Kimi K3 dari allowlist gateway.
+- Menyamakan metadata batch, status proses, dokumentasi, dan versi cache dengan konfigurasi baru.
+
 ## v26.27 — Pilihan model eksperimen kamera
 
 - Menambahkan Kimi K3 dan Gemini 3.1 Pro sebagai pilihan di halaman Camera; Gemini 3.8 Flash tetap menjadi default.

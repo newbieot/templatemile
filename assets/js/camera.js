@@ -9,9 +9,7 @@
   const FOCUS_RESET_DELAY_MS = 650;
   const DRAFT_SAVE_DELAY_MS = 2400;
   const DRAFT_SAVE_MAX_WAIT_MS = 5000;
-  const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
-  const CAMERA_AI_MODELS = new Set([DEFAULT_AI_MODEL, 'kimi-k3', 'gemini-3.1-pro']);
-  const CAMERA_AI_MODEL_STORAGE_KEY = 'mile_camera_ai_model';
+  const DEFAULT_AI_MODEL = 'deepseek-v4.1-flash';
   const DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name';
   const core = window.MileCameraCore;
   const photo = window.MileCameraPhoto;
@@ -77,16 +75,6 @@
   function setReviewDisabled(disabled) {
     const button = $('reviewCapturesButtonFullscreen');
     if (button) button.disabled = disabled;
-  }
-
-  function selectedAiModel() {
-    const model = String($('cameraAiModel')?.value || DEFAULT_AI_MODEL).trim();
-    return CAMERA_AI_MODELS.has(model) ? model : DEFAULT_AI_MODEL;
-  }
-
-  function restoreAiModel(model) {
-    const value = String(model || '').trim();
-    if (CAMERA_AI_MODELS.has(value) && $('cameraAiModel')) $('cameraAiModel').value = value;
   }
 
   let audioContext = null;
@@ -627,7 +615,7 @@
       captureCount: draftCaptures.length,
       draftCaptures,
       deviceName: currentDeviceName(),
-      aiModel: selectedAiModel()
+      aiModel: DEFAULT_AI_MODEL
     };
     draftSaveChain = draftSaveChain
       .catch(() => {})
@@ -696,7 +684,6 @@
         sessionStartedAt = '';
         return false;
       }
-      restoreAiModel(draft.aiModel);
       $('sessionIdentifier').textContent = sessionId;
       $('sessionDetails').hidden = false;
       if (draft.deviceName) {
@@ -1148,7 +1135,7 @@
         blob
       }));
       const deviceName = rememberDeviceName();
-      const aiModel = selectedAiModel();
+      const aiModel = DEFAULT_AI_MODEL;
       const captureFinishedAt = new Date();
       const captureStartedMs = Date.parse(sessionStartedAt);
       const captureDurationSeconds = Number.isFinite(captureStartedMs)
@@ -1169,7 +1156,7 @@
         aiModel,
         captureDurationSeconds: Number(captureDurationSeconds.toFixed(3))
       });
-      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Foto diproses per 5 gambar/request, hingga 3 permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah...');
+      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Foto diproses per 7 gambar/request, hingga 3 permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       finalizingBatch = false;
@@ -1216,16 +1203,6 @@
         if (sessionId && captures.length) void queueDraftSave();
       });
     }
-    const aiModelInput = $('cameraAiModel');
-    if (aiModelInput) {
-      try { restoreAiModel(localStorage.getItem(CAMERA_AI_MODEL_STORAGE_KEY)); } catch (_) {}
-      aiModelInput.addEventListener('change', () => {
-        const model = selectedAiModel();
-        try { localStorage.setItem(CAMERA_AI_MODEL_STORAGE_KEY, model); } catch (_) {}
-        if (sessionId && captures.length) void queueDraftSave();
-      });
-    }
-
     let galleryTouchStartX = 0;
     $('cameraGalleryImage')?.addEventListener('touchstart', event => {
       if (event.changedTouches?.[0]) galleryTouchStartX = pointInCameraView(event.changedTouches[0]).x;

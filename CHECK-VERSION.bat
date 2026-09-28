@@ -6,10 +6,11 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.27-camera-model-experiments" "_worker.js" >nul && echo [OK] Gateway opsi eksperimen kamera aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
-findstr /c:"const CAMERA_BATCH_SIZE = 5" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 5 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
+findstr /c:"20260928-26.28-camera-deepseek-7x3" "_worker.js" >nul && echo [OK] Gateway kamera DeepSeek 7x3 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"const CAMERA_BATCH_SIZE = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 7 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 3" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 3 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
-findstr /c:"const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Gemini 3.8 Flash menjadi default kamera || (echo [GAGAL] Default Gemini 3.8 tidak ditemukan & set "FAIL=1")
+findstr /c:"const CAMERA_DEFAULT_MODEL = DEEPSEEK_R2_MODEL" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] DeepSeek V4.1 Flash menjadi default kamera || (echo [GAGAL] Default DeepSeek tidak ditemukan & set "FAIL=1")
+findstr /c:"CAMERA_FALLBACK_CHAIN = Object.freeze([DEEPSEEK_R2_MODEL, GEMINI_38_MODEL, GEMINI_31_PRO_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kamera DeepSeek ke Gemini 3.8 ke Gemini 3.1 Pro aktif || (echo [GAGAL] Rantai fallback kamera tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
