@@ -56,7 +56,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20260928-26.24-camera-gpt6-luna');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20260928-26.26-camera-gemini38-5x3');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -89,7 +89,7 @@ const saveBatch = await workerModule.default.fetch(new Request(`https://mile.pos
     captureCount: 3,
     deviceName: 'HP Gudang A',
     model: 'gemini-3.8-flash',
-    chunkSize: 4,
+    chunkSize: 5,
     concurrency: 3,
     chunkTimings: [{ group: 1, start: 1, end: 3, inputBytes: 1024, prepareMs: 120, encodeMs: 80, uploadMs: 300, waitMs: 900, totalMs: 1280, attempts: 1, retries: 0, rows: 3, model: 'gemini-3.8-flash', status: 'success' }],
     captureDurationSeconds: 60,

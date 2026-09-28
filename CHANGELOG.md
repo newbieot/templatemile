@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.26 — Kembali ke Gemini 3.8 dengan batch lima foto
+
+- Mengembalikan Gemini 3.8 Flash sebagai model default kamera dan DeepSeek V4.1 Flash sebagai fallback langsung.
+- Menaikkan jumlah foto menjadi lima per permintaan sambil mempertahankan tiga jalur paralel.
+- Mengalihkan sesi GPT-6 Luna yang tersimpan ke Gemini 3.8 saat dicoba ulang.
+
 ## v26.25 — Sesi kamera lama memakai default baru
 
 - Mengalihkan sesi foto tersimpan yang masih mencatat Gemini 3.8 ke GPT-6 Luna saat percobaan ulang, agar foto lama dapat langsung menguji model default baru.

@@ -82,7 +82,6 @@ assert.equal(normalizedCameraImages[0].blob, directJpeg);
 assert.equal(normalizedCameraImages[0].name, '001.jpg');
 
 for (const model of [
-  'gpt-6-luna',
   'gemini-3.8-flash',
   'gemini-3.7-flash',
   'gemini-3.6-flash',
@@ -93,14 +92,14 @@ for (const model of [
   const config = ai.getConfig();
   assert.equal(config.model, model);
   assert.equal(config.cameraDirect, true);
-  assert.equal(config.pagesPerRequest, 4);
+  assert.equal(config.pagesPerRequest, 5);
   assert.equal(config.concurrency, 3);
   assert.equal(config.networkMode, 'normal');
   assert.equal(config.verificationPolicy, 'low-confidence');
 }
 
 element('aiModel').value = 'model-tidak-diizinkan';
-assert.equal(ai.getConfig().model, 'gpt-6-luna');
+assert.equal(ai.getConfig().model, 'gemini-3.8-flash');
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 400 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash', cameraDirect: true }, { status: 503 }), true);
@@ -111,9 +110,9 @@ const sources = Array.from({ length: 15 }, (_, index) => ({
   label: `GAMBAR ${index + 1}`,
   url: `data:image/jpeg;base64,${Buffer.from(String(index + 1)).toString('base64')}`
 }));
-const groups = [sources.slice(0, 4), sources.slice(4, 8), sources.slice(8, 12), sources.slice(12, 15)];
+const groups = [sources.slice(0, 5), sources.slice(5, 10), sources.slice(10, 15)];
 const bodies = groups.map((group, index) => ai.buildApiBody({ model: 'deepseek-v4.1-flash' }, `uji kelompok ${index + 1}`, group, 3500));
-assert.equal(bodies.length, 4);
+assert.equal(bodies.length, 3);
 assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.filter(part => part.type === 'image_url').length, 0), 15);
 bodies.forEach((body, index) => {
   const content = body.messages[1].content;
@@ -124,13 +123,13 @@ bodies.forEach((body, index) => {
 
 assert.match(source, /betaRemoteImagesAvailable = !config\.cameraDirect/);
 assert.match(source, /const testViaR2 = !config\.cameraDirect/);
-assert.match(source, /const CAMERA_BATCH_SIZE = 4/);
+assert.match(source, /const CAMERA_BATCH_SIZE = 5/);
 assert.match(source, /const CAMERA_AI_CONCURRENCY = 3/);
 assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 \* 1024 \* 1024/);
 assert.match(source, /onError\(\{ error \}\)[\s\S]*?activeAiLimit = 1/);
 assert.match(source, /config\.cameraDirect && \[429, 520\]\.includes\(timing\.errorStatus\)/);
-assert.match(source, /const CAMERA_DEFAULT_MODEL = GPT_6_LUNA_MODEL/);
-assert.match(source, /CAMERA_FALLBACK_CHAIN = Object\.freeze\(\[GPT_6_LUNA_MODEL, DEEPSEEK_R2_MODEL\]\)/);
+assert.match(source, /const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL/);
+assert.match(source, /CAMERA_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, DEEPSEEK_R2_MODEL\]\)/);
 assert.match(source, /const CAMERA_REQUEST_TIMEOUT_MS = 45 \* 1000;[\s\S]*?const CAMERA_GEMINI_REQUEST_TIMEOUT_MS = 30 \* 1000/);
 assert.match(source, /const CAMERA_MODEL_MAX_ATTEMPTS = 1/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
@@ -139,10 +138,10 @@ assert.match(source, /Foto asli siap · belum mengirim gambar/);
 assert.match(source, /directCameraInput \? null : await pdf\.getPage\(pageNumber\)/);
 assert.match(source, /chunkTimings: publicChunkTimings/);
 assert.doesNotMatch(cameraHtml, /id="aiModelSelect"|Model AI \(Vision\)/);
-assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gpt-6-luna'/);
+assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gemini-3\.8-flash'/);
 assert.match(cameraRuntime, /aiModel: DEFAULT_AI_MODEL/);
-assert.match(reviewHtml, /value="gpt-6-luna" selected/);
-assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="4" selected/);
+assert.match(reviewHtml, /value="gemini-3\.8-flash" selected/);
+assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="5" selected/);
 assert.match(reviewHtml, /id="aiConcurrency"><option value="3" selected/);
 for (const requiredProgressId of [
   'aiProgressModal',
@@ -186,6 +185,6 @@ async function runQualityAssertions() {
   const dataUrl = `data:image/jpeg;base64,${Buffer.alloc(largeJpeg.size).toString('base64')}`;
   const maxBody = ai.buildApiBody({ model: 'gemini-3.8-flash' }, 'uji foto resolusi tinggi', Array.from({ length: 5 }, (_, index) => ({ page: index + 1, label: `GAMBAR ${index + 1}`, url: dataUrl })), 3500);
   assert.ok(Buffer.byteLength(JSON.stringify({ body: maxBody })) < 28 * 1024 * 1024 - 64 * 1024);
-  console.log('PASS camera-direct-ai: original JPEG preserved, gateway budget, Gemini fallback, 15 images / 4 requests');
+  console.log('PASS camera-direct-ai: original JPEG preserved, gateway budget, DeepSeek fallback, 15 images / 3 requests');
 }
 runQualityAssertions().catch(error => { console.error(error); process.exitCode = 1; });

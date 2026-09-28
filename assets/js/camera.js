@@ -9,7 +9,7 @@
   const FOCUS_RESET_DELAY_MS = 650;
   const DRAFT_SAVE_DELAY_MS = 2400;
   const DRAFT_SAVE_MAX_WAIT_MS = 5000;
-  const DEFAULT_AI_MODEL = 'gpt-6-luna';
+  const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
   const DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name';
   const core = window.MileCameraCore;
   const photo = window.MileCameraPhoto;
@@ -1156,7 +1156,7 @@
         aiModel,
         captureDurationSeconds: Number(captureDurationSeconds.toFixed(3))
       });
-      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Foto diproses per 4 gambar/request, hingga 3 permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah...');
+      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Foto diproses per 5 gambar/request, hingga 3 permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       finalizingBatch = false;

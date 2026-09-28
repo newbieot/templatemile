@@ -1,4 +1,4 @@
-const APP_VERSION = '20260928-26.25-camera-gpt6-session';
+const APP_VERSION = '20260928-26.26-camera-gemini38-5x3';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -24,7 +24,6 @@ const SESSION_COOKIE = '__Host-mile_session';
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
   'claude-opus-5', 'claude-sonnet-4.5', 'claude-haiku-4.5',
-  'gpt-6-luna',
   'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro',
   'deepseek-v4.1-flash', 'deepseek-v4-pro',
   'qwen-3.8-flash', 'qwen-3.7-plus', 'qwen-3.7-flash',

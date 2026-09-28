@@ -85,8 +85,8 @@
       captureDurationSeconds,
       processingDurationSeconds: Number(runMetrics?.durationSeconds || session?.durationSeconds || 0),
       totalDurationSeconds,
-      model: String(runMetrics?.model || session?.aiModel || 'gpt-6-luna'),
-      chunkSize: Number(runMetrics?.chunkSize || 4),
+      model: String(runMetrics?.model || session?.aiModel || 'gemini-3.8-flash'),
+      chunkSize: Number(runMetrics?.chunkSize || 5),
       concurrency: Number(runMetrics?.concurrency || 3),
       chunkTimings: Array.isArray(runMetrics?.chunkTimings) ? runMetrics.chunkTimings : [],
       reviewCount: Number(runMetrics?.reviewCount || 0),
@@ -144,8 +144,8 @@
       const core = window.__mileCore;
       if (session.aiModel && document.getElementById('aiModel')) {
         const modelSelect = document.getElementById('aiModel');
-        // Retry stored Gemini-default sessions using the current GPT-6 Luna default.
-        const sessionModel = session.aiModel === 'gemini-3.8-flash' ? 'gpt-6-luna' : session.aiModel;
+        // Retry stored GPT-6 Luna sessions using the current Gemini 3.8 default.
+        const sessionModel = session.aiModel === 'gpt-6-luna' ? 'gemini-3.8-flash' : session.aiModel;
         if (!Array.from(modelSelect.options).some(o => o.value === sessionModel)) {
           const opt = document.createElement('option');
           opt.value = sessionModel;
@@ -191,14 +191,14 @@
                 status: 'SUCCESS',
                 fileCount: 1,
                 pageCount: session.captureCount || mRows.length,
-                model: session.aiModel === 'gemini-3.8-flash' ? 'gpt-6-luna' : (session.aiModel || 'gpt-6-luna'),
-                chunkSize: 4,
+                model: session.aiModel === 'gpt-6-luna' ? 'gemini-3.8-flash' : (session.aiModel || 'gemini-3.8-flash'),
+                chunkSize: 5,
                 concurrency: 3,
                 durationSeconds: session.durationSeconds || 0,
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · hingga 3 permintaan paralel × 4 gambar · audit keyakinan rendah · tanpa R2'
+                message: 'Camera Direct · hingga 3 permintaan paralel × 5 gambar · audit keyakinan rendah · tanpa R2'
               }),
               credentials: 'same-origin'
             });
@@ -214,7 +214,7 @@
             buildSyncDetails(session, {
               durationSeconds: session.durationSeconds,
               model: session.aiModel,
-              chunkSize: 4,
+              chunkSize: 5,
               concurrency: 3,
               reviewCount,
               outsideBatamCount: outOfTown
