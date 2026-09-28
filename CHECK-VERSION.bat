@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260927-26.04-mobile-ui-polish" "_worker.js" >nul && echo [OK] Worker mobile UI polish || (echo [GAGAL] Worker bukan versi mobile UI polish & set "FAIL=1")
+findstr /c:"20260928-26.05-smart-label-crop" "_worker.js" >nul && echo [OK] Worker smart label crop || (echo [GAGAL] Worker bukan versi smart label crop & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")

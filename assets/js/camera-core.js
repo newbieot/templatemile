@@ -88,12 +88,21 @@
       let minY = height;
       let maxX = 0;
       let maxY = 0;
+      let luminanceTotal = 0;
+      let neutralLightCount = 0;
 
       while (cursor < queue.length) {
         const pixel = queue[cursor++];
         const x = pixel % width;
         const y = Math.floor(pixel / width);
+        const offset = pixel * 4;
+        const r = data[offset];
+        const g = data[offset + 1];
+        const b = data[offset + 2];
+        const luminance = r * 0.299 + g * 0.587 + b * 0.114;
         count++;
+        luminanceTotal += luminance;
+        if (luminance >= 118 && Math.max(r, g, b) - Math.min(r, g, b) <= 48) neutralLightCount++;
         minX = Math.min(minX, x);
         minY = Math.min(minY, y);
         maxX = Math.max(maxX, x);
@@ -120,18 +129,51 @@
       const aspect = boxWidth / Math.max(1, boxHeight);
       if (areaRatio < 0.045 || areaRatio > 0.94 || fillRatio < 0.24 || aspect < 0.35 || aspect > 4.5) continue;
 
-      const score = areaRatio * (0.55 + Math.min(fillRatio, 0.9)) * (1.2 - Math.min(centerPenalty, 0.75));
+      const meanLuminance = luminanceTotal / Math.max(1, count);
+      const neutralLightRatio = neutralLightCount / Math.max(1, count);
+      const edgeTouches = Number(minX <= width * 0.025)
+        + Number(minY <= height * 0.025)
+        + Number(maxX >= width * 0.975)
+        + Number(maxY >= height * 0.975);
+      const lightLabelBoost = 1
+        + neutralLightRatio * 2.25
+        + clamp((meanLuminance - 118) / 137, 0, 1) * 0.65;
+      const borderPenalty = edgeTouches >= 2 ? 0.16 : edgeTouches === 1 ? 0.62 : 1;
+      const score = Math.sqrt(areaRatio)
+        * (0.55 + Math.min(fillRatio, 0.9))
+        * (1.2 - Math.min(centerPenalty, 0.75))
+        * lightLabelBoost
+        * borderPenalty;
       if (!best || score > best.score) {
-        best = { x1: minX, y1: minY, x2: maxX + 1, y2: maxY + 1, score, fillRatio, areaRatio };
+        best = {
+          x1: minX,
+          y1: minY,
+          x2: maxX + 1,
+          y2: maxY + 1,
+          score,
+          fillRatio,
+          areaRatio,
+          neutralLightRatio,
+          meanLuminance,
+          edgeTouches
+        };
       }
     }
 
     if (!best) return null;
-    const confidence = clamp(0.35 + best.fillRatio * 0.42 + Math.min(best.areaRatio, 0.55) * 0.35, 0, 0.98);
+    const confidence = clamp(
+      0.34
+      + best.fillRatio * 0.38
+      + Math.min(best.areaRatio, 0.55) * 0.3
+      + best.neutralLightRatio * 0.16
+      - Math.max(0, best.edgeTouches - 1) * 0.18,
+      0,
+      0.98
+    );
     return {
       ...normalizeBounds(best, width, height, Math.round(Math.min(width, height) * 0.025)),
       confidence,
-      method: 'background'
+      method: best.neutralLightRatio >= 0.62 && best.areaRatio <= 0.42 ? 'light-label' : 'background'
     };
   }
 
@@ -218,13 +260,26 @@
     return { x: 0.08, y: 0.13, width: 0.84, height: 0.74, confidence: 0, method: 'fixed-guide' };
   }
 
+  function isSuspiciousCornerCrop(bounds) {
+    if (!bounds || bounds.method === 'fixed-guide') return false;
+    const nearLeft = bounds.x <= 0.06;
+    const nearTop = bounds.y <= 0.06;
+    const nearRight = bounds.x + bounds.width >= 0.94;
+    const nearBottom = bounds.y + bounds.height >= 0.94;
+    const touchedEdges = Number(nearLeft) + Number(nearTop) + Number(nearRight) + Number(nearBottom);
+    const areaRatio = bounds.width * bounds.height;
+    return touchedEdges >= 2 && areaRatio < 0.55;
+  }
+
   function detectDocumentBounds(imageData) {
     if (!imageData?.data || !imageData.width || !imageData.height) return fixedGuideBounds();
     const background = detectByBackground(imageData.data, imageData.width, imageData.height);
-    if (background && background.confidence >= 0.58) return background;
+    if (background && background.confidence >= 0.58 && !isSuspiciousCornerCrop(background)) return background;
     const edges = detectByEdges(imageData.data, imageData.width, imageData.height);
-    if (edges && edges.confidence >= 0.42) return edges;
-    return background || edges || fixedGuideBounds();
+    if (edges && edges.confidence >= 0.42 && !isSuspiciousCornerCrop(edges)) return edges;
+    if (background && !isSuspiciousCornerCrop(background)) return background;
+    if (edges && !isSuspiciousCornerCrop(edges)) return edges;
+    return fixedGuideBounds();
   }
 
   function calculateSharpness(imageData) {

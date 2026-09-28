@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.05 — Autocrop label lebih tahan objek pengganggu
+
+- Memprioritaskan bidang label yang terang dan netral dibanding objek besar berwarna dengan kontras tinggi.
+- Menolak kandidat crop kecil yang menempel pada dua sisi sudut frame, seperti botol atau benda di kiri atas kamera.
+- Menambahkan regression test portrait dengan objek biru besar dan label alamat kecil pada sampul.
+
 ## v26.04 — Footer konsisten dan kontrol capture lebih nyaman
 
 - Menyamakan struktur, isi, warna, dan interaksi footer `/camera` serta `/review` dengan halaman utama.
