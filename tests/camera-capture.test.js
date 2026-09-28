@@ -94,8 +94,14 @@ async function runAsyncAssertions() {
   assert.doesNotMatch(cameraRuntime, /enumerateDevices|populateCameras/);
   assert.match(cameraRuntime, /facingMode: \{ ideal: 'environment' \}/);
   assert.doesNotMatch(cameraRuntime, /aspectRatio: \{ ideal:/);
-  assert.match(cameraRuntime, /advanced: \[\{ zoom: 1 \}\]/);
+  assert.match(cameraRuntime, /advanced: \[\{ focusMode: 'continuous' \}, \{ zoom: 1 \}\]/);
   assert.match(cameraRuntime, /capabilities\.zoom/);
+  assert.match(cameraRuntime, /const FOCUS_RESET_DELAY_MS = 650/);
+  assert.match(cameraRuntime, /function focusCameraAt/);
+  assert.match(cameraRuntime, /focusMode: requestedMode/);
+  assert.match(cameraRuntime, /addEventListener\('pointerdown', focusCameraAt\)/);
+  assert.match(cameraHtml, /id="cameraFocusIndicator"/);
+  assert.match(cameraCss, /\.camera-focus-indicator/);
   assert.match(cameraCss, /\.camera-stage video\{[^}]*object-fit:contain/);
   assert.doesNotMatch(cameraCss, /\.camera-stage video\{[^}]*object-fit:cover/);
   assert.doesNotMatch(cameraRuntime, /videoDisplayRect/);
@@ -108,9 +114,17 @@ async function runAsyncAssertions() {
   );
   assert.ok(startCameraSource.indexOf('enterFullscreenMode();') < startCameraSource.indexOf('await draftRestorePromise;'));
   assert.match(cameraRuntime, /orientationchange/);
+  assert.match(cameraRuntime, /matchMedia\?\.\('\(orientation: landscape\)'\)/);
+  assert.match(cameraRuntime, /dataset\.cameraOrientation/);
+  assert.match(cameraRuntime, /dataset\.frameOrientation/);
+  assert.match(cameraRuntime, /orientationSyncTimer/);
+  assert.match(cameraCss, /is-fullscreen\[data-orientation="landscape"\]/);
   assert.match(cameraRuntime, /ensureSession\(\);/);
   assert.doesNotMatch(cameraRuntime, /await ensureSession\(\);/);
   assert.match(cameraRuntime, /frameRate: \{ ideal: 24, max: 30 \}/);
+  assert.match(cameraRuntime, /const MAX_IMAGE_BYTES = 2 \* 1024 \* 1024/);
+  assert.match(cameraRuntime, /const OUTPUT_MAX_SIDE = 1600/);
+  assert.match(cameraRuntime, /const LOW_END_OUTPUT_MAX_SIDE = 1440/);
   assert.doesNotMatch(cameraRuntime, /scheduleLiveDetection/);
   assert.doesNotMatch(cameraRuntime, /detectDocumentBounds/);
   assert.doesNotMatch(cameraRuntime, /cameraAnalysisCanvas/);
@@ -207,6 +221,14 @@ async function runAsyncAssertions() {
   assert.match(cameraImport, /window\.location\.replace\(`\/review\?cameraSession=/);
   assert.match(cameraImport, /ai\.processCameraImages\(session\.images/);
   assert.match(cameraImport, /Compatibility path untuk sesi lama/);
+  assert.match(cameraImport, /let reviewWakeLock = null/);
+  assert.match(cameraImport, /navigator\.wakeLock\.request\('screen'\)/);
+  assert.match(cameraImport, /aiProcessingActive/);
+  assert.match(cameraImport, /cameraImportRunning/);
+  assert.match(cameraImport, /visibilitychange/);
+  const directProcessIndex = cameraImport.indexOf('const runMetrics = await ai.processCameraImages');
+  const directCleanIndex = cameraImport.indexOf('const cleanUrl =', directProcessIndex);
+  assert.ok(directProcessIndex >= 0 && directCleanIndex > directProcessIndex, 'URL sesi harus dipertahankan sampai AI selesai');
 
   const reviewCss = fs.readFileSync(path.join(root, 'assets/css/review.css'), 'utf8');
   assert.match(reviewCss, /\.camera-session-banner/);

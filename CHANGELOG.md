@@ -1,5 +1,14 @@
 # Changelog
 
+## v26.12 — AI lebih cepat, sesi tahan layar mati, dan tap focus
+
+- Mengecilkan payload capture menjadi maksimal 2 MB per foto dengan sisi panjang 1600 px (1440 px untuk HP terbatas), tanpa mengubah urutan maupun jumlah foto.
+- Membatasi payload mentah setiap kelompok AI menjadi 8 MB agar request tidak berulang karena timeout 75 detik.
+- Mempertahankan `cameraSession` dan JPEG di IndexedDB sampai AI benar-benar menghasilkan data, sehingga sesi dapat dilanjutkan setelah tab dimuat ulang tanpa foto ulang.
+- Menahan layar tetap aktif selama AI bekerja dan meminta wake lock kembali ketika halaman kembali terlihat.
+- Mengaktifkan autofocus kontinu sejak kamera dibuka serta tap-to-focus pada `pointerdown` agar respons fokus terasa lebih cepat.
+- Menyinkronkan ulang rasio preview setelah rotasi Android dan menyesuaikan kontrol fullscreen otomatis untuk mode portrait maupun landscape.
+
 ## v26.11 — Capture seluruh area kamera
 
 - Menghapus area crop, kotak panduan hijau, dan status crop dari preview maupun fullscreen.

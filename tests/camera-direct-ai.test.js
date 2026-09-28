@@ -123,6 +123,7 @@ assert.match(source, /const testViaR2 = !config\.cameraDirect/);
 assert.match(source, /const CAMERA_WAVE_SIZE = 15/);
 assert.match(source, /const CAMERA_BATCH_SIZE = 5/);
 assert.match(source, /const CAMERA_AI_CONCURRENCY = 3/);
+assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 8 \* 1024 \* 1024/);
 assert.match(source, /activeAiLimit = Math\.max\(1, activeAiLimit - 1\)/);
 assert.match(source, /const stagger = chunkIndex \* 1250/);
 assert.match(source, /const CAMERA_DEFAULT_MODEL = 'gemini-3\.8-flash'/);

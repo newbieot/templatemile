@@ -54,7 +54,7 @@
   const CAMERA_BATCH_SIZE = 5;
   const CAMERA_AI_CONCURRENCY = 3;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
-  const CAMERA_DIRECT_BATCH_RAW_BYTES = 18 * 1024 * 1024;
+  const CAMERA_DIRECT_BATCH_RAW_BYTES = 8 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
     'glm-5.3-flashx', 'glm-5.3', 'glm-5.3-flash',
     'gemini-3.8-flash', 'gemini-3.7-flash',
@@ -833,7 +833,7 @@
         quality = Math.max(0.72, quality - 0.03);
         await yieldToBrowser();
       }
-      if (output.size > targetBytes) throw new Error('JPEG kamera terlalu besar untuk batch langsung. Ambil ulang foto dengan area crop lebih rapat.');
+      if (output.size > targetBytes) throw new Error('JPEG kamera terlalu besar untuk batch langsung. Dekatkan label dan coba capture ulang.');
       return output;
     } finally {
       canvas.width = canvas.height = 1;
@@ -852,7 +852,7 @@
     const prepared = await Promise.all(originalBlobs.map(blob => pool(() => compressCameraBlobToBudget(blob, targetBytes))));
     const preparedBytes = prepared.reduce((total, blob) => total + blob.size, 0);
     if (preparedBytes > CAMERA_DIRECT_BATCH_RAW_BYTES) {
-      throw new Error(`Total JPEG kamera terlalu besar untuk satu kelompok ${images.length} gambar. Ambil ulang foto dengan crop lebih rapat.`);
+      throw new Error(`Total JPEG kamera terlalu besar untuk satu kelompok ${images.length} gambar. Dekatkan label dan coba capture ulang.`);
     }
     return prepared;
   }

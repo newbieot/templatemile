@@ -1,6 +1,25 @@
 (() => {
   'use strict';
 
+  let reviewWakeLock = null;
+  let cameraImportRunning = false;
+  let aiProcessingActive = false;
+
+  async function requestReviewWakeLock() {
+    try {
+      if (!aiProcessingActive || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
+      if (reviewWakeLock && !reviewWakeLock.released) return;
+      reviewWakeLock = await navigator.wakeLock.request('screen');
+      reviewWakeLock.addEventListener?.('release', () => { reviewWakeLock = null; }, { once: true });
+    } catch (_) {}
+  }
+
+  function releaseReviewWakeLock() {
+    const lock = reviewWakeLock;
+    reviewWakeLock = null;
+    lock?.release?.().catch(() => {});
+  }
+
   // Universal redirect guard: pastikan sesi kamera selalu menuju /review
   const earlySessionId = new URLSearchParams(window.location.search).get('cameraSession');
   if (earlySessionId && !window.location.pathname.startsWith('/review')) {
@@ -94,10 +113,13 @@
       notify('ID sesi camera tidak valid.', 'error');
       return;
     }
+    if (cameraImportRunning) return;
+    cameraImportRunning = true;
 
     const store = window.MileCameraStore;
     const ai = window.MileAI;
     if (!store || typeof ai?.processPDFFile !== 'function' || typeof ai?.processCameraImages !== 'function') {
+      cameraImportRunning = false;
       notify('Batch camera belum dapat dibuka. Muat ulang halaman.', 'error');
       return;
     }
@@ -201,10 +223,10 @@
       }
       
       if (Array.isArray(session.images) && session.images.length > 0) {
-        const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
-        window.history.replaceState({}, document.title, cleanUrl);
         const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
         notify(`${session.captureCount} JPEG kamera siap dikirim langsung ke AI...`, 'success');
+        aiProcessingActive = true;
+        await requestReviewWakeLock();
         const runMetrics = await ai.processCameraImages(session.images, {
           name: `Kamera - ${session.deviceName || sessionId}`
         });
@@ -212,6 +234,8 @@
           || Number(core?.tempExtractedRows?.length || 0) > 0;
         if (completed) {
           await store.remove(sessionId);
+          const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+          window.history.replaceState({}, document.title, cleanUrl);
           if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
             await window.MileCameraSync.saveBatchResults(
               sessionId,
@@ -237,19 +261,21 @@
          return;
       }
       
-      const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
-      window.history.replaceState({}, document.title, cleanUrl);
       const file = new File([session.pdfBlob], session.fileName || `camera-${sessionId}.pdf`, {
         type: 'application/pdf',
         lastModified: Date.now()
       });
       const beforeFileCount = Number(core?.uploadedFilesManager?.length || 0);
       notify(`${session.captureCount} hasil capture siap diproses...`, 'success');
+      aiProcessingActive = true;
+      await requestReviewWakeLock();
       const runMetrics = await ai.processPDFFile(file);
       const completed = Number(core?.uploadedFilesManager?.length || 0) > beforeFileCount
         || Number(core?.tempExtractedRows?.length || 0) > 0;
       if (completed) {
         await store.remove(sessionId);
+        const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, cleanUrl);
         // Sync results to server for desktop access (72h TTL)
         if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
           await window.MileCameraSync.saveBatchResults(
@@ -267,10 +293,18 @@
       }
     } catch (error) {
       notify(error?.message || 'Batch camera gagal diproses.', 'error');
+    } finally {
+      aiProcessingActive = false;
+      cameraImportRunning = false;
+      releaseReviewWakeLock();
     }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     window.setTimeout(importCameraBatch, 180);
   });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && aiProcessingActive) void requestReviewWakeLock();
+  });
+  window.addEventListener('beforeunload', releaseReviewWakeLock);
 })();

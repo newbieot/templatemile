@@ -16,7 +16,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.03-camera-primary-cta">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
-  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.11-full-frame-capture">
+  <link rel="stylesheet" href="/assets/css/camera.css?v=20260928-26.12-ai-resume-tap-focus">
 </head>
 <body class="camera-page">
   <a class="skip-link" href="#cameraWorkspace">Lewati ke camera workspace</a>
@@ -93,6 +93,7 @@
           </div>
           <div class="camera-flash" id="cameraFlash" aria-hidden="true"></div>
           <div class="camera-hud-toast" id="cameraHudToast" aria-live="assertive" aria-atomic="true"></div>
+          <div class="camera-focus-indicator" id="cameraFocusIndicator" hidden aria-hidden="true"></div>
           <button class="camera-preview-fullscreen" id="cameraPreviewFullscreenButton" type="button" aria-label="Buka live camera preview dalam layar penuh">
             <span aria-hidden="true">⛶</span><strong>Ketuk preview untuk fullscreen</strong>
           </button>
@@ -204,9 +205,9 @@
   <canvas id="cameraValidationCanvas" hidden></canvas>
   <div class="toast-region" id="toastRegion" aria-live="assertive" aria-atomic="true"></div>
   <noscript><div class="noscript-message">JavaScript harus diaktifkan untuk menggunakan camera capture.</div></noscript>
-  <script src="/assets/js/camera-core.js?v=20260928-26.11-full-frame-capture" defer></script>
+  <script src="/assets/js/camera-core.js?v=20260928-26.12-ai-resume-tap-focus" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera.js?v=20260928-26.11-full-frame-capture" defer></script>
+  <script src="/assets/js/camera.js?v=20260928-26.12-ai-resume-tap-focus" defer></script>
   <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
 </body>
 </html>

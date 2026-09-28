@@ -2,10 +2,11 @@
   'use strict';
 
   const MAX_CAPTURES = 150;
-  const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-  const OUTPUT_MAX_SIDE = 2000;
-  const LOW_END_OUTPUT_MAX_SIDE = 1600;
+  const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+  const OUTPUT_MAX_SIDE = 1600;
+  const LOW_END_OUTPUT_MAX_SIDE = 1440;
   const THUMBNAIL_MAX_SIDE = 360;
+  const FOCUS_RESET_DELAY_MS = 650;
   const DRAFT_SAVE_DELAY_MS = 2400;
   const DRAFT_SAVE_MAX_WAIT_MS = 5000;
   const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
@@ -29,6 +30,9 @@
   let draftSaveUsesIdleCallback = false;
   let draftRestorePromise = Promise.resolve();
   let savedDeviceName = '';
+  let focusIndicatorTimer = 0;
+  let focusResetTimer = 0;
+  let orientationSyncTimer = 0;
 
   const constrainedDevice = (() => {
     const memory = Number(navigator.deviceMemory || 0);
@@ -226,13 +230,24 @@
   function updateStageAspect() {
     const stage = $('cameraStage');
     const video = $('cameraPreview');
-    if (!stage || !video?.videoWidth || !video?.videoHeight) return;
+    if (!stage) return;
+    const viewportOrientation = window.matchMedia?.('(orientation: landscape)').matches
+      || window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+    stage.dataset.orientation = viewportOrientation;
+    document.documentElement.dataset.cameraOrientation = viewportOrientation;
+    if (!video?.videoWidth || !video?.videoHeight) return;
     stage.style.setProperty('--camera-aspect', `${video.videoWidth}/${video.videoHeight}`);
-    stage.dataset.orientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
+    stage.dataset.frameOrientation = video.videoWidth >= video.videoHeight ? 'landscape' : 'portrait';
   }
 
   function handleViewportChange() {
     updateStageAspect();
+    if (orientationSyncTimer) window.clearTimeout(orientationSyncTimer);
+    // Android mengubah dimensi video beberapa frame sesudah event orientasi layar.
+    orientationSyncTimer = window.setTimeout(() => {
+      updateStageAspect();
+      orientationSyncTimer = 0;
+    }, 180);
   }
 
   function rememberDeviceName(value = $('cameraDeviceName')?.value) {
@@ -249,7 +264,56 @@
     return savedDeviceName || String($('cameraDeviceName')?.value || '').trim();
   }
 
+  function showFocusIndicator(event) {
+    const stage = $('cameraStage');
+    const indicator = $('cameraFocusIndicator');
+    if (!stage || !indicator) return;
+    const rect = stage.getBoundingClientRect();
+    indicator.style.left = `${Math.max(24, Math.min(rect.width - 24, event.clientX - rect.left))}px`;
+    indicator.style.top = `${Math.max(24, Math.min(rect.height - 24, event.clientY - rect.top))}px`;
+    indicator.hidden = false;
+    indicator.classList.remove('is-focusing');
+    void indicator.offsetWidth;
+    indicator.classList.add('is-focusing');
+    if (focusIndicatorTimer) window.clearTimeout(focusIndicatorTimer);
+    focusIndicatorTimer = window.setTimeout(() => {
+      indicator.classList.remove('is-focusing');
+      indicator.hidden = true;
+      focusIndicatorTimer = 0;
+    }, FOCUS_RESET_DELAY_MS);
+  }
+
+  async function focusCameraAt(event) {
+    if (!stream || captureBusy || !isCameraFullscreen()) return;
+    if (event.target?.closest?.('button,.camera-capture-gallery')) return;
+    showFocusIndicator(event);
+    const track = stream.getVideoTracks?.()[0];
+    if (!track?.applyConstraints) return;
+    try {
+      const capabilities = track.getCapabilities?.() || {};
+      const focusModes = Array.isArray(capabilities.focusMode) ? capabilities.focusMode : [];
+      const requestedMode = focusModes.includes('single-shot')
+        ? 'single-shot'
+        : focusModes.includes('continuous') ? 'continuous' : '';
+      if (!requestedMode) return;
+      await track.applyConstraints({ advanced: [{ focusMode: requestedMode }] });
+      if (requestedMode === 'single-shot' && focusModes.includes('continuous')) {
+        if (focusResetTimer) window.clearTimeout(focusResetTimer);
+        focusResetTimer = window.setTimeout(() => {
+          track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+          focusResetTimer = 0;
+        }, FOCUS_RESET_DELAY_MS);
+      }
+    } catch (_) {}
+  }
+
   function stopCamera() {
+    if (focusIndicatorTimer) window.clearTimeout(focusIndicatorTimer);
+    if (focusResetTimer) window.clearTimeout(focusResetTimer);
+    if (orientationSyncTimer) window.clearTimeout(orientationSyncTimer);
+    focusIndicatorTimer = 0;
+    focusResetTimer = 0;
+    orientationSyncTimer = 0;
     stream?.getTracks?.().forEach(track => track.stop());
     stream = null;
     const video = $('cameraPreview');
@@ -281,7 +345,7 @@
       const sharedConstraints = {
         width: { ideal: constrainedDevice ? 1600 : 1920, max: 1920 },
         frameRate: { ideal: 24, max: 30 },
-        advanced: [{ zoom: 1 }]
+        advanced: [{ focusMode: 'continuous' }, { zoom: 1 }]
       };
       const videoConstraints = { ...sharedConstraints, facingMode: { ideal: 'environment' } };
       
@@ -550,11 +614,12 @@
 
       const quality = captureQualityMetadata(outputCanvas);
       const thumbnailPromise = createThumbnailBlob(outputCanvas).catch(() => null);
-      let blob = await canvasToBlob(outputCanvas, 0.9);
-      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.78);
-      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.68);
+      let blob = await canvasToBlob(outputCanvas, 0.86);
+      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.76);
+      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.66);
+      if (blob.size > MAX_IMAGE_BYTES) blob = await canvasToBlob(outputCanvas, 0.58);
       if (blob.size > MAX_IMAGE_BYTES) {
-        throw new Error('Ukuran foto melewati batas 4 MB. Kurangi resolusi kamera atau gunakan pencahayaan yang lebih stabil.');
+        throw new Error('Ukuran foto melewati batas 2 MB. Dekatkan label atau gunakan pencahayaan yang lebih stabil.');
       }
       const thumbnailBlob = await thumbnailPromise;
       const outputWidth = outputCanvas.width;
@@ -870,6 +935,8 @@
     $('cameraPreviewFullscreenButton')?.addEventListener('click', () => {
       if (stream) enterFullscreenMode();
     });
+    // pointerdown terasa lebih responsif daripada menunggu jari diangkat pada layar sentuh.
+    $('cameraStage')?.addEventListener('pointerdown', focusCameraAt);
     $('exitFullscreenButton').addEventListener('click', exitCameraFullscreen);
     $('finishCaptureButton').addEventListener('click', finishCapturing);
     $('finishCaptureButtonFullscreen')?.addEventListener('click', finishCapturing);
