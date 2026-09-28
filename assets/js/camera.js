@@ -241,17 +241,15 @@
     const videoRatio = video.videoWidth / video.videoHeight;
     const stageRatio = stageWidth / stageHeight;
     
-    // For object-fit: cover, the video fills the container completely and bleeds over the edges.
+    // For object-fit: contain, show the camera's complete field of view without cropping or zooming.
     if (stageRatio > videoRatio) {
-      // Stage is wider than video. Scale video width to match stage width. Bleed top/bottom.
-      const scale = stageWidth / video.videoWidth;
-      const height = video.videoHeight * scale;
-      return { x: 0, y: (stageHeight - height) / 2, width: stageWidth, height };
+      const scale = stageHeight / video.videoHeight;
+      const width = video.videoWidth * scale;
+      return { x: (stageWidth - width) / 2, y: 0, width, height: stageHeight };
     }
-    // Stage is taller than video. Scale video height to match stage height. Bleed left/right.
-    const scale = stageHeight / video.videoHeight;
-    const width = video.videoWidth * scale;
-    return { x: (stageWidth - width) / 2, y: 0, width, height: stageHeight };
+    const scale = stageWidth / video.videoWidth;
+    const height = video.videoHeight * scale;
+    return { x: 0, y: (stageHeight - height) / 2, width: stageWidth, height };
   }
 
   function updateStageAspect() {
@@ -321,15 +319,10 @@
     try {
       const deviceId = $('cameraDevice')?.value;
       
-      const isPortrait = window.innerHeight > window.innerWidth;
-      // Memaksa browser mengeluarkan format berdiri (portrait 3:4) jika HP sedang berdiri.
-      // Ini menyelesaikan masalah bug di mana OS HP selalu mengirim video mendatar.
-      const ratio = isPortrait ? (3/4) : (4/3);
-      
       const sharedConstraints = {
-        aspectRatio: { ideal: ratio },
         width: { ideal: constrainedDevice ? 1600 : 1920, max: 1920 },
-        frameRate: { ideal: 24, max: 30 }
+        frameRate: { ideal: 24, max: 30 },
+        advanced: [{ zoom: 1 }]
       };
       const videoConstraints = deviceId
         ? { ...sharedConstraints, deviceId: { exact: deviceId } }
@@ -354,9 +347,14 @@
       window.setTimeout(async () => {
         try {
           const capabilities = track.getCapabilities?.() || {};
+          const advanced = [];
           if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
-            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            advanced.push({ focusMode: 'continuous' });
           }
+          if (Number.isFinite(capabilities.zoom?.min) && Number.isFinite(capabilities.zoom?.max)) {
+            advanced.push({ zoom: Math.max(capabilities.zoom.min, Math.min(capabilities.zoom.max, 1)) });
+          }
+          if (advanced.length) await track.applyConstraints({ advanced });
         } catch (_) {}
         populateCameras(settings.deviceId || '').catch(() => {});
       }, 0);

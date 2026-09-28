@@ -98,6 +98,13 @@ async function runAsyncAssertions() {
   assert.match(cameraHtml, /<option value="glm-5\.3">GLM 5\.3/);
   assert.match(cameraHtml, /<option value="glm-5\.3-flash">GLM 5\.3 Flash/);
   assert.match(cameraRuntime, /facingMode: \{ ideal: 'environment' \}/);
+  assert.doesNotMatch(cameraRuntime, /aspectRatio: \{ ideal:/);
+  assert.match(cameraRuntime, /advanced: \[\{ zoom: 1 \}\]/);
+  assert.match(cameraRuntime, /capabilities\.zoom/);
+  assert.match(cameraCss, /\.camera-stage video\{[^}]*object-fit:contain/);
+  assert.doesNotMatch(cameraCss, /\.camera-stage video\{[^}]*object-fit:cover/);
+  assert.match(cameraRuntime, /const scale = stageHeight \/ video\.videoHeight/);
+  assert.match(cameraRuntime, /const scale = stageWidth \/ video\.videoWidth/);
   assert.match(cameraRuntime, /requestFullscreen/);
   assert.match(cameraRuntime, /orientationchange/);
   assert.match(cameraRuntime, /ensureSession\(\);/);

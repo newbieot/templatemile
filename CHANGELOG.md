@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.08 — Preview kamera normal tanpa zoom
+
+- Menampilkan seluruh bidang pandang kamera dengan `object-fit: contain`, termasuk ketika fullscreen.
+- Menghapus pemaksaan rasio 3:4/4:3 agar browser tidak melakukan crop digital pada feed kamera.
+- Meminta tingkat zoom normal `1×` pada perangkat yang mendukung kontrol zoom.
+- Menyesuaikan posisi kotak crop tetap terhadap area video yang sebenarnya saat muncul letterbox.
+
 ## v26.07 — Crop area tetap tanpa auto-crop
 
 - Menghapus auto-crop dan seluruh analisis deteksi tepi/background dari alur kamera.
