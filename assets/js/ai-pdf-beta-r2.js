@@ -45,7 +45,7 @@
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
     'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
-    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
+    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro','kimi-k3',
     'deepseek-v4.1-flash','deepseek-v4-pro',
     'qwen-3.8-flash','qwen-3.7-plus','qwen-3.7-flash',
     'glm-5.3','glm-5.3-flashx','glm-5.3-flash'
@@ -62,8 +62,10 @@
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
     'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',
+    'gemini-3.1-pro', 'kimi-k3',
     'deepseek-v4.1-flash', 'deepseek-v4-pro'
   ]);
+  const CAMERA_EXPERIMENT_MODELS = new Set(['gemini-3.1-pro', 'kimi-k3']);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
   const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_R2_MODEL]);
@@ -1533,6 +1535,7 @@ ${clipped}`
   function nextFallbackModel(model, config = {}) {
     const chain = config.cameraDirect ? CAMERA_FALLBACK_CHAIN : GEMINI_FALLBACK_CHAIN;
     const index = chain.indexOf(String(model || '').trim());
+    if (config.cameraDirect && CAMERA_EXPERIMENT_MODELS.has(String(model || '').trim())) return DEEPSEEK_R2_MODEL;
     if (config.cameraDirect && index < 0 && isGeminiModel(model)) return DEEPSEEK_R2_MODEL;
     return index >= 0 ? (chain[index + 1] || '') : '';
   }
@@ -1541,7 +1544,7 @@ ${clipped}`
     if (cancelled || error?.name === 'AbortError' || !nextFallbackModel(config?.model, config)) return false;
     if (isR2BridgeFailure(error)) return false;
     const status = Number(error?.status || 0);
-    if (config?.cameraDirect && status === 400 && isGeminiModel(config?.model)) return true;
+    if (config?.cameraDirect && status === 400 && (isGeminiModel(config?.model) || CAMERA_EXPERIMENT_MODELS.has(String(config?.model || '').trim()))) return true;
     if (config?.cameraDirect && status === 400 && /model.{0,48}(?:not allowed|not found|unsupported|tidak diizinkan|tidak ditemukan|tidak didukung)/i.test(String(error?.message || ''))) return true;
     if (!status) return true;
     if ([404, 408, 409, 425, 429].includes(status) || (status >= 500 && status <= 599)) return true;

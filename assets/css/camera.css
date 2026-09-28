@@ -11,6 +11,11 @@
 .camera-panel-heading>p{margin:0;padding:.35rem .55rem;border-radius:999px;color:#344054;background:#eef2f7;font-size:.64rem;font-weight:800}
 .camera-launch{display:grid;gap:12px;margin-bottom:14px}
 .camera-device-setup{display:grid;gap:7px;padding:13px;border:1px solid #cbd5e1;border-radius:14px;background:#f8fafc}
+.camera-ai-model-setup{display:grid;gap:7px;padding:13px;border:1px solid #cbd5e1;border-radius:14px;background:#f8fafc}
+.camera-ai-model-setup label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#172554;font-size:.7rem;font-weight:850}
+.camera-ai-model-setup label span{color:#64748b;font-size:.56rem;font-weight:700}
+.camera-ai-model-setup select{width:100%;min-height:46px;font-size:.82rem}
+.camera-ai-model-setup small{color:#667085;font-size:.56rem;line-height:1.45}
 .camera-device-setup label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#172554;font-size:.7rem;font-weight:850}
 .camera-device-setup label span{color:#64748b;font-size:.56rem;font-weight:700}
 .camera-device-setup input{width:100%;min-height:46px;font-size:.82rem}

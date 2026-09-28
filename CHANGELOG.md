@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.27 — Pilihan model eksperimen kamera
+
+- Menambahkan Kimi K3 dan Gemini 3.1 Pro sebagai pilihan di halaman Camera; Gemini 3.8 Flash tetap menjadi default.
+- Menyimpan pilihan model dengan batch kamera dan mengizinkan keduanya melalui gateway.
+- Mengalihkan Kimi K3 atau Gemini 3.1 Pro ke DeepSeek V4.1 Flash jika permintaan model eksperimen gagal.
+
 ## v26.26 — Kembali ke Gemini 3.8 dengan batch lima foto
 
 - Mengembalikan Gemini 3.8 Flash sebagai model default kamera dan DeepSeek V4.1 Flash sebagai fallback langsung.

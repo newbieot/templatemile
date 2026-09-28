@@ -10,6 +10,8 @@
   const DRAFT_SAVE_DELAY_MS = 2400;
   const DRAFT_SAVE_MAX_WAIT_MS = 5000;
   const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
+  const CAMERA_AI_MODELS = new Set([DEFAULT_AI_MODEL, 'kimi-k3', 'gemini-3.1-pro']);
+  const CAMERA_AI_MODEL_STORAGE_KEY = 'mile_camera_ai_model';
   const DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name';
   const core = window.MileCameraCore;
   const photo = window.MileCameraPhoto;
@@ -75,6 +77,16 @@
   function setReviewDisabled(disabled) {
     const button = $('reviewCapturesButtonFullscreen');
     if (button) button.disabled = disabled;
+  }
+
+  function selectedAiModel() {
+    const model = String($('cameraAiModel')?.value || DEFAULT_AI_MODEL).trim();
+    return CAMERA_AI_MODELS.has(model) ? model : DEFAULT_AI_MODEL;
+  }
+
+  function restoreAiModel(model) {
+    const value = String(model || '').trim();
+    if (CAMERA_AI_MODELS.has(value) && $('cameraAiModel')) $('cameraAiModel').value = value;
   }
 
   let audioContext = null;
@@ -615,7 +627,7 @@
       captureCount: draftCaptures.length,
       draftCaptures,
       deviceName: currentDeviceName(),
-      aiModel: DEFAULT_AI_MODEL
+      aiModel: selectedAiModel()
     };
     draftSaveChain = draftSaveChain
       .catch(() => {})
@@ -684,6 +696,7 @@
         sessionStartedAt = '';
         return false;
       }
+      restoreAiModel(draft.aiModel);
       $('sessionIdentifier').textContent = sessionId;
       $('sessionDetails').hidden = false;
       if (draft.deviceName) {
@@ -1135,7 +1148,7 @@
         blob
       }));
       const deviceName = rememberDeviceName();
-      const aiModel = DEFAULT_AI_MODEL;
+      const aiModel = selectedAiModel();
       const captureFinishedAt = new Date();
       const captureStartedMs = Date.parse(sessionStartedAt);
       const captureDurationSeconds = Number.isFinite(captureStartedMs)
@@ -1200,6 +1213,15 @@
       if (deviceNameSetup) deviceNameSetup.hidden = Boolean(savedDeviceName);
       deviceNameInput.addEventListener('change', () => {
         rememberDeviceName();
+        if (sessionId && captures.length) void queueDraftSave();
+      });
+    }
+    const aiModelInput = $('cameraAiModel');
+    if (aiModelInput) {
+      try { restoreAiModel(localStorage.getItem(CAMERA_AI_MODEL_STORAGE_KEY)); } catch (_) {}
+      aiModelInput.addEventListener('change', () => {
+        const model = selectedAiModel();
+        try { localStorage.setItem(CAMERA_AI_MODEL_STORAGE_KEY, model); } catch (_) {}
         if (sessionId && captures.length) void queueDraftSave();
       });
     }

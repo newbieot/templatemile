@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.26-camera-gemini38-5x3" "_worker.js" >nul && echo [OK] Worker timeout dan fallback kamera terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260928-26.27-camera-model-experiments" "_worker.js" >nul && echo [OK] Gateway opsi eksperimen kamera aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 5" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 5 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 3" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 3 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Gemini 3.8 Flash menjadi default kamera || (echo [GAGAL] Default Gemini 3.8 tidak ditemukan & set "FAIL=1")
