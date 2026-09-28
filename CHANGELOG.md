@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.18 — Batas ukuran 120 KB per foto kamera
+
+- Membatasi setiap foto baru yang tersimpan dan dikirim ke AI hingga maksimal 120.000 byte.
+- Memprioritaskan WebP; JPEG tetap menjadi cadangan pada browser yang tidak mendukung WebP.
+- Mempertahankan kualitas encoder dan mengecilkan resolusi secara bertahap hanya bila ukuran masih melebihi batas; resolusi tersimpan dicatat sesuai ukuran hasil sebenarnya.
+- Menolak foto yang tidak bisa memenuhi batas tanpa membuat label sulit dibaca, dengan arahan untuk mendekatkan kamera dan mengambil ulang.
+- Menaikkan versi aset dan Worker agar browser memuat encoder terbaru.
+
 ## v26.17 — Foto WebP resolusi tinggi, rotasi kontrol, dan preview tanpa zoom
 
 - Memisahkan foto native resolusi tinggi (ImageCapture bila didukung) dari preview video agar preview tidak harus berjalan pada resolusi foto penuh.

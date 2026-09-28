@@ -2,7 +2,9 @@
   'use strict';
 
   const PHOTO_MAX_SIDE = 4096;
-  const IMAGE_QUALITIES = Object.freeze([0.94, 0.92, 0.90, 0.88, 0.86]);
+  const IMAGE_QUALITIES = Object.freeze([0.88, 0.76, 0.64, 0.52]);
+  const DEFAULT_IMAGE_MAX_BYTES = 120 * 1000;
+  const MIN_ENCODED_LONG_SIDE = 1200;
 
   function supportsStillCapture(ImageCaptureClass = globalThis.ImageCapture) {
     return typeof ImageCaptureClass === 'function' && typeof ImageCaptureClass.prototype?.takePhoto === 'function';
@@ -129,20 +131,90 @@
     return blob?.type === 'image/webp' ? 'webp' : 'jpg';
   }
 
-  async function encodeImage(canvas, maxBytes = 2 * 1024 * 1024) {
+  async function encodeImage(canvas, maxBytes = DEFAULT_IMAGE_MAX_BYTES) {
+    if (!canvas?.width || !canvas?.height || !(maxBytes > 0)) {
+      throw new Error('Foto kamera tidak memiliki ukuran yang valid.');
+    }
+
     for (const type of ['image/webp', 'image/jpeg']) {
-      for (const quality of IMAGE_QUALITIES) {
-        const blob = await new Promise((resolve, reject) => {
-          canvas.toBlob(value => value ? resolve(value) : reject(new Error('Foto gagal dibuat oleh browser.')), type, quality);
-        });
-        // Unsupported canvas formats silently return PNG. Never call it WebP
-        // or upload that much larger fallback under a misleading extension.
-        if (blob.type !== type) break;
-        if (blob.size <= maxBytes) return { blob, quality, type };
+      let width = canvas.width;
+      let height = canvas.height;
+      let workCanvas = canvas;
+      let temporaryCanvas = null;
+      let formatSupported = true;
+
+      try {
+        // First preserve all pixels and use a high quality. If necessary,
+        // reduce dimensions gradually rather than making text unreadable by
+        // aggressively lowering the encoder quality.
+        for (let resizeAttempt = 0; resizeAttempt < 7; resizeAttempt += 1) {
+          if (workCanvas.width !== width || workCanvas.height !== height) {
+            temporaryCanvas ||= document.createElement('canvas');
+            temporaryCanvas.width = width;
+            temporaryCanvas.height = height;
+            const context = temporaryCanvas.getContext('2d', { alpha: false });
+            if (!context) throw new Error('Browser tidak dapat menyiapkan kompresi foto.');
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = 'high';
+            context.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, width, height);
+            workCanvas = temporaryCanvas;
+          }
+
+          const minimumLongSide = Math.min(MIN_ENCODED_LONG_SIDE, Math.max(canvas.width, canvas.height));
+          const qualities = resizeAttempt === 0 && Math.max(width, height) > minimumLongSide
+            ? [IMAGE_QUALITIES[0]]
+            : IMAGE_QUALITIES;
+          let largestBlob = null;
+          for (const quality of qualities) {
+            const blob = await new Promise((resolve, reject) => {
+              workCanvas.toBlob(value => value ? resolve(value) : reject(new Error('Foto gagal dibuat oleh browser.')), type, quality);
+            });
+            // Unsupported canvas formats silently return PNG. Never call it
+            // WebP or upload it under a misleading extension.
+            if (blob.type !== type) {
+              formatSupported = false;
+              break;
+            }
+            largestBlob = blob;
+            if (blob.size <= maxBytes) {
+              return { blob, quality, type, width, height };
+            }
+            // At the original resolution, resize before lowering quality.
+            if (resizeAttempt === 0) break;
+          }
+
+          if (!formatSupported) break;
+          if (!largestBlob) break;
+
+          const currentLongSide = Math.max(width, height);
+          if (currentLongSide <= minimumLongSide) {
+            // At the minimum readable size all quality levels have already
+            // been tried; never save an oversized or unreadable result.
+            break;
+          }
+
+          const estimatedScale = Math.sqrt(maxBytes / largestBlob.size) * 0.92;
+          const scale = Math.max(0.5, Math.min(0.88, estimatedScale));
+          const nextLongSide = Math.max(minimumLongSide, Math.floor(currentLongSide * scale));
+          if (nextLongSide >= currentLongSide) break;
+          const resizeScale = nextLongSide / currentLongSide;
+          width = Math.max(1, Math.round(width * resizeScale));
+          height = Math.max(1, Math.round(height * resizeScale));
+          // The final attempt at minimum dimensions should try every quality.
+          if (Math.max(width, height) <= minimumLongSide) resizeAttempt = 5;
+        }
+      } finally {
+        if (temporaryCanvas) {
+          temporaryCanvas.width = 1;
+          temporaryCanvas.height = 1;
+        }
       }
     }
-    // Keep real pixels; never silently reduce to tiny images to satisfy a budget.
-    throw new Error('Foto melebihi 2 MB pada kualitas tinggi. Kurangi area latar di dalam panduan lalu capture ulang.');
+
+    // Never save or send an image larger than the configured per-photo cap.
+    // Refuse only when meeting it would require shrinking below a readable
+    // resolution or unacceptable quality; user can move the camera closer.
+    throw new Error('Foto belum bisa dikompres hingga 120 KB tanpa mengurangi keterbacaan label. Dekatkan kamera ke label lalu capture ulang.');
   }
 
   const api = { PHOTO_MAX_SIDE, IMAGE_QUALITIES, supportsStillCapture, previewConstraints, photoSettings, createStillCamera, mapPreviewCrop, fileExtension, encodeImage };

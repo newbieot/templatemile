@@ -2,7 +2,7 @@
   'use strict';
 
   const MAX_CAPTURES = 150;
-  const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+  const MAX_IMAGE_BYTES = 120 * 1000;
   const OUTPUT_MAX_SIDE = 4096;
   const THUMBNAIL_MAX_SIDE = 360;
   const FOCUS_RESET_DELAY_MS = 650;
@@ -895,7 +895,7 @@
 
       const quality = captureQualityMetadata(outputCanvas);
       const thumbnailPromise = createThumbnailBlob(outputCanvas).catch(() => null);
-      const { blob, quality: encodingQuality } = await photo.encodeImage(outputCanvas, MAX_IMAGE_BYTES);
+      const { blob, quality: encodingQuality, width: storedWidth, height: storedHeight } = await photo.encodeImage(outputCanvas, MAX_IMAGE_BYTES);
       const thumbnailBlob = await thumbnailPromise;
       const outputWidth = outputCanvas.width;
       const outputHeight = outputCanvas.height;
@@ -911,8 +911,8 @@
         sequence,
         fileName,
         blob,
-        width: outputWidth,
-        height: outputHeight,
+        width: storedWidth || outputWidth,
+        height: storedHeight || outputHeight,
         sourceWidth,
         sourceHeight,
         resolutionSource,

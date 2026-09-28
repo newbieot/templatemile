@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v16.42...
 echo.
 
-findstr /c:"20260928-26.17-camera-high-resolution" "_worker.js" >nul && echo [OK] Worker kamera resolusi tinggi terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260928-26.18-camera-120kb" "_worker.js" >nul && echo [OK] Worker kamera maksimal 120 KB terbaru aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
@@ -115,6 +115,8 @@ findstr /c:"facingMode: { ideal: 'environment' }" "assets\js\camera.js" >nul && 
 findstr /c:"requestFullscreen" "assets\js\camera.js" >nul && echo [OK] Fullscreen camera aktif || (echo [GAGAL] Fullscreen camera tidak ditemukan & set "FAIL=1")
 findstr /c:"finishCaptureButtonFullscreen" "camera.html" "assets\js\camera.js" >nul && echo [OK] Tombol Finish Capture fullscreen aktif || (echo [GAGAL] Tombol Finish Capture fullscreen tidak ditemukan & set "FAIL=1")
 findstr /c:"playShutterSound" "assets\js\camera.js" >nul && echo [OK] Suara shutter capture aktif || (echo [GAGAL] Suara shutter tidak ditemukan & set "FAIL=1")
+findstr /c:"const MAX_IMAGE_BYTES = 120 * 1000" "assets\js\camera.js" >nul && echo [OK] Batas foto kamera maksimal 120 KB || (echo [GAGAL] Batas foto 120 KB tidak ditemukan & set "FAIL=1")
+findstr /c:"const DEFAULT_IMAGE_MAX_BYTES = 120 * 1000" "assets\js\camera-photo.js" >nul && echo [OK] Encoder foto menerapkan batas default 120 KB || (echo [GAGAL] Batas encoder 120 KB tidak ditemukan & set "FAIL=1")
 findstr /c:"cameraHudToast" "camera.html" "assets\js\camera.js" >nul && echo [OK] Notifikasi HUD capture aktif || (echo [GAGAL] Notifikasi HUD capture tidak ditemukan & set "FAIL=1")
 findstr /c:"cameraFlash" "camera.html" "assets\js\camera.js" >nul && echo [OK] Animasi flash capture aktif || (echo [GAGAL] Animasi flash tidak ditemukan & set "FAIL=1")
 findstr /c:"Start Capture Session" "camera.html" >nul
