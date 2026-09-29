@@ -270,20 +270,20 @@
                 <div class="form-group full-width">
                   <label for="aiNetworkMode">Profil koneksi internet</label>
                   <div class="select-shell"><select id="aiNetworkMode">
-                    <option value="normal" selected>Normal cepat · 15 halaman × 5 jalur · Default</option>
+                    <option value="normal" selected>Gemini akurat · 10 halaman × 2 jalur · Default</option>
                     <option value="auto">Otomatis · batasi jika koneksi lambat</option>
                     <option value="unstable">Internet tidak stabil · hemat data</option>
                   </select></div>
-                  <span class="field-hint" id="aiNetworkModeHint">Default aktif: 15 halaman × 5 jalur. Mode hemat data hanya digunakan jika dipilih manual.</span>
+                  <span class="field-hint" id="aiNetworkModeHint">Default Gemini: maksimal 10 halaman × 2 jalur agar request vision lebih ringan tanpa mengurangi tingkat thinking.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiSpeedPreset">Preset kecepatan</label>
                   <div class="select-shell"><select id="aiSpeedPreset">
                     <option value="medium">Sedang · audit penuh</option>
-                    <option value="fast" selected>Cepat · hingga 5 jalur</option>
+                    <option value="fast" selected>Cepat · profil model otomatis</option>
                     <option value="custom">Kustom · atur manual</option>
                   </select></div>
-                  <span class="field-hint" id="aiSpeedPresetHint">Default 15 halaman × 5 jalur. Audit kedua hanya mengirim halaman yang meragukan sehingga token dan waktu tetap hemat.</span>
+                  <span class="field-hint" id="aiSpeedPresetHint">Gemini memakai 10 halaman × 2 jalur; model R2 tetap dapat memakai 15 halaman × 5 jalur.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiPagesPerRequest">Halaman per permintaan</label>
@@ -294,22 +294,21 @@
                     <option value="5">5 halaman · preset Sedang</option>
                     <option value="6">6 halaman</option>
                     <option value="8">8 halaman</option>
-                    <option value="10">10 halaman · pilihan stabil</option>
-                    <option value="15" selected>15 halaman · preset Cepat</option>
-                    <option value="20">20 halaman · dokumen bersih / eksperimental</option>
+                    <option value="10" selected>10 halaman · default Gemini</option>
+                    <option value="15">15 halaman · model R2 / eksperimental</option>
                   </select></div>
-                  <span class="field-hint">Tetap dapat diubah manual. Untuk PDF 50 halaman, nilai 15 menghasilkan 4 kelompok request. Gunakan 10 untuk dokumen sulit dan 20 untuk dokumen yang bersih.</span>
+                  <span class="field-hint">Gemini memakai maksimal 10 halaman per request. Model R2 dapat memakai maksimal 15 halaman.</span>
                 </div>
                 <div class="form-group">
                   <label for="aiConcurrency">Permintaan paralel</label>
                   <div class="select-shell"><select id="aiConcurrency">
                     <option value="1">1 jalur · paling aman</option>
-                    <option value="2">2 jalur · hemat limit</option>
+                    <option value="2" selected>2 jalur · default Gemini</option>
                     <option value="3">3 jalur · seimbang</option>
                     <option value="4">4 jalur · cepat dan stabil</option>
-                    <option value="5" selected>5 jalur · default baru</option>
+                    <option value="5">5 jalur · model R2 / eksperimental</option>
                   </select></div>
-                  <span class="field-hint">Nilai dapat diedit manual. Jika muncul rate limit 429, turunkan menjadi 2–3 jalur.</span>
+                  <span class="field-hint">Gemini dibatasi maksimal 2 jalur untuk mengurangi antrean provider. DeepSeek R2 tetap dapat memakai hingga 5 jalur.</span>
                 </div>
                 <div class="form-group full-width ai-test-group">
                   <label>Uji layanan</label>
@@ -539,9 +538,9 @@
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260908-16.23" defer></script>
   <script src="/assets/js/app-core.js?v=20260927-26.03-camera-primary-cta" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260928-26.28-camera-deepseek-7x3" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260929-26.29-gemini-throughput" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera-sync.js?v=20260928-26.28-camera-deepseek-7x3" defer></script>
+  <script src="/assets/js/camera-sync.js?v=20260929-26.29-gemini-throughput" defer></script>
   <script src="/assets/js/ui.js?v=20260927-26.03-camera-primary-cta" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>

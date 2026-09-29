@@ -84,13 +84,16 @@ assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 5/);
 assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/);
 assert.match(aiRuntimeSource, /Math\.min\(BETA_MAX_AI_CONCURRENCY, Number\(\$\('aiConcurrency'\)/);
 assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Turbo langsung', maxPagesPerRequest: 15, maxConcurrency: BETA_MAX_AI_CONCURRENCY/);
-assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v8'/);
+assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v9'/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = DEEPSEEK_R2_MODEL/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_MAX_SIDE = 1150/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_JPEG_QUALITY = 0\.72/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
 assert.match(aiRuntimeSource, /const BETA_INITIAL_AI_CONCURRENCY = 5/);
 assert.match(aiRuntimeSource, /const BETA_MAX_AI_CONCURRENCY = 5/);
+assert.match(aiRuntimeSource, /const GEMINI_MAX_PAGES_PER_REQUEST = 10/);
+assert.match(aiRuntimeSource, /const GEMINI_MAX_AI_CONCURRENCY = 2/);
+assert.match(aiRuntimeSource, /const AUDIT_AI_CONCURRENCY = 2/);
 assert.match(aiRuntimeSource, /const GEMINI_REQUEST_TIMEOUT_MS = 75 \* 1000/);
 assert.match(aiRuntimeSource, /const GEMINI_MAX_ATTEMPTS = 2/);
 assert.match(aiRuntimeSource, /const GEMINI_RETRY_DELAY_MS = 500/);
@@ -108,7 +111,8 @@ assert.doesNotMatch(aiRuntimeSource, /runtimeFallbackModel/);
 assert.equal((aiRuntimeSource.match(/betaRemoteImagesAvailable = false/g) || []).length, 1);
 assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = !config\.cameraDirect && \(publicR2Experiment \|\| config\.networkProfile\.key === 'unstable'\) && lastBetaImagesConfigured/);
 assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
-assert.match(aiRuntimeSource, /for \(const audit of audits\)/);
+assert.match(aiRuntimeSource, /const runAudit = createTaskPool\(auditWorkerCount\)/);
+assert.match(aiRuntimeSource, /Promise\.all\(audits\.map\(audit => runAudit/);
 assert.match(betaHtmlSource, /Turbo langsung · 15 halaman × 5 jalur · Default/);
 assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.42/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash">Gemini 3\.8 Flash · Pilihan manual<\/option>/);
@@ -258,11 +262,17 @@ const gemini38Body = ai.buildApiBody(
   1200
 );
 assert.equal(gemini38Body.model, 'gemini-3.8-flash');
-assert.equal(gemini38Body.response_format, undefined);
+assert.equal(gemini38Body.response_format.type, 'json_schema');
+assert.equal(gemini38Body.response_format.json_schema.strict, true);
+assert.deepEqual(
+  Array.from(gemini38Body.response_format.json_schema.schema.required),
+  ['rows']
+);
 assert.equal(gemini38Body.temperature, undefined);
 assert.equal(gemini38Body.top_p, undefined);
 assert.equal('temperature' in gemini38Body, false);
 assert.equal('top_p' in gemini38Body, false);
+assert.equal('reasoning_effort' in gemini38Body, false);
 
 const remoteImageUrl = 'mile-r2:signed-token';
 const remoteImageBody = ai.buildApiBody(
@@ -284,7 +294,7 @@ const fallbackBody = ai.buildApiBody(
   1200
 );
 assert.equal(fallbackBody.messages[1].content[2].image_url.url, fallbackDataUrl);
-assert.ok(JSON.stringify(remoteImageBody).length < JSON.stringify(fallbackBody).length / 8);
+assert.ok(JSON.stringify(fallbackBody).length - JSON.stringify(remoteImageBody).length > 3000);
 
 const gemini37Body = ai.buildApiBody(
   { model: 'gemini-3.7-flash' },
@@ -292,9 +302,10 @@ const gemini37Body = ai.buildApiBody(
   [],
   1200
 );
-assert.equal(gemini37Body.response_format, undefined);
+assert.equal(gemini37Body.response_format.type, 'json_schema');
 assert.equal(gemini37Body.temperature, undefined);
 assert.equal(gemini37Body.top_p, undefined);
+assert.equal('reasoning_effort' in gemini37Body, false);
 
 const gemini38RepairBody = ai.buildJsonRepairBody(
   { model: 'gemini-3.8-flash' },
@@ -302,6 +313,8 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 );
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
+assert.equal(gemini38RepairBody.response_format.type, 'json_schema');
+assert.equal('reasoning_effort' in gemini38RepairBody, false);
 
 const taskPool = ai.createTaskPool(2);
 let activeTasks = 0;
@@ -326,6 +339,7 @@ async function runAsyncAssertions() {
     { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
   ];
   const requestedModels = [];
+  const requestedResponseFormats = [];
   sandbox.XMLHttpRequest = class FakeXMLHttpRequest {
     constructor() {
       this.upload = {};
@@ -341,6 +355,7 @@ async function runAsyncAssertions() {
     send(rawBody) {
       const request = JSON.parse(rawBody);
       requestedModels.push(request.body.model);
+      requestedResponseFormats.push(request.body.response_format?.type);
       const response = responses.shift();
       setTimeout(() => {
         this.upload.onloadstart?.();
@@ -373,7 +388,36 @@ async function runAsyncAssertions() {
     'gemini-3.6-flash', 'gemini-3.8-flash'
   ]);
 
-  console.log('PASS ai-pdf-beta-r2: DeepSeek R2 URL default, render ringan 2 jalur, AI 15 × 5, dan fallback Gemini 3.8 → 3.7 → 3.6');
+  responses.push(
+    { status: 400, body: { error: { message: 'response_format json_schema is not supported' } } },
+    { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
+  );
+  let structuredFallbackEvents = 0;
+  const compatibilityPayload = await ai.callProxyWithRetry(
+    config,
+    ai.buildApiBody(config, 'uji fallback schema', [], 1200),
+    'kompatibilitas schema',
+    { onStructuredFallback() { structuredFallbackEvents++; } }
+  );
+  assert.equal(compatibilityPayload._mileEffectiveModel, 'gemini-3.8-flash');
+  assert.equal(structuredFallbackEvents, 1);
+  assert.deepEqual(requestedModels.slice(-2), ['gemini-3.8-flash', 'gemini-3.8-flash']);
+  assert.deepEqual(requestedResponseFormats.slice(-2), ['json_schema', undefined]);
+
+  responses.push({ status: 400, body: { error: { message: 'invalid image payload' } } });
+  const unrelatedBadRequestStart = requestedModels.length;
+  await assert.rejects(
+    ai.callProxyWithRetry(
+      { model: 'gemini-3.7-flash', protocol: 'openai' },
+      ai.buildApiBody({ model: 'gemini-3.7-flash', protocol: 'openai' }, 'uji 400 lain', [], 1200),
+      'bad request non-schema'
+    ),
+    error => error?.status === 400 && /invalid image payload/i.test(error.message)
+  );
+  assert.equal(requestedModels.length - unrelatedBadRequestStart, 1);
+  assert.equal(requestedResponseFormats.at(-1), 'json_schema');
+
+  console.log('PASS ai-pdf-beta-r2: profil Gemini 10 × 2, schema kompatibel, audit 2 jalur, dan fallback Gemini 3.8 → 3.7 → 3.6');
 }
 
 runAsyncAssertions().catch(error => {

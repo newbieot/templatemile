@@ -119,8 +119,14 @@
       rows: Math.max(0, Number(item?.rows) || 0),
       attempts: Math.max(0, Number(item?.attempts) || 0),
       retries: Math.max(0, Number(item?.retries) || 0),
+      structuredFallbacks: Math.max(0, Number(item?.structuredFallbacks) || 0),
+      requestStartOffsetMs: Math.max(0, Number(item?.requestStartOffsetMs) || 0),
+      requestEndOffsetMs: Math.max(0, Number(item?.requestEndOffsetMs) || 0),
       model: String(item?.model || ''),
       fallbackFrom: String(item?.fallbackFrom || ''),
+      errorStatus: Math.max(0, Number(item?.errorStatus) || 0),
+      upstreamMs: Math.max(0, Number(item?.upstreamMs) || 0),
+      requestId: String(item?.requestId || ''),
       status: String(item?.status || '')
     }));
   }
@@ -323,7 +329,9 @@
               <span>Persiapan ${escapeHtml(formatMilliseconds(timing.prepareMs))} · encode ${escapeHtml(formatMilliseconds(timing.encodeMs))}</span>
               <span>Upload ${escapeHtml(formatMilliseconds(timing.uploadMs))} · tunggu AI ${escapeHtml(formatMilliseconds(timing.waitMs))}</span>
               <span>Total ${escapeHtml(formatMilliseconds(timing.prepareMs + timing.totalMs + timing.auditMs))} · ${timing.rows} hasil · ${escapeHtml(formatBytes(timing.inputBytes))}</span>
-              <span>${timing.attempts} percobaan · ${timing.retries} retry${timing.auditPages ? ` · audit ${timing.auditPages} foto` : ''}</span>
+              <span>${timing.attempts} percobaan · ${timing.retries} retry${timing.structuredFallbacks ? ` · fallback schema ${timing.structuredFallbacks}` : ''}${timing.auditPages ? ` · audit ${timing.auditPages} foto` : ''}</span>
+              <span>Timeline +${escapeHtml(formatMilliseconds(timing.requestStartOffsetMs))} → +${escapeHtml(formatMilliseconds(timing.requestEndOffsetMs))}${timing.upstreamMs ? ` · upstream ${escapeHtml(formatMilliseconds(timing.upstreamMs))}` : ''}</span>
+              ${timing.errorStatus || timing.requestId ? `<span>${timing.errorStatus ? `HTTP ${timing.errorStatus}` : 'Respons akhir'}${timing.requestId ? ` · ID ${escapeHtml(timing.requestId)}` : ''}</span>` : ''}
             </div>
           `).join('')}
         </div>

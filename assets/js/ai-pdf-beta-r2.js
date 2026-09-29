@@ -35,11 +35,14 @@
   const CAMERA_MODEL_MAX_ATTEMPTS = 1;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-beta-r2-v8';
+  const STORAGE_KEY = 'mile-ai-config-beta-r2-v9';
   const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
   const BETA_PREPARE_CONCURRENCY = 2;
   const BETA_INITIAL_AI_CONCURRENCY = 5;
   const BETA_MAX_AI_CONCURRENCY = 5;
+  const GEMINI_MAX_PAGES_PER_REQUEST = 10;
+  const GEMINI_MAX_AI_CONCURRENCY = 2;
+  const AUDIT_AI_CONCURRENCY = 2;
   const BETA_PROBE_CODE = 'MILE38';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
@@ -55,11 +58,11 @@
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
   const CAMERA_DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
-  const CAMERA_BATCH_SIZE = 7;
+  const CAMERA_BATCH_SIZE = 5;
   const CAMERA_AI_CONCURRENCY = 3;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
   // New captures are JPEG <= 120 KB. Older large captures are resized only
-  // when needed so a seven-image batch still fits the gateway's JSON limit.
+  // when needed so a five-image batch still fits the gateway's JSON limit.
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
     DEEPSEEK_R2_MODEL, GEMINI_38_MODEL, GEMINI_31_PRO_MODEL
@@ -69,6 +72,7 @@
   const CAMERA_FALLBACK_CHAIN = Object.freeze([DEEPSEEK_R2_MODEL, GEMINI_38_MODEL, GEMINI_31_PRO_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
+  const geminiStructuredOutputUnsupported = new Set();
   let cancelled = false;
   const fallbackAnnouncements = new Set();
   let lastSuccessfulTransport = '';
@@ -98,18 +102,70 @@
     return String(model || '').startsWith('gemini-');
   }
 
-  function adaptRequestBodyForModel(body, model) {
+  function rowsResponseFormat(cameraDirect = false) {
+    const properties = {
+      page: { type: 'integer' },
+      nama_penerima: { type: 'string' },
+      alamat_penerima: { type: 'string' },
+      nomor_hp: { type: 'string' },
+      nomor_surat: { type: 'string' },
+      di_luar_batam: { type: 'boolean' },
+      perlu_dicek_fields: { type: 'array', items: { type: 'string' } }
+    };
+    const required = Object.keys(properties);
+    if (cameraDirect) {
+      properties.confidence = { type: 'number', minimum: 0, maximum: 1 };
+      required.push('confidence');
+    }
+    return {
+      type: 'json_schema',
+      json_schema: {
+        name: cameraDirect ? 'mile_camera_rows' : 'mile_document_rows',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            rows: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties,
+                required
+              }
+            }
+          },
+          required: ['rows']
+        }
+      }
+    };
+  }
+
+  function adaptRequestBodyForModel(body, model, config = {}) {
     const adapted = { ...body, model };
+    delete adapted.response_format;
     if (isGeminiModel(model)) {
-      delete adapted.response_format;
       delete adapted.temperature;
       delete adapted.top_p;
+      if (!geminiStructuredOutputUnsupported.has(model)) {
+        adapted.response_format = rowsResponseFormat(Boolean(config.cameraDirect));
+      }
     } else {
-      adapted.response_format ||= { type: 'json_object' };
+      adapted.response_format = { type: 'json_object' };
       adapted.temperature ??= 0;
       adapted.top_p ??= 0.1;
     }
     return adapted;
+  }
+
+  function speedPresetForModel(presetName, model) {
+    const preset = SPEED_PRESETS[presetName];
+    if (!preset || presetName === 'custom') return preset;
+    if (presetName === 'fast' && isGeminiModel(model)) {
+      return { ...preset, pagesPerRequest: GEMINI_MAX_PAGES_PER_REQUEST, concurrency: GEMINI_MAX_AI_CONCURRENCY };
+    }
+    return preset;
   }
 
   function isCameraDirectMode() {
@@ -134,17 +190,20 @@
     const model = cameraDirect && !CAMERA_MODELS.has(selectedModel) ? CAMERA_DEFAULT_MODEL : selectedModel;
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
+    const defaultPreset = speedPresetForModel(DEFAULT_SPEED_PRESET, model);
     const requestedPagesPerRequest = cameraDirect
       ? CAMERA_BATCH_SIZE
-      : Math.max(1, Math.min(15, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
+      : Math.max(1, Math.min(15, Number($('aiPagesPerRequest')?.value || defaultPreset.pagesPerRequest)));
     const requestedConcurrency = cameraDirect
       ? CAMERA_AI_CONCURRENCY
-      : Math.max(1, Math.min(BETA_MAX_AI_CONCURRENCY, Number($('aiConcurrency')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].concurrency)));
+      : Math.max(1, Math.min(BETA_MAX_AI_CONCURRENCY, Number($('aiConcurrency')?.value || defaultPreset.concurrency)));
     const selectedNetworkMode = ['auto', 'unstable', 'normal'].includes($('aiNetworkMode')?.value) ? $('aiNetworkMode').value : DEFAULT_NETWORK_MODE;
     const networkMode = cameraDirect ? 'normal' : selectedNetworkMode;
     const networkProfile = resolveNetworkProfile(networkMode);
-    const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest);
-    const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency);
+    const modelMaxPagesPerRequest = !cameraDirect && isGeminiModel(model) ? GEMINI_MAX_PAGES_PER_REQUEST : Infinity;
+    const modelMaxConcurrency = !cameraDirect && isGeminiModel(model) ? GEMINI_MAX_AI_CONCURRENCY : Infinity;
+    const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest, modelMaxPagesPerRequest);
+    const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency, modelMaxConcurrency);
     const verificationPolicy = cameraDirect ? 'low-confidence' : (SPEED_PRESETS[speedPreset]?.verification || 'smart');
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
@@ -244,7 +303,7 @@
     if ($('aiModel')) $('aiModel').value = pageDefaultModel();
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6','mile-ai-config-beta-r2-v7'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6','mile-ai-config-beta-r2-v7','mile-ai-config-beta-r2-v8'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -263,7 +322,8 @@
   }
 
   function applySpeedPreset(presetName, persist = true) {
-    const preset = SPEED_PRESETS[presetName];
+    const model = String($('aiModel')?.value || pageDefaultModel()).trim();
+    const preset = speedPresetForModel(presetName, model);
     if (!preset || presetName === 'custom') return;
     if ($('aiPagesPerRequest')) $('aiPagesPerRequest').value = String(preset.pagesPerRequest);
     if ($('aiConcurrency')) $('aiConcurrency').value = String(preset.concurrency);
@@ -285,7 +345,7 @@
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
       fast: usesDeepSeekR2Url
         ? 'Mode Turbo R2: dua gambar ringan disiapkan bersamaan, diunggah ke R2, lalu DeepSeek menjalankan 5 jalur berisi maksimal 15 halaman melalui URL sementara.'
-        : 'Mode Turbo: dua gambar ringan disiapkan bersamaan agar PC tetap responsif, lalu Gemini menjalankan 5 jalur berisi maksimal 15 halaman.',
+        : 'Mode Gemini akurat: maksimal 10 halaman × 2 jalur agar request vision lebih ringan tanpa menurunkan tingkat thinking.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -308,7 +368,7 @@
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
       normal: usesDeepSeekR2Url
         ? 'Mode Turbo R2 aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu DeepSeek menerima URL R2 sementara dalam kelompok 15 halaman × 5 jalur.'
-        : 'Mode Turbo aktif: gambar 1150 px disiapkan maksimal 2 bersamaan agar PC tetap ringan, lalu 15 halaman × 5 jalur Gemini langsung.'
+        : 'Mode Gemini aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu dikirim dalam kelompok maksimal 10 halaman × 2 jalur tanpa mengurangi thinking.',
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -670,6 +730,9 @@
       rows: Math.max(0, Math.round(Number(item.rows) || 0)),
       attempts: Math.max(0, Math.round(Number(item.attempts) || 0)),
       retries: Math.max(0, Math.round(Number(item.retries) || 0)),
+      structuredFallbacks: Math.max(0, Math.round(Number(item.structuredFallbacks) || 0)),
+      requestStartOffsetMs: Math.max(0, Math.round(Number(item.requestStartOffsetMs) || 0)),
+      requestEndOffsetMs: Math.max(0, Math.round(Number(item.requestEndOffsetMs) || 0)),
       model: String(item.model || ''),
       fallbackFrom: String(item.fallbackFrom || ''),
       errorStatus: Number(item.errorStatus) || 0,
@@ -1233,7 +1296,7 @@
       ? 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca. Gunakan "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca. Bila teks masih terbaca tetapi ada keraguan kecil, pertahankan bacaannya dan tandai kolom di perlu_dicek_fields untuk pemeriksaan operator.'
       : 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" pada bagian meragukan.';
     const confidenceRule = options.cameraDirect
-      ? '\n8. confidence: angka 0 sampai 1 untuk keyakinan membaca nama_penerima dan alamat_penerima. Nilai hanya keterbacaan dua field utama; nomor_hp/nomor_surat yang kosong atau keraguan apakah kota termasuk Batam tidak menurunkan confidence. Keraguan kecil tetap ditandai di perlu_dicek_fields untuk pemeriksaan operator.'
+      ? '\n9. confidence: angka 0 sampai 1 untuk keyakinan membaca nama_penerima dan alamat_penerima. Nilai hanya keterbacaan dua field utama; nomor_hp/nomor_surat yang kosong atau keraguan apakah kota termasuk Batam tidak menurunkan confidence. Keraguan kecil tetap ditandai di perlu_dicek_fields untuk pemeriksaan operator.'
       : '';
     const confidenceField = options.cameraDirect ? ',"confidence":0.95' : '';
     return `Tolong ubah dokumen ini menjadi data terstruktur.
@@ -1241,13 +1304,14 @@ Baca HANYA sebagai HASIL SCAN. ${readabilityRule}
 Kembalikan HANYA JSON valid tanpa markdown, tanpa penjelasan, dan TANPA whitespace berlebih.
 
 Aturan:
-1. Urutan sesuai urutan halaman dokumen (halaman ${startPage} - ${endPage}).
-2. nama_penerima: Hapus "KEPADA YTH", "ATTN", dan SETIAP kode/resi panjang yang mencampur huruf dengan angka. Contoh wajib: "FAHRUDIN 0028C20250400784" menjadi "FAHRUDIN". Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
-3. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
-4. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
-5. nomor_surat: PRIORITAS PERTAMA adalah nomor surat resmi setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh pada kepala surat "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara di bagian Jenis Surat bila nomor kepala surat tersedia. Jika nomor surat resmi tidak ada, gunakan isi setelah label PERIHAL/HAL/SUBJECT tanpa kata label; contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)" dan "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Setelah itu barulah gunakan ID Pesanan atau Resi. Nilai boleh berupa teks.
-6. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
-7. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.${confidenceRule}
+1. Buat TEPAT SATU object row untuk SETIAP gambar HALAMAN ${startPage} sampai ${endPage}. Jangan menggabungkan dua gambar, jangan melewati gambar, dan jangan membuat row tambahan. Jika tulisan utama tidak terbaca, tetap buat row untuk halaman itu dengan nilai "PERLU DICEK".
+2. page wajib sama persis dengan nomor pada label HALAMAN di depan gambar; urutan rows harus mengikuti urutan gambar.
+3. nama_penerima: Hapus "KEPADA YTH", "ATTN", dan SETIAP kode/resi panjang yang mencampur huruf dengan angka. Contoh wajib: "FAHRUDIN 0028C20250400784" menjadi "FAHRUDIN". Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
+4. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
+5. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
+6. nomor_surat: PRIORITAS PERTAMA adalah nomor surat resmi setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh pada kepala surat "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara di bagian Jenis Surat bila nomor kepala surat tersedia. Jika nomor surat resmi tidak ada, gunakan isi setelah label PERIHAL/HAL/SUBJECT tanpa kata label; contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)" dan "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Setelah itu barulah gunakan ID Pesanan atau Resi. Nilai boleh berupa teks.
+7. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
+8. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.${confidenceRule}
 
 Format Wajib:
 {"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]${confidenceField}}]}
@@ -1310,14 +1374,7 @@ Aturan:
         { role: 'user', content }
       ]
     };
-    // Keluarga Gemini pada gateway tidak selalu menerima parameter OpenAI
-    // opsional. Prompt dan parser tetap memaksa serta memvalidasi JSON.
-    if (!isGeminiModel(config.model)) {
-      body.response_format = { type: 'json_object' };
-      body.temperature = 0;
-      body.top_p = 0.1;
-    }
-    return body;
+    return adaptRequestBodyForModel(body, config.model, config);
   }
 
   function buildJsonRepairBody(config, rawText, maxTokens = 2600) {
@@ -1339,12 +1396,7 @@ ${clipped}`
         }
       ]
     };
-    if (!isGeminiModel(config.model)) {
-      body.response_format = { type: 'json_object' };
-      body.temperature = 0;
-      body.top_p = 0.1;
-    }
-    return body;
+    return adaptRequestBodyForModel(body, config.model, config);
   }
 
   function conciseResponseError(text, status, transport) {
@@ -1553,6 +1605,15 @@ ${clipped}`
     return /worker exceeded resource limits|error\s*1102|jembatan (?:gambar )?r2|referensi gambar beta|gambar sementara beta/i.test(String(error?.message || ''));
   }
 
+  function isStructuredOutputCompatibilityError(error) {
+    const status = Number(error?.status || 0);
+    if (![400, 422].includes(status)) return false;
+    let details = '';
+    try { details = JSON.stringify(error?.details || ''); } catch (_) {}
+    return /response[_\s-]?format|json[_\s-]?schema|structured[_\s-]?(?:output|response)|schema.{0,32}(?:unsupported|invalid|unknown|not supported)/i
+      .test(`${String(error?.message || '')} ${details}`);
+  }
+
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
     const configuredModel = String(config?.model || body?.model || '').trim();
     let requestModel = String(body?.model || configuredModel).trim();
@@ -1566,12 +1627,13 @@ ${clipped}`
       requestModel = nextModel;
     }
     const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
-    const requestBody = adaptRequestBodyForModel(body, requestModel);
+    let requestBody = adaptRequestBodyForModel(body, requestModel, requestConfig);
     const isGeminiFallbackModel = GEMINI_FALLBACK_CHAIN.includes(requestModel);
     const maxAttempts = config?.cameraDirect
       ? CAMERA_MODEL_MAX_ATTEMPTS
       : (isGeminiFallbackModel ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES);
     let lastError;
+    let structuredCompatibilityRetried = false;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
       await waitUntilOnline(label);
@@ -1613,6 +1675,20 @@ ${clipped}`
           return repairedPayload;
         }
       } catch (error) {
+        if (
+          !structuredCompatibilityRetried &&
+          isGeminiModel(requestModel) &&
+          isStructuredOutputCompatibilityError(error) &&
+          requestBody?.response_format
+        ) {
+          structuredCompatibilityRetried = true;
+          geminiStructuredOutputUnsupported.add(requestModel);
+          requestBody = { ...requestBody };
+          delete requestBody.response_format;
+          hooks.onStructuredFallback?.({ error, model: requestModel });
+          attempt--;
+          continue;
+        }
         lastError = error;
         hooks.onError?.({ error, model: requestModel, attempt });
         if (modelState && isRetryableCameraFailure(error)) {
@@ -1664,7 +1740,7 @@ ${clipped}`
           : `Sebagian kelompok ${shortModelLabel(requestModel)} terkendala. Hanya kelompok tersebut yang dialihkan ke ${shortModelLabel(nextModel)}.`, 'info');
       }
       const fallbackConfig = { ...requestConfig, model: nextModel };
-      const fallbackPayload = await callProxyWithRetry(fallbackConfig, adaptRequestBodyForModel(requestBody, nextModel), label, hooks);
+      const fallbackPayload = await callProxyWithRetry(fallbackConfig, adaptRequestBodyForModel(requestBody, nextModel, fallbackConfig), label, hooks);
       const existingChain = Array.isArray(fallbackPayload._mileFallbackChain)
         ? fallbackPayload._mileFallbackChain
         : [nextModel];
@@ -2435,6 +2511,9 @@ ${clipped}`
         auditMs: 0,
         attempts: 0,
         retries: 0,
+        structuredFallbacks: 0,
+        requestStartOffsetMs: 0,
+        requestEndOffsetMs: 0,
         model: config.model,
         fallbackFrom: '',
         status: 'queued'
@@ -2482,6 +2561,7 @@ ${clipped}`
           timing.status = 'requesting';
           timing._firstRequestStartedAt ||= now;
           timing._attemptStartedAt = now;
+          timing.requestStartOffsetMs = Math.max(0, timing._firstRequestStartedAt - startedAt);
           setTransferProgress(0, `${label} halaman ${chunk.start}–${chunk.end} · ${model} · percobaan ${attempt}/${maxAttempts}`);
           updateParallelProgress(chunk, chunkIndex, label);
         },
@@ -2525,6 +2605,7 @@ ${clipped}`
             timing.status = 'success';
             timing.upstreamMs = Number(event.upstreamMs || 0);
             timing.requestId = String(event.requestId || '');
+            timing.requestEndOffsetMs = Math.max(0, now - startedAt);
             state.waiting = false;
             state.waitingSince = 0;
             state.progress = Math.max(state.progress, completeWeight);
@@ -2542,6 +2623,7 @@ ${clipped}`
           timing.errorStatus = Number(error?.status || 0);
           timing.upstreamMs = Number(error?.upstreamMs || 0);
           timing.requestId = String(error?.requestId || '');
+          timing.requestEndOffsetMs = Math.max(0, now - startedAt);
           if (config.cameraDirect && [429, 520].includes(timing.errorStatus)) {
             activeAiLimit = 1;
             markProgressActivity('Provider terkendala · sisa kelompok dijalankan satu jalur');
@@ -2577,6 +2659,17 @@ ${clipped}`
           betaPerf.fallbackReasons[reason] = Number(betaPerf.fallbackReasons[reason] || 0) + 1;
           setTransferProgress(0, `Kelompok ${chunk.start}–${chunk.end}: ${shortModelLabel(from)} terkendala · memakai ${shortModelLabel(to)}`, { waiting: true });
           updateParallelProgress(chunk, chunkIndex, `Fallback ke ${shortModelLabel(to)}`);
+        },
+        onStructuredFallback({ model }) {
+          const state = chunkStates[chunkIndex];
+          const timing = betaPerf.chunkTimings[chunkIndex];
+          timing.structuredFallbacks++;
+          timing.retries++;
+          timing.status = 'compatibility';
+          state.waiting = false;
+          state.waitingSince = 0;
+          setTransferProgress(0, `${shortModelLabel(model)} tidak menerima JSON schema melalui gateway · mengulang tanpa schema`, { waiting: true });
+          updateParallelProgress(chunk, chunkIndex, 'Menyesuaikan kompatibilitas JSON');
         },
         onRepair() {
           setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });
@@ -2899,9 +2992,11 @@ ${clipped}`
         updateParallelProgress(chunk, chunkIndex, 'Audit selesai');
       }
 
-      const limitedByNetwork = config.pagesPerRequest !== config.requestedPagesPerRequest || config.concurrency !== config.requestedConcurrency;
-      const networkExplanation = limitedByNetwork
-        ? `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`
+      const limitedByProfile = config.pagesPerRequest !== config.requestedPagesPerRequest || config.concurrency !== config.requestedConcurrency;
+      const networkExplanation = limitedByProfile
+        ? (isGeminiModel(config.model) && config.networkProfile.key === 'normal'
+          ? `Profil ${shortModelLabel(config.model)} membatasi request vision menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur tanpa mengubah tingkat thinking.`
+          : `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`)
         : (config.cameraDirect
           ? `Foto diproses dalam kelompok ${CAMERA_BATCH_SIZE}, hingga ${CAMERA_AI_CONCURRENCY} permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah.`
           : GEMINI_FALLBACK_CHAIN.includes(config.model)
@@ -2954,8 +3049,10 @@ ${clipped}`
 
       const audits = pendingAudits.filter(Boolean);
       if (audits.length) {
-        setTransferProgress(0, `${audits.length} kelompok perlu audit · dijalankan satu jalur`);
-        for (const audit of audits) {
+        const auditWorkerCount = Math.min(AUDIT_AI_CONCURRENCY, audits.length);
+        setTransferProgress(0, `${audits.length} kelompok perlu audit · maksimal ${auditWorkerCount} jalur`);
+        const runAudit = createTaskPool(auditWorkerCount);
+        await Promise.all(audits.map(audit => runAudit(async () => {
           try {
             await auditChunk(audit);
           } catch (error) {
@@ -2977,7 +3074,7 @@ ${clipped}`
             completedChunks++;
             updateParallelProgress(audit.chunk, audit.chunkIndex, 'Hasil awal perlu dicek pengguna');
           }
-        }
+        })));
       }
 
       const mergedRows = results.flat().filter(Boolean);
@@ -3101,6 +3198,8 @@ ${clipped}`
     ['aiModel', 'aiAccuracyMode'].forEach(id => {
       $(id)?.addEventListener('change', () => {
         if (id === 'aiModel') {
+          const preset = $('aiSpeedPreset')?.value || DEFAULT_SPEED_PRESET;
+          if (preset !== 'custom') applySpeedPreset(preset, false);
           updateSpeedPresetHint();
           updateNetworkModeHint();
         }

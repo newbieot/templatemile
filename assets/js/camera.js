@@ -1156,7 +1156,7 @@
         aiModel,
         captureDurationSeconds: Number(captureDurationSeconds.toFixed(3))
       });
-      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Foto diproses per 7 gambar/request, hingga 3 permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah...');
+      updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Foto diproses per 5 gambar/request, hingga 3 permintaan paralel. Audit keyakinan rendah berjalan maksimal 2 jalur...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       finalizingBatch = false;

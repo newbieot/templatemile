@@ -90,7 +90,7 @@ for (const model of [
   const config = ai.getConfig();
   assert.equal(config.model, model);
   assert.equal(config.cameraDirect, true);
-  assert.equal(config.pagesPerRequest, 7);
+  assert.equal(config.pagesPerRequest, 5);
   assert.equal(config.concurrency, 3);
   assert.equal(config.networkMode, 'normal');
   assert.equal(config.verificationPolicy, 'low-confidence');
@@ -104,15 +104,15 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 400 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.1-pro', cameraDirect: true }, { status: 503 }), false);
 
-const sources = Array.from({ length: 21 }, (_, index) => ({
+const sources = Array.from({ length: 15 }, (_, index) => ({
   page: index + 1,
   label: `GAMBAR ${index + 1}`,
   url: `data:image/jpeg;base64,${Buffer.from(String(index + 1)).toString('base64')}`
 }));
-const groups = [sources.slice(0, 7), sources.slice(7, 14), sources.slice(14, 21)];
+const groups = [sources.slice(0, 5), sources.slice(5, 10), sources.slice(10, 15)];
 const bodies = groups.map((group, index) => ai.buildApiBody({ model: 'deepseek-v4.1-flash' }, `uji kelompok ${index + 1}`, group, 3500));
 assert.equal(bodies.length, 3);
-assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.filter(part => part.type === 'image_url').length, 0), 21);
+assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.filter(part => part.type === 'image_url').length, 0), 15);
 bodies.forEach((body, index) => {
   const content = body.messages[1].content;
   assert.equal(body.response_format.type, 'json_object');
@@ -122,8 +122,9 @@ bodies.forEach((body, index) => {
 
 assert.match(source, /betaRemoteImagesAvailable = !config\.cameraDirect/);
 assert.match(source, /const testViaR2 = !config\.cameraDirect/);
-assert.match(source, /const CAMERA_BATCH_SIZE = 7/);
+assert.match(source, /const CAMERA_BATCH_SIZE = 5/);
 assert.match(source, /const CAMERA_AI_CONCURRENCY = 3/);
+assert.match(source, /const AUDIT_AI_CONCURRENCY = 2/);
 assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 \* 1024 \* 1024/);
 assert.match(source, /onError\(\{ error \}\)[\s\S]*?activeAiLimit = 1/);
 assert.match(source, /config\.cameraDirect && \[429, 520\]\.includes\(timing\.errorStatus\)/);
@@ -140,7 +141,7 @@ assert.doesNotMatch(cameraHtml, /id="(?:aiModelSelect|cameraAiModel)"|Model AI \
 assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'deepseek-v4\.1-flash'/);
 assert.match(cameraRuntime, /aiModel: DEFAULT_AI_MODEL/);
 assert.match(reviewHtml, /value="deepseek-v4\.1-flash" selected/);
-assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="7" selected/);
+assert.match(reviewHtml, /id="aiPagesPerRequest"><option value="5" selected/);
 assert.match(reviewHtml, /id="aiConcurrency"><option value="3" selected/);
 for (const requiredProgressId of [
   'aiProgressModal',
@@ -175,6 +176,11 @@ async function runQualityAssertions() {
   const webpUrl = `data:image/webp;base64,${Buffer.from(await webp.arrayBuffer()).toString('base64')}`;
   const webpBody = ai.buildApiBody({ model: 'gemini-3.8-flash' }, 'uji webp', [{ page: 1, label: 'GAMBAR 1', url: webpUrl }], 1200);
   assert.equal(webpBody.messages[1].content.find(part => part.type === 'image_url').image_url.url, webpUrl);
+  const cameraGeminiBody = ai.buildApiBody({ model: 'gemini-3.8-flash', cameraDirect: true }, 'uji schema kamera', [{ page: 1, label: 'GAMBAR 1', url: webpUrl }], 1200);
+  const cameraRowSchema = cameraGeminiBody.response_format.json_schema.schema.properties.rows.items;
+  assert.equal(cameraGeminiBody.response_format.type, 'json_schema');
+  assert.ok(cameraRowSchema.required.includes('confidence'));
+  assert.equal('reasoning_effort' in cameraGeminiBody, false);
   // Original high-resolution camera images must reach AI byte-for-byte,
   // Preserve a legacy five-photo subset byte-for-byte when it fits the gateway.
   const largeJpeg = new Blob([new Uint8Array(4 * 1024 * 1024)], { type: 'image/jpeg' });
@@ -184,6 +190,6 @@ async function runQualityAssertions() {
   const dataUrl = `data:image/jpeg;base64,${Buffer.alloc(largeJpeg.size).toString('base64')}`;
   const maxBody = ai.buildApiBody({ model: 'gemini-3.8-flash' }, 'uji foto resolusi tinggi', Array.from({ length: 5 }, (_, index) => ({ page: index + 1, label: `GAMBAR ${index + 1}`, url: dataUrl })), 3500);
   assert.ok(Buffer.byteLength(JSON.stringify({ body: maxBody })) < 28 * 1024 * 1024 - 64 * 1024);
-  console.log('PASS camera-direct-ai: original JPEG preserved, gateway budget, DeepSeek fallback, 21 images / 3 requests');
+  console.log('PASS camera-direct-ai: original JPEG preserved, gateway budget, schema Gemini, 15 images / 3 requests');
 }
 runQualityAssertions().catch(error => { console.error(error); process.exitCode = 1; });

@@ -60,7 +60,7 @@ const auditedPages = (rows, expectedPages = [1], config = cameraConfig) => Array
 );
 
 const config = ai.getConfig();
-assert.equal(config.pagesPerRequest, 7, 'Camera must use seven images per request');
+assert.equal(config.pagesPerRequest, 5, 'Camera must use five images per request');
 assert.equal(config.concurrency, 3, 'Camera must allow three requests in parallel');
 assert.equal(config.verificationPolicy, 'low-confidence');
 assert.deepEqual(auditedPages(normalize()), [], 'Readable data should proceed directly to user review');

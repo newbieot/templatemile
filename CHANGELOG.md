@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.29 — Jalur Gemini terukur dan request vision lebih ringan
+
+- Mempertahankan tingkat thinking bawaan Gemini untuk menjaga akurasi, sambil membatasi ekstraksi Gemini PDF menjadi maksimal 10 halaman × 2 jalur.
+- Mengubah kelompok kamera menjadi lima gambar × tiga jalur dan menjalankan audit selektif maksimal dua jalur.
+- Menambahkan JSON schema untuk keluarga Gemini dengan retry kompatibilitas otomatis tanpa schema bila CosmosHub menolak parameter tersebut.
+- Memastikan setiap gambar wajib menghasilkan tepat satu row dengan nomor halaman yang sama.
+- Menyimpan timeline request, waktu upstream, status HTTP, request ID, dan fallback schema pada log kelompok untuk membuktikan overlap jalur dan membedakan latency browser dari provider.
+
 ## v26.28 — DeepSeek default dan batch kamera 7×3
 
 - Menetapkan DeepSeek V4.1 Flash sebagai default kamera, dengan fallback berurutan ke Gemini 3.8 Flash lalu Gemini 3.1 Pro.

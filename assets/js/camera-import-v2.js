@@ -5,7 +5,7 @@
   let cameraImportRunning = false;
   let aiProcessingActive = false;
   const DEFAULT_CAMERA_MODEL = 'deepseek-v4.1-flash';
-  const CAMERA_CHUNK_SIZE = 7;
+  const CAMERA_CHUNK_SIZE = 5;
   const CAMERA_CONCURRENCY = 3;
 
   function storedCameraModel(model) {
@@ -194,7 +194,7 @@
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · hingga 3 permintaan paralel × 7 gambar · audit keyakinan rendah · tanpa R2'
+                message: 'Camera Direct · hingga 3 permintaan paralel × 5 gambar · audit maksimal 2 jalur · tanpa R2'
               }),
               credentials: 'same-origin'
             });

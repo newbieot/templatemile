@@ -1,4 +1,4 @@
-const APP_VERSION = '20260928-26.28-camera-deepseek-7x3';
+const APP_VERSION = '20260929-26.29-gemini-throughput';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -474,6 +474,9 @@ function sanitizeCameraChunkTimings(value) {
     rows: clampMetricNumber(item?.rows, 0, 1000),
     attempts: clampMetricNumber(item?.attempts, 0, 20),
     retries: clampMetricNumber(item?.retries, 0, 20),
+    structuredFallbacks: clampMetricNumber(item?.structuredFallbacks, 0, 20),
+    requestStartOffsetMs: clampMetricNumber(item?.requestStartOffsetMs, 0, 86400000),
+    requestEndOffsetMs: clampMetricNumber(item?.requestEndOffsetMs, 0, 86400000),
     model: safeMetricText(item?.model, 80),
     fallbackFrom: safeMetricText(item?.fallbackFrom, 80),
     errorStatus: clampMetricNumber(item?.errorStatus, 0, 599),

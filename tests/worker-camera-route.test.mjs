@@ -56,7 +56,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20260928-26.28-camera-deepseek-7x3');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20260929-26.29-gemini-throughput');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -89,9 +89,9 @@ const saveBatch = await workerModule.default.fetch(new Request(`https://mile.pos
     captureCount: 3,
     deviceName: 'HP Gudang A',
     model: 'deepseek-v4.1-flash',
-    chunkSize: 7,
+    chunkSize: 5,
     concurrency: 3,
-    chunkTimings: [{ group: 1, start: 1, end: 3, inputBytes: 1024, prepareMs: 120, encodeMs: 80, uploadMs: 300, waitMs: 900, totalMs: 1280, attempts: 1, retries: 0, rows: 3, model: 'deepseek-v4.1-flash', status: 'success' }],
+    chunkTimings: [{ group: 1, start: 1, end: 3, inputBytes: 1024, prepareMs: 120, encodeMs: 80, uploadMs: 300, waitMs: 900, totalMs: 1280, attempts: 2, retries: 1, structuredFallbacks: 1, requestStartOffsetMs: 250, requestEndOffsetMs: 1530, errorStatus: 400, upstreamMs: 875, requestId: 'req-test-123', rows: 3, model: 'deepseek-v4.1-flash', status: 'success' }],
     captureDurationSeconds: 60,
     processingDurationSeconds: 25.5,
     totalDurationSeconds: 120,
@@ -121,5 +121,11 @@ assert.equal(batchList.batches[0].durationSeconds, 25.5);
 assert.equal(batchList.batches[0].customerId, 'CUST-01');
 assert.equal(batchList.batches[0].chunkTimings.length, 1);
 assert.equal(batchList.batches[0].chunkTimings[0].waitMs, 900);
+assert.equal(batchList.batches[0].chunkTimings[0].structuredFallbacks, 1);
+assert.equal(batchList.batches[0].chunkTimings[0].requestStartOffsetMs, 250);
+assert.equal(batchList.batches[0].chunkTimings[0].requestEndOffsetMs, 1530);
+assert.equal(batchList.batches[0].chunkTimings[0].errorStatus, 400);
+assert.equal(batchList.batches[0].chunkTimings[0].upstreamMs, 875);
+assert.equal(batchList.batches[0].chunkTimings[0].requestId, 'req-test-123');
 
 console.log('PASS worker-camera-route: auth gate, camera-only permission, protected assets, review route, dan detail log kamera');

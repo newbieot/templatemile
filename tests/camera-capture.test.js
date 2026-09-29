@@ -241,7 +241,7 @@ async function runAsyncAssertions() {
   assert.match(reviewHtml, /assets\/css\/review\.css/);
   assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
   assert.match(reviewHtml, /camera-import-v2\.js/);
-  assert.match(reviewHtml, /Foto diproses per 7 gambar\/request, hingga 3 permintaan paralel/);
+  assert.match(reviewHtml, /Foto diproses per 5 gambar\/request, hingga 3 permintaan paralel/);
   assert.match(reviewHtml, /id="aiProgressModal"/);
   assert.match(reviewHtml, /id="aiProgressStep"/);
   assert.match(reviewHtml, /id="aiProgressMessage"/);
@@ -298,6 +298,10 @@ async function runAsyncAssertions() {
   assert.match(cameraSync, /Waktu proses AI/);
   assert.match(cameraSync, /Rincian \$\{chunkTimings\.length\} kelompok AI/);
   assert.match(cameraSync, /chunkTimings: normalizeChunkTimings/);
+  assert.match(cameraSync, /requestStartOffsetMs/);
+  assert.match(cameraSync, /requestEndOffsetMs/);
+  assert.match(cameraSync, /upstreamMs/);
+  assert.match(cameraSync, /requestId/);
   assert.match(cameraSync, /Skema AI/);
   assert.match(cameraSync, /Layanan \/ tarif/);
   assert.match(cameraImport, /MileCameraSync/);
