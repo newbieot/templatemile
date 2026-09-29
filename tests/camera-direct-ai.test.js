@@ -116,6 +116,7 @@ assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.fil
 bodies.forEach((body, index) => {
   const content = body.messages[1].content;
   assert.equal(body.response_format.type, 'json_object');
+  assert.equal('reasoning_effort' in body, false);
   assert.equal(content.filter(part => part.type === 'image_url').length, groups[index].length);
   assert.equal(content.filter(part => part.type === 'text').length, groups[index].length + 1);
 });
@@ -180,7 +181,7 @@ async function runQualityAssertions() {
   const cameraRowSchema = cameraGeminiBody.response_format.json_schema.schema.properties.rows.items;
   assert.equal(cameraGeminiBody.response_format.type, 'json_schema');
   assert.ok(cameraRowSchema.required.includes('confidence'));
-  assert.equal('reasoning_effort' in cameraGeminiBody, false);
+  assert.equal(cameraGeminiBody.reasoning_effort, 'medium');
   // Original high-resolution camera images must reach AI byte-for-byte,
   // Preserve a legacy five-photo subset byte-for-byte when it fits the gateway.
   const largeJpeg = new Blob([new Uint8Array(4 * 1024 * 1024)], { type: 'image/jpeg' });

@@ -1,4 +1,4 @@
-const APP_VERSION = '20260929-26.29-gemini-throughput';
+const APP_VERSION = '20260929-26.30-gemini-medium-15x3';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -475,6 +475,7 @@ function sanitizeCameraChunkTimings(value) {
     attempts: clampMetricNumber(item?.attempts, 0, 20),
     retries: clampMetricNumber(item?.retries, 0, 20),
     structuredFallbacks: clampMetricNumber(item?.structuredFallbacks, 0, 20),
+    reasoningFallbacks: clampMetricNumber(item?.reasoningFallbacks, 0, 20),
     requestStartOffsetMs: clampMetricNumber(item?.requestStartOffsetMs, 0, 86400000),
     requestEndOffsetMs: clampMetricNumber(item?.requestEndOffsetMs, 0, 86400000),
     model: safeMetricText(item?.model, 80),

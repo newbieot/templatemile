@@ -120,6 +120,7 @@
       attempts: Math.max(0, Number(item?.attempts) || 0),
       retries: Math.max(0, Number(item?.retries) || 0),
       structuredFallbacks: Math.max(0, Number(item?.structuredFallbacks) || 0),
+      reasoningFallbacks: Math.max(0, Number(item?.reasoningFallbacks) || 0),
       requestStartOffsetMs: Math.max(0, Number(item?.requestStartOffsetMs) || 0),
       requestEndOffsetMs: Math.max(0, Number(item?.requestEndOffsetMs) || 0),
       model: String(item?.model || ''),
@@ -329,7 +330,7 @@
               <span>Persiapan ${escapeHtml(formatMilliseconds(timing.prepareMs))} · encode ${escapeHtml(formatMilliseconds(timing.encodeMs))}</span>
               <span>Upload ${escapeHtml(formatMilliseconds(timing.uploadMs))} · tunggu AI ${escapeHtml(formatMilliseconds(timing.waitMs))}</span>
               <span>Total ${escapeHtml(formatMilliseconds(timing.prepareMs + timing.totalMs + timing.auditMs))} · ${timing.rows} hasil · ${escapeHtml(formatBytes(timing.inputBytes))}</span>
-              <span>${timing.attempts} percobaan · ${timing.retries} retry${timing.structuredFallbacks ? ` · fallback schema ${timing.structuredFallbacks}` : ''}${timing.auditPages ? ` · audit ${timing.auditPages} foto` : ''}</span>
+              <span>${timing.attempts} percobaan · ${timing.retries} retry${timing.structuredFallbacks ? ` · fallback schema ${timing.structuredFallbacks}` : ''}${timing.reasoningFallbacks ? ` · fallback reasoning ${timing.reasoningFallbacks}` : ''}${timing.auditPages ? ` · audit ${timing.auditPages} foto` : ''}</span>
               <span>Timeline +${escapeHtml(formatMilliseconds(timing.requestStartOffsetMs))} → +${escapeHtml(formatMilliseconds(timing.requestEndOffsetMs))}${timing.upstreamMs ? ` · upstream ${escapeHtml(formatMilliseconds(timing.upstreamMs))}` : ''}</span>
               ${timing.errorStatus || timing.requestId ? `<span>${timing.errorStatus ? `HTTP ${timing.errorStatus}` : 'Respons akhir'}${timing.requestId ? ` · ID ${escapeHtml(timing.requestId)}` : ''}</span>` : ''}
             </div>

@@ -3,10 +3,10 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v26.29...
+echo Memeriksa mile.posnew.com Secure Gateway v26.30...
 echo.
 
-findstr /c:"20260929-26.29-gemini-throughput" "_worker.js" >nul && echo [OK] Gateway Gemini throughput v26.29 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20260929-26.30-gemini-medium-15x3" "_worker.js" >nul && echo [OK] Gateway Gemini medium 15x3 v26.30 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 5" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 5 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 3" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 3 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const AUDIT_AI_CONCURRENCY = 2" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Audit memakai maksimal 2 request paralel || (echo [GAGAL] Concurrency audit tidak sesuai & set "FAIL=1")
@@ -21,19 +21,18 @@ findstr /c:"qwen-3.7-flash" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Qwen
 findstr /c:"qwen-3.7-flash" "_worker.js" >nul && echo [OK] Qwen 3.7 Flash diizinkan gateway || (echo [GAGAL] Qwen 3.7 Flash gateway tidak ditemukan & set "FAIL=1")
 findstr /c:"GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback Gemini 3.8 ke 3.7 ke 3.6 aktif || (echo [GAGAL] Rantai fallback Gemini tidak ditemukan & set "FAIL=1")
 findstr /c:"delete adapted.temperature" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Payload Gemini bebas parameter sampling lama || (echo [GAGAL] Kompatibilitas payload Gemini tidak ditemukan & set "FAIL=1")
-findstr /c:"reasoning_effort" "assets\js\ai-pdf-beta-r2.js" >nul
-if not errorlevel 1 (echo [GAGAL] Runtime menurunkan reasoning_effort Gemini & set "FAIL=1") else (echo [OK] Reasoning effort Gemini tidak diturunkan)
+findstr /c:"const GEMINI_REASONING_EFFORT = 'medium'" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Reasoning effort Gemini medium || (echo [GAGAL] Reasoning effort Gemini medium tidak ditemukan & set "FAIL=1")
 findstr /c:"type: 'json_schema'" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] JSON schema Gemini aktif || (echo [GAGAL] JSON schema Gemini tidak ditemukan & set "FAIL=1")
 findstr /c:"onStructuredFallback" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kompatibilitas schema aktif || (echo [GAGAL] Fallback schema tidak ditemukan & set "FAIL=1")
 findstr /c:"Gemini 3.6 Flash" "app.html" >nul && echo [OK] Gemini 3.6 tetap tersedia sebagai fallback || (echo [GAGAL] Fallback Gemini 3.6 tidak ditemukan & set "FAIL=1")
 
-findstr /c:"value=\"10\" selected" "app.html" >nul && echo [OK] Default Gemini 10 halaman || (echo [GAGAL] Default Gemini 10 halaman tidak ditemukan & set "FAIL=1")
-findstr /c:"value=\"2\" selected" "app.html" >nul && echo [OK] Default Gemini 2 jalur || (echo [GAGAL] Default Gemini 2 jalur tidak ditemukan & set "FAIL=1")
-findstr /c:"const GEMINI_MAX_PAGES_PER_REQUEST = 10" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Batas Gemini 10 halaman || (echo [GAGAL] Batas Gemini 10 halaman tidak ditemukan & set "FAIL=1")
-findstr /c:"const GEMINI_MAX_AI_CONCURRENCY = 2" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Batas Gemini 2 jalur || (echo [GAGAL] Batas Gemini 2 jalur tidak ditemukan & set "FAIL=1")
+findstr /c:"value=\"15\" selected" "app.html" >nul && echo [OK] Default Gemini 15 halaman || (echo [GAGAL] Default Gemini 15 halaman tidak ditemukan & set "FAIL=1")
+findstr /c:"value=\"3\" selected" "app.html" >nul && echo [OK] Default Gemini 3 jalur || (echo [GAGAL] Default Gemini 3 jalur tidak ditemukan & set "FAIL=1")
+findstr /c:"const GEMINI_MAX_PAGES_PER_REQUEST = 15" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Batas Gemini 15 halaman || (echo [GAGAL] Batas Gemini 15 halaman tidak ditemukan & set "FAIL=1")
+findstr /c:"const GEMINI_MAX_AI_CONCURRENCY = 3" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Batas Gemini 3 jalur || (echo [GAGAL] Batas Gemini 3 jalur tidak ditemukan & set "FAIL=1")
 findstr /c:"pagesPerRequest: 15, concurrency: 5" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Preset DeepSeek tetap 15 halaman x 5 jalur || (echo [GAGAL] Preset DeepSeek tidak sesuai & set "FAIL=1")
 findstr /c:"DEFAULT_NETWORK_MODE = 'normal'" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Profil normal menjadi default || (echo [GAGAL] Default profil normal tidak ditemukan & set "FAIL=1")
-findstr /c:"mile-ai-config-beta-r2-v9" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Storage key konfigurasi baru aktif || (echo [GAGAL] Storage key konfigurasi baru tidak ditemukan & set "FAIL=1")
+findstr /c:"mile-ai-config-beta-r2-v10" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Storage key konfigurasi baru aktif || (echo [GAGAL] Storage key konfigurasi baru tidak ditemukan & set "FAIL=1")
 findstr /c:"aiNetworkMode" "app.html" >nul && echo [OK] Pilihan profil koneksi tersedia || (echo [GAGAL] Profil koneksi tidak ditemukan & set "FAIL=1")
 findstr /c:"xhr.upload.onprogress" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Progres unggah aktual tersedia || (echo [GAGAL] Progres unggah aktual tidak ditemukan & set "FAIL=1")
 findstr /c:"waitUntilOnline" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Pemulihan koneksi tersedia || (echo [GAGAL] Pemulihan koneksi tidak ditemukan & set "FAIL=1")

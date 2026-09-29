@@ -20,7 +20,7 @@ Batch sementara disimpan di IndexedDB pada perangkat dan dihapus setelah seluruh
 
 Panel **Log Kamera** di desktop menampilkan ID batch/perangkat, waktu capture dan proses AI, model serta skema paralel, statistik foto/hasil/bersih/perlu dicek/luar Batam, template dan konfigurasi layanan, kecepatan per data, waktu simpan, serta masa kedaluwarsa. Log baru menyimpan ringkasan ini bersama hasil batch; log lama tetap ditampilkan menggunakan metadata yang masih tersedia.
 
-Halaman utama mempertahankan Gemini 3.8 Flash dan tingkat thinking bawaannya untuk akurasi. Request Gemini PDF dibatasi maksimal 10 halaman × 2 jalur agar beban vision per request dan antrean provider lebih rendah. Structured output JSON dipakai bila didukung CosmosHub dan otomatis diulang tanpa schema sekali bila gateway menolaknya; DeepSeek R2 tetap memakai profil 15 halaman × 5 jalur.
+Halaman utama memakai Gemini 3.8 Flash dengan `reasoning_effort: medium` serta profil 15 halaman × 3 jalur. Structured output JSON dipakai bila didukung CosmosHub dan otomatis diulang tanpa schema sekali bila gateway menolaknya. Jika gateway secara eksplisit menolak parameter reasoning, request diulang satu kali memakai default model agar batch tidak gagal; kejadian ini dicatat pada log kelompok. DeepSeek R2 tetap memakai profil 15 halaman × 5 jalur.
 
 ## Eksperimen PC lawas di `/beta`
 
@@ -214,7 +214,7 @@ Setelah Bypass, Firebase Secure Gateway menjadi lapisan login utama. Bila Fireba
 - `assets/js/login-v16.js` — form login tanpa Firebase key.
 - `assets/js/session-v16.js` — status akun dan logout.
 - `assets/js/events-v16.js` — event handler tanpa inline JavaScript.
-- `assets/js/ai-pdf-beta-r2.js` — runtime aktif untuk PDF dan Camera Direct. Halaman utama memakai Gemini 3.8 Flash maksimal 10 halaman × 2 jalur tanpa mengubah tingkat thinking; Beta DeepSeek R2 tetap dapat memakai 15 halaman × 5 jalur. Jika Gemini terganggu, proses otomatis memakai Gemini 3.7 Flash lalu Gemini 3.6 Flash.
+- `assets/js/ai-pdf-beta-r2.js` — runtime aktif untuk PDF dan Camera Direct. Seluruh keluarga Gemini memakai reasoning medium; halaman utama menjalankan Gemini 3.8 Flash dengan 15 halaman × 3 jalur. Beta DeepSeek R2 tetap dapat memakai 15 halaman × 5 jalur. Jika Gemini terganggu, proses otomatis memakai Gemini 3.7 Flash lalu Gemini 3.6 Flash.
 
 
 ## Pembaruan v16.19

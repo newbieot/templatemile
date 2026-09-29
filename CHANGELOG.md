@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.30 — Gemini reasoning medium dan profil 15×3
+
+- Menetapkan `reasoning_effort: medium` untuk seluruh keluarga Gemini, termasuk model fallback dan pemakaian Gemini pada Camera Direct.
+- Mengubah profil PDF Gemini menjadi 15 halaman per permintaan × 3 jalur paralel.
+- Menambahkan retry kompatibilitas tanpa parameter reasoning hanya bila gateway secara eksplisit menolaknya, serta mencatat fallback tersebut pada telemetry kelompok.
+
 ## v26.29 — Jalur Gemini terukur dan request vision lebih ringan
 
 - Mempertahankan tingkat thinking bawaan Gemini untuk menjaga akurasi, sambil membatasi ekstraksi Gemini PDF menjadi maksimal 10 halaman × 2 jalur.

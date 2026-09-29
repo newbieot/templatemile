@@ -35,13 +35,14 @@
   const CAMERA_MODEL_MAX_ATTEMPTS = 1;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
-  const STORAGE_KEY = 'mile-ai-config-beta-r2-v9';
+  const STORAGE_KEY = 'mile-ai-config-beta-r2-v10';
   const BETA_UPLOAD_TIMEOUT_MS = 15 * 1000;
   const BETA_PREPARE_CONCURRENCY = 2;
   const BETA_INITIAL_AI_CONCURRENCY = 5;
   const BETA_MAX_AI_CONCURRENCY = 5;
-  const GEMINI_MAX_PAGES_PER_REQUEST = 10;
-  const GEMINI_MAX_AI_CONCURRENCY = 2;
+  const GEMINI_MAX_PAGES_PER_REQUEST = 15;
+  const GEMINI_MAX_AI_CONCURRENCY = 3;
+  const GEMINI_REASONING_EFFORT = 'medium';
   const AUDIT_AI_CONCURRENCY = 2;
   const BETA_PROBE_CODE = 'MILE38';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
@@ -73,6 +74,7 @@
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   const geminiStructuredOutputUnsupported = new Set();
+  const geminiReasoningEffortUnsupported = new Set();
   let cancelled = false;
   const fallbackAnnouncements = new Set();
   let lastSuccessfulTransport = '';
@@ -145,9 +147,13 @@
   function adaptRequestBodyForModel(body, model, config = {}) {
     const adapted = { ...body, model };
     delete adapted.response_format;
+    delete adapted.reasoning_effort;
     if (isGeminiModel(model)) {
       delete adapted.temperature;
       delete adapted.top_p;
+      if (!geminiReasoningEffortUnsupported.has(model)) {
+        adapted.reasoning_effort = GEMINI_REASONING_EFFORT;
+      }
       if (!geminiStructuredOutputUnsupported.has(model)) {
         adapted.response_format = rowsResponseFormat(Boolean(config.cameraDirect));
       }
@@ -303,7 +309,7 @@
     if ($('aiModel')) $('aiModel').value = pageDefaultModel();
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
-      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6','mile-ai-config-beta-r2-v7','mile-ai-config-beta-r2-v8'].forEach(key => sessionStorage.removeItem(key));
+      ['mile-ai-config-v11','mile-ai-config-v12','mile-ai-config-v13','mile-ai-config-v14','mile-ai-config-v15','mile-ai-config-v16','mile-ai-config-v16-4','mile-ai-config-v16-5','mile-ai-config-v16-6','mile-ai-config-v16-9','mile-ai-config-v16-10','mile-ai-config-v16-11','mile-ai-config-v16-12','mile-ai-config-v16-13','mile-ai-config-v16-14','mile-ai-config-v16-15','mile-ai-config-v16-16','mile-ai-config-beta-r2-v3','mile-ai-config-beta-r2-v4','mile-ai-config-beta-r2-v5','mile-ai-config-beta-r2-v6','mile-ai-config-beta-r2-v7','mile-ai-config-beta-r2-v8','mile-ai-config-beta-r2-v9'].forEach(key => sessionStorage.removeItem(key));
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         if ($('aiAccuracyMode')) $('aiAccuracyMode').value = DEFAULT_ACCURACY_MODE;
@@ -345,7 +351,7 @@
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
       fast: usesDeepSeekR2Url
         ? 'Mode Turbo R2: dua gambar ringan disiapkan bersamaan, diunggah ke R2, lalu DeepSeek menjalankan 5 jalur berisi maksimal 15 halaman melalui URL sementara.'
-        : 'Mode Gemini akurat: maksimal 10 halaman × 2 jalur agar request vision lebih ringan tanpa menurunkan tingkat thinking.',
+        : 'Mode Gemini akurat: 15 halaman × 3 jalur dengan reasoning medium.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -368,7 +374,7 @@
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
       normal: usesDeepSeekR2Url
         ? 'Mode Turbo R2 aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu DeepSeek menerima URL R2 sementara dalam kelompok 15 halaman × 5 jalur.'
-        : 'Mode Gemini aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu dikirim dalam kelompok maksimal 10 halaman × 2 jalur tanpa mengurangi thinking.',
+        : 'Mode Gemini aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu dikirim dalam kelompok 15 halaman × 3 jalur dengan reasoning medium.',
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -731,6 +737,7 @@
       attempts: Math.max(0, Math.round(Number(item.attempts) || 0)),
       retries: Math.max(0, Math.round(Number(item.retries) || 0)),
       structuredFallbacks: Math.max(0, Math.round(Number(item.structuredFallbacks) || 0)),
+      reasoningFallbacks: Math.max(0, Math.round(Number(item.reasoningFallbacks) || 0)),
       requestStartOffsetMs: Math.max(0, Math.round(Number(item.requestStartOffsetMs) || 0)),
       requestEndOffsetMs: Math.max(0, Math.round(Number(item.requestEndOffsetMs) || 0)),
       model: String(item.model || ''),
@@ -1614,6 +1621,15 @@ ${clipped}`
       .test(`${String(error?.message || '')} ${details}`);
   }
 
+  function isReasoningEffortCompatibilityError(error) {
+    const status = Number(error?.status || 0);
+    if (![400, 422].includes(status)) return false;
+    let details = '';
+    try { details = JSON.stringify(error?.details || ''); } catch (_) {}
+    return /reasoning[_\s-]?effort|thinking[_\s-]?(?:level|budget)/i
+      .test(`${String(error?.message || '')} ${details}`);
+  }
+
   async function callProxyWithRetry(config, body, label = '', hooks = {}) {
     const configuredModel = String(config?.model || body?.model || '').trim();
     let requestModel = String(body?.model || configuredModel).trim();
@@ -1634,6 +1650,7 @@ ${clipped}`
       : (isGeminiFallbackModel ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES);
     let lastError;
     let structuredCompatibilityRetried = false;
+    let reasoningCompatibilityRetried = false;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
       await waitUntilOnline(label);
@@ -1675,6 +1692,20 @@ ${clipped}`
           return repairedPayload;
         }
       } catch (error) {
+        if (
+          !reasoningCompatibilityRetried &&
+          isGeminiModel(requestModel) &&
+          isReasoningEffortCompatibilityError(error) &&
+          requestBody?.reasoning_effort
+        ) {
+          reasoningCompatibilityRetried = true;
+          geminiReasoningEffortUnsupported.add(requestModel);
+          requestBody = { ...requestBody };
+          delete requestBody.reasoning_effort;
+          hooks.onReasoningFallback?.({ error, model: requestModel });
+          attempt--;
+          continue;
+        }
         if (
           !structuredCompatibilityRetried &&
           isGeminiModel(requestModel) &&
@@ -2512,6 +2543,7 @@ ${clipped}`
         attempts: 0,
         retries: 0,
         structuredFallbacks: 0,
+        reasoningFallbacks: 0,
         requestStartOffsetMs: 0,
         requestEndOffsetMs: 0,
         model: config.model,
@@ -2670,6 +2702,17 @@ ${clipped}`
           state.waitingSince = 0;
           setTransferProgress(0, `${shortModelLabel(model)} tidak menerima JSON schema melalui gateway · mengulang tanpa schema`, { waiting: true });
           updateParallelProgress(chunk, chunkIndex, 'Menyesuaikan kompatibilitas JSON');
+        },
+        onReasoningFallback({ model }) {
+          const state = chunkStates[chunkIndex];
+          const timing = betaPerf.chunkTimings[chunkIndex];
+          timing.reasoningFallbacks++;
+          timing.retries++;
+          timing.status = 'compatibility';
+          state.waiting = false;
+          state.waitingSince = 0;
+          setTransferProgress(0, `${shortModelLabel(model)} tidak menerima reasoning medium melalui gateway · mengulang dengan default model`, { waiting: true });
+          updateParallelProgress(chunk, chunkIndex, 'Menyesuaikan kompatibilitas reasoning');
         },
         onRepair() {
           setTransferProgress(100, `Respons halaman ${chunk.start}–${chunk.end} lengkap tetapi JSON perlu dirapikan`, { waiting: true });

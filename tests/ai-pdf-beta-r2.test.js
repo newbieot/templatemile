@@ -84,15 +84,16 @@ assert.match(aiRuntimeSource, /fast: \{ pagesPerRequest: 15, concurrency: 5/);
 assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/);
 assert.match(aiRuntimeSource, /Math\.min\(BETA_MAX_AI_CONCURRENCY, Number\(\$\('aiConcurrency'\)/);
 assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Turbo langsung', maxPagesPerRequest: 15, maxConcurrency: BETA_MAX_AI_CONCURRENCY/);
-assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v9'/);
+assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v10'/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = DEEPSEEK_R2_MODEL/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_MAX_SIDE = 1150/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_JPEG_QUALITY = 0\.72/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
 assert.match(aiRuntimeSource, /const BETA_INITIAL_AI_CONCURRENCY = 5/);
 assert.match(aiRuntimeSource, /const BETA_MAX_AI_CONCURRENCY = 5/);
-assert.match(aiRuntimeSource, /const GEMINI_MAX_PAGES_PER_REQUEST = 10/);
-assert.match(aiRuntimeSource, /const GEMINI_MAX_AI_CONCURRENCY = 2/);
+assert.match(aiRuntimeSource, /const GEMINI_MAX_PAGES_PER_REQUEST = 15/);
+assert.match(aiRuntimeSource, /const GEMINI_MAX_AI_CONCURRENCY = 3/);
+assert.match(aiRuntimeSource, /const GEMINI_REASONING_EFFORT = 'medium'/);
 assert.match(aiRuntimeSource, /const AUDIT_AI_CONCURRENCY = 2/);
 assert.match(aiRuntimeSource, /const GEMINI_REQUEST_TIMEOUT_MS = 75 \* 1000/);
 assert.match(aiRuntimeSource, /const GEMINI_MAX_ATTEMPTS = 2/);
@@ -272,7 +273,7 @@ assert.equal(gemini38Body.temperature, undefined);
 assert.equal(gemini38Body.top_p, undefined);
 assert.equal('temperature' in gemini38Body, false);
 assert.equal('top_p' in gemini38Body, false);
-assert.equal('reasoning_effort' in gemini38Body, false);
+assert.equal(gemini38Body.reasoning_effort, 'medium');
 
 const remoteImageUrl = 'mile-r2:signed-token';
 const remoteImageBody = ai.buildApiBody(
@@ -305,7 +306,7 @@ const gemini37Body = ai.buildApiBody(
 assert.equal(gemini37Body.response_format.type, 'json_schema');
 assert.equal(gemini37Body.temperature, undefined);
 assert.equal(gemini37Body.top_p, undefined);
-assert.equal('reasoning_effort' in gemini37Body, false);
+assert.equal(gemini37Body.reasoning_effort, 'medium');
 
 const gemini38RepairBody = ai.buildJsonRepairBody(
   { model: 'gemini-3.8-flash' },
@@ -314,7 +315,7 @@ const gemini38RepairBody = ai.buildJsonRepairBody(
 assert.equal('temperature' in gemini38RepairBody, false);
 assert.equal('top_p' in gemini38RepairBody, false);
 assert.equal(gemini38RepairBody.response_format.type, 'json_schema');
-assert.equal('reasoning_effort' in gemini38RepairBody, false);
+assert.equal(gemini38RepairBody.reasoning_effort, 'medium');
 
 const taskPool = ai.createTaskPool(2);
 let activeTasks = 0;
@@ -340,6 +341,7 @@ async function runAsyncAssertions() {
   ];
   const requestedModels = [];
   const requestedResponseFormats = [];
+  const requestedReasoningEfforts = [];
   sandbox.XMLHttpRequest = class FakeXMLHttpRequest {
     constructor() {
       this.upload = {};
@@ -356,6 +358,7 @@ async function runAsyncAssertions() {
       const request = JSON.parse(rawBody);
       requestedModels.push(request.body.model);
       requestedResponseFormats.push(request.body.response_format?.type);
+      requestedReasoningEfforts.push(request.body.reasoning_effort);
       const response = responses.shift();
       setTimeout(() => {
         this.upload.onloadstart?.();
@@ -417,7 +420,23 @@ async function runAsyncAssertions() {
   assert.equal(requestedModels.length - unrelatedBadRequestStart, 1);
   assert.equal(requestedResponseFormats.at(-1), 'json_schema');
 
-  console.log('PASS ai-pdf-beta-r2: profil Gemini 10 × 2, schema kompatibel, audit 2 jalur, dan fallback Gemini 3.8 → 3.7 → 3.6');
+  responses.push(
+    { status: 400, body: { error: { message: 'reasoning_effort medium is not supported by this route' } } },
+    { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
+  );
+  let reasoningFallbackEvents = 0;
+  const reasoningPayload = await ai.callProxyWithRetry(
+    { model: 'gemini-3.7-flash', protocol: 'openai' },
+    ai.buildApiBody({ model: 'gemini-3.7-flash', protocol: 'openai' }, 'uji fallback reasoning', [], 1200),
+    'kompatibilitas reasoning',
+    { onReasoningFallback() { reasoningFallbackEvents++; } }
+  );
+  assert.equal(reasoningPayload._mileEffectiveModel, 'gemini-3.7-flash');
+  assert.equal(reasoningFallbackEvents, 1);
+  assert.deepEqual(requestedReasoningEfforts.slice(-2), ['medium', undefined]);
+  assert.deepEqual(requestedResponseFormats.slice(-2), ['json_schema', 'json_schema']);
+
+  console.log('PASS ai-pdf-beta-r2: profil Gemini 15 × 3, reasoning medium, schema kompatibel, dan fallback Gemini 3.8 → 3.7 → 3.6');
 }
 
 runAsyncAssertions().catch(error => {
