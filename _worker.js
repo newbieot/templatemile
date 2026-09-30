@@ -32,7 +32,8 @@ const ALLOWED_MODELS = new Set([
 const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',
   '/icon-192.png', '/icon-512.png', '/og-cover.png', '/site.webmanifest',
-  '/robots.txt', '/404.html', '/assets/css/login-v16.css', '/assets/js/login-v16.js'
+  '/robots.txt', '/404.html', '/assets/css/login-v16.css', '/assets/js/login-v16.js',
+  '/downloads/Mile-Camera-0.1.0.apk'
 ]);
 
 const textEncoder = new TextEncoder();
@@ -1111,6 +1112,10 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
+  if (path === '/downloads/Mile-Camera-0.1.0.apk' && response.ok) {
+    headers.set('content-type', 'application/vnd.android.package-archive');
+    headers.set('content-disposition', 'attachment; filename="Mile-Camera-0.1.0.apk"');
+  }
   if (path === '/camera' || path === '/camera.html') {
     headers.set('permissions-policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
   }

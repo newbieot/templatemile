@@ -37,6 +37,7 @@ const env = {
   ASSETS: {
     async fetch(request) {
       const pathname = new URL(request.url).pathname;
+      if (pathname === '/downloads/Mile-Camera-0.1.0.apk') return new Response(new Uint8Array([0x50,0x4b,3,4]), { headers: { 'content-type': 'application/octet-stream' } });
       if (pathname === '/camera') return new Response('<title>Camera Capture Batch</title>', { headers: { 'content-type': 'text/html' } });
       if (pathname === '/review') return new Response('<title>Review Hasil Kamera</title>', { headers: { 'content-type': 'text/html' } });
       return new Response('asset', { headers: { 'content-type': 'text/javascript' } });
@@ -50,6 +51,13 @@ assert.equal(workerModule.parseCookies(`__Host-mile_session=${token}`)['__Host-m
 const unauthenticated = await workerModule.default.fetch(new Request('https://mile.posnew.com/camera'), env);
 assert.equal(unauthenticated.status, 302);
 assert.equal(unauthenticated.headers.get('location'), '/');
+
+const apk = await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/Mile-Camera-0.1.0.apk'), env);
+assert.equal(apk.status, 200);
+assert.equal(apk.headers.get('content-type'), 'application/vnd.android.package-archive');
+assert.equal(apk.headers.get('content-disposition'), 'attachment; filename="Mile-Camera-0.1.0.apk"');
+assert.deepEqual(new Uint8Array(await apk.arrayBuffer()), new Uint8Array([0x50,0x4b,3,4]));
+assert.equal((await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/other.apk'), env)).status, 302);
 
 const authenticated = await workerModule.default.fetch(new Request('https://mile.posnew.com/camera', {
   headers: { cookie: `__Host-mile_session=${token}` }
