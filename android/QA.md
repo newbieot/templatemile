@@ -1,19 +1,19 @@
-# Mile Camera 0.1.0 — verifikasi
+# Mile Camera 0.1.1 — verifikasi
 
-Build 30 September 2026, paket `com.posnew.milecamera`, Android 8.0+.
+Build 30 September 2026, paket com.posnew.milecamera, versionCode2, Android8+.
 
-- Build release dan Android lint berhasil; tidak ada lint error. Peringatan nonfatal mencakup target SDK 35, versi tool, dan teks UI yang belum dipindahkan ke resource terjemahan.
-- APK diverifikasi dengan `apksigner`: tanda tangan APK v2 valid, satu signer.
-- Emulator Pixel 5 / Android 15: beranda biru, izin kamera, preview, ketuk fokus, capture portrait dan landscape, galeri, konfirmasi hapus, dan hitungan foto berjalan.
-- Capture virtual menghasilkan JPEG 1392 × 1856 (portrait) dan 1856 × 1392 (landscape). Ukuran foto mengikuti resolusi yang tersedia dari kamera.
-- Draft masih tersedia setelah force-stop dan membuka ulang aplikasi; setelah menghapus satu dari dua foto, galeri dan draft menunjukkan satu foto.
-- Rotasi sensor ke landscape berhasil ketika `accelerometer_rotation=0` dan `user_rotation=0` (rotasi sistem dikunci portrait). Tombol kamera pindah ke dock samping; galeri memakai foto dan kontrol berdampingan. Kembali ke portrait juga berhasil.
-- Halaman login MILE terbuka di WebView sebelum pemrosesan batch; foto native tetap tersimpan. Pemrosesan AI dengan akun pengguna belum diuji end-to-end karena sesi emulator belum login.
-- `node --test tests/android-handoff.test.js` berhasil: handoff tujuh JPEG, model default, kegagalan baca foto, kegagalan penyimpanan, serta penolakan origin lain.
-- Fokus optik dan kualitas kamera lintas merek belum diuji pada HP fisik. Emulator melaporkan fokus belum terkunci; aplikasi menampilkan status tersebut dan tetap mengizinkan capture.
+- Build release/debug/tes dan lint release berhasil, tanpa lint error.
+- APK release ditandatangani keystore yang sama dengan versi0.1.0; bisa diperbarui tanpa uninstall.
+- 12 tes Android lulus: login wajib dan tidak bisa dilewati native entry, sesi tersimpan terenkripsi dan dipulihkan setelah restart, logout lokal/tamper, JPEG noisy ≤120000byte pada720p, EXIF, migrasi draft lama/interruptedwrite, serta capture kamera virtual.
+- Empat suite Node lulus: sesi Android persisten/backend logout revocation/tamper/storage errors, nativehandoff termasuk ukuran/resolusi, gate route kamera, dan anggaran AI30detik.
+- Emulator Android15 Pixel5: preview fullscreen dengan overlay; landscape mengikuti sensor saat rotasi sistem dikunci portrait. Zoom1× diverifikasi, framing16:9 dipertahankan tanpa crop mengikuti rasio layar.
+- Umpan balik shutter diterima23–224ms, JPEG virtual disimpan433–692ms dalam tes emulator. Ini hasil virtual, bukan jaminan kecepatan perangkat fisik.
+- Efek kilatan preview180ms, haptic, dan MediaActionSound.SHUTTER_CLICK tersedia. Emulator berjalan tanpa audiohost; suara dan autofocus optik perlu dicoba diHP.
+- APK release upgrade tampil login lebih dulu. Form Android memakai backend Firebase/allowlist; password tidak disimpan, token dienkripsi Keystore.
+- R2 lifecycle produksi diperiksa: expire-beta-images hanya prefix beta/ (1hari); auth/android-sessions/ tanpa expiry. Logout server menghapus record token.
+- Login positif dengan akun pengguna dan AI real belum diuji di emulator karena tidak memakai password pengguna. Verifikasi alur backend menggunakan Firebase/R2 mock dan gate/native persistence dengan instrumentasi.
+- Harness kamera hanya dalam build debug, tidak dalam APK release.
 
-APK yang dipublikasikan: `downloads/Mile-Camera-0.1.0.apk`.
+APK: downloads/Mile-Camera-0.1.1.apk. Tautan stabil: https://mile.posnew.com/downloads/Mile-Camera.apk
 
-SHA-256: `7e6268578d23debc02756b2e97d37bf3c8c2c59012a49f57a1fd2cc766af093c`.
-
-Keystore release berada di penyimpanan lokal komputer pembuat, tidak termasuk source maupun APK. Simpan keystore itu untuk pembaruan berikutnya.
+SHA256: 3e13ded4ab74da50002888e6c5467113193318e9e88b27104a07f766f7ffc33b

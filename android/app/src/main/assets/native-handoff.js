@@ -15,6 +15,9 @@
       if (!response.ok) throw new Error(`Foto ${photo.sequence} belum dapat dibaca.`);
       const blob = await response.blob();
       if (!blob.size || blob.type !== 'image/jpeg') throw new Error(`Foto ${photo.sequence} tidak valid.`);
+      if (blob.size > 120000 || Math.max(photo.width, photo.height) > 1280 || Math.min(photo.width, photo.height) > 720) {
+        throw new Error(`Foto ${photo.sequence} melebihi batas 720p / 120 KB. Buka ulang aplikasi untuk menyesuaikan draft.`);
+      }
       const { url, ...metadata } = photo;
       images.push({ ...metadata, blob });
       window.__mileNativeTransfer.progress = images.length;

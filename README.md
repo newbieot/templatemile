@@ -4,6 +4,8 @@ Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App p
 
 ## Mobile camera station di `/camera`
 
+Aplikasi pendamping Android tersedia di [Unduh Mile Camera APK](https://mile.posnew.com/downloads/Mile-Camera.apk). Versi 0.1.1 memakai kamera CameraX native 720p maksimal 120 KB/foto, login wajib sebelum kamera, sesi persisten sampai logout, preview dengan kontrol overlay, zoom awal 1×, dan feedback shutter. Source serta petunjuk build ada di `android/README.md`. Sesi Android tersimpan di R2 prefix `auth/android-sessions/` tanpa expiry; lifecycle satu hari pada bucket hanya berlaku untuk `beta/`.
+
 Halaman `/camera` dirancang untuk Chrome Android dan memakai kamera belakang HP secara langsung. Tidak diperlukan DroidCam, webcam PC, atau aplikasi Android tambahan. HP dipasang pada holder tetap; operator hanya mengganti sampul/label dan menekan **Capture** berulang kali.
 
 Menekan **Open Camera** sekaligus membuka preview fullscreen dan membuat sesi capture; tidak ada lagi langkah Start Capture Session. Setiap kali Capture ditekan, browser memutar suara shutter sintetis instan (Web Audio API), animasi kilat putih layar (visual flash), getaran haptic ponsel, dan notifikasi HUD mengambang langsung di layar bidik kamera (`✓ Capture X tersimpan`). Di mode fullscreen, operator dapat langsung menekan tombol **Finish Capture** tanpa harus keluar layar penuh terlebih dahulu. Hasil capture tersimpan dengan nomor urut, timestamp, capture ID, dan sesi yang terjaga.

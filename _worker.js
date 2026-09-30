@@ -21,6 +21,11 @@ const AI_UPSTREAM_TIMEOUTS_MS = Object.freeze({
 const MAX_AI_RESPONSE_BYTES = 2 * 1024 * 1024;
 const VERSIONED_ASSET_CACHE = 'private, max-age=31536000, immutable';
 const SESSION_COOKIE = '__Host-mile_session';
+const ANDROID_SESSION_MODE = 'android-persistent';
+const ANDROID_SESSION_PREFIX = 'android1.';
+const ANDROID_SESSION_STORAGE_PREFIX = 'auth/android-sessions/';
+const ANDROID_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
+const MAX_ANDROID_SESSION_BYTES = 4 * 1024;
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
   'claude-opus-5', 'claude-sonnet-4.5', 'claude-haiku-4.5',
@@ -33,7 +38,7 @@ const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',
   '/icon-192.png', '/icon-512.png', '/og-cover.png', '/site.webmanifest',
   '/robots.txt', '/404.html', '/assets/css/login-v16.css', '/assets/js/login-v16.js',
-  '/downloads/Mile-Camera-0.1.0.apk'
+  '/downloads/Mile-Camera-0.1.1.apk'
 ]);
 
 const textEncoder = new TextEncoder();
@@ -291,9 +296,63 @@ async function currentSession(request, env) {
   if (!secret) return null;
   const cookie = parseCookies(request.headers.get('cookie'))[SESSION_COOKIE];
   if (!cookie) return null;
+  if (cookie.startsWith(ANDROID_SESSION_PREFIX)) return currentAndroidSession(cookie, env);
   const session = await verifySessionToken(cookie, secret);
   if (!session || !isAllowedEmail(session.email, env)) return null;
   return session;
+}
+
+function androidSessionBucket(env) {
+  const bucket = betaImageBucket(env);
+  return bucket && typeof bucket.delete === 'function' ? bucket : null;
+}
+
+function androidSessionStorageError() {
+  const error = new Error('Layanan sesi Android belum tersedia. Silakan coba kembali.');
+  error.status = 503;
+  return error;
+}
+
+async function androidSessionKey(token) {
+  if (!/^android1\.[a-f0-9]{64}$/.test(String(token || ''))) return null;
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', textEncoder.encode(token)));
+  const hash = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${ANDROID_SESSION_STORAGE_PREFIX}${hash}.json`;
+}
+
+async function createAndroidSession(uid, email, env) {
+  const bucket = androidSessionBucket(env);
+  if (!bucket) throw androidSessionStorageError();
+  const random = crypto.getRandomValues(new Uint8Array(32));
+  const token = ANDROID_SESSION_PREFIX + Array.from(random, byte => byte.toString(16).padStart(2, '0')).join('');
+  const key = await androidSessionKey(token);
+  const value = JSON.stringify({ v: 1, kind: 'android-session', uid, email, createdAt: Math.floor(Date.now() / 1000) });
+  if (textEncoder.encode(value).byteLength > MAX_ANDROID_SESSION_BYTES) throw androidSessionStorageError();
+  try {
+    // Store only the random token's digest. No expiry: an explicit logout deletes this record.
+    await bucket.put(key, value, { httpMetadata: { contentType: 'application/json', cacheControl: 'private, no-store, max-age=0' } });
+  } catch (_) {
+    throw androidSessionStorageError();
+  }
+  return token;
+}
+
+async function currentAndroidSession(token, env) {
+  const key = await androidSessionKey(token);
+  if (!key) return null;
+  const bucket = androidSessionBucket(env);
+  if (!bucket) throw androidSessionStorageError();
+  let object;
+  try { object = await bucket.get(key); }
+  catch (_) { throw androidSessionStorageError(); }
+  if (!object || Number(object.size || 0) > MAX_ANDROID_SESSION_BYTES) return null;
+  let payload;
+  try { payload = await object.json(); }
+  catch (_) { return null; }
+  if (payload?.v !== 1 || payload?.kind !== 'android-session' || typeof payload.uid !== 'string' || !payload.uid
+      || typeof payload.email !== 'string' || !isAllowedEmail(payload.email, env)
+      || !Number.isSafeInteger(payload.createdAt) || payload.createdAt <= 0) return null;
+  return { v: 1, uid: payload.uid, email: payload.email, iat: payload.createdAt, exp: null, persistent: true };
 }
 
 function sessionCookie(token, maxAge) {
@@ -353,12 +412,16 @@ async function handleLogin(request, env) {
   const email = String(input?.email || '').trim().toLowerCase();
   const password = String(input?.password || '');
   const remember = Boolean(input?.remember);
+  const persistentAndroid = input?.sessionMode === ANDROID_SESSION_MODE;
 
   if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 8 || password.length > 256) {
     return json({ error: { message: 'Email atau password tidak benar.' } }, 401);
   }
   if (!isAllowedEmail(email, env)) {
     return json({ error: { message: 'Email atau password tidak benar.' } }, 401);
+  }
+  if (persistentAndroid && !androidSessionBucket(env)) {
+    return json({ error: { message: 'Layanan sesi Android belum tersedia. Silakan coba kembali.' } }, 503);
   }
 
   let upstream;
@@ -383,6 +446,15 @@ async function handleLogin(request, env) {
   const uid = String(data?.localId || '').trim();
   if (!uid || verifiedEmail !== email || !isAllowedEmail(verifiedEmail, env)) {
     return json({ error: { message: 'Akun tidak diizinkan menggunakan aplikasi ini.' } }, 403);
+  }
+
+  if (persistentAndroid) {
+    let token;
+    try { token = await createAndroidSession(uid, verifiedEmail, env); }
+    catch (_) { return json({ error: { message: 'Sesi Android belum dapat disimpan. Silakan coba kembali.' } }, 503); }
+    return json({ ok: true, authenticated: true, persistent: true, user: { email: verifiedEmail }, expiresAt: null }, 200, {
+      'set-cookie': sessionCookie(token, ANDROID_COOKIE_MAX_AGE)
+    });
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -423,9 +495,17 @@ async function handlePasswordReset(request, env) {
   return json({ ok: true, message: 'Jika akun terdaftar, petunjuk reset password akan dikirim.' });
 }
 
-async function handleLogout(request) {
+async function handleLogout(request, env) {
   if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
   if (!sameOriginRequest(request)) return json({ error: { message: 'Permintaan lintas situs ditolak.' } }, 403);
+  const token = parseCookies(request.headers.get('cookie'))[SESSION_COOKIE];
+  const key = await androidSessionKey(token);
+  if (key) {
+    const bucket = androidSessionBucket(env);
+    if (!bucket) return json({ error: { message: 'Sesi Android belum dapat dicabut. Silakan coba keluar kembali.' } }, 503);
+    try { await bucket.delete(key); }
+    catch (_) { return json({ error: { message: 'Sesi Android belum dapat dicabut. Silakan coba keluar kembali.' } }, 503); }
+  }
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() });
 }
 
@@ -1112,9 +1192,9 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
-  if (path === '/downloads/Mile-Camera-0.1.0.apk' && response.ok) {
+  if (path === '/downloads/Mile-Camera-0.1.1.apk' && response.ok) {
     headers.set('content-type', 'application/vnd.android.package-archive');
-    headers.set('content-disposition', 'attachment; filename="Mile-Camera-0.1.0.apk"');
+    headers.set('content-disposition', 'attachment; filename="Mile-Camera-0.1.1.apk"');
   }
   if (path === '/camera' || path === '/camera.html') {
     headers.set('permissions-policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
@@ -1139,6 +1219,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (url.pathname === '/downloads/Mile-Camera.apk' || url.pathname === '/downloads/Mile-Camera-0.1.0.apk') {
+      return redirect('/downloads/Mile-Camera-0.1.1.apk');
+    }
     if (url.hostname === 'templatemile.pages.dev') {
       url.hostname = 'mile.posnew.com';
       return Response.redirect(url.toString(), 301);
@@ -1160,14 +1243,16 @@ export default {
 
     if (url.pathname === '/api/auth/login') return handleLogin(request, env);
     if (url.pathname === '/api/auth/reset-password') return handlePasswordReset(request, env);
-    if (url.pathname === '/api/auth/logout') return handleLogout(request);
+    if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
     if (url.pathname === '/api/beta/image') return handleBetaImageRead(request, env, url);
 
-    const session = await currentSession(request, env);
+    let session;
+    try { session = await currentSession(request, env); }
+    catch (_) { return json({ error: { message: 'Layanan sesi Android belum tersedia. Silakan coba kembali.' } }, 503); }
 
     if (url.pathname === '/api/auth/me') {
       if (!session) return json({ authenticated: false }, 401);
-      return json({ authenticated: true, user: { email: session.email }, expiresAt: session.exp });
+      return json({ authenticated: true, user: { email: session.email }, expiresAt: session.exp, persistent: session.persistent === true });
     }
 
     if (url.pathname === '/api/ai-proxy') return handleProxy(request, env, session);

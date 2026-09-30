@@ -4,28 +4,31 @@ Aplikasi pendamping Android dengan kamera native CameraX. Login, ekstraksi AI, p
 
 ## Memakai APK
 
-Unduh APK: https://mile.posnew.com/downloads/Mile-Camera-0.1.0.apk
+Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.1).
 
-1. Salin `Mile-Camera-0.1.0.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android.
-2. Buka **Mile Camera**, pilih **Mulai capture**, lalu izinkan kamera.
+1. Unduh `Mile-Camera-0.1.1.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Pembaruan bisa dipasang menimpa versi 0.1.0 tanpa menghapus draft.
+2. Buka **Mile Camera** dan login terlebih dahulu. Kamera, galeri, dan halaman aplikasi terkunci sebelum login berhasil. Setelah masuk, pilih **Mulai capture** dan izinkan kamera.
 3. Ketuk bagian teks untuk fokus. Indikator biru berarti perangkat melaporkan fokus berhasil; indikator kuning berarti fokus belum terkunci atau lensa tidak mendukung autofocus pada titik.
 4. Ambil foto, periksa **Galeri**, hapus yang tidak layak, lalu tekan **Selesai**.
-5. Login ke MILE bila diminta. Foto disimpan ke sesi review yang sama dengan pipeline web, lalu diproses oleh Gemini 3.8 → Gemini 3.1 Pro → Gemini 3.7 → DeepSeek 4.1 Flash, 7 gambar × 7 jalur, maksimal 30 detik per model.
+5. Foto disimpan ke sesi review yang sama dengan pipeline web, lalu diproses oleh Gemini 3.8 → Gemini 3.1 Pro → Gemini 3.7 → DeepSeek 4.1 Flash, 7 gambar × 7 jalur, maksimal 30 detik per model.
 6. Foto asli dalam aplikasi tetap tersedia sampai pengguna menghapusnya atau memulai batch baru. Memulai batch baru meminta konfirmasi; hasil MILE yang sudah disimpan tidak dihapus.
 
-Android 8.0 atau lebih baru. Kamera belakang diprioritaskan; perangkat tanpa kamera belakang memakai kamera depan. Kamera dengan lensa fokus tetap tidak bisa dibuat autofocus melalui perangkat lunak. Capture dapat dilakukan tanpa internet, tetapi login dan AI memerlukan koneksi.
+Android 8.0 atau lebih baru. Kamera belakang diprioritaskan; perangkat tanpa kamera belakang memakai kamera depan. Kamera dengan lensa fokus tetap tidak bisa dibuat autofocus melalui perangkat lunak. Setelah login pertama, sesi tersimpan saat aplikasi ditutup atau HP direstart; capture bisa offline. Login, logout server, dan AI memerlukan koneksi. Bila logout gagal karena koneksi, aplikasi memberi tahu pengguna untuk mencoba kembali.
 
 ## Kamera dan penyimpanan
 
 - Preview dan still capture memakai CameraX, dengan autofocus bawaan, AF/AE metering pada koordinat ketukan, dan status hasil fokus yang sebenarnya.
-- Saat capture, aplikasi menunggu respons fokus paling lama 1,6 detik sebelum melanjutkan pengambilan foto agar perangkat yang lambat tidak mengunci tombol selamanya.
+- Shutter langsung memakai CameraX `MINIMIZE_LATENCY`; tidak ada penantian refocus tambahan 1,6 detik pada setiap foto. Autofokus kontinu tetap berjalan saat membidik, dan ketuk fokus tetap tersedia.
+- Kilatan putih pada preview, getaran, serta suara shutter Android diberikan ketika capture diterima. Suara mengikuti volume/kebijakan audio HP. Status tersimpan muncul setelah JPEG berhasil ditulis.
 - Zoom cubit, kembali ke zoom 1×, dan lampu bantu sesuai kemampuan kamera.
-- Layout capture menyesuaikan portrait/landscape; tombol berada di dock samping ketika landscape.
+- Kamera memenuhi area layar, dengan kontrol berupa overlay transparan. Landscape tidak memakai panel samping solid. Preview menjaga framing 16:9 utuh; perbedaan rasio layar bisa meninggalkan margin agar gambar tidak dipotong atau tampak zoom.
+- Zoom awal dan setelah rotasi selalu 1×; cubit layar tetap bisa dipakai untuk zoom manual, dan tombol 1× mengembalikan zoom.
 - Rotasi memakai sensor HP dalam empat arah, termasuk saat pengaturan rotasi Android dikunci portrait (`fullSensor`). Galeri ikut menyesuaikan; foto yang sedang disimpan diselesaikan sebelum layout kamera dipasang ulang.
 - Palet navy dan biru mengikuti web MILE.
-- Still capture JPEG, orientasi EXIF dinormalisasi, sisi panjang maksimal 2048 px, maksimal 1500 KiB per foto. Ukuran dan kualitas adaptif menjaga 7 foto tetap di bawah anggaran gateway web.
+- Still capture JPEG 720p: maksimal 1280 × 720 landscape atau 720 × 1280 portrait, maksimal **120.000 byte (120 KB)** per foto. Kompresi JPEG adaptif mempertahankan resolusi dan memenuhi batas byte. Draft lama dikonversi atomik sebelum dipakai, termasuk normalisasi EXIF.
 - Draft dan foto tersimpan di ruang privat aplikasi. Manifest ditulis atomik. Tidak diperlukan izin penyimpanan umum, lokasi, atau mikrofon.
 - WebView hanya menjalankan aplikasi pada origin HTTPS MILE. Tidak ada JavaScript interface native. Foto diberikan melalui rute lokal ber-token yang dicegat WebView; rute tersebut tidak dikirim ke server.
+- Login dilakukan lewat form Android dan endpoint HTTPS yang memverifikasi Firebase serta allowlist. Token sesi persisten disimpan terenkripsi dengan Android Keystore; password tidak disimpan. Sesi server berada di R2 `auth/android-sessions/` tanpa expiry dan dihapus ketika logout berhasil. Lifecycle bucket hanya mengekspirasikan prefix `beta/`, bukan sesi login. Sesi web biasa tetap 12 jam/7 hari.
 - Handoff selesai hanya setelah IndexedDB berhasil menyimpan batch. Gagal membaca foto, penyimpanan penuh, atau gagal koneksi mempertahankan draft native.
 - Menghapus aplikasi/data aplikasi akan menghapus draft lokal serta sesi login/IndexedDB aplikasi.
 
@@ -44,4 +47,12 @@ Build QA pada komputer ini menggunakan pengaturan JVM lokal untuk menghindari ma
 
 ## Verifikasi
 
-`node tests/android-handoff.test.js` dari root repository memeriksa handoff 7 foto, JPEG, default model, kegagalan foto, kegagalan penyimpanan, dan penolakan origin yang tidak diizinkan. Build APK dan Android lint dijalankan sebelum hasil diberikan. Emulator dapat memverifikasi UI dan penyimpanan/capture virtual; autofocus dan kualitas optik tetap perlu diuji pada HP fisik.
+`node --test tests/android-handoff.test.js tests/worker-android-session.test.mjs tests/worker-camera-route.test.mjs tests/worker-camera-timeout.test.mjs` memeriksa handoff 7 foto, batas foto, kegagalan penyimpanan, autentikasi, sesi persisten/revokasi logout, dan timeout AI.
+
+Tes Android ada di `src/androidTest`. Build `:app:assembleDebug :app:assembleDebugAndroidTest`, instal keduanya ke emulator, berikan izin kamera kepada paket `.preview`, lalu jalankan:
+
+```text
+adb shell am instrument -w -e class com.posnew.milecamera.AndroidSessionTest,com.posnew.milecamera.LoginGateTest,com.posnew.milecamera.SessionStoreTest,com.posnew.milecamera.CameraCaptureTest com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
+```
+
+Harness kamera hanya ada dalam build debug, tidak disertakan di APK release. Emulator memverifikasi UI, penyimpanan, dan capture virtual; autofocus optik, kecepatan perangkat, serta suara di HP fisik tetap perlu diuji.

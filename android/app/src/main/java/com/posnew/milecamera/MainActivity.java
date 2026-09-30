@@ -13,6 +13,8 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
+import android.text.InputType;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -21,6 +23,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -35,6 +38,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.ByteArrayInputStream;
@@ -49,9 +53,14 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends ComponentActivity {
     private static final String ORIGIN="https://mile.posnew.com";
     private final ExecutorService io=Executors.newSingleThreadExecutor();
+    private final ExecutorService authIo=Executors.newSingleThreadExecutor();
     private final String transferToken=UUID.randomUUID().toString();
     private FrameLayout root;
     private SessionStore store;
+    private AndroidSession session;
+    private int authGeneration;
+    private boolean loginBusy;
+    private final Runnable sessionCheck=() -> verifySession();
     private CameraScreen cameraScreen;
     private WebView web;
     private TextView webTitle;
@@ -63,7 +72,8 @@ public final class MainActivity extends ComponentActivity {
     private int galleryIndex;
     private boolean cameraLayoutPending;
     private final ActivityResultLauncher<String> cameraPermission=registerForActivityResult(new ActivityResultContracts.RequestPermission(),granted -> {
-        if (granted) showCamera();
+        if (granted && hasSession()) showCamera();
+        else if(!hasSession()) showLogin("");
         else new AlertDialog.Builder(this).setTitle("Izin kamera diperlukan")
             .setMessage("Aktifkan izin kamera untuk mengambil foto dokumen. Foto batch yang sudah ada tetap tersimpan.")
             .setPositiveButton("Buka pengaturan",(d,w) -> startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()))))
@@ -77,13 +87,17 @@ public final class MainActivity extends ComponentActivity {
         ViewCompat.setOnApplyWindowInsetsListener(root,(view,insets) -> {
             androidx.core.graphics.Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());
             androidx.core.graphics.Insets keyboard=insets.getInsets(WindowInsetsCompat.Type.ime());
-            view.setPadding(bars.left,bars.top,bars.right,Math.max(bars.bottom,keyboard.bottom)); return insets;
+            if(screen.equals("camera")) {
+                view.setPadding(0,0,0,0);
+                if(cameraScreen!=null) cameraScreen.setControlInsets(bars.left,bars.top,bars.right,bars.bottom);
+            } else view.setPadding(bars.left,bars.top,bars.right,Math.max(bars.bottom,keyboard.bottom));
+            return insets;
         });
-        try { store=new SessionStore(this); } catch (Exception error) {
-            new AlertDialog.Builder(this).setTitle("Penyimpanan belum siap").setMessage(error.getMessage()).setPositiveButton("Tutup",(d,w)->finish()).setCancelable(false).show(); return;
-        }
+        session=new AndroidSession(this);
         getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
+                if(screen.equals("login") || screen.equals("starting")) { finish(); return; }
+                if(screen.equals("signout")) { toast("Tunggu logout selesai."); return; }
                 if (cameraScreen!=null && cameraScreen.isBusy()) { toast("Tunggu foto selesai disimpan."); return; }
                 if (screen.equals("gallery")) openCamera();
                 else if (screen.equals("web") && transferStarted) toast("Tunggu foto selesai disiapkan.");
@@ -92,7 +106,120 @@ public final class MainActivity extends ComponentActivity {
                 else { setEnabled(false); getOnBackPressedDispatcher().onBackPressed(); }
             }
         });
-        showHome();
+        clearScreen("starting"); theme(false);
+        TextView starting=Ui.text(this,"Menyiapkan MILE…",18,Ui.INK,true); starting.setGravity(Gravity.CENTER); root.addView(starting,new FrameLayout.LayoutParams(-1,-1));
+        io.execute(() -> {
+            try {
+                SessionStore restored=new SessionStore(this);
+                runOnUiThread(() -> { if(isDestroyed()) return; store=restored; if(hasSession()) { installCookie(); showHome(); verifySession(); } else showLogin(""); });
+            } catch(Exception error) {
+                runOnUiThread(() -> { if(!isDestroyed()) new AlertDialog.Builder(this).setTitle("Penyimpanan belum siap").setMessage(error.getMessage()).setPositiveButton("Tutup",(d,w)->finish()).setCancelable(false).show(); });
+            }
+        });
+    }
+
+    private boolean hasSession() { return session!=null && session.available(); }
+    private void installCookie() {
+        if(!hasSession()) return;
+        CookieManager manager=CookieManager.getInstance(); manager.setAcceptCookie(true);
+        manager.setCookie(ORIGIN,session.cookie()+"; Path=/; Max-Age=34560000; HttpOnly; Secure; SameSite=Lax",ignored -> manager.flush());
+    }
+    private void lockSession(String message) {
+        authGeneration++; session.clear(); pendingTransfer=false; transferStarted=false;
+        if(web!=null) web.stopLoading();
+        CookieManager.getInstance().setCookie(ORIGIN,"__Host-mile_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax",ignored -> CookieManager.getInstance().flush());
+        showLogin(message);
+    }
+    private void verifySession() {
+        root.removeCallbacks(sessionCheck);
+        if(!hasSession() || isDestroyed()) return;
+        final int generation=authGeneration; final String credential=session.cookie();
+        authIo.execute(() -> {
+            AndroidSession.Reply response=null;
+            try { response=AndroidSession.request("/api/auth/me","GET",null,credential); } catch(Exception ignored) {}
+            final AndroidSession.Reply reply=response;
+            runOnUiThread(() -> {
+                if(isDestroyed() || generation!=authGeneration || !credential.equals(session.cookie())) return;
+                if(reply!=null && (reply.status==401 || reply.status==403)) { lockSession("Sesi tidak berlaku. Silakan masuk kembali."); return; }
+                // A verified, encrypted persistent session stays usable offline; 503 is not logout.
+                if(hasSession()) root.postDelayed(sessionCheck,300000);
+            });
+        });
+    }
+
+    private void showLogin(String message) {
+        clearScreen("login"); theme(false); loginBusy=false;
+        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true);
+        LinearLayout page=Ui.column(this); page.setPadding(Ui.dp(this,28),Ui.dp(this,32),Ui.dp(this,28),Ui.dp(this,24));
+        page.addView(Ui.text(this,"mile  /  CAMERA",23,Ui.INK,true)); Ui.gap(page,40);
+        page.addView(Ui.text(this,"Masuk untuk\nmulai capture.",32,Ui.INK,true),Ui.matchWrap()); Ui.gap(page,12);
+        TextView introduction=Ui.text(this,"Gunakan akun MILE Anda. Sesi tetap tersimpan di HP sampai Anda menekan Keluar.",15,Ui.MUTED,false); introduction.setLineSpacing(Ui.dp(this,4),1); page.addView(introduction,Ui.matchWrap()); Ui.gap(page,28);
+        page.addView(Ui.text(this,"Email",13,Ui.INK,true)); Ui.gap(page,8);
+        EditText email=loginField("Email akun MILE",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS); page.addView(email,Ui.matchWrap()); Ui.gap(page,20);
+        page.addView(Ui.text(this,"Password",13,Ui.INK,true)); Ui.gap(page,8);
+        EditText password=loginField("Password",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD); page.addView(password,Ui.matchWrap()); Ui.gap(page,8);
+        TextView visibility=Ui.button(this,"Tampilkan password",Color.TRANSPARENT,Ui.BLUE,() -> {
+            boolean hidden=password.getTransformationMethod() instanceof android.text.method.PasswordTransformationMethod;
+            password.setTransformationMethod(hidden?null:android.text.method.PasswordTransformationMethod.getInstance()); password.setSelection(password.length());
+        }); visibility.setTextSize(13); page.addView(visibility,Ui.matchWrap());
+        visibility.setOnClickListener(v -> {
+            boolean hidden=password.getTransformationMethod() instanceof android.text.method.PasswordTransformationMethod;
+            password.setTransformationMethod(hidden?null:android.text.method.PasswordTransformationMethod.getInstance()); password.setSelection(password.length());
+            visibility.setText(hidden?"Sembunyikan password":"Tampilkan password");
+        });
+        TextView error=Ui.text(this,message,13,Color.rgb(185,28,28),false); error.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); page.addView(error,Ui.matchWrap()); Ui.gap(page,14);
+        TextView submit=Ui.button(this,"Masuk ke MILE  →",Ui.BLUE,Color.WHITE,() -> {}); page.addView(submit,Ui.matchWrap());
+        submit.setOnClickListener(v -> {
+            if(loginBusy) return;
+            String address=email.getText().toString().trim().toLowerCase(java.util.Locale.ROOT), secret=password.getText().toString();
+            if(address.isEmpty() || secret.isEmpty()) { error.setText("Lengkapi email dan password."); return; }
+            loginBusy=true; email.setEnabled(false); password.setEnabled(false); submit.setEnabled(false); submit.setAlpha(.65f); submit.setText("Memverifikasi akun…"); error.setText("");
+            final int generation=++authGeneration;
+            authIo.execute(() -> {
+                String failure="";
+                try {
+                    AndroidSession.Reply reply=AndroidSession.request("/api/auth/login","POST",new JSONObject().put("email",address).put("password",secret).put("sessionMode","android-persistent"),"");
+                    if(reply.status!=200 || !reply.data.optBoolean("persistent") || reply.setCookie==null) throw new Exception(reply.data.optJSONObject("error")!=null?reply.data.getJSONObject("error").optString("message","Login gagal."):"Login gagal. Coba kembali.");
+                    session.storeVerified(reply.setCookie,reply.data.getJSONObject("user").getString("email"));
+                } catch(Exception exception) { failure=exception.getMessage()==null?"Periksa koneksi lalu coba lagi.":exception.getMessage(); }
+                final String result=failure;
+                runOnUiThread(() -> {
+                    if(isDestroyed() || generation!=authGeneration) return;
+                    loginBusy=false;
+                    if(!result.isEmpty()) { error.setText(result); email.setEnabled(true); password.setEnabled(true); submit.setEnabled(true); submit.setAlpha(1); submit.setText("Masuk ke MILE  →"); return; }
+                    password.setText(""); ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(password.getWindowToken(),0);
+                    installCookie(); showHome(); verifySession();
+                });
+            });
+        });
+        Ui.gap(page,18); page.addView(Ui.button(this,"Lupa password?",Color.TRANSPARENT,Ui.BLUE,() -> {
+            String address=email.getText().toString().trim();
+            if(address.isEmpty()) { error.setText("Isi email untuk menerima tautan reset password."); return; }
+            authIo.execute(() -> { String result; try { AndroidSession.Reply reply=AndroidSession.request("/api/auth/reset-password","POST",new JSONObject().put("email",address),""); result=reply.status==200?reply.data.optString("message","Periksa email Anda."):"Reset password gagal. Coba kembali."; } catch(Exception ignored) { result="Periksa koneksi lalu coba kembali."; } final String text=result; runOnUiThread(() -> { if(screen.equals("login")) error.setText(text); }); });
+        }),Ui.matchWrap());
+        Ui.gap(page,16); TextView note=Ui.text(this,"Login pertama memerlukan internet. Kamera memakai 720p dengan ukuran maksimal 120 KB per foto.",12,Ui.MUTED,false); note.setGravity(Gravity.CENTER); page.addView(note,Ui.matchWrap());
+        scroll.addView(page); root.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
+    }
+    private EditText loginField(String hint,int inputType) {
+        EditText field=new EditText(this); field.setSingleLine(true); field.setTextSize(16); field.setTextColor(Ui.INK); field.setHintTextColor(Ui.MUTED);
+        field.setHint(hint); field.setInputType(inputType); field.setPadding(Ui.dp(this,16),Ui.dp(this,14),Ui.dp(this,16),Ui.dp(this,14)); field.setMinHeight(Ui.dp(this,56));
+        field.setBackground(Ui.background(Color.WHITE,16,this)); field.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES); return field;
+    }
+    private void logout() {
+        if(!hasSession()) { showLogin(""); return; }
+        final String credential=session.cookie(); final int generation=++authGeneration;
+        clearScreen("signout"); theme(false);
+        TextView progress=Ui.text(this,"Keluar dari akun…",18,Ui.INK,true); progress.setGravity(Gravity.CENTER); root.addView(progress,new FrameLayout.LayoutParams(-1,-1));
+        authIo.execute(() -> {
+            boolean complete=false;
+            try { complete=AndroidSession.request("/api/auth/logout","POST",null,credential).status==200; } catch(Exception ignored) {}
+            final boolean success=complete;
+            runOnUiThread(() -> {
+                if(isDestroyed() || generation!=authGeneration) return;
+                if(success) lockSession("");
+                else { showHome(); toast("Logout belum berhasil. Hubungkan internet lalu tekan Keluar lagi."); }
+            });
+        });
     }
 
     private void theme(boolean dark) {
@@ -106,10 +233,16 @@ public final class MainActivity extends ComponentActivity {
         if (web!=null && web.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup)web.getParent()).removeView(web);
         if (galleryBitmap!=null) { galleryBitmap.recycle(); galleryBitmap=null; }
         root.removeAllViews(); screen=next;
-        if (next.equals("camera")) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);
+        if (next.equals("camera")) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            root.setPadding(0,0,0,0);
+            bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE); bars.hide(WindowInsetsCompat.Type.systemBars());
+        } else { getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); bars.show(WindowInsetsCompat.Type.systemBars()); }
+        ViewCompat.requestApplyInsets(root);
     }
     private void showHome() {
+        if(!hasSession()) { showLogin(""); return; }
         pendingTransfer=false; transferStarted=false;
         clearScreen("home"); theme(false);
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false);
@@ -143,10 +276,13 @@ public final class MainActivity extends ComponentActivity {
             LinearLayout steps=Ui.row(this); steps.setGravity(Gravity.CENTER); steps.addView(Ui.text(this,"01  Capture   ·   02  Periksa   ·   03  Sinkron",12,Ui.MUTED,true)); page.addView(steps,Ui.matchWrap()); Ui.gap(page,18);
         }
         Ui.gap(page,12); page.addView(Ui.button(this,"Buka hasil & akun MILE",Color.rgb(232,238,252),Ui.INK,()->showWeb(ORIGIN+"/app")),Ui.matchWrap());
-        Ui.gap(page,20); TextView privacy=Ui.text(this,"Capture bisa tanpa internet. Login dan koneksi diperlukan saat memproses AI.",12,Ui.MUTED,false); privacy.setGravity(Gravity.CENTER); privacy.setLineSpacing(Ui.dp(this,3),1); page.addView(privacy,Ui.matchWrap());
+        Ui.gap(page,16); page.addView(Ui.text(this,"Masuk sebagai "+session.email(),12,Ui.MUTED,false),Ui.matchWrap());
+        page.addView(Ui.button(this,"Keluar dari akun",Color.TRANSPARENT,Color.rgb(185,28,28),this::logout),Ui.matchWrap());
+        Ui.gap(page,12); TextView privacy=Ui.text(this,"Sesi tetap tersimpan sampai logout. Capture 720p bisa tanpa internet; proses AI memerlukan koneksi.",12,Ui.MUTED,false); privacy.setGravity(Gravity.CENTER); privacy.setLineSpacing(Ui.dp(this,3),1); page.addView(privacy,Ui.matchWrap());
         scroll.addView(page); root.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
     }
     private void openCamera() {
+        if(!hasSession()) { showLogin(""); return; }
         if (store.transferred()) {
             new AlertDialog.Builder(this).setTitle("Batch sebelumnya sudah dikirim")
                 .setMessage("Mulai batch baru agar foto berikutnya tidak mengirim ulang batch sebelumnya. Salinan foto lama di aplikasi akan dihapus.")
@@ -156,17 +292,21 @@ public final class MainActivity extends ComponentActivity {
         else cameraPermission.launch(Manifest.permission.CAMERA);
     }
     private void showCamera() {
+        if(!hasSession()) { showLogin(""); return; }
         clearScreen("camera"); theme(true);
         cameraScreen=new CameraScreen(this,store,io,this::showHome,()->showGallery(store.count()-1),this::beginTransfer);
         root.addView(cameraScreen,new FrameLayout.LayoutParams(-1,-1));
+        ViewCompat.requestApplyInsets(root);
     }
     private void newBatch() {
+        if(!hasSession()) { showLogin(""); return; }
         new AlertDialog.Builder(this).setTitle("Mulai batch baru?").setMessage("Hapus " + store.count() + " foto batch ini dari aplikasi. Hasil yang sudah tersimpan di MILE tetap tersedia.")
             .setPositiveButton("Hapus & mulai",(d,w)->resetAndCapture()).setNegativeButton("Kembali",null).show();
     }
-    private void resetAndCapture() { try { store.reset(); openCamera(); } catch (Exception error) { toast(error.getMessage()); } }
+    private void resetAndCapture() { if(!hasSession()) { showLogin(""); return; } try { store.reset(); openCamera(); } catch (Exception error) { toast(error.getMessage()); } }
 
     private void showGallery(int index) {
+        if(!hasSession()) { showLogin(""); return; }
         if (store.count()==0) { showHome(); return; }
         clearScreen("gallery"); theme(true); galleryIndex=Math.max(0,Math.min(index,store.count()-1));
         LinearLayout page=Ui.column(this); page.setPadding(Ui.dp(this,20),Ui.dp(this,12),Ui.dp(this,20),Ui.dp(this,16));
@@ -234,6 +374,7 @@ public final class MainActivity extends ComponentActivity {
             }
             @Override public void onPageFinished(WebView view,String url) {
                 CookieManager.getInstance().flush();
+                if(trusted(Uri.parse(url)) && screen.equals("web")) verifySession();
                 if (!trusted(Uri.parse(url)) || !pendingTransfer || !screen.equals("web")) return;
                 String path=Uri.parse(url).getPath();
                 if ("/app".equals(path) || "/app.html".equals(path)) { view.loadUrl(ORIGIN+"/camera"); return; }
@@ -251,20 +392,26 @@ public final class MainActivity extends ComponentActivity {
     }
     private static WebResourceResponse missingPhoto() { return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",new HashMap<>(),new ByteArrayInputStream(new byte[0])); }
     private void showWeb(String url) {
+        if(!hasSession()) { showLogin(""); return; }
         clearScreen("web"); theme(false); ensureWeb();
         LinearLayout page=Ui.column(this); LinearLayout header=Ui.row(this); header.setPadding(Ui.dp(this,14),Ui.dp(this,8),Ui.dp(this,14),Ui.dp(this,8));
         TextView home=Ui.button(this,"‹",Color.rgb(232,238,252),Ui.INK,()->{ if(transferStarted) toast("Tunggu foto selesai disiapkan."); else showHome(); }); home.setContentDescription("Kembali ke beranda");
         header.addView(home,new LinearLayout.LayoutParams(Ui.dp(this,48),Ui.dp(this,48)));
         webTitle=Ui.text(this,pendingTransfer?"Menyiapkan review…":"Hasil & akun MILE",16,Ui.INK,true); webTitle.setPadding(Ui.dp(this,12),0,0,0); header.addView(webTitle,new LinearLayout.LayoutParams(0,-2,1)); page.addView(header,Ui.matchWrap());
         webProgress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal); page.addView(webProgress,new LinearLayout.LayoutParams(-1,Ui.dp(this,3)));
-        page.addView(web,new LinearLayout.LayoutParams(-1,0,1)); root.addView(page,new FrameLayout.LayoutParams(-1,-1)); web.loadUrl(url);
+        page.addView(web,new LinearLayout.LayoutParams(-1,0,1)); root.addView(page,new FrameLayout.LayoutParams(-1,-1));
+        final int generation=authGeneration;
+        CookieManager.getInstance().setCookie(ORIGIN,session.cookie()+"; Path=/; Max-Age=34560000; HttpOnly; Secure; SameSite=Lax",accepted -> {
+            if(!isDestroyed() && hasSession() && generation==authGeneration && screen.equals("web")) { CookieManager.getInstance().flush(); web.loadUrl(url); }
+        });
     }
     private void beginTransfer() {
+        if(!hasSession()) { showLogin(""); return; }
         if (store.count()==0) return;
         pendingTransfer=true; transferStarted=false; showWeb(ORIGIN+"/camera");
     }
     private void injectPhotos() {
-        if (!pendingTransfer || transferStarted) return;
+        if (!hasSession() || !pendingTransfer || transferStarted) return;
         transferStarted=true; pollCount=0; webTitle.setText("Menyiapkan " +store.count()+" foto…");
         try {
             JSONObject manifest=store.snapshot(); JSONArray photos=manifest.getJSONArray("photos");
@@ -279,7 +426,7 @@ public final class MainActivity extends ComponentActivity {
         } catch(Exception error) { transferError(error.getMessage()); }
     }
     private void pollTransfer() {
-        if(!pendingTransfer || !transferStarted || !screen.equals("web") || !trusted(Uri.parse(web.getUrl()))) return;
+        if(!hasSession() || !pendingTransfer || !transferStarted || !screen.equals("web") || !trusted(Uri.parse(web.getUrl()))) return;
         if(++pollCount>240) { transferError("Menyiapkan foto memerlukan waktu terlalu lama. Foto asli tetap tersimpan; coba lagi."); return; }
         web.evaluateJavascript("JSON.stringify(window.__mileNativeTransfer || {})",value -> {
             if(!pendingTransfer || !transferStarted || !screen.equals("web")) return;
@@ -317,7 +464,10 @@ public final class MainActivity extends ComponentActivity {
         if(cameraScreen.isBusy()) { root.postDelayed(this::applyCameraRotation,150); return; }
         cameraLayoutPending=false; showCamera();
     }
+    @Override protected void onResume() { super.onResume(); if(root!=null && store!=null && hasSession()) verifySession(); }
+    @Override protected void onPause() { if(root!=null) root.removeCallbacks(sessionCheck); super.onPause(); }
     @Override protected void onDestroy() {
-        if(cameraScreen!=null) cameraScreen.close(); if(web!=null) web.destroy(); io.shutdown(); super.onDestroy();
+        authGeneration++; if(root!=null) root.removeCallbacks(sessionCheck);
+        if(cameraScreen!=null) cameraScreen.close(); if(web!=null) web.destroy(); io.shutdown(); authIo.shutdown(); super.onDestroy();
     }
 }
