@@ -30,8 +30,7 @@
   const GEMINI_REQUEST_TIMEOUT_MS = 75 * 1000;
   const GEMINI_MAX_ATTEMPTS = 2;
   const GEMINI_RETRY_DELAY_MS = 500;
-  const CAMERA_REQUEST_TIMEOUT_MS = 45 * 1000;
-  const CAMERA_GEMINI_REQUEST_TIMEOUT_MS = 30 * 1000;
+  const CAMERA_REQUEST_TIMEOUT_MS = 30 * 1000;
   const CAMERA_MODEL_MAX_ATTEMPTS = 1;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
@@ -58,19 +57,19 @@
   const GEMINI_31_PRO_MODEL = 'gemini-3.1-pro';
   const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
-  const CAMERA_DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
-  const CAMERA_BATCH_SIZE = 5;
-  const CAMERA_AI_CONCURRENCY = 3;
+  const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL;
+  const CAMERA_BATCH_SIZE = 7;
+  const CAMERA_AI_CONCURRENCY = 7;
   const CAMERA_DIRECT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
   // New captures are JPEG <= 120 KB. Older large captures are resized only
-  // when needed so a five-image batch still fits the gateway's JSON limit.
+  // when needed so a seven-image batch still fits the gateway's JSON limit.
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
   const CAMERA_MODELS = new Set([
-    DEEPSEEK_R2_MODEL, GEMINI_38_MODEL, GEMINI_31_PRO_MODEL
+    GEMINI_38_MODEL, GEMINI_31_PRO_MODEL, 'gemini-3.7-flash', DEEPSEEK_R2_MODEL
   ]);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const CAMERA_FALLBACK_CHAIN = Object.freeze([DEEPSEEK_R2_MODEL, GEMINI_38_MODEL, GEMINI_31_PRO_MODEL]);
+  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, GEMINI_31_PRO_MODEL, PRIMARY_FALLBACK_MODEL, DEEPSEEK_R2_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   const geminiStructuredOutputUnsupported = new Set();
@@ -209,7 +208,7 @@
     const modelMaxPagesPerRequest = !cameraDirect && isGeminiModel(model) ? GEMINI_MAX_PAGES_PER_REQUEST : Infinity;
     const modelMaxConcurrency = !cameraDirect && isGeminiModel(model) ? GEMINI_MAX_AI_CONCURRENCY : Infinity;
     const pagesPerRequest = Math.min(requestedPagesPerRequest, networkProfile.maxPagesPerRequest, modelMaxPagesPerRequest);
-    const concurrency = Math.min(requestedConcurrency, networkProfile.maxConcurrency, modelMaxConcurrency);
+    const concurrency = cameraDirect ? CAMERA_AI_CONCURRENCY : Math.min(requestedConcurrency, networkProfile.maxConcurrency, modelMaxConcurrency);
     const verificationPolicy = cameraDirect ? 'low-confidence' : (SPEED_PRESETS[speedPreset]?.verification || 'smart');
     if (!COSMOS_MODELS.has(model)) throw new Error('Model tidak tersedia pada daftar model vision CosmosHub yang diizinkan.');
     return {
@@ -1466,6 +1465,15 @@ ${clipped}`
     onTransport({ phase: 'ready', loaded: 0, total: totalBytes });
     await yieldToBrowser();
 
+    const requestTimeoutMs = config?.cameraDirect
+      ? Math.ceil(Math.min(CAMERA_REQUEST_TIMEOUT_MS, (config.cameraModelDeadline || (performance.now() + CAMERA_REQUEST_TIMEOUT_MS)) - performance.now()))
+      : (isGeminiModel(config?.model) ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
+    if (requestTimeoutMs <= 0) {
+      const error = new Error(`${shortModelLabel(config?.model)} melewati batas 30 detik. Kelompok ini langsung dialihkan ke model berikutnya.`);
+      error.status = 408;
+      throw error;
+    }
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       let settled = false;
@@ -1498,9 +1506,6 @@ ${clipped}`
 
       xhr.open('POST', '/api/ai-proxy', true);
       xhr.withCredentials = true;
-      const requestTimeoutMs = config?.cameraDirect
-        ? (isGeminiModel(config?.model) ? CAMERA_GEMINI_REQUEST_TIMEOUT_MS : CAMERA_REQUEST_TIMEOUT_MS)
-        : (isGeminiModel(config?.model) ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
       xhr.timeout = requestTimeoutMs;
       xhr.setRequestHeader('content-type', 'application/json');
       xhr.setRequestHeader('accept', 'application/json');
@@ -1549,7 +1554,7 @@ ${clipped}`
       };
       xhr.ontimeout = () => {
         const error = new Error(config?.cameraDirect
-          ? `${shortModelLabel(config?.model)} tidak memberi respons dalam ${requestTimeoutMs / 1000} detik. Kelompok ini langsung dialihkan ke model berikutnya.`
+          ? `${shortModelLabel(config?.model)} melewati batas 30 detik. Kelompok ini langsung dialihkan ke model berikutnya.`
           : (isGeminiModel(config?.model)
             ? 'Gemini tidak memberi respons dalam 75 detik. Kelompok ini akan dialihkan tanpa mengubah kelompok lain.'
             : 'Permintaan AI melewati batas 3 menit dan akan dicoba ulang.'));
@@ -1642,7 +1647,9 @@ ${clipped}`
       hooks.onFallback?.({ from: requestModel, to: nextModel, error });
       requestModel = nextModel;
     }
-    const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
+    const requestConfig = config?.cameraDirect
+      ? { ...config, model: requestModel, cameraModelDeadline: performance.now() + CAMERA_REQUEST_TIMEOUT_MS }
+      : (requestModel === configuredModel ? config : { ...config, model: requestModel });
     let requestBody = adaptRequestBodyForModel(body, requestModel, requestConfig);
     const isGeminiFallbackModel = GEMINI_FALLBACK_CHAIN.includes(requestModel);
     const maxAttempts = config?.cameraDirect
@@ -2551,8 +2558,8 @@ ${clipped}`
         status: 'queued'
       }));
       progressLaneStates = chunkStates;
-      const workerCount = Math.min(config.concurrency, BETA_MAX_AI_CONCURRENCY, chunks.length);
-      let activeAiLimit = config.model === DEFAULT_MODEL
+      const workerCount = Math.min(config.concurrency, config.cameraDirect ? CAMERA_AI_CONCURRENCY : BETA_MAX_AI_CONCURRENCY, chunks.length);
+      let activeAiLimit = !config.cameraDirect && config.model === DEFAULT_MODEL
         ? Math.min(BETA_INITIAL_AI_CONCURRENCY, workerCount)
         : workerCount;
       let completedChunks = 0;

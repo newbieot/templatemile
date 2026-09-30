@@ -89,7 +89,7 @@ async function runAsyncAssertions() {
   assert.match(cameraHtml, /id="cameraPreviewFullscreenButton"/);
   assert.doesNotMatch(cameraHtml, /id="aiModelSelect"|Model AI \(Vision\)/);
   assert.doesNotMatch(cameraHtml, /id="cameraDevice"|<label for="cameraDevice">Kamera<\/label>/);
-  assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'deepseek-v4\.1-flash'/);
+  assert.match(cameraRuntime, /const DEFAULT_AI_MODEL = 'gemini-3\.8-flash'/);
   assert.match(cameraRuntime, /DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name'/);
   assert.match(cameraRuntime, /deviceNameSetup\.hidden = Boolean\(savedDeviceName\)/);
   assert.doesNotMatch(cameraRuntime, /enumerateDevices|populateCameras/);
@@ -241,7 +241,7 @@ async function runAsyncAssertions() {
   assert.match(reviewHtml, /assets\/css\/review\.css/);
   assert.match(reviewHtml, /ai-pdf-beta-r2\.js/);
   assert.match(reviewHtml, /camera-import-v2\.js/);
-  assert.match(reviewHtml, /Foto diproses per 5 gambar\/request, hingga 3 permintaan paralel/);
+  assert.match(reviewHtml, /Foto diproses per 7 gambar\/request, hingga 7 permintaan paralel/);
   assert.match(reviewHtml, /id="aiProgressModal"/);
   assert.match(reviewHtml, /id="aiProgressStep"/);
   assert.match(reviewHtml, /id="aiProgressMessage"/);

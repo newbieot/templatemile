@@ -4,13 +4,12 @@
   let reviewWakeLock = null;
   let cameraImportRunning = false;
   let aiProcessingActive = false;
-  const DEFAULT_CAMERA_MODEL = 'deepseek-v4.1-flash';
-  const CAMERA_CHUNK_SIZE = 5;
-  const CAMERA_CONCURRENCY = 3;
+  const DEFAULT_CAMERA_MODEL = 'gemini-3.8-flash';
+  const CAMERA_CHUNK_SIZE = 7;
+  const CAMERA_CONCURRENCY = 7;
 
   function storedCameraModel(model) {
-    const value = String(model || '').trim();
-    return !value || value === 'gpt-6-luna' ? DEFAULT_CAMERA_MODEL : value;
+    return DEFAULT_CAMERA_MODEL;
   }
 
   async function requestReviewWakeLock() {
@@ -194,7 +193,7 @@
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · hingga 3 permintaan paralel × 5 gambar · audit maksimal 2 jalur · tanpa R2'
+                message: 'Camera Direct · hingga 7 permintaan paralel × 7 gambar · audit maksimal 2 jalur · fallback setelah 30 detik · tanpa R2'
               }),
               credentials: 'same-origin'
             });

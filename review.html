@@ -180,15 +180,16 @@
         <summary><span id="aiConfigStatus"></span></summary>
         <div class="ai-config-body">
           <select id="aiModel">
-            <option value="deepseek-v4.1-flash" selected>DeepSeek V4.1 Flash</option>
-            <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+            <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash</option>
             <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
+            <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+            <option value="deepseek-v4.1-flash">DeepSeek V4.1 Flash</option>
           </select>
           <select id="aiAccuracyMode"><option value="auto" selected></option></select>
           <select id="aiNetworkMode"><option value="normal" selected></option></select>
           <select id="aiSpeedPreset"><option value="fast" selected></option></select>
-          <select id="aiPagesPerRequest"><option value="5" selected></option></select>
-          <select id="aiConcurrency"><option value="3" selected></option></select>
+          <select id="aiPagesPerRequest"><option value="7" selected></option></select>
+          <select id="aiConcurrency"><option value="7" selected></option></select>
           <button id="testAiConnection" type="button"></button>
           <div id="aiConfigFeedback"></div>
         </div>
@@ -317,7 +318,7 @@
       <div class="modal-heading ai-progress-heading">
         <span class="modal-step" id="aiProgressStep">Memproses AI</span>
         <h3 id="aiProgressTitle">Menganalisis hasil capture</h3>
-        <p id="aiProgressMessage">Foto diproses per 5 gambar/request, hingga 3 permintaan paralel. Audit keyakinan rendah berjalan maksimal 2 jalur…</p>
+        <p id="aiProgressMessage">Foto diproses per 7 gambar/request, hingga 7 permintaan paralel. Audit keyakinan rendah berjalan maksimal 2 jalur…</p>
       </div>
       <div class="ai-progress-stopwatch" aria-live="off">
         <span>Waktu berjalan</span>
@@ -385,10 +386,10 @@
   <!-- Runtime Scripts -->
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/app-core.js?v=20260927-26.03-camera-primary-cta" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260929-26.30-gemini-medium-15x3" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260930-26.31-camera-gemini-7x7" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera-sync.js?v=20260929-26.30-gemini-medium-15x3" defer></script>
-  <script src="/assets/js/camera-import-v2.js?v=20260929-26.30-gemini-medium-15x3" defer></script>
+  <script src="/assets/js/camera-sync.js?v=20260930-26.31-camera-gemini-7x7" defer></script>
+  <script src="/assets/js/camera-import-v2.js?v=20260930-26.31-camera-gemini-7x7" defer></script>
   <script src="/assets/js/ui.js?v=20260927-26.03-camera-primary-cta" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>

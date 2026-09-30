@@ -1,4 +1,4 @@
-const APP_VERSION = '20260929-26.30-gemini-medium-15x3';
+const APP_VERSION = '20260930-26.31-camera-gemini-7x7';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -15,7 +15,7 @@ const BETA_IMAGE_TOKEN_TTL_SECONDS = 60 * 60;
 const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:';
 const METRICS_TIMEOUT_MS = 15000;
 const AI_UPSTREAM_TIMEOUTS_MS = Object.freeze({
-  camera: Object.freeze({ gemini: 20000, other: 35000 }),
+  camera: Object.freeze({ gemini: 30000, other: 30000 }),
   document: Object.freeze({ gemini: 60000, other: 180000 })
 });
 const MAX_AI_RESPONSE_BYTES = 2 * 1024 * 1024;

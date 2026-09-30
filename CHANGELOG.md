@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.31 — Kamera Gemini 7×7 dan fallback 30 detik
+
+- Menetapkan default kamera Gemini 3.8 Flash, lalu fallback Gemini 3.1 Pro → Gemini 3.7 Flash → DeepSeek V4.1 Flash. Sesi tersimpan juga mulai dengan default baru.
+- Menjalankan ekstraksi kamera dengan tujuh gambar per permintaan × maksimal tujuh jalur, termasuk menghapus pembatas internal lima jalur khusus kamera.
+- Membatasi setiap model kamera hingga 30 detik di browser dan gateway, dengan sisa waktu yang dipakai bersama retry kompatibilitas. Timeout langsung mengalihkan kelompok ke fallback berikutnya.
+- Memperbarui metadata kamera dan identitas cache rilis.
+
 ## v26.30 — Gemini reasoning medium dan profil 15×3
 
 - Menetapkan `reasoning_effort: medium` untuk seluruh keluarga Gemini, termasuk model fallback dan pemakaian Gemini pada Camera Direct.

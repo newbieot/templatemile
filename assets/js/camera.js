@@ -9,7 +9,7 @@
   const FOCUS_RESET_DELAY_MS = 650;
   const DRAFT_SAVE_DELAY_MS = 2400;
   const DRAFT_SAVE_MAX_WAIT_MS = 5000;
-  const DEFAULT_AI_MODEL = 'deepseek-v4.1-flash';
+  const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
   const DEVICE_NAME_STORAGE_KEY = 'mile_camera_device_name';
   const core = window.MileCameraCore;
   const photo = window.MileCameraPhoto;
