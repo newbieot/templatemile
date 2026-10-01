@@ -163,11 +163,11 @@
       const core = window.__mileCore;
       restoreDestinationMode(session);
       
-      if (session.streamedRows && session.streamedRows.length > 0) {
+      if (session.streamedRows && session.streamedRows.length > 0 && !session.images?.length) {
         if (session.streamedRows[0]._error) {
            notify('AI gagal: ' + session.streamedRows[0]._error, 'error');
-           await store.remove(sessionId);
-           return;
+           return; // Keep failed streamed sessions for recovery.
+
         }
 
         // Fast path: AI already processed via background stream!
@@ -272,7 +272,7 @@
           }
           if (partial) {
             const messages = [];
-            if (failedPages.length) messages.push(`Foto ${failedPages.join(', ')} belum berhasil dibaca AI. Hasil sudah tersedia untuk diperiksa dan diisi manual.`);
+            if (failedPages.length) messages.push(`Foto ${failedPages.join(', ')} belum berhasil dibaca setelah percobaan ulang otomatis. Hasil foto lain sudah tersimpan.`);
             if (auditFailedPages.length) messages.push(`Audit foto ${auditFailedPages.join(', ')} belum selesai; periksa hasil awal.`);
             if (!messages.length) messages.push('Sebagian hasil masih perlu diperiksa dan diisi manual.');
             messages.push('Foto asli tetap tersimpan; muat ulang halaman untuk mencoba kembali.');

@@ -14,7 +14,7 @@ def package_extension():
     for file in required:
         if not (base / file).is_file():
             raise RuntimeError(f"Missing extension file: {file}")
-    target = OUTPUT / "Mile-CN23-Helper-0.1.0.zip"
+    target = OUTPUT / f"Mile-CN23-Helper-{manifest['version']}.zip"
     with ZipFile(target, "w", ZIP_DEFLATED) as archive:
         for file in sorted(base.rglob("*")):
             if file.is_file():
@@ -23,7 +23,7 @@ def package_extension():
 
 def package_android():
     base = ROOT / "android"
-    target = OUTPUT / "Mile-Camera-0.1.4-source.zip"
+    target = OUTPUT / "Mile-Camera-0.1.5-source.zip"
     blocked = {".gradle", "build", ".idea"}
     with ZipFile(target, "w", ZIP_DEFLATED) as archive:
         for file in sorted(base.rglob("*")):
@@ -33,7 +33,7 @@ def package_android():
             if file.name == "local.properties" or file.suffix in {".jks", ".keystore", ".apk"}:
                 continue
             archive.write(file, "android/" + relative.as_posix())
-        archive.write(ROOT / "docs" / "mile-camera-0.1.4.md", "PANDUAN-0.1.4.md")
+        archive.write(ROOT / "docs" / "mile-camera-0.1.5.md", "PANDUAN-0.1.5.md")
     return target
 
 if __name__ == "__main__":

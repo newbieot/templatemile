@@ -1683,7 +1683,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 ${getDestinationMode() === 'mixed' ? `<strong>${getShipmentRoute(row) === 'batam' ? 'Batam · Excel Mile' : getShipmentRoute(row) === 'cn23' ? 'Luar kota · Antrean CN23' : 'Tujuan perlu diperiksa'}</strong>` : ''}
                 <span>${escapeAttribute(message)}</span>${selectedLabel}${choices}
                 ${!ready ? '<small>Pilih desa/kelurahan, kecamatan, dan kabupaten/kota yang tertulis pada foto; kode pos diisi otomatis.</small>' : ''}
-                ${!ready || match.confirmed || row._nationalPostcodeQuery ? `<input type="text" class="table-input national-postcode-query" value="${escapeAttribute(row._nationalPostcodeQuery || '')}" aria-label="Cari wilayah dari alamat penerima" placeholder="Cari nama wilayah yang tertulis pada foto">` : ''}
             </td>`;
         }
 
@@ -1779,6 +1778,13 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     tr.dataset.fileId = String(file.id);
                     tr.dataset.rowId = rowId;
                     tr.dataset.rowNumber = String(counter);
+                    if (item.aiExtractionFailed && !String(item.name || '').trim() && !String(item.address || '').trim()) {
+                        tr.dataset.needsReview = 'true'; tr.className = 'needs-review';
+                        const columnCount = 6 + (cn23 ? 1 : 0) + (isPackage ? 2 : 0) + (useInsurance ? 1 : 0);
+                        const cell = document.createElement('td'); cell.colSpan = columnCount;
+                        cell.textContent = `Foto ${Number(item.sourcePage) || counter} belum berhasil dibaca setelah percobaan ulang otomatis. Foto asli tetap tersimpan; coba proses kembali saat koneksi tersedia.`;
+                        tr.append(cell); tbody.append(tr); return;
+                    }
                     const needsReview = rowNeedsReview(item);
                     tr.dataset.needsReview = String(needsReview);
                     tr.classList.toggle('needs-review', needsReview);
@@ -1893,6 +1899,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     recipient_address: address,
                     recipient_postcode: String(region.postcode),
                     recipient_village: region.village,
+                    recipient_region_scope: match.regionScope || 'VILLAGE',
                     recipient_district: region.district,
                     recipient_city: region.city,
                     recipient_province: region.province,

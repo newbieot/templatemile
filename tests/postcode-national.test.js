@@ -35,6 +35,9 @@ function service(fetch) {
     assert.equal(result.selected.village, 'PENGALIHAN / PENGALEHAN');
   }
   const broad = api.match('Keritang');
+  const kateman=api.match('SUNGAI GUNTUNG KATEMAN INHIL RIAU');
+  assert.equal(kateman.status,'matched');assert.equal(kateman.postcode,'29255');assert.equal(kateman.selected.village,'');assert.equal(kateman.regionScope,'DISTRICT_POSTCODE');
+  assert.equal(api.match('SUNGAI GUNTUNG KATEMAN INHIL RIAU','29273').status,'ambiguous');
   for (const address of ['JL. PENDIDIKAN PULAU KIJANG INHIL-RIAU.', 'PULAU KIJANG RIAU', 'PULAU KIJANG']) {
     const result = api.match(address);
     assert.equal(result.status, 'matched', 'The whole village phrase must beat its shorter substring: ' + address);

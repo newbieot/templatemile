@@ -58,8 +58,8 @@
     const labelList = labels.map(Q.norm);
     input.click();
     const option = await wait(() => all('.el-select-dropdown__item').filter(visible).find(el => labelList.includes(Q.norm(el.textContent)) && !el.classList.contains('is-disabled')), 'pilihan ' + labels.join('/'));
-    option.click(); await sleep(180);
-    if (!labelList.includes(Q.norm(input.value))) throw new Error('Pilihan belum terkunci: ' + labels.join('/'));
+    option.click();
+    await wait(() => labelList.includes(Q.norm(input.value)), 'pilihan terkunci ' + labels.join('/'));
   }
   function selectContaining(label) {
     const containers = all('.el-select').filter(visible).filter(el => all('.el-select-dropdown__item', el).some(item => Q.norm(item.textContent) === Q.norm(label)));
@@ -72,18 +72,23 @@
     option.click(); await sleep(250);
   }
   function regionTextMatches(text, row) {
-    return [row.recipient_city, row.recipient_district].every(value => text.includes(Q.norm(value))) && String(row.recipient_village).split(/[\/;]/).some(value => text.includes(Q.norm(value)));
+    return [row.recipient_city, row.recipient_district].every(value => text.includes(Q.norm(value))) &&
+      (!row.recipient_village || String(row.recipient_village).split(/[\/;]/).some(value => text.includes(Q.norm(value))));
   }
   async function destination(row) {
     const input = one('#addressDetail');
-    const query = `${row.recipient_district} ${String(row.recipient_village).split(/[\/;]/)[0]}`;
+    const query = `${row.recipient_district} ${row.recipient_village ? String(row.recipient_village).split(/[\/;]/)[0] : row.recipient_postcode}`;
     fill(input, query); input.focus();
     await wait(() => {
       const postal = one('input[placeholder="KODE POS"]').value;
       if (postal && regionTextMatches(Q.norm(input.value), row)) return true;
       const candidates = all('.el-autocomplete-suggestion li').filter(visible).filter(el => regionTextMatches(Q.norm(el.textContent), row));
       if (candidates.length === 1) { candidates[0].click(); return true; }
-      if (candidates.length > 1) throw new Error('Pilihan wilayah masih ganda. Pilih tujuan di Mile dan periksa kode pos dahulu.');
+      if (candidates.length > 1) {
+        const postalMatches = candidates.filter(el => Q.norm(el.textContent).split(' ').includes(String(row.recipient_postcode)));
+        if (postalMatches.length === candidates.length) { candidates[0].click(); return true; }
+        throw new Error('Pilihan Mile belum menunjukkan satu kode pos yang cocok dengan antrean.');
+      }
       return false;
     }, 'kelurahan/kecamatan/kota tujuan');
     await wait(() => one('input[placeholder="KODE POS"]').value, 'kode pos terkunci');
@@ -127,14 +132,18 @@
     if (one('#namapenerima').value.trim() || one('#ref_no').value.trim() || exactButton('Ubah Data')) throw new Error('Form Mile sudah berisi transaksi. Buka form CN23 baru yang kosong dahulu.');
     status(`Mengisi ${row.queue_id} · ${row.recipient_name}`);
     if (row.customer_mode === 'KORPORAT') {
+      for (const id of ['namapengirim', 'phonePengirim', 'alamatPengirim']) byId(id, '');
       const field = one('input[name="pelanggan"]'); fill(field, row.customer_code);
-      for (const type of ['keydown', 'keyup']) field.dispatchEvent(new KeyboardEvent(type, { key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true }));
-      await send('PROGRESS', { phase:'customer_review' });
-      await new Promise(resolve => { current.cancelResolve = resolve; status(`Periksa pelanggan ${row.customer_code} sudah tampil di Mile.`, { label:'Pelanggan benar, lanjutkan', run:resolve }); });
-      if (current.cancelled) throw new Error('Dijeda sebelum pengisian pelanggan.');
-      await send('PROGRESS', { phase:'filling' });
+      await send('PROGRESS', { phase:'customer_loading' });
+      field.focus();
+      for (const type of ['keydown', 'keypress', 'keyup']) field.dispatchEvent(new KeyboardEvent(type, { key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true }));
+      status(`Memuat pelanggan ${row.customer_code}…`);
+      await wait(() => Q.norm(field.value).includes(Q.norm(row.customer_code)) &&
+        one('#namapengirim').value.trim() && one('#phonePengirim').value.trim() && one('#alamatPengirim').value.trim() &&
+        !all('.el-loading-mask').some(visible), 'nama dan alamat pelanggan setelah Enter', 45000);
+      await send('PROGRESS', { phase:'filling', customerResolved:{sender_name:one('#namapengirim').value.trim(),sender_phone:one('#phonePengirim').value.trim(),sender_address:one('#alamatPengirim').value.trim()} });
     }
-    for (const [id, key] of Object.entries({ namapengirim:'sender_name', phonePengirim:'sender_phone', alamatPengirim:'sender_address', namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) byId(id, row[key]);
+    for (const [id, key] of Object.entries({ namapengirim:'sender_name', phonePengirim:'sender_phone', alamatPengirim:'sender_address', namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) { if (row.customer_mode !== 'KORPORAT' || key.startsWith('recipient_')) byId(id, row[key]); }
     await destination(row);
     await autocomplete(one('#service'), row.service_code, text => text === Q.norm(row.service_code) || text.startsWith(Q.norm(row.service_code) + ' '));
     await select(one('#COD'), ['NON-COD']); await select(one('#Jenis_Barang'), ['Dokumen']);
@@ -163,9 +172,9 @@
     await select(payment, row.payment_method === 'CASH' ? ['Cash'] : row.payment_method === 'CREDIT' ? ['CREDIT'] : ['Invoice']);
     await send('FILLED'); current.paymentReady = true;
     const button = exactButton('Selesai', dialog);
-    if (options.autoSubmit) {
+    if (options.autoSubmit !== false) {
       const amount = totalCost(dialog);
-      if (!Number.isFinite(amount) || amount <= 0 || amount > options.maxCost) { status('Periksa total biaya. Selesai otomatis ditahan; klik Selesai setelah memeriksa form.'); return; }
+      if (options.maxCost > 0 && (!Number.isFinite(amount) || amount > options.maxCost)) throw new Error('Tagihan melampaui batas biaya yang ditetapkan.');
       await submit(button);
     } else status(`${row.recipient_name} siap. Periksa data dan biaya, lalu klik Selesai di Mile.`);
   }
@@ -182,7 +191,7 @@
       }
       reply({ accepted:true });
     } else if (message.type === 'CN23_FINISHED') {
-      current = null; status('Resi terverifikasi dan tersimpan di panel. Cetak dapat dilakukan belakangan.'); reply({ accepted:true });
+      current = null; status('Resi tersimpan. Melanjutkan antrean…'); reply({ accepted:true });
     }
     return false;
   });

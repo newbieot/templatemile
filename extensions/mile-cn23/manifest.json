@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Mile CN23 Helper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Impor Excel antrean dokumen luar Batam, bantu entri CN23, dan simpan hasil resi.",
   "minimum_chrome_version": "114",
   "permissions": ["storage", "alarms"],
   "host_permissions": ["https://expos.mile.app/*", "https://apiexpos.mile.app/api/v2/print-data*"],
-  "action": {"default_title": "Buka antrean Mile CN23"},
+  "action": {"default_title": "Upload Excel + Start CN23"},
   "background": {"service_worker": "background.js"},
   "content_scripts": [
-    {"matches": ["https://expos.mile.app/*"], "js": ["queue.js", "form.js"], "run_at": "document_idle"},
+    {"matches": ["https://expos.mile.app/*"], "js": ["vendor/xlsx.full.min.js", "queue.js", "ui.js", "form.js"], "run_at": "document_idle"},
     {"matches": ["https://apiexpos.mile.app/api/v2/print-data*"], "js": ["queue.js", "receipt.js"], "run_at": "document_idle"}
   ]
 }

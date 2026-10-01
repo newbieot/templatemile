@@ -2,7 +2,7 @@
   'use strict';
   const FORM_URL = 'https://expos.mile.app/new-transaction-custom';
   const defaults = Object.freeze({ workflow:'CN23 DOKUMEN LUAR KOTA',queue_status:'SIAP',cod:'NON-COD',item_type:'DOKUMEN',nature_of_goods:'Documents',shipment_category:'Ecommerce/Biasa',npwp:'000000000000000',hs_code:'49011000',item_name:'DOKUMEN',quantity:1,item_value_idr:20000,weight_kg:0.2,length_cm:0,width_cm:0,height_cm:0,koli_count:1,country_of_origin:'ID',packaging_code:'EN',packaging_name:'Envelope',imei_1:'0',imei_2:'0',insurance:'N' });
-  const required = ['queue_id','recipient_name','recipient_address','recipient_postcode','recipient_village','recipient_district','recipient_city','recipient_province','sender_name','sender_address','customer_mode','payment_method','service_code'];
+  const required = ['queue_id','recipient_name','recipient_address','recipient_postcode','recipient_district','recipient_city','recipient_province','sender_name','sender_address','customer_mode','payment_method','service_code'];
   const norm = value => String(value ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').replace(/\s+/g,' ').trim();
   function validateRows(input) {
     if (!Array.isArray(input) || !input.length || input.length > 2000) throw new Error('Antrean harus berisi 1–2.000 kiriman.');
@@ -15,6 +15,8 @@
         if (typeof row[key] === 'string' && row[key].length > 3000) fail(`Kolom ${key} terlalu panjang.`);
       });
       required.forEach(key => { if (!String(row[key] ?? '').trim()) fail(`Kolom ${key} belum diisi.`); });
+      if (!String(row.recipient_village || '').trim() && norm(row.recipient_region_scope) !== 'DISTRICT POSTCODE') fail('Kelurahan kosong tanpa hasil pencocokan kecamatan/kode pos.');
+      if (/PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row.recipient_village || ''))) fail('Kelurahan belum terbaca.');
       if (required.some(key => /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row[key])))) fail('Selesaikan pemeriksaan data sebelum impor.');
       if (norm(row.workflow) !== norm(defaults.workflow) || norm(row.queue_status) !== 'SIAP') fail('Gunakan Excel Antrean CN23 yang berstatus SIAP.');
       if (/^(?:KOTA )?BATAM$/.test(norm(row.recipient_city))) fail('Tujuan Batam harus masuk Excel lokal tersendiri.');
@@ -48,7 +50,7 @@
     const aliases=value=>String(value).split(/[\/;]/).map(norm).filter(Boolean);
     return /^[A-Z]\d{10,20}$/.test(evidence.code || '') && evidence.transactionCode &&
       [row.recipient_name,row.sender_name,row.recipient_postcode,row.recipient_city,row.recipient_district].every(value=>text.includes(norm(value))) &&
-      aliases(row.recipient_village).some(value=>text.includes(value)) && (!row.ref_no || text.includes(norm(row.ref_no)));
+      (!row.recipient_village || aliases(row.recipient_village).some(value=>text.includes(value))) && (!row.ref_no || text.includes(norm(row.ref_no)));
   }
   function recoverInterrupted(state,now=Date.now()) {
     if (state.active?.phase === 'payment_ready' || state.active?.phase === 'customer_review') return false;

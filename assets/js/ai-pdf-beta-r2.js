@@ -2362,7 +2362,17 @@ ${clipped}`
       const original = originalByPage.get(page);
       const preserveOfficialReference = original?.noSurat && isStructuredOfficialReference(original.noSurat) && !isStructuredOfficialReference(row.noSurat);
       const preserveMissingReference = !row.noSurat && original?.noSurat;
-      list.push(preserveOfficialReference || preserveMissingReference ? { ...row, noSurat: original.noSurat } : row);
+      const replacement = { ...row };
+      if (preserveOfficialReference || preserveMissingReference) replacement.noSurat = original.noSurat;
+      // An incomplete audit must not erase fields already read from the same photo.
+      for (const [field, reviewField] of [['name', 'nama_penerima'], ['address', 'alamat_penerima'], ['phone', 'nomor_hp']]) {
+        if ((!usableCameraField(replacement[field]) || (field === 'phone' && replacement[field] === '0')) && usableCameraField(original?.[field])) {
+          replacement[field] = original[field];
+          replacement.aiReviewFields = (replacement.aiReviewFields || []).filter(value => value !== reviewField || original.aiReviewFields?.includes(value));
+          if (field === 'address') for (const key of ['zip', 'outsideBatam', 'outsideBatamReason', '_printedPostcode', 'postcodeSource']) replacement[key] = original[key];
+        }
+      }
+      list.push(replacement);
       verifiedByPage.set(page, list);
     });
 
@@ -2372,6 +2382,38 @@ ${clipped}`
       if (replacements?.length) merged.push(...replacements);
     });
     return merged.sort((a, b) => Number(a.sourcePage || 0) - Number(b.sourcePage || 0));
+  }
+
+  function usableCameraField(value) {
+    return Boolean(String(value || '').trim()) && !containsReviewMarker(value) && !/^[.\s-]+$/.test(String(value));
+  }
+
+  function readableCameraRow(row) {
+    return usableCameraField(row.name) && usableCameraField(row.address);
+  }
+
+  async function recoverCameraPages(initialRows, expectedPages, retryPage) {
+    let rows = initialRows.slice();
+    const attemptedPages = new Set();
+    let attempts = 0;
+    const missing = () => expectedPages.filter(page => !rows.some(row => Number(row.sourcePage) === page && readableCameraRow(row)));
+    for (let round = 1; round <= 2; round++) {
+      const pages = missing();
+      if (!pages.length) break;
+      const run = createTaskPool(2);
+      const recovered = await Promise.all(pages.map(page => run(async () => {
+        attempts++; attemptedPages.add(page);
+        try {
+          const result = await retryPage(page, round);
+          return { page, rows: result.filter(row => Number(row.sourcePage) === page) };
+        } catch (error) {
+          if (error?.name === 'AbortError') throw error;
+          return { page, rows: [] };
+        }
+      })));
+      for (const result of recovered) rows = mergeVerifiedRows(rows, result.rows, [result.page]);
+    }
+    return { rows, failedPages: missing(), attemptedPages: [...attemptedPages], attempts };
   }
 
   function readBaseUsage(payload, protocol) {
@@ -3174,7 +3216,25 @@ ${clipped}`
         })));
       }
 
-      const mergedRows = results.flat().filter(Boolean);
+      let mergedRows = results.flat().filter(Boolean);
+      let recoveryAttempts = 0;
+      if (directCameraInput) {
+        const recovered = await recoverCameraPages(mergedRows, Array.from({ length: pageCount }, (_, i) => i + 1), async (page, round) => {
+          if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
+          setTransferProgress(0, `Membaca ulang foto ${page} secara terpisah · percobaan ${round}/2`);
+          const recoveryConfig = { ...config, model: round === 1 ? config.model : GEMINI_31_PRO_MODEL };
+          const url = await blobToDataUrl(cameraImages[page - 1].blob);
+          const body = buildApiBody(recoveryConfig, buildPrompt(page, page, recoveryConfig), [{ page, label: `HALAMAN ${page} — FOTO TUNGGAL`, url }], extractionTokenLimit(1));
+          const payload = await callProxyWithRetry(recoveryConfig, body, `pemulihan foto ${page}`);
+          const usage = getUsage(payload, config.protocol);
+          totalUsage.input += Number(usage.input || 0); totalUsage.output += Number(usage.output || 0);
+          return normalizeRows(parseRows(payload, config.protocol), $('corporateTemplate')?.value || 'MANUAL', page - 1, { ...recoveryConfig, expectedPages: [page] });
+        });
+        mergedRows = recovered.rows; recoveryAttempts = recovered.attempts;
+        failedPages.clear(); recovered.failedPages.forEach(page => failedPages.add(page));
+        mergedRows.forEach(row => { if (failedPages.has(Number(row.sourcePage)) && !usableCameraField(row.name) && !usableCameraField(row.address)) { row.name=''; row.address=''; row.aiExtractionFailed=true; } });
+        recovered.attemptedPages.filter(page => !failedPages.has(page)).forEach(page => auditFailedPages.delete(page));
+      }
       if (!mergedRows.length) throw chunkErrors[0] || new Error(`AI tidak menemukan data penerima pada ${directCameraInput ? 'foto kamera' : 'PDF'} ini.`);
       if (config.cameraDirect) {
         const coveredPages = new Set(mergedRows.map(row => Number(row.sourcePage)));
@@ -3183,7 +3243,7 @@ ${clipped}`
           failedPages.add(page);
           // A visible review row preserves the photo's position without inventing recipient data.
           mergedRows.push({
-            noSurat: '', name: 'PERLU DICEK', address: 'PERLU DICEK', phone: '0', zip: '',
+            noSurat: '', name: '', address: '', phone: '0', zip: '',
             act: 0.2, p: isNationalDestinationMode(config.destinationMode) ? 0 : 10, l: isNationalDestinationMode(config.destinationMode) ? 0 : 10, t: isNationalDestinationMode(config.destinationMode) ? 0 : 10, cw: '0.20', destinationMode: config.destinationMode,
             ...(isNationalDestinationMode(config.destinationMode) ? { _printedPostcode: '', postcodeSource: '' } : {}), outsideBatam: false, outsideBatamReason: '',
             sourcePage: page, aiConfidence: 0, aiConfidenceExplicit: false,
@@ -3208,6 +3268,7 @@ ${clipped}`
       const metrics = {
         status: partial ? 'PARTIAL' : 'SUCCESS',
         destinationMode: config.destinationMode,
+        recoveryAttempts,
         failedPages: [...failedPages].sort((a, b) => a - b),
         auditFailedPages: [...auditFailedPages].sort((a, b) => a - b),
         fileCount: 1,
@@ -3220,7 +3281,7 @@ ${clipped}`
         reviewCount: reviewRowCount(mergedRows),
         outsideBatamCount: outsideBatamRowCount(mergedRows),
         chunkTimings: publicChunkTimings(betaPerf.chunkTimings),
-        message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};failed_pages=${[...failedPages].join(',')};audit_failed=${[...auditFailedPages].join(',')};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
+        message: `${config.cameraDirect ? 'camera-direct' : 'beta-r2'};input=${directCameraInput ? 'jpeg' : 'pdf'};remote=${betaPerf.remotePages};base64=${betaPerf.base64Pages};r2_fail=${betaPerf.r2Failures};render_ms=${Math.round(betaPerf.renderMs)};upload_ms=${Math.round(betaPerf.uploadMs)};ai_sum_ms=${Math.round(betaPerf.aiMs)};audit_ms=${Math.round(betaPerf.auditMs)};audit_pages=${betaPerf.auditPages};camera_recovery=${recoveryAttempts};failed_pages=${[...failedPages].join(',')};audit_failed=${[...auditFailedPages].join(',')};gemini_ok=${betaPerf.geminiSuccesses};fallback=${betaPerf.fallbackRequests};fallback_reason=${JSON.stringify(betaPerf.fallbackReasons)}`
       };
       void submitProcessingMetrics(metrics);
 
@@ -3237,7 +3298,7 @@ ${clipped}`
           : `${mergedRows.length} baris berhasil diekstrak dalam ${formatPreciseDuration(elapsed)} (${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data). Penyiapan ${formatPreciseDuration(betaPerf.renderMs / 1000)} · ${config.cameraDirect ? `${pageCount} gambar dikirim langsung tanpa R2` : `gambar sementara ${betaPerf.remotePages}/${pageCount} halaman`}.`, formatUsage(totalUsage));
         progressHideTimeout = window.setTimeout(hideProgress, 1200);
         showToast(partial
-          ? 'Hasil yang berhasil sudah masuk tabel. Foto bertanda PERLU DICEK perlu diperiksa atau dicoba ulang; foto asli tetap tersimpan.'
+          ? 'Hasil yang terbaca sudah disimpan. Foto yang belum terbaca telah dicoba ulang secara terpisah; foto asli tetap tersimpan.'
           : `${mergedRows.length} data selesai dalam ${formatPreciseDuration(elapsed)} · ${(elapsed / mergedRows.length).toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} detik/data.`, partial ? 'info' : 'success');
         core.processNextInQueue();
       }
@@ -3343,7 +3404,7 @@ ${clipped}`
     processCameraImages,
     testConnection,
     cancel: cancelProcess,
-    _test: { getDestinationMode, isNationalDestinationMode, prepareDestinationData, ensureBatamCity, normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, pageDefaultModel, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
+    _test: { getDestinationMode, isNationalDestinationMode, prepareDestinationData, ensureBatamCity, normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, recoverCameraPages, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, pageDefaultModel, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

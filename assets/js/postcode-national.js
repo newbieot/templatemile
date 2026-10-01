@@ -1,6 +1,6 @@
 (function (root) {
   'use strict';
-  const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-3';
+  const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-4';
   const MAX_CANDIDATES = 100;
   let records = [];
   let tokenIndex = new Map();
@@ -78,6 +78,20 @@
       candidates: matches.slice(0, MAX_CANDIDATES), candidateCount: matches.length, reason };
   }
 
+  function resolveCandidates(matches) {
+    if (matches.length === 1) return outcome('matched', matches);
+    // A district-level address can be complete for postal routing even when
+    // its village is absent from the supplied data. Never invent a village.
+    const areas = new Set(matches.map(item => JSON.stringify([item.postcode, item.district, item.city, item.province])));
+    if (matches.length && areas.size === 1) {
+      const { postcode, district, city, province } = matches[0];
+      const selected = { id: `district-${matches[0].id}`, postcode, village: '', district, city, province,
+        label: `${district} — ${city}, ${province} (${postcode})` };
+      return { ...outcome('matched', matches), selected, postcode, postcodeConsensus: true, regionScope: 'DISTRICT_POSTCODE' };
+    }
+    return outcome('ambiguous', matches, 'Alamat cocok ke beberapa kode pos atau wilayah. Periksa alamat pada foto.');
+  }
+
   function match(address, postcode = '') {
     if (!loaded) return outcome('unavailable', [], 'Database kode pos nasional belum dimuat.');
     // Expand common administrative abbreviations without changing the label text.
@@ -135,14 +149,12 @@
       } else {
         const candidates = [...hinted].map(index => records[index].candidate);
         if (!candidates.length) return outcome('not_found', [], `Kode pos ${hint} tidak ditemukan dalam database lampiran.`);
-        return outcome(candidates.length === 1 ? 'matched' : 'ambiguous', candidates,
-          candidates.length > 1 ? 'Kode pos ini mencakup beberapa wilayah. Pilih kelurahan/desa tujuan.' : '');
+        return resolveCandidates(candidates);
       }
     }
     const candidates = best.map(item => records[item.index].candidate);
     if (!candidates.length) return outcome('not_found', [], 'Wilayah belum ditemukan. Lengkapi kelurahan/desa, kecamatan, atau kota/kabupaten.');
-    return outcome(candidates.length === 1 ? 'matched' : 'ambiguous', candidates,
-      candidates.length > 1 ? 'Alamat cocok ke beberapa wilayah. Pilih tujuan atau lengkapi alamat.' : '');
+    return resolveCandidates(candidates);
   }
 
   const api = { load, match, isLoaded: () => loaded, normalize, dataUrl: DATA_URL };

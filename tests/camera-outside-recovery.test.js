@@ -29,7 +29,7 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 20));
       w.eval(read('assets/js/app-core.js'));
       w.eval(read('assets/js/ui.js'));
       await pause(); // Real DOMContentLoaded binds the recovery button.
-      const addresses = ['JL. PENDIDIKAN PULAU KIJANG INHIL-RIAU.', 'DESA PENGALIHAN KEC. KERITANG', 'PULAU KIJANG RIAU', 'BELIAN BATAM KOTA BATAM KEPRI'];
+      const addresses = ['JL. PENDIDIKAN PULAU KIJANG INHIL-RIAU.', 'SUNGAI GUNTUNG KATEMAN INHIL RIAU', 'PULAU KIJANG RIAU', 'BELIAN BATAM KOTA BATAM KEPRI'];
       const rows = addresses.map((address, index) => ({
         _rowId: 'capture-' + index, name: 'PENERIMA ' + index, address, phone: '0', noSurat: 'REF ' + index,
         zip: '29411', outsideBatam: index < 3, act: 0.2, cw: '0.20', p: 10, l: 10, t: 10
@@ -47,7 +47,7 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 20));
       assert.equal(get('resultTable').querySelectorAll('[data-outside-batam-pending="true"]').length, 0);
       assert.equal(get('resultTable').querySelectorAll('[data-postcode-status="matched"]').length, 4);
       assert.equal(get('resultTable').querySelectorAll('.national-postcode-query, .national-postcode-choice').length, 0, 'Matched addresses need no manual region search');
-      assert.deepEqual(Array.from(rows, row => row.zip), ['29273', '29274', '29273', '29464']);
+      assert.deepEqual(Array.from(rows, row => row.zip), ['29273', '29255', '29273', '29464']);
       assert.equal(get('batamRouteCount').textContent, '1');
       assert.equal(get('cn23RouteCount').textContent, '3');
       await w.downloadLocalExcel();
@@ -58,6 +58,8 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 20));
       assert.equal(w.XLSX.utils.sheet_to_json(local.workbook.Sheets.Sheet1).length, 1);
       const queue = w.XLSX.utils.sheet_to_json(national.workbook.Sheets.CN23_ANTREAN);
       assert.equal(queue.length, 3);
+      const Q=require('../extensions/mile-cn23/queue.js');assert.equal(Q.validateRows(queue).length,3);
+      assert.equal(queue[1].recipient_village,'');assert.equal(queue[1].recipient_region_scope,'DISTRICT POSTCODE');assert.equal(queue[1].recipient_postcode,'29255');
       assert.equal(queue[0].recipient_village, 'PULAU KIJANG');
       assert.equal(queue[0].recipient_district, 'RETEH');
       assert.equal(queue[0].recipient_postcode, '29273');

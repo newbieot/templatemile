@@ -1,5 +1,14 @@
 # Changelog
 
+## v26.34 — Antrean CN23 otomatis dan pemulihan foto, APK 0.1.5
+
+- Ekstensi 0.2.0: Upload Excel + Start langsung pada tab Mile. Cash/Invoice/CREDIT dan Selesai otomatis.
+- Korporat: Kode Pelanggan → Enter → tunggu pengirim muncul; pertahankan pengirim resmi dari Mile.
+- Redirect transaction-list kembali ke form; antrean berikutnya berjalan setelah resi baru cocok, tanpa Start ulang. Notifikasi saat semua selesai.
+- Kandidat kecamatan/kota/provinsi dengan kode pos sama dipilih otomatis. Kateman/Sungai Guntung → 29255. Field pencarian wilayah dihapus.
+- Foto terlewat/kosong dibaca ulang per JPEG asli hingga dua putaran. Audit kosong tidak menghapus bacaan awal. Foto gagal disimpan dengan pesan nomor foto.
+- APK 0.1.5/code 6, sertifikat sama, shutter cepat dipertahankan. Source dan panduan terbaru disertakan.
+
 ## v26.33 — Kode pos otomatis dan pemulihan kiriman luar Batam, APK 0.1.4
 
 - Mencocokkan nama wilayah lengkap sebelum substring, sehingga Pulau Kijang tidak lagi bertabrakan dengan Pulau. Mengenali INHIL, INHU, dan KEPRI; kode pos pada contoh screenshot otomatis 29273. Konflik kode pos dan nama lokasi ganda tetap membutuhkan pemeriksaan.

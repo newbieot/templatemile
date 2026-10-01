@@ -167,3 +167,16 @@ assert.deepEqual(auditedPages(normalize(), [1], { ...pdfConfig, verificationPoli
 assert.deepEqual(auditedPages(normalize({ confidence: 0.6 }), [1], { ...pdfConfig, verificationPolicy: 'none' }), []);
 
 console.log('PASS camera-audit: required fields, explicit confidence, manual review flags, selective pages, PDF policy compatibility');
+
+(async()=>{
+  const good=normalize({page:1,nomor_hp:'08122222222'}), blank=normalize({page:1,nama_penerima:'PERLU DICEK',alamat_penerima:''});
+  const merged=ai.mergeVerifiedRows(good,blank,[1]);assert.equal(merged[0].name,good[0].name);assert.equal(merged[0].address,good[0].address);assert.equal(merged[0].phone,good[0].phone);
+  const initial=[...normalize({page:1},[1,2,3,4]),...normalize({page:2},[1,2,3,4])], calls=[];
+  const result=await ai.recoverCameraPages(initial,[1,2,3,4],async(page,round)=>{calls.push([page,round]);if(page===4&&round===1)return [];
+    return ai.normalizeRows([{...readable,page:1,nama_penerima:'PENERIMA FOTO '+page}], 'MANUAL',page-1,{expectedPages:[page]});});
+  assert.deepEqual(Array.from(result.rows,row=>row.sourcePage),[1,2,3,4]);assert.equal(result.rows[2].name,'PENERIMA FOTO 3');assert.equal(result.rows[3].name,'PENERIMA FOTO 4');
+  assert.equal(calls.some(([page])=>page<3),false);assert.equal(calls.length,3);assert.deepEqual(Array.from(result.failedPages),[]);
+  const failed=await ai.recoverCameraPages(initial,[1,2,3,4],async()=>{throw new Error('offline');});assert.deepEqual(Array.from(failed.failedPages),[3,4]);assert.equal(failed.rows.length,2);
+  await assert.rejects(ai.recoverCameraPages([],[1],async()=>{throw new DOMException('cancelled','AbortError');}),{name:'AbortError'});
+  console.log('PASS camera recovery: four-photo partial result, isolated retries, global source IDs, retained readable fields and abort');
+})().catch(error=>{console.error(error);process.exitCode=1;});

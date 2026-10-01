@@ -2,7 +2,7 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 const Q=require('../extensions/mile-cn23/queue.js');
-function fixture({filled=false,postal='29274',corporate=false,autoSubmit=false,maxCost=50000}={}) {
+function fixture({filled=false,postal='29274',corporate=false,payment='CREDIT',autoSubmit=true,maxCost=0}={}) {
   const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'});const w=dom.window,d=w.document;
   Object.defineProperty(w.HTMLElement.prototype,'getClientRects',{value:function(){return this.closest('[hidden]')?[]:[{width:100,height:30}];}});
   let listener,submits=0;const messages=[];
@@ -13,6 +13,7 @@ function fixture({filled=false,postal='29274',corporate=false,autoSubmit=false,m
   add('<input name="pelanggan"><input id="addressDetail"><input placeholder="KODE POS" disabled><input placeholder="KODE ZONA" disabled><input id="service">');
   for(const placeholder of ['NPWP','Pilih HSCODE','Nama Barang','Jumlah Barang','Rupiah','Berat','Negara Asal','Imei 1','Imei 2'])add(`<input placeholder="${placeholder}">`);
   d.querySelector('[placeholder="Negara Asal"]').value='ID';
+  let enters=0;d.querySelector('input[name="pelanggan"]').addEventListener('keyup',e=>{if(e.key==='Enter'){enters++;setTimeout(()=>{d.querySelector('#namapengirim').value='PELANGGAN RESMI';d.querySelector('#phonePengirim').value='08111111111';d.querySelector('#alamatPengirim').value='ALAMAT PELANGGAN BATAM';},80);}});
   function select(id,options,parent=d.body,multi=false) {
     const el=d.createElement('div');el.className='el-select';el.innerHTML=`<input ${id?`id="${id}"`:''} readonly placeholder="Select"><ul class="el-select-dropdown" hidden></ul>`;parent.append(el);
     const input=el.querySelector('input'),list=el.querySelector('ul');input.addEventListener('click',()=>{list.hidden=false;});
@@ -38,14 +39,14 @@ function fixture({filled=false,postal='29274',corporate=false,autoSubmit=false,m
   if(filled)d.querySelector('#namapenerima').value='EXISTING DRAFT';
   w.chrome={runtime:{onMessage:{addListener:fn=>listener=fn},sendMessage:async m=>{messages.push(m);return{ok:true,data:{}};}}};
   w.MileCN23=Q;w.eval(fs.readFileSync('extensions/mile-cn23/form.js','utf8'));
-  const row={...Q.defaults,queue_id:'TEST-1',sender_name:'PENGIRIM',sender_phone:'0',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_phone:'0',recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_city:'INDRAGIRI HILIR',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',service_code:'PKH',customer_mode:corporate?'KORPORAT':'RITEL',customer_code:'ACME',payment_method:corporate?'CREDIT':'CASH',ref_no:'TEST-1',description:'Dokumen',shipping_instruction:'Tolong diantar dengan baik'};
-  return{w,d,messages,start(){listener({type:'CN23_FILL',token:'TOKEN',row,options:{autoSubmit,maxCost}},null,()=>{});},pause(){listener({type:'CN23_PAUSE',token:'TOKEN'},null,()=>{});},get submits(){return submits;},close(){w.close();}};
+  const row={...Q.defaults,queue_id:'TEST-1',sender_name:'PENGIRIM',sender_phone:'0',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_phone:'0',recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_city:'INDRAGIRI HILIR',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',service_code:'PKH',customer_mode:corporate?'KORPORAT':'RITEL',customer_code:'ACME',payment_method:corporate?payment:'CASH',ref_no:'TEST-1',description:'Dokumen',shipping_instruction:'Tolong diantar dengan baik'};
+  return{w,d,messages,get enters(){return enters;},start(){listener({type:'CN23_FILL',token:'TOKEN',row,options:{autoSubmit,maxCost}},null,()=>{});},pause(){listener({type:'CN23_PAUSE',token:'TOKEN'},null,()=>{});},get submits(){return submits;},close(){w.close();}};
 }
 async function until(fn){const start=Date.now();while(Date.now()-start<8000){if(fn())return;await new Promise(resolve=>setTimeout(resolve,30));}throw new Error('Fixture timeout');}
-test('retail fills preset, locks destination, waits for operator, records intent before one click',async()=>{
+test('retail automatically chooses Cash and submits once after durable intent',async()=>{
   const f=fixture();try{f.start();await until(()=>f.messages.some(m=>m.type==='FILLED'));
     assert.equal(f.d.querySelector('[placeholder="Pilih HSCODE"]').value.startsWith('49011000'),true);
-    assert.equal(f.d.querySelector('#koli_weight').value,'0.2');assert.equal(f.d.querySelector('[placeholder="Rupiah"]').value,'20000');assert.equal(f.submits,0);
+    assert.equal(f.d.querySelector('#koli_weight').value,'0.2');assert.equal(f.d.querySelector('[placeholder="Rupiah"]').value,'20000');await until(()=>f.submits===1);assert.equal(f.d.querySelector('.el-dialog .el-select input').value,'Cash');
     const button=[...f.d.querySelectorAll('button')].find(el=>el.textContent==='Selesai');button.click();button.click();
     await until(()=>f.submits===1);assert.equal(f.messages.filter(m=>m.type==='SUBMIT_INTENT').length,1);
   }finally{f.close();}
@@ -53,11 +54,20 @@ test('retail fills preset, locks destination, waits for operator, records intent
 test('nonempty user draft and postcode conflict stop before payment',async()=>{
   for(const options of [{filled:true},{postal:'29276'}]){const f=fixture(options);try{f.start();await until(()=>f.messages.some(m=>m.type==='FORM_ERROR'));assert.equal(f.submits,0);assert.equal(f.messages.some(m=>m.type==='FILLED'),false);if(options.filled)assert.equal(f.d.querySelector('#namapenerima').value,'EXISTING DRAFT');}finally{f.close();}}
 });
-test('corporate lookup comes first and waits for explicit customer verification',async()=>{
-  const f=fixture({corporate:true});try{f.start();await until(()=>f.messages.some(m=>m.phase==='customer_review'));assert.equal(f.d.querySelector('input[name="pelanggan"]').value,'ACME');assert.equal(f.d.querySelector('#namapenerima').value,'');
-    [...f.d.querySelectorAll('button')].find(el=>el.textContent==='Pelanggan benar, lanjutkan').click();await until(()=>f.messages.some(m=>m.type==='FILLED'));assert.equal(f.submits,0);
+test('corporate presses Enter, waits for sender lookup, preserves canonical sender and selects CREDIT',async()=>{
+  const f=fixture({corporate:true});try{f.start();await until(()=>f.submits===1);
+    assert.equal(f.enters,1);assert.equal(f.d.querySelector('#namapengirim').value,'PELANGGAN RESMI');
+    assert.equal(f.d.querySelector('#phonePengirim').value,'08111111111');assert.equal(f.d.querySelector('#alamatPengirim').value,'ALAMAT PELANGGAN BATAM');
+    assert.equal(f.d.querySelector('#namapenerima').value,'PENERIMA');assert.equal(f.d.querySelector('.el-dialog .el-select input').value,'CREDIT');
+    assert.equal(f.messages.find(m=>m.customerResolved)?.customerResolved.sender_name,'PELANGGAN RESMI');
+    assert.equal([...f.d.querySelectorAll('button')].some(el=>el.textContent==='Pelanggan benar, lanjutkan'),false);
   }finally{f.close();}
 });
+
 test('automatic submit observes cost cap; pausing a review releases unsubmitted row',async()=>{
   for(const limit of [20000,50000]){const f=fixture({autoSubmit:true,maxCost:limit});try{f.start();await until(()=>f.messages.some(m=>m.type==='FILLED'));if(limit>25000){await until(()=>f.submits===1);}else{assert.equal(f.submits,0);f.pause();await until(()=>f.messages.some(m=>m.type==='FORM_ERROR'));}}finally{f.close();}}
+});
+
+test('corporate automatically selects Invoice when the queue requests Invoice',async()=>{
+  const f=fixture({corporate:true,payment:'INVOICE'});try{f.start();await until(()=>f.submits===1);assert.equal(f.d.querySelector('.el-dialog .el-select input').value,'Invoice');}finally{f.close();}
 });
