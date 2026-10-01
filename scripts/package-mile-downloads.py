@@ -9,7 +9,7 @@ OUTPUT = ROOT / "downloads"
 def package_extension():
     base = ROOT / "extensions" / "mile-cn23"
     manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
-    required = [manifest["background"]["service_worker"], "panel.html", "panel.js", "panel.css", "queue.js", "CARA-INSTALL.txt", "vendor/xlsx.full.min.js", "vendor/LICENSE"]
+    required = [manifest["background"]["service_worker"], "queue.js", "CARA-INSTALL.txt", "vendor/xlsx.full.min.js", "vendor/LICENSE"]
     required += [file for group in manifest["content_scripts"] for file in group["js"]]
     for file in required:
         if not (base / file).is_file():

@@ -61,7 +61,8 @@
     if (!state.active.submittedAt) state.active=null;
     return true;
   }
-  const api={FORM_URL,defaults,required,norm,validateRows,receiptId,receiptMatches,recoverInterrupted};
+  const VERSION='0.2.2';
+  const api={VERSION,FORM_URL,defaults,required,norm,validateRows,receiptId,receiptMatches,recoverInterrupted};
   root.MileCN23=api;
   if (typeof module !== 'undefined') module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

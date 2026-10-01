@@ -52,7 +52,22 @@ test('next form waits for reference section and ignores hidden old reference bef
     assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
     await until(()=>f.submits===1);
     assert.equal([...f.d.querySelectorAll('#ref_no')].find(el=>!el.closest('[hidden]')).value,'TEST-1');
-    assert.equal(f.messages.some(m=>m.type==='FORM_READY'),true);
+    assert.equal(f.receive({type:'CN23_PROBE'}).ready,true);
+    assert.equal(f.receive({type:'CN23_PROBE'}).busy,true);
     assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
   } finally { f.close(); }
+});
+
+test('Reset during an asynchronous fill cannot submit or poison the replacement Excel row',async()=>{
+  const f=fixture();
+  try {
+    f.start();await until(()=>f.d.querySelector('#namapenerima').value==='PENERIMA');
+    assert.equal(f.receive({type:'CN23_RESET'}).accepted,true);
+    f.remount();f.start({recipient_name:'PENERIMA BARU',ref_no:'BARU'},'NEW-TOKEN');
+    await until(()=>f.submits===1);
+    assert.equal(f.d.querySelector('#namapenerima').value,'PENERIMA BARU');assert.equal(f.d.querySelector('#ref_no').value,'BARU');
+    assert.equal(f.messages.filter(m=>m.type==='SUBMIT_INTENT').length,1);
+    assert.equal(f.messages.find(m=>m.type==='SUBMIT_INTENT').token,'NEW-TOKEN');
+    assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
+  } finally {f.close();}
 });

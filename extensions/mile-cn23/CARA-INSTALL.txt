@@ -1,10 +1,10 @@
-MILE CN23 HELPER 0.2.1
+MILE CN23 HELPER 0.2.2
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.1 ke FOLDER
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.2 ke FOLDER
    ekstensi lama dan timpa file lama, termasuk manifest.json. Jangan uninstall.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.1. Riwayat ID kiriman dan resi tetap tersimpan.
+   Versi harus tertulis 0.2.2. Riwayat ID kiriman dan resi tetap tersimpan.
 3. Simpan pekerjaan, lalu muat ulang tab Mile agar script terbaru aktif.
    Jangan muat ulang transaksi yang belum pasti sesudah tombol Selesai.
 
@@ -30,8 +30,10 @@ PEMAKAIAN HARIAN
 6. Ketika daftar transaksi muncul, tab utama kembali ke form CN23.
    Resi pada tab baru dicocokkan sebelum transaksi berikutnya berjalan.
    Tidak perlu memilih pembayaran atau menekan Start lagi setiap kiriman.
-7. Semua selesai: pesan hijau tampil. Klik ikon ekstensi untuk unduh hasil
-   dan tautan resi. Petugas dapat mencetak resi belakangan secara manual.
+7. Semua selesai: pesan hijau tampil. Resi tetap dapat dicetak manual di Mile.
+8. Ingin mengganti Excel: klik Reset, lalu Upload Excel baru dan Start.
+   Reset menghentikan proses lama. ID kiriman yang sudah berhasil tetap
+   dicatat dan dilewati jika ada lagi di file baru. Panel tanpa menu unduh hasil.
 
 GANGGUAN
 - Kegagalan sebelum Selesai: kesalahan tampil di menu; setelah penyebabnya
@@ -40,8 +42,7 @@ GANGGUAN
   ganda. Periksa transaksi di Mile sebelum mengulang atau mengganti antrean.
   Panel pemulihan versi lama tetap disertakan untuk mencatat resi yang
   sudah dipastikan milik kiriman aktif. Panel itu bukan menu pemakaian harian.
-- Jangan menghapus data ekstensi, mengganti profile Chrome, atau mengimpor
-  ulang kiriman yang sudah berhasil. ID selesai mencegah pemrosesan ganda.
+- Jangan menghapus data ekstensi atau mengganti profile Chrome. ID selesai mencegah pemrosesan ganda.
 - Tab resi lama/cetak ulang tidak dianggap bukti sukses transaksi baru.
 
 PRESET DOKUMEN
@@ -74,3 +75,11 @@ Data antrean lokal di Chrome. Tidak meminta password atau API key.
 Permission tetap storage/alarms, terbatas pada Mile dan halaman print resi.
 Panduan resmi Chrome:
 https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-an-unpacked-extension
+
+VERSI 0.2.2
+Panel hanya Upload Excel, Start/Jeda, Reset. Pemeriksaan form kosong
+berulang setiap detik dan probe otomatis memulihkan laporan siap yang
+terlewat. Navigasi Mile dalam dokumen yang sama didukung. Versi panel
+mengikuti versi script. Resi tetap menjadi bukti keberhasilan internal.
+Reset setelah Selesai menyimpan ID yang belum pasti; data baru tetap bisa
+di-upload, tetapi ID yang hasilnya belum pasti tidak dikirim ulang.

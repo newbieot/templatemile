@@ -1,9 +1,9 @@
 /* Operates visible Mile fields. Never calls Mile's transaction API. */
 (() => {
   'use strict';
-  if (location.pathname !== '/new-transaction-custom') return;
   const Q = MileCN23;
   let current = null;
+  const pageId=crypto.randomUUID();
   const visible = el => Boolean(el && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
   const all = (selector, root = document) => [...root.querySelectorAll(selector)];
   const one = (selector, root = document) => {
@@ -12,6 +12,24 @@
     return list[0];
   };
   const formSelectors = ['#namapengirim', '#phonePengirim', '#alamatPengirim', '#namapenerima', '#phonePenerima', '#alamatPenerima', '#ref_no', '#addressDetail', '#service', '#COD', '#Jenis_Barang', '#instruksi_pengiriman', '#koli_description', '#koli_length', '#koli_width', '#koli_height', '#koli_weight', '#harga_barang', 'input[name="pelanggan"]', 'input[placeholder="KODE POS"]', 'input[placeholder="KODE ZONA"]'];
+  let probeNodes=[],probeSince=0,formId='';
+  function formState() {
+    const onForm=location.pathname==='/new-transaction-custom';
+    const controls=onForm?formSelectors.map(selector=>all(selector).filter(visible)):[];
+    const missing=onForm?formSelectors.filter((_selector,i)=>controls[i].length!==1):[];
+    const nodes=controls.map(list=>list[0]);
+    const mounted=onForm&&!missing.length&&!all('.el-loading-mask').some(visible);
+    if (!mounted || !nodes.every((node,i)=>node===probeNodes[i])) {probeSince=Date.now();probeNodes=mounted?nodes:[];formId=mounted?crypto.randomUUID():'';}
+    const ready=mounted&&Date.now()-probeSince>=150;
+    const blank=ready&&['namapenerima','ref_no','alamatPenerima'].every(id=>!one('#'+id).value.trim())&&!exactButton('Ubah Data');
+    return {version:Q.VERSION,pageId,formId,path:location.pathname,ready,blank,busy:Boolean(current),token:current?.token,missing};
+  }
+  async function announceForm() {
+    const state=formState();
+    if(state.ready&&state.blank&&!state.busy) {
+      try {await chrome.runtime.sendMessage({type:'FORM_READY',...state});} catch (_) { /* The next heartbeat retries a waking/reloaded worker. */ }
+    }
+  }
   async function readyForm() {
     // Vue mounts the sections separately after the receipt redirect. A recipient field alone
     // does not establish that reference/service/item controls belong to a complete new form.
@@ -32,10 +50,10 @@
     return reply.data;
   }
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-  async function wait(fn, description, timeout = 20000) {
+  async function wait(fn, description, timeout = 20000, owner=current) {
     const started = Date.now();
     while (Date.now() - started < timeout) {
-      if (current?.cancelled && !current?.submitted) throw new Error('Dijeda oleh petugas. Bersihkan form sebelum mencoba isi ulang.');
+      if (owner && (owner.cancelled || owner!==current) && !owner.submitted) throw new Error('Antrean dijeda atau direset.');
       const result = fn();
       if (result) return result;
       await sleep(150);
@@ -166,66 +184,74 @@
     if (!current?.submitted) current = null;
   }
   async function run(row, options) {
-    await readyForm();
+    const owner=current;
+    const step=async promise=>{const value=await promise;if(current!==owner||owner.cancelled)throw new Error('Antrean direset atau dijeda.');return value;};
+    await step(readyForm());
     if (one('#namapenerima').value.trim() || one('#ref_no').value.trim() || exactButton('Ubah Data')) throw new Error('Form Mile sudah berisi transaksi. Buka form CN23 baru yang kosong dahulu.');
     status(`Mengisi ${row.queue_id} · ${row.recipient_name}`);
     if (row.customer_mode === 'KORPORAT') {
       for (const id of ['namapengirim', 'phonePengirim', 'alamatPengirim']) byId(id, '');
       const field = one('input[name="pelanggan"]'); fill(field, row.customer_code);
-      await send('PROGRESS', { phase:'customer_loading' });
+      await step(send('PROGRESS', { phase:'customer_loading' }));
       field.focus();
       for (const type of ['keydown', 'keypress', 'keyup']) field.dispatchEvent(new KeyboardEvent(type, { key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true }));
       status(`Memuat pelanggan ${row.customer_code}…`);
-      await wait(() => Q.norm(field.value).includes(Q.norm(row.customer_code)) &&
+      await step(wait(() => Q.norm(field.value).includes(Q.norm(row.customer_code)) &&
         one('#namapengirim').value.trim() && one('#phonePengirim').value.trim() && one('#alamatPengirim').value.trim() &&
-        !all('.el-loading-mask').some(visible), 'nama dan alamat pelanggan setelah Enter', 45000);
-      await send('PROGRESS', { phase:'filling', customerResolved:{sender_name:one('#namapengirim').value.trim(),sender_phone:one('#phonePengirim').value.trim(),sender_address:one('#alamatPengirim').value.trim()} });
+        !all('.el-loading-mask').some(visible), 'nama dan alamat pelanggan setelah Enter', 45000));
+      await step(send('PROGRESS', { phase:'filling', customerResolved:{sender_name:one('#namapengirim').value.trim(),sender_phone:one('#phonePengirim').value.trim(),sender_address:one('#alamatPengirim').value.trim()} }));
       status(`Mengisi ${row.queue_id} · ${row.recipient_name}`);
     }
     for (const [id, key] of Object.entries({ namapengirim:'sender_name', phonePengirim:'sender_phone', alamatPengirim:'sender_address', namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) { if (row.customer_mode !== 'KORPORAT' || key.startsWith('recipient_')) byId(id, row[key]); }
-    await destination(row);
-    await autocomplete(one('#service'), row.service_code, text => text === Q.norm(row.service_code) || text.startsWith(Q.norm(row.service_code) + ' '));
-    await select(one('#COD'), ['NON-COD']); await select(one('#Jenis_Barang'), ['Dokumen']);
+    await step(destination(row));
+    await step(autocomplete(one('#service'), row.service_code, text => text === Q.norm(row.service_code) || text.startsWith(Q.norm(row.service_code) + ' ')));
+    await step(select(one('#COD'), ['NON-COD'])); await step(select(one('#Jenis_Barang'), ['Dokumen']));
     for (const [id, key] of Object.entries({ ref_no:'ref_no', instruksi_pengiriman:'shipping_instruction', koli_description:'description', koli_length:'length_cm', koli_width:'width_cm', koli_height:'height_cm' })) byId(id, row[key]);
-    await select(selectContaining('Dokumen / Documents'), ['Dokumen / Documents']);
-    await select(selectContaining('Ecommerce/Biasa'), ['Ecommerce/Biasa']);
-    await wait(() => !one('input[placeholder="Pilih HSCODE"]').disabled, 'detail item');
+    await step(select(selectContaining('Dokumen / Documents'), ['Dokumen / Documents']));
+    await step(select(selectContaining('Ecommerce/Biasa'), ['Ecommerce/Biasa']));
+    await step(wait(() => !one('input[placeholder="Pilih HSCODE"]').disabled, 'detail item'));
     byPlaceholder('NPWP', row.npwp);
-    await autocomplete(one('input[placeholder="Pilih HSCODE"]'), row.hs_code, text => text.startsWith(row.hs_code));
+    await step(autocomplete(one('input[placeholder="Pilih HSCODE"]'), row.hs_code, text => text.startsWith(row.hs_code)));
     for (const [placeholder, key] of Object.entries({ 'Nama Barang':'item_name', 'Jumlah Barang':'quantity', Rupiah:'item_value_idr', Berat:'weight_kg', 'Imei 1':'imei_1', 'Imei 2':'imei_2' })) byPlaceholder(placeholder, row[key]);
     const country = one('input[placeholder="Negara Asal"]');
-    if (country.value !== 'ID') await autocomplete(country, 'ID', text => text === 'ID' || text.startsWith('ID '));
-    await select(selectContaining('EN - Envelope'), ['EN-Envelope', 'EN - Envelope', 'Envelope']);
+    if (country.value !== 'ID') await step(autocomplete(country, 'ID', text => text === 'ID' || text.startsWith('ID ')));
+    await step(select(selectContaining('EN - Envelope'), ['EN-Envelope', 'EN - Envelope', 'Envelope']));
     const pdriSelect = selectContaining('Insurance');
     const pdriContainer = pdriSelect.closest('.el-select');
     if (row.insurance === 'Y') {
-      pdriSelect.click(); const option = await wait(() => all('.el-select-dropdown__item').filter(visible).find(el => /^(INSURANCE|ASURANSI)$/.test(Q.norm(el.textContent))), 'Insurance'); option.click();
+      pdriSelect.click(); const option = await step(wait(() => all('.el-select-dropdown__item').filter(visible).find(el => /^(INSURANCE|ASURANSI)$/.test(Q.norm(el.textContent))), 'Insurance')); option.click();
       if (!/INSURANCE|ASURANSI/i.test(pdriContainer.textContent)) throw new Error('Asuransi belum terkunci.');
     } else if (/INSURANCE|ASURANSI/i.test(all('.el-tag', pdriContainer).map(el => el.textContent).join(' '))) throw new Error('Asuransi sudah terpilih pada form tanpa asuransi. Buka form baru.');
-    await wait(() => Number(one('#koli_weight').value) === .2 && Number(one('#harga_barang').value) === 20000, 'berat/nilai barang dari detail item');
+    await step(wait(() => Number(one('#koli_weight').value) === .2 && Number(one('#harga_barang').value) === 20000, 'berat/nilai barang dari detail item'));
     const calculate = exactButton('Proses Hitung PDRI'); if (!calculate) throw new Error('Proses Hitung PDRI belum aktif.'); calculate.click();
-    await wait(() => exactButton('Ubah Data') && exactButton('Pembayaran'), 'hasil hitung PDRI', 45000);
+    await step(wait(() => exactButton('Ubah Data') && exactButton('Pembayaran'), 'hasil hitung PDRI', 45000));
     exactButton('Pembayaran').click();
-    const dialog = await wait(() => all('.el-dialog').filter(visible).find(el => exactButton('Selesai', el)), 'jendela pembayaran');
-    const payment = await wait(() => {
+    const dialog = await step(wait(() => all('.el-dialog').filter(visible).find(el => exactButton('Selesai', el)), 'jendela pembayaran'));
+    const payment = await step(wait(() => {
       const fields = all('.select-payment input, .el-select input', dialog).filter(visible);
       return fields.length === 1 && !fields[0].disabled && fields[0];
-    }, 'kolom metode pembayaran');
+    }, 'kolom metode pembayaran'));
     status(`Memilih ${row.payment_method} · ${row.recipient_name}`);
-    await select(payment, row.payment_method === 'CASH' ? ['Cash'] : row.payment_method === 'CREDIT' ? ['CREDIT'] : ['Invoice']);
-    await send('FILLED'); current.paymentReady = true;
+    await step(select(payment, row.payment_method === 'CASH' ? ['Cash'] : row.payment_method === 'CREDIT' ? ['CREDIT'] : ['Invoice']));
+    await step(send('FILLED')); current.paymentReady = true;
     const button = exactButton('Selesai', dialog);
     if (options.autoSubmit !== false) {
       const amount = totalCost(dialog);
       if (options.maxCost > 0 && (!Number.isFinite(amount) || amount > options.maxCost)) throw new Error('Tagihan melampaui batas biaya yang ditetapkan.');
-      await submit(button);
+      await step(submit(button));
     } else status(`${row.recipient_name} siap. Periksa data dan biaya, lalu klik Selesai di Mile.`);
   }
   chrome.runtime.onMessage.addListener((message, _sender, reply) => {
     if (message.type === 'CN23_FILL') {
       if (current) { reply({ accepted:false, error:'Form masih memiliki kiriman aktif. Muat ulang form kosong dahulu.' }); return; }
       current = { token:message.token, cancelled:false, submitted:false, paymentReady:false };
-      reply({ accepted:true }); run(message.row, message.options || {}).catch(fail);
+      const owner=current;
+      reply({ accepted:true,version:Q.VERSION,pageId,formId:formState().formId }); run(message.row, message.options || {}).catch(error=>{if(current===owner)void fail(error);});
+    } else if (message.type === 'CN23_PROBE') {
+      reply({accepted:true,...formState()});
+    } else if (message.type === 'CN23_RESET') {
+      if(current)current.cancelled=true;
+      current=null;reply({accepted:true,version:Q.VERSION});
     } else if (message.type === 'CN23_PAUSE') {
       if (current?.token === message.token) {
         current.cancelled = true; status('Dijeda. Kiriman yang sudah dikirim tetap menunggu verifikasi resi.');
@@ -238,5 +264,9 @@
     }
     return false;
   });
-  readyForm().then(() => chrome.runtime.sendMessage({ type:'FORM_READY' })).catch(() => {});
+  // Mile can navigate with Vue Router without injecting content scripts again. Keep
+  // the responder alive on every Mile route and retry readiness until acknowledged.
+  setInterval(()=>void announceForm(),1000);
+  setTimeout(()=>void announceForm(),200);
+  readyForm().then(announceForm).catch(() => {});
 })();

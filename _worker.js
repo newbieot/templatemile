@@ -1,4 +1,4 @@
-const APP_VERSION = '20261001-26.35-cn23-payment-frozen-shutter';
+const APP_VERSION = '20261001-26.36-cn23-resilient-queue-reset';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -44,6 +44,7 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-CN23-Helper-0.2.0.zip',
   '/downloads/Mile-Camera-0.1.6.apk', '/downloads/Mile-Camera-0.1.6-source.zip',
   '/downloads/Mile-CN23-Helper-0.2.1.zip',
+  '/downloads/Mile-CN23-Helper-0.2.2.zip',
   '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 
@@ -1227,7 +1228,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
     headers.set('content-type', 'application/vnd.android.package-archive');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
-  if (/^\/downloads\/Mile-CN23-Helper-0\.(?:1\.0|2\.[01])\.zip$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-CN23-Helper-0\.(?:1\.0|2\.[012])\.zip$/.test(path) && response.ok) {
     headers.set('content-type', 'application/zip');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }

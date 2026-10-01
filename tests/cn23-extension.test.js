@@ -34,7 +34,7 @@ function workerHarness() {
   const chrome={runtime:{id:'fixture',getURL:path=>'chrome-extension://fixture/'+path,onMessage:{addListener:fn=>listener=fn},onInstalled:noop,onStartup:noop},storage:{local:{get:async key=>({[key]:stored[key]}),set:async value=>{stored=structuredClone(value);order.push({event:'save',status:stored.mileCn23Queue?.rows[0]?.status});},setAccessLevel:async()=>{}}},tabs:{query:async opts=>[...tabs.values()].filter(tab=>opts.url.includes('apiexpos')?tab.url.includes('apiexpos'):tab.url.includes('https://expos')),get:async id=>tabs.get(id),sendMessage:async(_id,message)=>{order.push({event:'message',type:message.type});return{accepted:true};},update:async(id,patch)=>{tabs.set(id,{...tabs.get(id),...patch});order.push({event:'navigate',waiting:stored.mileCn23Queue.waitingNewForm});},create:async()=>{order.push({event:'new-tab'});return{id:7};},onCreated:{addListener:fn=>created=fn},onUpdated:{addListener:fn=>updated=fn}},action:{onClicked:{addListener:fn=>clicked=fn},setBadgeText:async()=>{},setTitle:async()=>{}},alarms:{onAlarm:noop,create:async()=>{}}};
   const context={chrome,URL,crypto:require('node:crypto').webcrypto,Date,console,importScripts:()=>{},MileCN23:Q};
   vm.createContext(context);vm.runInContext(fs.readFileSync('extensions/mile-cn23/background.js','utf8'),context);
-  const panel={id:'fixture',url:'chrome-extension://fixture/panel.html'};
+  const panel={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
   const content={id:'fixture',tab:{id:7,url:Q.FORM_URL}};
   const send=(m,sender=panel)=>new Promise(resolve=>listener(m,sender,resolve));
   return {send,content,order,tabs,created,updated,clicked,get state(){return stored.mileCn23Queue;}};
@@ -70,7 +70,8 @@ test('mismatched receipt pauses; uncertain submission cannot be retried or clear
 test('manifest packages every declared script, local SheetJS, no remote executable code',()=>{
   const manifest=JSON.parse(fs.readFileSync('extensions/mile-cn23/manifest.json','utf8'));
   assert.equal(manifest.manifest_version,3);
-  for(const script of [manifest.background.service_worker,...manifest.content_scripts.flatMap(item=>item.js),'panel.html','panel.js','vendor/xlsx.full.min.js','vendor/LICENSE','CARA-INSTALL.txt']) assert.ok(fs.existsSync('extensions/mile-cn23/'+script),script);
+  assert.equal(manifest.version,Q.VERSION);
+  for(const script of [manifest.background.service_worker,...manifest.content_scripts.flatMap(item=>item.js),'vendor/xlsx.full.min.js','vendor/LICENSE','CARA-INSTALL.txt']) assert.ok(fs.existsSync('extensions/mile-cn23/'+script),script);
   assert.deepEqual(manifest.permissions,['storage','alarms']);
 });
 test('refresh during manual review releases fill; refresh after submit holds uncertain result',async()=>{
@@ -139,4 +140,43 @@ test('old document readiness during list redirect cannot unlock a second transac
   h.updated(7,{url:'https://expos.mile.app/transaction-list'},{id:7});await h.send({type:'GET'});
   await h.send({type:'FORM_READY'},original);assert.equal(h.state.formReady,false);
   await h.send({type:'FORM_READY'},{...h.content,documentId:'fresh-empty'});assert.equal(h.state.formReady,true);
+});
+
+test('Reset archives a partially completed queue, revokes old token and imports fresh remaining data',async()=>{
+  const h=workerHarness(),second={...sample(),queue_id:'SECOND'},fresh={...sample(),queue_id:'FRESH'};
+  await h.send({type:'IMPORT',rows:[sample(),second],fileName:'old.xlsx'});await h.send({type:'RUN',tabId:7});
+  let token=h.state.active.token;
+  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
+  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:15,url:url('reset-receipt'),openerTabId:7}});
+  await h.send({type:'FORM_READY'},h.content);token=h.state.active.token;
+  assert.equal((await h.send({type:'RESET'})).ok,true);
+  assert.equal(h.state.rows.length,0);assert.equal(h.state.active,null);assert.equal(h.state.running,false);
+  assert.ok(h.state.completedQueueIds.includes(sample().queue_id));assert.ok(h.state.seenReceipts.includes('reset-receipt'));
+  assert.equal((await h.send({type:'SUBMIT_INTENT',token},h.content)).ok,false);
+  assert.equal((await h.send({type:'IMPORT',rows:[sample(),second,fresh],fileName:'new.xlsx'})).ok,true);
+  assert.equal(h.state.fileName,'new.xlsx');assert.equal(h.state.skippedCompleted,1);
+  assert.deepEqual(h.state.rows.map(row=>row.id),['SECOND','FRESH']);
+});
+
+test('Reset after Selesai permits a new queue, preserves unresolved identity, and accepts its late receipt',async()=>{
+  const h=workerHarness(),fresh={...sample(),queue_id:'NEW'};
+  await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
+  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
+  await h.send({type:'RESET'});assert.equal(h.state.rows.length,0);assert.equal(h.state.pendingSubmissions.length,1);
+  assert.equal((await h.send({type:'IMPORT',rows:[sample()]})).ok,false);
+  assert.equal((await h.send({type:'IMPORT',rows:[fresh]})).ok,true);
+  const reply=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:16,url:url('late-after-reset'),openerTabId:7}});
+  assert.equal(reply.data.receiptAccepted,true);assert.equal(h.state.pendingSubmissions.length,0);
+  assert.equal(h.state.rows[0].status,'ready');assert.ok(h.state.completedQueueIds.includes(sample().queue_id));
+});
+
+test('verified blank new form survives a missed transaction-list event while still waiting for receipt',async()=>{
+  const h=workerHarness(),second={...sample(),queue_id:'SECOND'};
+  await h.send({type:'IMPORT',rows:[sample(),second]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
+  await h.send({type:'FILLED',token},{...h.content,documentId:'original'});await h.send({type:'SUBMIT_INTENT',token},h.content);
+  await h.send({type:'FORM_READY',version:Q.VERSION,path:'/new-transaction-custom',ready:true,blank:true,busy:false,formId:'fresh-form'},{...h.content,documentId:'fresh-document'});
+  assert.equal(h.state.formReady,true);assert.equal(h.state.rows[0].status,'awaiting_receipt');assert.equal(h.state.running,true);
+  assert.equal(h.state.rows[1].status,'ready');
+  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:17,url:url('missed-navigation'),openerTabId:7}});
+  assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.rows[1].status,'filling');
 });

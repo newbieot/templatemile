@@ -13,15 +13,15 @@ async function until(fn,description) {
   throw new Error('Batch timeout: '+description);
 }
 
-test('one Start completes three real form scripts, automatic payments, receipt scripts and delayed next forms',async()=>{
+for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true}])test(`one Start completes three shipments with ${scenario.spa?'same-document Mile navigation and lost readiness messages':'full navigations'}`,async()=>{
   let stored={},listener,onUpdated,onCreated,mainPage,documentNumber=0,submissionNumber=0,failure;
-  const pages=[],receipts=[],events=[],pending=new Set(),tabs=new Map([[7,{id:7,url:Q.FORM_URL}]]);
+  const pages=[],receipts=[],events=[],forms=[],paymentOpens=[],dropped=new Set(),pending=new Set(),tabs=new Map([[7,{id:7,url:Q.FORM_URL}]]);
   const rows=[
     {...base,queue_id:'BATCH-1',ref_no:'REF-1',recipient_name:'PENERIMA SATU',customer_mode:'RITEL',payment_method:'CASH'},
     {...base,queue_id:'BATCH-2',ref_no:'REF-2',recipient_name:'PENERIMA DUA',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'INVOICE'},
     {...base,queue_id:'BATCH-3',ref_no:'REF-3',recipient_name:'PENERIMA TIGA',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT'}
   ];
-  const panel={id:'fixture',url:'chrome-extension://fixture/panel.html'};
+  const panel={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
   const send=(message,sender=panel)=>new Promise(resolve=>listener(message,sender,resolve));
   const defer=(action,ms=0)=>{
     const timer=setTimeout(()=>{pending.delete(timer);action();},ms);pending.add(timer);
@@ -30,8 +30,17 @@ test('one Start completes three real form scripts, automatic payments, receipt s
     documentNumber++;const number=documentNumber;
     tabs.set(7,{id:7,url:Q.FORM_URL});
     const corporate=submissionNumber>0;
+    if(mainPage&&scenario.spa){
+      mainPage.w.history.replaceState({},'',Q.FORM_URL);
+      mainPage.remount({corporate,lateReference:true});return;
+    }
+    if(mainPage)mainPage.close();
     mainPage=fixture({corporate,transitionPayment:true,lateReference:number>1,
-      runtimeSend:message=>{events.push({type:message.type,document:number});return send(message,{id:'fixture',url:Q.FORM_URL,documentId:'form-'+number,tab:{id:7,url:Q.FORM_URL}});},
+      runtimeSend:message=>{
+        events.push({type:message.type,document:number});
+        if(scenario.dropReady&&message.type==='FORM_READY'&&!dropped.has(message.formId)){dropped.add(message.formId);return Promise.resolve({ok:true,data:{ignored:true}});}
+        return send(message,{id:'fixture',url:Q.FORM_URL,documentId:'form-'+number,tab:{id:7,url:Q.FORM_URL}});
+      },
       onSubmit:document=>{
         try {
         submissionNumber++;
@@ -42,9 +51,14 @@ test('one Start completes three real form scripts, automatic payments, receipt s
         assert.equal(document.querySelector('.select-payment input').value,index===0?'Cash':index===1?'Invoice':'CREDIT');
         if(index>0)assert.equal(document.querySelector('#namapengirim').value,'PELANGGAN RESMI');
         events.push({type:'actual-submit',index,document:number});
-        const receipt=()=>openReceipt(index,document);
+        paymentOpens.push(mainPage.paymentOpens);
+        const receiptText=[document.querySelector('#namapengirim').value,document.querySelector('#namapenerima').value,
+          document.querySelector('#alamatPenerima').value,'INDRAGIRI HILIR','29274',field(document,'ref_no').value,
+          `P261001000000${index+1}`,`Kode Transaksi: 294002026100100000${index+1}`].join(' ');
+        const receipt=()=>openReceipt(index,receiptText);
         const list=()=>{
           tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});
+          if(scenario.spa){mainPage.w.history.replaceState({},'','https://expos.mile.app/transaction-list');mainPage.d.body.replaceChildren();}
           onUpdated(7,{url:'https://expos.mile.app/transaction-list'},tabs.get(7));
         };
         // First receipt precedes redirect; second empty form precedes receipt.
@@ -53,13 +67,10 @@ test('one Start completes three real form scripts, automatic payments, receipt s
       }
     });pages.push(mainPage);
   }
-  function openReceipt(index,document) {
+  function openReceipt(index,text) {
     const id=20+index,url=printUrl('fresh-'+index),tab={id,url,openerTabId:7};
     tabs.set(id,tab);onCreated(tab);
     const dom=new JSDOM('<body><section id="section-to-print"></section></body>',{url,runScripts:'outside-only'});
-    const text=[document.querySelector('#namapengirim').value,document.querySelector('#namapenerima').value,
-      document.querySelector('#alamatPenerima').value,'INDRAGIRI HILIR','29274',field(document,'ref_no').value,
-      `P261001000000${index+1}`,`Kode Transaksi: 294002026100100000${index+1}`].join(' ');
     dom.window.document.querySelector('#section-to-print').textContent=text;
     dom.window.MileCN23=Q;
     dom.window.chrome={runtime:{sendMessage:message=>send(message,{id:'fixture',url,tab})}};
@@ -72,7 +83,8 @@ test('one Start completes three real form scripts, automatic payments, receipt s
     tabs:{query:async opts=>[...tabs.values()].filter(tab=>opts.url.includes('apiexpos')?tab.url.includes('apiexpos'):tab.url.includes('https://expos')),
       get:async id=>tabs.get(id),sendMessage:async(id,message)=>{
         events.push({type:message.type,document:documentNumber});
-        if(message.type==='CN23_FILL')return mainPage.receive(message);
+        if(message.type==='CN23_FILL'){const ack=mainPage.receive(message);forms.push(ack.formId);return ack;}
+        if(message.type==='CN23_PROBE')return mainPage.receive(message);
         if(message.type==='CN23_FINISHED')mainPage.receive(message);
         return {accepted:true};
       },
@@ -98,9 +110,11 @@ test('one Start completes three real form scripts, automatic payments, receipt s
     assert.equal(events.filter(event=>event.type==='SUBMIT_INTENT').length,3);
     assert.equal(events.filter(event=>event.type==='CN23_BATCH_DONE').length,1);
     assert.equal(pages.reduce((count,page)=>count+page.enters,0),2);
-    assert.equal(pages.filter(page=>page.submits>0).every(page=>page.paymentOpens===2),true);
+    assert.deepEqual(paymentOpens,[2,2,2]);
     const submissions=events.filter(event=>event.type==='actual-submit');
-    assert.equal(new Set(submissions.map(event=>event.document)).size,3,'Each shipment uses a different fresh form');
+    if(!scenario.spa)assert.equal(new Set(submissions.map(event=>event.document)).size,3);
+    assert.equal(new Set(forms).size,3,'Each shipment uses a different fresh form generation');
+    if(scenario.dropReady)assert.ok(dropped.size>=1,'Readiness acknowledgements were intentionally lost');
     assert.equal(events.some(event=>event.type==='FORM_ERROR'),false);
   } finally {
     pending.forEach(clearTimeout);pages.forEach(page=>page.close());receipts.forEach(dom=>dom.window.close());

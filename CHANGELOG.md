@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.36 — Helper 0.2.2: antrean berulang dan Reset
+
+- Panel hanya Upload Excel, Start/Jeda, dan Reset. Menu Unduh hasil & resi dihapus; versi panel mengikuti script.
+- Script form hidup pada semua rute Mile, membedakan setiap form baru, melaporkan kesiapan form kosong setiap detik, dan menjawab probe setelah navigasi. Navigasi Vue tanpa injeksi ulang serta pesan kesiapan yang terlewat tidak menghentikan antrean berikutnya.
+- Reset membatalkan proses lama dan mengizinkan Excel baru. ID berhasil tetap dicatat dan dilewati; ID yang sudah submit tetapi belum terverifikasi ditahan untuk mencegah kiriman ganda. Resi terlambat setelah reset masih bisa dikenali.
+- Uji gabungan tiga kiriman menggunakan reload penuh dan navigasi dalam dokumen yang sama, dengan pesan kesiapan awal sengaja diabaikan. Uji Reset mencakup pengisian yang masih menunggu, Excel pengganti, riwayat sukses, dan resi terlambat.
+
 ## v26.35 — Pembayaran CN23 dan form berikutnya, shutter frame live
 
 - Helper 0.2.1 membuka wrapper pembayaran dengan fokus dan percobaan ulang ketika klik awal diabaikan; dropdown Element UI yang pindah ke body tetap dikenali.

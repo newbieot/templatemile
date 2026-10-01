@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Mile CN23 Helper",
-  "version": "0.2.1",
-  "description": "Impor Excel antrean dokumen luar Batam, bantu entri CN23, dan simpan hasil resi.",
+  "version": "0.2.2",
+  "description": "Upload Excel dokumen luar Batam dan proses antrean CN23 otomatis.",
   "minimum_chrome_version": "114",
   "permissions": ["storage", "alarms"],
   "host_permissions": ["https://expos.mile.app/*", "https://apiexpos.mile.app/api/v2/print-data*"],

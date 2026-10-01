@@ -18,22 +18,25 @@
     const host = document.createElement('aside');host.id='mile-cn23-menu';
     host.style.cssText='position:fixed;right:16px;bottom:16px;width:360px;max-width:calc(100vw - 32px);z-index:2147483647';
     const root = host.attachShadow({mode:'closed'});
-    root.innerHTML=`<style>:host{font:14px Arial;color:#112b46}.box{background:white;border:1px solid #cbd5e1;border-radius:14px;padding:18px;box-shadow:0 8px 36px #0005}h3{margin:0 0 12px;font-size:18px}.actions{display:flex;gap:10px}button{border:0;border-radius:9px;padding:12px 16px;cursor:pointer;background:#e2e8f0;color:#112b46;font:bold 14px Arial}#start{background:#2563eb;color:white}button:disabled{opacity:.5;cursor:default}p{margin:12px 0 0;line-height:1.45;overflow-wrap:anywhere}small{display:block;margin-top:6px;color:#64748b}#error{color:#b91c1c}a{display:block;margin-top:12px;color:#1d4ed8;cursor:pointer}input{display:none}</style><div class="box"><h3>Mile CN23 · 0.2.0</h3><div class="actions"><button id="upload">Upload Excel</button><button id="start" disabled>Start</button></div><input id="file" type="file" accept=".xlsx"><p id="status" role="status">Pilih Excel Antrean CN23.</p><small id="fileName"></small><p id="error" role="alert"></p><a id="results" hidden>Unduh hasil & resi</a></div>`;
+    root.innerHTML=`<style>:host{font:14px Arial;color:#112b46}.box{background:white;border:1px solid #cbd5e1;border-radius:14px;padding:18px;box-shadow:0 8px 36px #0005}h3{margin:0 0 12px;font-size:18px}.actions{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:9px;padding:12px 16px;cursor:pointer;background:#e2e8f0;color:#112b46;font:bold 14px Arial}#start{background:#2563eb;color:white}button:disabled{opacity:.5;cursor:default}p{margin:12px 0 0;line-height:1.45;overflow-wrap:anywhere}small{display:block;margin-top:6px;color:#64748b}#error{color:#b91c1c}input{display:none}</style><div class="box"><h3>Mile CN23 · ${MileCN23.VERSION}</h3><div class="actions"><button id="upload">Upload Excel</button><button id="start" disabled>Start</button><button id="reset" disabled>Reset</button></div><input id="file" type="file" accept=".xlsx"><p id="status" role="status">Pilih Excel Antrean CN23.</p><small id="fileName"></small><p id="error" role="alert"></p></div>`;
     document.body.append(host);
     const get=id=>root.getElementById(id);
     let state={rows:[]},busy=false,localError='';
-    async function task(fn){if(busy)return;busy=true;localError='';get('error').textContent='';try{await fn();}catch(error){localError=error.message;get('error').textContent=localError;}finally{busy=false;}}
+    async function task(fn){if(busy)return;busy=true;localError='';get('error').textContent='';try{await fn();}catch(error){localError=error.message;get('error').textContent=localError;render();}finally{busy=false;}}
     function render(){
       const doneCount=state.rows.filter(row=>row.status==='done').length;
       get('fileName').textContent=state.fileName||'';
+      const active=state.rows.find(row=>row.id===state.active?.id);
+      const phase=state.active?.submittedAt?'Menunggu resi':state.active?.phase==='customer_loading'?'Memuat pelanggan':state.active?'Mengisi':state.waitingNewForm?'Menunggu form berikutnya':state.running?'Melanjutkan':'Siap';
       get('status').textContent=state.completedAt&&doneCount===state.rows.length
-        ? `Selesai: ${doneCount}/${state.rows.length} kiriman. Resi sudah tersimpan.`
-        : state.rows.length ? `${doneCount}/${state.rows.length} selesai${state.active?' · '+(state.rows.find(row=>row.id===state.active.id)?.data.recipient_name||'Memproses'):state.running?' · Melanjutkan…':' · Siap'}` : 'Pilih Excel Antrean CN23.';
+        ? `Selesai: ${doneCount}/${state.rows.length} kiriman.`
+        : state.rows.length ? `${doneCount}/${state.rows.length} selesai · ${phase}${active?' · '+active.data.recipient_name:''}${state.skippedCompleted?' · '+state.skippedCompleted+' data yang sudah berhasil dilewati':''}` : 'Pilih Excel Antrean CN23.';
       get('error').textContent=state.error||localError;
       get('start').textContent=state.running?'Jeda':'Start';
       get('start').disabled=!state.running&&(Boolean(state.active)||!state.rows.some(row=>['ready','error'].includes(row.status))||state.rows.some(row=>row.status==='unknown'));
       get('upload').disabled=Boolean(state.active)||state.running;
-      get('results').hidden=!state.rows.length;
+      get('reset').disabled=!state.rows.length;
+      if(localError&&!state.running)get('start').disabled=true;
       if (!state.completedAt) document.getElementById('mile-cn23-complete')?.remove();
     }
     async function refresh(){state=await request('GET');render();}
@@ -52,10 +55,8 @@
     get('start').addEventListener('click',()=>task(async()=>{
       state=await request(state.running?'PAUSE':'RUN',{tabId});render();
     }));
-    get('results').addEventListener('click',()=>task(async()=>{
-      await refresh();const workbook=XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook,XLSX.utils.json_to_sheet(state.rows.map(row=>({...row.data,hasil_status:row.status,nomor_resi:row.receipt?.code||'',tautan_resi:row.receipt?.url||'',catatan:row.error||''}))),'HASIL_CN23');
-      XLSX.writeFile(workbook,'Hasil_CN23.xlsx');
+    get('reset').addEventListener('click',()=>task(async()=>{
+      state=await request('RESET');get('file').value='';localError='';render();
     }));
     menu={host,timer:setInterval(()=>{if(!busy)void refresh().catch(()=>{});},1000)};
     void task(refresh);
@@ -65,5 +66,5 @@
     else if(message.type==='CN23_BATCH_DONE'){done(message.total);reply({accepted:true});}
     return false;
   });
-  request('PAGE_READY').then(state=>{if(state?.completedAt&&state.done===state.total&&state.total)done(state.total);}).catch(()=>{});
+  request('PAGE_READY').then(state=>{if(state?.openPanel)show(state.tabId);if(state?.completedAt&&state.done===state.total&&state.total)done(state.total);}).catch(()=>{});
 })();

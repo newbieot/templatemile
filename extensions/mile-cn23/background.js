@@ -4,13 +4,13 @@ const Q=MileCN23;
 const KEY='mileCn23Queue';
 let chain=Promise.resolve();
 const serial=fn=>{const p=chain.then(fn);chain=p.catch(()=>{});return p;};
-const blank=()=>({version:2,rows:[],running:false,active:null,error:'',seenReceipts:[],completedQueueIds:[],options:{autoAdvance:true,autoSubmit:true,maxCost:0}});
+const blank=()=>({version:3,helperVersion:Q.VERSION,rows:[],running:false,active:null,error:'',seenReceipts:[],completedQueueIds:[],pendingSubmissions:[],options:{autoAdvance:true,autoSubmit:true,maxCost:0}});
 async function read(){return (await chrome.storage.local.get(KEY))[KEY]||blank();}
 async function save(s){await chrome.storage.local.set({[KEY]:s});return s;}
 async function mileTabs(){return chrome.tabs.query({url:'https://expos.mile.app/*'});}
 function checkPanel(sender){
   const embedded=sender.tab?.id&&sender.url?.startsWith('https://expos.mile.app/');
-  if(sender.id!==chrome.runtime.id||(!embedded&&sender.url?.split('?')[0]!==chrome.runtime.getURL('panel.html')))throw new Error('Perintah harus berasal dari menu ekstensi pada Mile.');
+  if(sender.id!==chrome.runtime.id||!embedded)throw new Error('Perintah harus berasal dari menu ekstensi pada Mile.');
 }
 function checkActive(s,m,sender){if(!s.active||s.active.token!==m.token||sender.tab?.id!==s.tabId)throw new Error('Pesan bukan dari kiriman atau tab aktif.');}
 async function start(s){
@@ -24,7 +24,7 @@ async function start(s){
   row.status='filling';row.error='';
   s.active={id:row.id,token:crypto.randomUUID(),startedAt:Date.now(),baseline,phase:'filling'};
   s.running=true;s.error='';s.formReady=false;s.formReturnExpected=false;delete s.completedAt;await save(s);
-  try { const ack=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_FILL',token:s.active.token,row:row.data,options:s.options}); if(!ack?.accepted)throw new Error(ack?.error||'Form belum siap menerima antrean.'); }
+  try { const ack=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_FILL',token:s.active.token,row:row.data,options:s.options}); if(!ack?.accepted)throw new Error(ack?.error||'Form belum siap menerima antrean.'); if(ack.formId){s.active.formId=ack.formId;await save(s);} }
   catch(error){row.status='error';row.error=error.message;s.error=error.message;s.running=false;s.active=null;await save(s);}
   return s;
 }
@@ -41,26 +41,60 @@ async function returnFromList(s,url){
   s.formReturnExpected=true;s.formReady=false;await save(s);
   await chrome.tabs.update(s.tabId,{url:Q.FORM_URL});return true;
 }
+async function resumeWaiting(s){
+  if(!s.running||!s.waitingNewForm||s.active)return s;
+  const tab=await chrome.tabs.get(s.tabId).catch(()=>null);
+  if(tab?.url!==Q.FORM_URL)return s;
+  const probe=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_PROBE'}).catch(()=>null);
+  s.probeSupported=probe?.version===Q.VERSION;
+  if(probe?.ready&&probe.blank&&!probe.busy&&probe.version===Q.VERSION){
+    s.formReady=true;delete s.waitingNewForm;delete s.formWait;return start(s);
+  }
+  s.formWait=probe?.missing?.length?'Menunggu kolom '+probe.missing.join(', '):'Menunggu form CN23 kosong siap';
+  return save(s);
+}
+function archive(s){
+  return [...(s.history||[]),...(s.rows.length?[{fileName:s.fileName,batchId:s.batchId,at:Date.now(),rows:s.rows.map(r=>({...r}))}]:[])].slice(-10);
+}
 async function command(m,sender){
   const s=await read();
-  const panelTypes=['GET','IMPORT','RUN','PAUSE','RETRY','MANUAL_RECEIPT','CLEAR','TABS','OPEN_MILE'];
+  const panelTypes=['GET','IMPORT','RUN','PAUSE','RESET','RETRY','MANUAL_RECEIPT','CLEAR','TABS','OPEN_MILE'];
   if(panelTypes.includes(m.type))checkPanel(sender);
   if(m.type==='PAGE_READY'){
     if(sender.tab?.id!==s.tabId)return {ignored:true};
     await returnFromList(s,sender.tab.url);
-    return {running:s.running,completedAt:s.completedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length,error:s.error};
+    const openPanel=Boolean(s.resetPanel);if(openPanel){s.resetPanel=false;await save(s);}
+    return {running:s.running,completedAt:s.completedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length,error:s.error,openPanel,tabId:s.tabId};
   }
-  if(m.type==='GET'){if(Q.recoverInterrupted(s))await save(s);return s;}
+  if(m.type==='GET'){s.helperVersion=Q.VERSION;if(Q.recoverInterrupted(s))await save(s);return resumeWaiting(s);}
   if(m.type==='TABS')return mileTabs();
   if(m.type==='OPEN_MILE'){const tab=await chrome.tabs.create({url:Q.FORM_URL});return {tabId:tab.id};}
   if(m.type==='IMPORT'){
     if(s.active)throw new Error('Antrean masih memiliki kiriman aktif atau hasil belum pasti. Periksa dahulu sebelum mengganti file.');
     if(s.rows.some(r=>!['done','ready'].includes(r.status)))throw new Error('Periksa kiriman bermasalah di antrean lama sebelum mengganti file.');
     if(s.rows.some(r=>r.status==='done')&&s.rows.some(r=>r.status!=='done'))throw new Error('Selesaikan antrean lama sebelum mengganti file.');
-    const rows=Q.validateRows(m.rows);
-    if(rows.some(row=>(s.completedQueueIds||[]).includes(row.id)))throw new Error('Ada ID kiriman yang sudah selesai di Chrome ini. Jangan impor ulang antrean yang telah dikirim.');
-    const next={...blank(),batchId:String(m.batchId),fileName:String(m.fileName),rows,seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[],history:[...(s.history||[]),...(s.rows.length&&s.rows.every(r=>r.status==='done')?[{fileName:s.fileName,batchId:s.batchId,completedAt:s.completedAt,rows:s.rows.map(r=>({id:r.id,name:r.data.recipient_name,receipt:r.receipt}))}]:[])].slice(-5)};
+    const imported=Q.validateRows(m.rows);
+    if(imported.some(row=>(s.pendingSubmissions||[]).some(item=>item.row.id===row.id)))throw new Error('Ada kiriman yang sudah ditekan Selesai tetapi resinya belum pasti. Gunakan data baru; kiriman itu tidak boleh dikirim ulang.');
+    const rows=imported.filter(row=>!(s.completedQueueIds||[]).includes(row.id));
+    if(!rows.length)throw new Error('Semua ID kiriman dalam Excel sudah berhasil dibuat. Upload data baru.');
+    const next={...blank(),batchId:String(m.batchId),fileName:String(m.fileName),rows,skippedCompleted:imported.length-rows.length,seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[],pendingSubmissions:s.pendingSubmissions||[],history:archive(s)};
     return save(next);
+  }
+  if(m.type==='RESET'){
+    const active=s.active;
+    const pending=[...(s.pendingSubmissions||[])];
+    if(active?.submittedAt){
+      const row=s.rows.find(r=>r.id===active.id);
+      if(row&&!pending.some(item=>item.row.id===row.id))pending.push({row:{...row,status:'unknown'},active:{...active},tabId:s.tabId});
+    }
+    const next={...blank(),tabId:s.tabId||sender.tab?.id,resetPanel:Boolean(active),history:archive(s),pendingSubmissions:pending,seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[]};
+    await save(next); // Revoke the token before a queued old SUBMIT_INTENT can be accepted.
+    const tabId=s.tabId||sender.tab?.id;
+    if(tabId){
+      await chrome.tabs.sendMessage(tabId,{type:'CN23_RESET',token:active?.token}).catch(()=>{});
+      if(active)await chrome.tabs.update(tabId,{url:Q.FORM_URL});
+    }
+    return next;
   }
   if(m.type==='RUN'){
     s.tabId=Number(sender.tab?.id||m.tabId);s.options={autoAdvance:true,autoSubmit:true,maxCost:0};
@@ -91,7 +125,7 @@ async function command(m,sender){
   }
   if(m.type==='CLEAR'){
     if(s.active||s.rows.some(r=>['filling','review','awaiting_receipt','unknown'].includes(r.status)))throw new Error('Kiriman aktif/hasil belum pasti tidak dapat dihapus.');
-    return save({...blank(),seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[]});
+    return save({...blank(),history:s.history||[],pendingSubmissions:s.pendingSubmissions||[],seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[]});
   }
   if(m.type==='PROGRESS'){
     checkActive(s,m,sender);
@@ -121,6 +155,13 @@ async function command(m,sender){
   }
   if(m.type==='RECEIPT'){
     const id=Q.receiptId(sender.tab?.url);
+    const held=(s.pendingSubmissions||[]).find(item=>id&&!s.seenReceipts.includes(id)&&!item.active.baseline.includes(id)&&
+      (sender.tab.id===item.tabId||sender.tab.openerTabId===item.tabId)&&Q.receiptMatches(item.row.data,m.evidence));
+    if(held){
+      s.seenReceipts.push(id);(s.completedQueueIds||=[]).push(held.row.id);
+      s.pendingSubmissions=s.pendingSubmissions.filter(item=>item!==held);
+      await save(s);return {receiptAccepted:true,archived:true};
+    }
     if(!id||!s.active?.submittedAt||s.seenReceipts.includes(id)||s.active.baseline.includes(id))return {ignored:true};
     if(sender.tab.id!==s.tabId&&sender.tab.openerTabId!==s.tabId){
       const fresh=s.freshReceiptTabs?.[sender.tab.id];
@@ -136,19 +177,22 @@ async function command(m,sender){
     if(s.running){
       if(!s.rows.some(row=>row.status==='ready')){await finishBatch(s);return {...s,receiptAccepted:true};}
       s.waitingNewForm=true;await save(s);
+      await resumeWaiting(s);
+      if(s.active)return {...s,receiptAccepted:true};
       const tab=await chrome.tabs.get(s.tabId).catch(()=>null);
-      if(s.formReady&&tab?.url===Q.FORM_URL){delete s.waitingNewForm;await start(s);}
-      else await chrome.tabs.update(s.tabId,{url:Q.FORM_URL});
+      if(s.formReady&&tab?.url===Q.FORM_URL&&!s.probeSupported){delete s.waitingNewForm;await start(s);}
+      else if(tab?.url!==Q.FORM_URL||!s.probeSupported)await chrome.tabs.update(s.tabId,{url:Q.FORM_URL});
       return {...s,receiptAccepted:true};
     }
     s.running=false;await save(s);return {...s,receiptAccepted:true};
   }
   if(m.type==='FORM_READY'){
     if(sender.tab?.id!==s.tabId)return {ignored:true};
+    if(m.blank===false||m.busy||m.path&&m.path!=='/new-transaction-custom'||m.version&&m.version!==Q.VERSION)return {ignored:true};
     // The initial page-ready acknowledgement can arrive after RUN. It describes the
     // form being filled, not an empty form for the NEXT shipment. Never reuse it.
-    if(s.active?.submittedAt&&s.formReturnExpected){
-      if(s.active.documentId&&sender.documentId===s.active.documentId)return {ignored:true};
+    if(s.active?.submittedAt&&(s.formReturnExpected||(m.blank===true&&m.formId&&m.formId!==s.active.formId))){
+      if(s.active.documentId&&sender.documentId===s.active.documentId&&(!m.formId||m.formId===s.active.formId))return {ignored:true};
       s.formReady=true;return save(s);
     }
     if(s.active?.documentId&&sender.documentId&&s.active.documentId!==sender.documentId){
@@ -180,8 +224,8 @@ chrome.tabs.onCreated?.addListener(tab=>{
   void serial(async()=>{const s=await read();if(s.active?.submittedAt){(s.freshReceiptTabs||={})[tab.id]=Date.now();await save(s);}});
 });
 chrome.tabs.onUpdated?.addListener((id,change,tab)=>{
-  if(!change.url)return;
-  void serial(async()=>{const s=await read();if(id===s.tabId)await returnFromList(s,change.url||tab.url);});
+  if(!change.url&&change.status!=='complete')return;
+  void serial(async()=>{const s=await read();if(id===s.tabId){await returnFromList(s,change.url||tab.url);if(change.status==='complete')await resumeWaiting(await read());}});
 });
 chrome.alarms.onAlarm.addListener(alarm=>{
   if(alarm.name==='cn23-watch')void serial(async()=>{const s=await read();if(Q.recoverInterrupted(s))await save(s);});
