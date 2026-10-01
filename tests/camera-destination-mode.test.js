@@ -83,6 +83,13 @@ function environment(mode = 'batam', session = null) {
 }
 
 async function captureSnapshots() {
+  for (const requested of ['', 'batam', 'cn23', 'mixed']) {
+    const env = environment('batam');
+    env.window.location.search = requested ? `?destinationMode=${requested}` : '';
+    env.run('assets/js/camera.js', 'updateBatchUi = () => {}; restoreLatestDraft = async () => false; window.bindCameraFixture = bind;');
+    env.window.bindCameraFixture();
+    assert.equal(env.selector.value, requested || 'mixed', 'New web captures support both destinations; explicit choices are respected.');
+  }
   for (const mode of ['batam', 'cn23', 'mixed']) {
     const env = environment(mode);
     env.run('assets/js/camera.js', `
@@ -199,7 +206,7 @@ async function cloudProfilesAndReview() {
   await cloudProfilesAndReview();
   for (const file of ['app.html', 'beta.html', 'review.html', 'camera.html']) {
     const html = fs.readFileSync(path.join(root, file), 'utf8');
-    assert.match(html, /value="batam" selected/);
+    assert.match(html, file === 'camera.html' ? /value="mixed" selected/ : /value="batam" selected/);
     assert.match(html, /value="cn23"/); assert.match(html, /value="mixed"/);
     if (file !== 'camera.html') {
       assert.match(html, /id="exportBatamButton"[^>]*hidden/);

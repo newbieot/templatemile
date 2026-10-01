@@ -1669,10 +1669,10 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             const ready = match.status === 'matched' && selected;
             row.zip = ready ? selected.postcode : '';
             const message = ready
-                ? `${match.confirmed ? 'Pilihan petugas' : 'Cocok database'}: ${selected.postcode}`
-                : match.status === 'ambiguous' ? 'Pilih wilayah yang sesuai label'
+                ? `${match.confirmed ? 'Pilihan petugas' : 'Kode pos otomatis'}: ${selected.postcode}`
+                : match.status === 'ambiguous' ? 'Ada beberapa lokasi bernama sama. Periksa alamat penerima pada foto.'
                 : match.status === 'unavailable' ? (nationalPostcodeLoadError || 'Memuat database kode pos nasional…')
-                : 'Wilayah belum ditemukan. Cari atau lengkapi alamat.';
+                : 'Alamat belum cukup jelas untuk menentukan kode pos. Periksa tulisan pada foto.';
             const candidates = match.candidates || [];
             const choices = candidates.length && !ready ? `<select class="table-input national-postcode-choice" aria-label="Pilih wilayah tujuan">
                 <option value="">-- Pilih wilayah tujuan --</option>
@@ -1682,7 +1682,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             return `<td class="national-postcode-review" data-postcode-status="${ready ? 'matched' : escapeAttribute(match.status)}">
                 ${getDestinationMode() === 'mixed' ? `<strong>${getShipmentRoute(row) === 'batam' ? 'Batam · Excel Mile' : getShipmentRoute(row) === 'cn23' ? 'Luar kota · Antrean CN23' : 'Tujuan perlu diperiksa'}</strong>` : ''}
                 <span>${escapeAttribute(message)}</span>${selectedLabel}${choices}
-                <input type="text" class="table-input national-postcode-query" value="${escapeAttribute(row._nationalPostcodeQuery || '')}" aria-label="Cari desa kecamatan atau kode pos" placeholder="Cari desa/kecamatan/kode pos">
+                ${!ready ? '<small>Pilih desa/kelurahan, kecamatan, dan kabupaten/kota yang tertulis pada foto; kode pos diisi otomatis.</small>' : ''}
+                ${!ready || match.confirmed || row._nationalPostcodeQuery ? `<input type="text" class="table-input national-postcode-query" value="${escapeAttribute(row._nationalPostcodeQuery || '')}" aria-label="Cari wilayah dari alamat penerima" placeholder="Cari nama wilayah yang tertulis pada foto">` : ''}
             </td>`;
         }
 

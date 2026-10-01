@@ -1,4 +1,4 @@
-const APP_VERSION = '20261001-26.32-cn23-national-camera';
+const APP_VERSION = '20261001-26.33-camera-postcode-auto';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -38,7 +38,8 @@ const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',
   '/icon-192.png', '/icon-512.png', '/og-cover.png', '/site.webmanifest',
   '/robots.txt', '/404.html', '/assets/css/login-v16.css', '/assets/js/login-v16.js',
-  '/downloads/Mile-Camera-0.1.1.apk', '/downloads/Mile-Camera-0.1.3.apk',
+  '/downloads/Mile-Camera-0.1.1.apk', '/downloads/Mile-Camera-0.1.3.apk', '/downloads/Mile-Camera-0.1.4.apk',
+  '/downloads/Mile-Camera-0.1.4-source.zip',
   '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 
@@ -1218,7 +1219,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
-  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3)\.apk$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4)\.apk$/.test(path) && response.ok) {
     headers.set('content-type', 'application/vnd.android.package-archive');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
@@ -1250,7 +1251,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/downloads/Mile-Camera.apk' || url.pathname === '/downloads/Mile-Camera-0.1.0.apk') {
-      return redirect('/downloads/Mile-Camera-0.1.3.apk');
+      return redirect('/downloads/Mile-Camera-0.1.4.apk');
     }
     if (url.hostname === 'templatemile.pages.dev') {
       url.hostname = 'mile.posnew.com';

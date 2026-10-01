@@ -1,6 +1,6 @@
 (function (root) {
   'use strict';
-  const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-2';
+  const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-3';
   const MAX_CANDIDATES = 100;
   let records = [];
   let tokenIndex = new Map();
@@ -15,7 +15,7 @@
 
   function aliases(value) {
     const parts = String(value || '').split(/[\/;]/);
-    return [...new Set(parts.map(normalize).filter(Boolean))];
+    return [...new Set(parts.map(normalize).filter(Boolean))].sort((a, b) => b.length - a.length);
   }
 
   function install(data) {
@@ -80,7 +80,9 @@
 
   function match(address, postcode = '') {
     if (!loaded) return outcome('unavailable', [], 'Database kode pos nasional belum dimuat.');
-    const text = normalize(address);
+    // Expand common administrative abbreviations without changing the label text.
+    const text = normalize(address).replace(/\bINHIL\b/g, 'INDRAGIRI HILIR')
+      .replace(/\bINHU\b/g, 'INDRAGIRI HULU').replace(/\bKEPRI\b/g, 'KEPULAUAN RIAU');
     const padded = ` ${text} `;
     const explicit = String(postcode || '').trim();
     const printed = String(address || '').match(/\b\d{5}\b/g) || [];
@@ -90,10 +92,22 @@
     for (const token of new Set(text.split(' '))) {
       for (const index of tokenIndex.get(token) || []) pool.add(index);
     }
-    const geographic = [];
+    const evidence = [];
     for (const index of pool) {
       const record = records[index];
       const matchedAliases = record.fields.map(field => field.find(alias => padded.includes(` ${alias} `)) || '');
+      if (!matchedAliases.some(Boolean)) continue;
+      evidence.push({ index, matchedAliases });
+    }
+    // PULAU must not compete with PULAU KIJANG merely because both occur in
+    // the same village phrase. Keep whole, most specific names per field.
+    const namesByField = [0, 1, 2, 3].map(field => [...new Set(evidence.map(item => item.matchedAliases[field]).filter(Boolean))]);
+    const containedNames = namesByField.map(names => new Set(names.filter(name =>
+      names.some(longer => longer !== name && ` ${longer} `.includes(` ${name} `)))));
+    const geographic = [];
+    for (const item of evidence) {
+      const { index } = item;
+      const matchedAliases = item.matchedAliases.map((name, field) => containedNames[field].has(name) ? '' : name);
       const hits = matchedAliases.map(Boolean);
       if (!hits.some(Boolean)) continue;
       // A single name repeated in village/district/city is still one piece of evidence.
@@ -101,11 +115,12 @@
       const score = hits.reduce((total, hit, i) => total + (hit ? [4, 3, 2, 1][i] : 0), 0);
       geographic.push({ index, count, score });
     }
-    geographic.sort((a, b) => b.count - a.count || b.score - a.score || a.index - b.index);
-    const bestCount = geographic[0]?.count || 0;
+    const ranked = geographic;
+    ranked.sort((a, b) => b.count - a.count || b.score - a.score || a.index - b.index);
+    const bestCount = ranked[0]?.count || 0;
     // A village and its district/city together outrank isolated name collisions.
     // Single-field matches stay together even when the same word means a village elsewhere.
-    let best = bestCount >= 2 ? geographic.filter(item => item.count === bestCount) : geographic;
+    let best = bestCount >= 2 ? ranked.filter(item => item.count === bestCount) : ranked;
     if (bestCount >= 2) {
       const bestScore = best[0]?.score;
       best = best.filter(item => item.score === bestScore);

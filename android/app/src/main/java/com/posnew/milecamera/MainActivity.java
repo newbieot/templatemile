@@ -256,7 +256,7 @@ public final class MainActivity extends ComponentActivity {
         Ui.gap(page,12); page.addView(Ui.text(this,"Foto rapi.\nKerja lebih cepat.",36,Ui.INK,true),Ui.matchWrap());
         Ui.gap(page,12); TextView introduction=Ui.text(this,"Capture label dan dokumen dengan kamera HP. Periksa hasilnya, lalu lanjutkan ke MILE.",15,Ui.MUTED,false); introduction.setLineSpacing(Ui.dp(this,4),1); page.addView(introduction,Ui.matchWrap());
         Ui.gap(page,18);
-        page.addView(Ui.text(this,"Tujuan kiriman",13,Ui.INK,true),Ui.matchWrap());
+        page.addView(Ui.text(this,"Isi batch foto",13,Ui.INK,true),Ui.matchWrap());
         Ui.gap(page,8);
         String[] destinationModes={"batam","cn23","mixed"};
         String[] destinationLabels={"Lokal Batam","Luar Kota Batam · CN23 Dokumen","Campuran · Lokal + Luar Kota"};
@@ -272,7 +272,7 @@ public final class MainActivity extends ComponentActivity {
             public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
         page.addView(destination,Ui.matchWrap());
-        page.addView(Ui.text(this,store.count()>0?"Mode batch tersimpan. Mulai batch baru untuk mengganti tujuan.":"Campuran dipisah menjadi Excel lokal dan antrean CN23. Alamat yang belum jelas perlu diperiksa.",12,Ui.MUTED,false),Ui.matchWrap());
+        page.addView(Ui.text(this,store.count()>0?"Mode batch tersimpan. Pada hasil AI, gunakan Campuran untuk memproses lokal dan luar kota tanpa menghapus data.":"Gunakan Campuran untuk lokal dan luar kota. Foto label seperti biasa; AI membaca alamat dan kode pos dicocokkan otomatis. Tidak perlu mengetik wilayah sebelum foto.",12,Ui.MUTED,false),Ui.matchWrap());
         Ui.gap(page,26);
         LinearLayout hero=Ui.column(this); hero.setPadding(Ui.dp(this,22),Ui.dp(this,22),Ui.dp(this,22),Ui.dp(this,22)); hero.setBackground(Ui.background(Ui.INK,28,this));
         LinearLayout heroTop=Ui.row(this); heroTop.addView(Ui.text(this,"KAMERA MILE",10,Ui.ACCENT,true),new LinearLayout.LayoutParams(0,-2,1));

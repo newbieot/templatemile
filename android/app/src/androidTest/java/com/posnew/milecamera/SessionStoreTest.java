@@ -26,7 +26,7 @@ public final class SessionStoreTest extends InstrumentationTestCase {
     private Context context;
     public void testDestinationModePersistsAndLocksAfterCapture() throws Exception {
         SessionStore store = new SessionStore(context);
-        assertEquals("batam", store.destinationMode());
+        assertEquals("mixed", store.destinationMode());
         store.setDestinationMode("mixed");
         store.add(noisyPhoto("destination.jpg",1280,720));
         assertEquals("mixed", new SessionStore(context).destinationMode());
@@ -35,6 +35,8 @@ public final class SessionStoreTest extends InstrumentationTestCase {
         assertEquals("mixed", store.destinationMode());
         store.setDestinationMode("cn23");
         assertEquals("cn23", new SessionStore(context).snapshot().getString("destinationMode"));
+        store.reset();
+        assertEquals("New batches support both destinations without setup", "mixed", store.destinationMode());
     }
 
     @Override protected void setUp() throws Exception {

@@ -27,8 +27,16 @@
   }
 
   function getOutsideBatamRows() {
+    if (['cn23', 'mixed'].includes(document.getElementById('destinationMode')?.value)) return [];
     return getDataRows().filter(row => row.dataset.outsideBatamPending === 'true');
   }
+
+  window.chooseMixedDestinationMode = function () {
+    const selector = document.getElementById('destinationMode');
+    if (!selector || selector.disabled) return;
+    selector.value = 'mixed';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+  };
 
   function getOutsideBatamLocation(row) {
     const rowNumber = String(row?.dataset?.rowNumber || row?.querySelector?.('.row-number-cell')?.textContent || '?').trim();
@@ -278,7 +286,7 @@
       const currentInfo = getOutsideBatamLocation(current);
       if (title) title.textContent = `Alamat luar Kota Batam terdeteksi pada No. ${visible}${remaining ? ` dan ${remaining} nomor lainnya` : ''}`;
       if (locationBadge) { locationBadge.textContent = currentInfo.label; locationBadge.hidden = false; }
-      if (hint) hint.textContent = `${currentInfo.label}: “${currentInfo.address || '(alamat kosong)'}”. Alamat wajib diperbaiki hingga jelas menunjukkan Kota Batam, lalu simpan koreksinya. Hapus baris jika tujuan memang di luar Kota Batam.`;
+      if (hint) hint.textContent = 'Mode Lokal Batam masih aktif. Semua data tetap tersimpan. Klik “Pisahkan lokal dan luar kota”; alamat dicocokkan dengan database dan kode pos diisi otomatis. Koreksi alamat hanya jika bacaan AI salah.';
       if (openButton) openButton.textContent = `Buka alamat ${currentInfo.label}`;
       if (keepButton) keepButton.textContent = 'Simpan alamat yang sudah diperbaiki';
       if (keepButton) keepButton.disabled = false;
@@ -294,7 +302,7 @@
       window.setTimeout(() => {
         if (!getCurrentOutsideBatamRow()) return;
         document.getElementById('outsideBatamAlert')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        showToast('Alamat luar Kota Batam terdeteksi. Perbaiki alamat sampai valid untuk Batam atau hapus barisnya.', 'error');
+        showToast('Ada tujuan luar Batam. Klik “Pisahkan lokal dan luar kota” agar semua kiriman tetap diproses.', 'info');
       }, 120);
     } else if (count === 0 && lastOutsideBatamCount > 0) {
       showToast('Semua keputusan alamat luar Kota Batam sudah diselesaikan.', 'success');
@@ -578,9 +586,9 @@
     if (!hint) return;
     const mode = document.getElementById('destinationMode')?.value || 'batam';
     hint.textContent = mode === 'mixed'
-      ? 'Satu batch boleh berisi Batam dan luar kota. Periksa wilayah nasional setiap baris, lalu unduh Excel Batam dan Antrean CN23 sebagai dua file terpisah.'
+      ? 'Foto seperti biasa. AI membaca alamat, kode pos dicocokkan otomatis dengan database. Hanya alamat yang belum jelas perlu diperiksa. Excel Batam dan Antrean CN23 diunduh terpisah.'
       : mode === 'cn23'
-        ? 'Dokumen luar Kota Batam disiapkan sebagai Antrean CN23. Periksa wilayah dan kode pos nasional; antrean ini dipakai untuk alat bantu entri CN23.'
+        ? 'AI membaca alamat dan kode pos dicocokkan otomatis dengan database. Hanya alamat yang belum jelas perlu diperiksa, lalu unduh Antrean CN23 dokumen.'
         : 'Kiriman tujuan Batam disiapkan sebagai Excel untuk unggah Mile App.';
   }
 
@@ -616,9 +624,9 @@
     if (exportButton) {
       exportButton.disabled = rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0 || pendingPostalCount > 0;
       exportButton.title = pendingPostalCount > 0
-        ? 'Pilih wilayah dan kode pos yang cocok untuk semua tujuan sebelum ekspor.'
+        ? 'Periksa alamat yang belum dapat dicocokkan otomatis sebelum ekspor.'
         : outsideBatamCount > 0
-        ? 'Perbaiki atau hapus semua alamat luar Kota Batam sebelum ekspor.'
+        ? 'Klik Pisahkan lokal dan luar kota untuk memproses semua tujuan.'
         : reviewRowCount > 0
           ? 'Koreksi semua teks “perlu dicek” sebelum ekspor.'
           : '';
@@ -634,7 +642,7 @@
       } else if (outsideBatamCount > 0) {
         status.classList.add('is-warning');
         const nums = getOutsideBatamRows().slice(0, 4).map(row => getOutsideBatamLocation(row).rowNumber).join(', ');
-        status.innerHTML = `<span class="status-dot"></span>Keputusan alamat luar Batam No. ${nums}${outsideBatamCount > 4 ? '…' : ''}`;
+        status.innerHTML = `<span class="status-dot"></span>Pilih alur lokal/luar kota untuk No. ${nums}${outsideBatamCount > 4 ? '…' : ''}`;
       } else if (reviewRowCount > 0) {
         status.classList.add('is-warning');
         const nums = getPendingReviewRowNumbers().slice(0, 4).join(', ');
@@ -723,6 +731,7 @@
   };
 
   function trackFieldChanges() {
+    document.getElementById('useMixedDestinationButton')?.addEventListener('click', window.chooseMixedDestinationMode);
     ['destinationMode', 'clientMode', 'corporateTemplate', 'useInsurance'].forEach(id => {
       document.getElementById(id)?.addEventListener('change', () => window.setTimeout(syncDashboard, 0));
     });

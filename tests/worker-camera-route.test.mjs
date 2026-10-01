@@ -37,7 +37,7 @@ const env = {
   ASSETS: {
     async fetch(request) {
       const pathname = new URL(request.url).pathname;
-      if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3)\.apk$/.test(pathname)) return new Response(new Uint8Array([0x50,0x4b,3,4]), { headers: { 'content-type': 'application/octet-stream' } });
+      if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4)\.apk$/.test(pathname)) return new Response(new Uint8Array([0x50,0x4b,3,4]), { headers: { 'content-type': 'application/octet-stream' } });
       if (pathname === '/downloads/Mile-CN23-Helper-0.1.0.zip') return new Response(new Uint8Array([0x50,0x4b,3,4]));
       if (pathname === '/camera') return new Response('<title>Camera Capture Batch</title>', { headers: { 'content-type': 'text/html' } });
       if (pathname === '/review') return new Response('<title>Review Hasil Kamera</title>', { headers: { 'content-type': 'text/html' } });
@@ -57,12 +57,12 @@ const apk = await workerModule.default.fetch(new Request('https://mile.posnew.co
 assert.equal(apk.status, 200);
 assert.equal(apk.headers.get('content-type'), 'application/vnd.android.package-archive');
 assert.equal(apk.headers.get('content-disposition'), 'attachment; filename="Mile-Camera-0.1.1.apk"');
-const newApk = await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/Mile-Camera-0.1.3.apk'), env);
-assert.equal(newApk.status, 200); assert.equal(newApk.headers.get('content-disposition'), 'attachment; filename="Mile-Camera-0.1.3.apk"');
+const newApk = await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/Mile-Camera-0.1.4.apk'), env);
+assert.equal(newApk.status, 200); assert.equal(newApk.headers.get('content-disposition'), 'attachment; filename="Mile-Camera-0.1.4.apk"');
 const extensionZip = await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/Mile-CN23-Helper-0.1.0.zip'), env);
 assert.equal(extensionZip.status, 200); assert.equal(extensionZip.headers.get('content-type'), 'application/zip');
 const latestApk = await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/Mile-Camera.apk'), env);
-assert.equal(latestApk.headers.get('location'), '/downloads/Mile-Camera-0.1.3.apk');
+assert.equal(latestApk.headers.get('location'), '/downloads/Mile-Camera-0.1.4.apk');
 assert.deepEqual(new Uint8Array(await apk.arrayBuffer()), new Uint8Array([0x50,0x4b,3,4]));
 assert.equal((await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/other.apk'), env)).status, 302);
 
@@ -71,7 +71,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20261001-26.32-cn23-national-camera');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20261001-26.33-camera-postcode-auto');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);

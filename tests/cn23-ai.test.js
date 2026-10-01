@@ -116,7 +116,8 @@ const normalized = (address, options = {}) => ai.normalizeRows([{
 
   const prompt = ai.buildPrompt(1, 1, { cameraDirect: true, destinationMode: 'cn23' });
   assert.match(prompt, /seluruh Indonesia/);
-  assert.match(prompt, /jangan menambahkan BATAM/);
+  assert.match(prompt, /jangan menambahkan BATAM/i);
+  assert.match(prompt, /seluruh nama desa\/kelurahan, kecamatan, kabupaten\/kota/);
   assert.match(prompt, /di_luar_batam hanya informasi/);
   const auditPrompt = ai.buildVerificationPrompt(1, 1, [], { destinationMode: 'cn23' });
   assert.match(auditPrompt, /kode transaksi yang bukan kode pos tujuan/);
@@ -166,6 +167,10 @@ const normalized = (address, options = {}) => ai.normalizeRows([{
   assert.equal(school.zip, '29274');
   assert.equal(school.outsideBatam, true);
   assert.doesNotMatch(school.address, /BATAM/);
+  const screenshot = normalized('JL. PENDIDIKAN PULAU KIJANG INHIL-RIAU.', { destinationMode: 'mixed' });
+  assert.equal(screenshot.zip, '29273', 'The supplied screenshot address fills the postcode automatically.');
+  assert.equal(screenshot.postcodeSource, 'database');
+  assert.equal(sandbox.__mileCore.getShipmentRoute(screenshot), 'cn23');
   const realAmbiguous = normalized('JL MERDEKA, SUKAMAJU', { destinationMode: 'cn23' });
   assert.equal(realAmbiguous.zip, '');
   assert.equal(sandbox.__mileCore.getNationalPostcodeMatch(realAmbiguous).status, 'ambiguous');

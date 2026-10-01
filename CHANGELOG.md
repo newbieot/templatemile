@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.33 — Kode pos otomatis dan pemulihan kiriman luar Batam, APK 0.1.4
+
+- Mencocokkan nama wilayah lengkap sebelum substring, sehingga Pulau Kijang tidak lagi bertabrakan dengan Pulau. Mengenali INHIL, INHU, dan KEPRI; kode pos pada contoh screenshot otomatis 29273. Konflik kode pos dan nama lokasi ganda tetap membutuhkan pemeriksaan.
+- Alamat yang cocok langsung menampilkan kode pos tanpa kolom pencarian wilayah. Prompt AI mempertahankan seluruh baris wilayah penerima untuk pencocokan database.
+- Menambahkan tombol Pisahkan lokal dan luar kota untuk batch lama dalam mode Lokal, tanpa menghapus atau menulis ulang alamat. Peringatan tidak lagi mengarahkan semua kiriman luar kota untuk dihapus.
+- Batch baru APK 0.1.4 dan kamera web tanpa pilihan khusus mulai dengan Campuran. Draft lama mempertahankan mode dan foto. Capture cepat tetap dipakai, sertifikat rilis sama.
+- Menguji pemulihan dan dua workbook terpisah pada DOM review/app/beta sebenarnya, selain regresi database dan normalisasi AI. APK release dan lint berhasil.
+
 ## v26.32 — Dokumen luar kota, batch campuran, APK 0.1.3, dan ekstensi CN23
 
 - Menambahkan tujuan Lokal Batam, CN23 Dokumen Luar Kota, dan Campuran pada kamera/review/app/beta. Mode nasional mempertahankan alamat luar kota, memeriksa database kode pos nasional 81.248 baris, dan menahan alamat ambigu/bertentangan untuk pemeriksaan.

@@ -27,7 +27,7 @@
   function updateDestinationModeHint() {
     const hint = $('destinationModeHint');
     if (hint) hint.textContent = currentDestinationMode() === 'mixed'
-      ? 'Capture Batam dan luar kota dalam satu batch. Hasil dipisah menjadi Excel Batam dan antrean CN23.'
+      ? 'Foto lokal dan luar kota seperti biasa. AI membaca alamat dan kode pos dicocokkan otomatis. Hasil dipisah menjadi Excel Batam dan antrean CN23.'
       : currentDestinationMode() === 'cn23'
       ? 'Dokumen luar Kota Batam disiapkan untuk antrean CN23 dengan pencocokan kode pos nasional.'
       : 'Hasil disiapkan untuk unggah Excel tujuan Batam.';
@@ -1202,7 +1202,7 @@
     const destinationMode = $('destinationMode');
     if (destinationMode) {
       const requestedMode = new URLSearchParams(window.location.search).get('destinationMode');
-      destinationMode.value = normalizeDestinationMode(requestedMode);
+      destinationMode.value = normalizeDestinationMode(requestedMode || 'mixed');
       updateDestinationModeHint();
       destinationMode.addEventListener('change', () => {
         updateDestinationModeHint();

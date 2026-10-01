@@ -35,6 +35,16 @@ function service(fetch) {
     assert.equal(result.selected.village, 'PENGALIHAN / PENGALEHAN');
   }
   const broad = api.match('Keritang');
+  for (const address of ['JL. PENDIDIKAN PULAU KIJANG INHIL-RIAU.', 'PULAU KIJANG RIAU', 'PULAU KIJANG']) {
+    const result = api.match(address);
+    assert.equal(result.status, 'matched', 'The whole village phrase must beat its shorter substring: ' + address);
+    assert.equal(result.postcode, '29273');
+    assert.equal(result.selected.village, 'PULAU KIJANG');
+    assert.equal(result.selected.city, 'INDRAGIRI HILIR');
+  }
+  assert.equal(api.match('PULAU KIJANG INHIL', '28463').status, 'ambiguous', 'Long-name matching cannot override a conflicting printed postcode.');
+  assert.equal(api.match('BELIAN BATAM KOTA BATAM KEPRI').postcode, '29464');
+  assert.equal(api.match('PULAU').status, 'ambiguous', 'A broad word alone still needs more evidence.');
   assert.equal(broad.status, 'ambiguous');
   assert.equal(broad.postcode, '');
   assert.ok(broad.candidates.some(candidate => candidate.district === 'KEMUNING'));

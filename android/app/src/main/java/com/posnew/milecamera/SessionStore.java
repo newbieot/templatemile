@@ -48,7 +48,8 @@ final class SessionStore {
 
     private void createEmpty() throws Exception {
         session = new JSONObject().put("id", "CAM-" + UUID.randomUUID()).put("startedAt", Instant.now().toString())
-            .put("deviceName", Build.MANUFACTURER + " " + Build.MODEL).put("photos", new JSONArray()).put("transferred", false);
+            .put("deviceName", Build.MANUFACTURER + " " + Build.MODEL).put("photos", new JSONArray()).put("transferred", false)
+            .put("destinationMode", "mixed");
     }
 
     synchronized int count() { return session.optJSONArray("photos").length(); }
@@ -315,7 +316,6 @@ final class SessionStore {
 
     synchronized void markTransferred() throws Exception { session.put("transferred", true); persist(); }
     synchronized void reset() throws Exception {
-        String previousMode = destinationMode();
         JSONArray photos = session.getJSONArray("photos");
         for (int i = 0; i < photos.length(); i++) {
             String key = photos.getJSONObject(i).getString("key");
@@ -323,7 +323,6 @@ final class SessionStore {
             thumbnailFile(key).delete();
         }
         createEmpty();
-        session.put("destinationMode", previousMode);
         persist();
     }
     private void persist() throws Exception {

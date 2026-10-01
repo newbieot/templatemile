@@ -1320,7 +1320,7 @@
 
   function buildPrompt(startPage, endPage, options = {}) {
     const nationwideRule = isNationalDestinationMode(getDestinationMode(options))
-      ? '\nAlamat tujuan dapat berada di seluruh Indonesia. Salin wilayah sesuai label, jangan menambahkan BATAM, dan jangan menebak kode pos yang tidak tercetak. di_luar_batam hanya informasi wilayah; tetap buat row untuk setiap alamat luar Batam.'
+      ? '\nAlamat tujuan dapat berada di seluruh Indonesia. Salin seluruh nama desa/kelurahan, kecamatan, kabupaten/kota, provinsi, dan singkatan wilayah yang tertulis pada label ke alamat_penerima, jangan menghilangkan bagian wilayah meskipun berada pada baris terpisah. Jangan menambahkan BATAM, dan jangan menebak kode pos yang tidak tercetak. Kode pos yang tidak tercetak akan dicocokkan otomatis dengan database oleh aplikasi. di_luar_batam hanya informasi wilayah; tetap buat row untuk setiap alamat luar Batam.'
       : '';
     const readabilityRule = options.cameraDirect
       ? 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca. Gunakan "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca. Bila teks masih terbaca tetapi ada keraguan kecil, pertahankan bacaannya dan tandai kolom di perlu_dicek_fields untuk pemeriksaan operator.'
@@ -1354,7 +1354,7 @@ Format Wajib:
       ? 'Abaikan CABANG BATAM dan kode transaksi yang bukan kode pos tujuan.'
       : 'Abaikan CABANG BATAM, kode mandiri 5-8 digit.';
     const nationwideRule = nationalMode
-      ? '\n- Tujuan dapat berada di seluruh Indonesia. Pertahankan wilayah dan kode pos yang tercetak, jangan menambahkan BATAM atau menebak kode pos. Alamat luar Batam tetap disertakan; di_luar_batam hanya informasi.'
+      ? '\n- Tujuan dapat berada di seluruh Indonesia. Pertahankan seluruh nama desa/kelurahan, kecamatan, kabupaten/kota, provinsi, singkatan wilayah, dan kode pos yang tercetak dalam alamat_penerima; jangan menghilangkan baris wilayah. Jangan menambahkan BATAM atau menebak kode pos. Alamat luar Batam tetap disertakan; di_luar_batam hanya informasi.'
       : '';
     const pages = [...new Set((options.pages || draftRows.map(row => row?.page)).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
     const pageLabel = pages.length ? pages.join(', ') : `${startPage}–${endPage}`;
