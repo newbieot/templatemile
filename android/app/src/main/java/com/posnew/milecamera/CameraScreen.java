@@ -4,10 +4,13 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
+import android.graphics.ImageFormat;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaActionSound;
+import android.os.SystemClock;
+import android.util.Log;
 import android.util.Rational;
 import android.view.GestureDetector;
 import android.view.Gravity;
@@ -18,12 +21,15 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.activity.ComponentActivity;
+import androidx.annotation.OptIn;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.FocusMeteringResult;
+import androidx.camera.core.ExperimentalZeroShutterLag;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.ImageProxy;
 import androidx.camera.core.MeteringPoint;
 import androidx.camera.core.Preview;
 import androidx.camera.core.UseCaseGroup;
@@ -35,7 +41,11 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
-import java.io.File;
+import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +57,13 @@ final class CameraScreen extends FrameLayout {
     private final PreviewView preview;
     private final FrameLayout overlays;
     private final View captureFlash;
+    private static final String PERF_TAG = "MileCameraPerf";
+    private static final int MAX_CAMERA_REQUESTS = 3;
+    private static final int MAX_OUTSTANDING_CAPTURES = 6;
     private final ExecutorService soundIo=Executors.newSingleThreadExecutor();
+    private final ExecutorService captureExecutor=Executors.newSingleThreadExecutor();
+    private final Object resultLock=new Object();
+    private final Map<Long,CaptureResult> completedCaptures=new HashMap<>();
     private MediaActionSound shutterSound;
     private final FocusOverlay focusOverlay;
     private final TextView status, counter, zoom, lamp, finish, gallery;
@@ -55,8 +71,9 @@ final class CameraScreen extends FrameLayout {
     private ProcessCameraProvider provider;
     private Camera camera;
     private ImageCapture imageCapture;
-    private boolean busy, closed, torch, previewReady;
-    private int focusRequest;
+    private boolean busy, closed, torch, previewReady, zslEnabled;
+    private int focusRequest, cameraRequestsInFlight, outstandingCaptures;
+    private long nextCaptureSequence=1, nextQueueSequence=1;
 
     CameraScreen(ComponentActivity activity, SessionStore store, ExecutorService io, Runnable home, Runnable openGallery, Runnable process) {
         super(activity);
@@ -165,20 +182,20 @@ final class CameraScreen extends FrameLayout {
             if (closed) return;
             previewReady=state==PreviewView.StreamState.STREAMING;
             refresh();
-            if (previewReady && !busy && status.getText().toString().equals("Menyiapkan kamera…")) status.setText("Siap capture · ketuk teks untuk fokus");
+            if (previewReady && cameraRequestsInFlight==0 && status.getText().toString().equals("Menyiapkan kamera…")) status.setText(zslEnabled?"Siap capture · ZSL aktif · ketuk teks untuk fokus":"Siap capture · ketuk teks untuk fokus");
         });
         refresh();
         GestureDetector taps=new GestureDetector(activity,new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent event) { return true; }
             @Override public boolean onSingleTapUp(MotionEvent event) {
                 preview.performClick();
-                if (!busy && previewReady && camera!=null) focusAt(event.getX(),event.getY());
+                if (cameraRequestsInFlight==0 && previewReady && camera!=null) focusAt(event.getX(),event.getY());
                 return true;
             }
         });
         ScaleGestureDetector pinch=new ScaleGestureDetector(activity,new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override public boolean onScale(ScaleGestureDetector detector) {
-                if (camera==null || busy || closed || camera.getCameraInfo().getZoomState().getValue()==null) return true;
+                if (camera==null || cameraRequestsInFlight>0 || closed || camera.getCameraInfo().getZoomState().getValue()==null) return true;
                 androidx.camera.core.ZoomState state=camera.getCameraInfo().getZoomState().getValue();
                 float ratio=Math.max(state.getMinZoomRatio(),Math.min(state.getMaxZoomRatio(),state.getZoomRatio()*detector.getScaleFactor()));
                 camera.getCameraControl().setZoomRatio(ratio);
@@ -196,6 +213,7 @@ final class CameraScreen extends FrameLayout {
     // Insets move only the controls; the camera surface remains edge to edge.
     void setControlInsets(int left,int top,int right,int bottom) { overlays.setPadding(left,top,right,bottom); }
 
+    @OptIn(markerClass = ExperimentalZeroShutterLag.class)
     private void bindCamera() {
         if (closed || ContextCompat.checkSelfPermission(activity,Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) return;
         if (preview.getDisplay()==null || preview.getWidth()==0 || preview.getHeight()==0) { preview.postOnAnimation(this::bindCamera); return; }
@@ -209,10 +227,19 @@ final class CameraScreen extends FrameLayout {
                     .setResolutionStrategy(new ResolutionStrategy(new android.util.Size(1280,720),ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)).build();
                 Preview live=new Preview.Builder().setResolutionSelector(selector).setTargetRotation(preview.getDisplay().getRotation()).build();
                 live.setSurfaceProvider(preview.getSurfaceProvider());
-                imageCapture=new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                    .setJpegQuality(82).setResolutionSelector(selector).setFlashMode(ImageCapture.FLASH_MODE_OFF)
+
+                boolean useBack=provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA);
+                CameraSelector cameraSelector=useBack?CameraSelector.DEFAULT_BACK_CAMERA:CameraSelector.DEFAULT_FRONT_CAMERA;
+                zslEnabled=false;
+                try {
+                    java.util.List<androidx.camera.core.CameraInfo> infos=cameraSelector.filter(provider.getAvailableCameraInfos());
+                    zslEnabled=!infos.isEmpty() && infos.get(0).isZslSupported();
+                } catch (RuntimeException ignored) { zslEnabled=false; }
+                int captureMode=zslEnabled?ImageCapture.CAPTURE_MODE_ZERO_SHUTTER_LAG:ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY;
+                imageCapture=new ImageCapture.Builder().setCaptureMode(captureMode)
+                    .setJpegQuality(82).setOutputFormat(ImageCapture.OUTPUT_FORMAT_JPEG).setResolutionSelector(selector).setFlashMode(ImageCapture.FLASH_MODE_OFF)
                     .setTargetRotation(preview.getDisplay().getRotation()).build();
-                CameraSelector cameraSelector=provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)?CameraSelector.DEFAULT_BACK_CAMERA:CameraSelector.DEFAULT_FRONT_CAMERA;
+
                 provider.unbindAll();
                 UseCaseGroup.Builder group=new UseCaseGroup.Builder().addUseCase(live).addUseCase(imageCapture);
                 boolean horizontal=preview.getWidth()>preview.getHeight();
@@ -223,10 +250,10 @@ final class CameraScreen extends FrameLayout {
                 camera=provider.bindToLifecycle(activity,cameraSelector,group.build());
                 camera.getCameraControl().setZoomRatio(1f); zoom.setText("1×");
                 lamp.setEnabled(camera.getCameraInfo().hasFlashUnit()); lamp.setAlpha(lamp.isEnabled()?1f:.4f);
-                if (previewReady) status.setText("Siap capture · ketuk teks untuk fokus");
+                if (previewReady) status.setText(zslEnabled?"Siap capture · ZSL aktif · ketuk teks untuk fokus":"Siap capture · ketuk teks untuk fokus");
                 refresh();
             } catch (Exception error) {
-                previewReady=false; imageCapture=null; camera=null; refresh();
+                previewReady=false; imageCapture=null; camera=null; zslEnabled=false; refresh();
                 status.setText("Kamera belum bisa dibuka. Kembali lalu coba lagi.");
                 android.widget.Toast.makeText(activity,"Kamera: "+error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
             }
@@ -249,7 +276,7 @@ final class CameraScreen extends FrameLayout {
         try {
             ListenableFuture<FocusMeteringResult> future=camera.getCameraControl().startFocusAndMetering(action);
             future.addListener(() -> {
-                if (closed || busy || request!=focusRequest) return;
+                if (closed || cameraRequestsInFlight>0 || request!=focusRequest) return;
                 try {
                     boolean success=canFocus && future.get().isFocusSuccessful();
                     status.setText(!canFocus?"Cahaya disesuaikan · lensa fokus tetap":success?"Fokus terkunci · siap capture":"Fokus belum terkunci · ubah jarak kamera");
@@ -262,62 +289,155 @@ final class CameraScreen extends FrameLayout {
     }
 
     private void capture() {
-        if (busy || closed || !previewReady || camera==null || imageCapture==null || store.count()>=SessionStore.MAX_PHOTOS) return;
-        busy=true; ++focusRequest; refresh();
-        // Continuous autofocus runs while framing; shutter no longer waits for a second focus cycle.
-        takePhoto();
+        final long tapNs=SystemClock.elapsedRealtimeNanos();
+        if (closed || !previewReady || camera==null || imageCapture==null) return;
+        if (cameraRequestsInFlight>=MAX_CAMERA_REQUESTS || outstandingCaptures>=MAX_OUTSTANDING_CAPTURES) return;
+        if (store.count()+outstandingCaptures>=SessionStore.MAX_PHOTOS) return;
+
+        final CaptureJob job=new CaptureJob(nextCaptureSequence++,"native-"+UUID.randomUUID(),tapNs,Instant.now().toString());
+        outstandingCaptures++; cameraRequestsInFlight++; busy=true; ++focusRequest;
+        refresh();
+        status.setText(outstandingCaptures>1?"Mengambil "+outstandingCaptures+" foto…":"Mengambil foto…");
+        showTapFeedback();
+
+        try {
+            if (preview.getDisplay()!=null) imageCapture.setTargetRotation(preview.getDisplay().getRotation());
+            job.requestNs=SystemClock.elapsedRealtimeNanos();
+            imageCapture.takePicture(captureExecutor,new ImageCapture.OnImageCapturedCallback() {
+                @Override public void onCaptureStarted() {
+                    job.captureStartedNs=SystemClock.elapsedRealtimeNanos();
+                    activity.runOnUiThread(() -> { if (!closed) showCaptureStartedFeedback(); });
+                }
+                @Override public void onCaptureSuccess(ImageProxy image) {
+                    job.captureCallbackNs=SystemClock.elapsedRealtimeNanos();
+                    job.sensorTimestampNs=image.getImageInfo().getTimestamp();
+                    byte[] jpeg=null;
+                    Exception failure=null;
+                    int rotation=image.getImageInfo().getRotationDegrees();
+                    try {
+                        if (image.getFormat()!=ImageFormat.JPEG || image.getPlanes().length==0) throw new Exception("Format hasil kamera bukan JPEG.");
+                        ByteBuffer buffer=image.getPlanes()[0].getBuffer().duplicate();
+                        jpeg=new byte[buffer.remaining()];
+                        buffer.get(jpeg);
+                        if (jpeg.length==0) throw new Exception("Hasil kamera kosong.");
+                    } catch (Exception error) { failure=error; }
+                    finally { image.close(); }
+                    final byte[] bytes=jpeg;
+                    final Exception error=failure;
+                    activity.runOnUiThread(() -> {
+                        cameraRequestsInFlight=Math.max(0,cameraRequestsInFlight-1);
+                        if (!closed) refresh();
+                    });
+                    enqueueCaptureResult(new CaptureResult(job,bytes,rotation,false,error));
+                }
+                @Override public void onError(ImageCaptureException error) {
+                    job.captureCallbackNs=SystemClock.elapsedRealtimeNanos();
+                    activity.runOnUiThread(() -> {
+                        cameraRequestsInFlight=Math.max(0,cameraRequestsInFlight-1);
+                        if (!closed) refresh();
+                    });
+                    enqueueCaptureResult(new CaptureResult(job,null,0,false,error));
+                }
+            });
+            job.requestReturnNs=SystemClock.elapsedRealtimeNanos();
+        } catch (Exception error) {
+            job.captureCallbackNs=SystemClock.elapsedRealtimeNanos();
+            cameraRequestsInFlight=Math.max(0,cameraRequestsInFlight-1);
+            enqueueCaptureResult(new CaptureResult(job,null,0,false,error));
+            refresh();
+        }
     }
 
-    private void showCaptureFeedback() {
+    private void showTapFeedback() {
         if (closed) return;
-        performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY); shutter.flash();
+        performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+        shutter.flash();
+    }
+
+    private void showCaptureStartedFeedback() {
+        if (closed) return;
         soundIo.execute(() -> {
             try { if (shutterSound!=null) shutterSound.play(MediaActionSound.SHUTTER_CLICK); }
             catch (RuntimeException ignored) { }
         });
         captureFlash.animate().cancel(); captureFlash.setVisibility(View.VISIBLE); captureFlash.setAlpha(.72f);
-        captureFlash.animate().alpha(0f).setDuration(180).withEndAction(() -> captureFlash.setVisibility(View.INVISIBLE)).start();
+        captureFlash.animate().alpha(0f).setDuration(150).withEndAction(() -> captureFlash.setVisibility(View.INVISIBLE)).start();
     }
 
-    private void takePhoto() {
-        if (closed || imageCapture==null) { busy=false; return; }
-        status.setText("Mengambil foto…");
-        final File temporary;
-        try { temporary=File.createTempFile("mile-capture-",".jpg",activity.getCacheDir()); }
-        catch (Exception error) { busy=false; refresh(); status.setText("Foto tidak dapat disiapkan"); return; }
+    private void enqueueCaptureResult(CaptureResult result) {
+        synchronized (resultLock) {
+            completedCaptures.put(result.job.sequence,result);
+            CaptureResult ready;
+            while ((ready=completedCaptures.remove(nextQueueSequence))!=null) {
+                nextQueueSequence++;
+                if (ready.error!=null) completeCaptureFailure(ready.job,ready.error);
+                else submitSave(ready);
+            }
+        }
+    }
+
+    private void submitSave(CaptureResult result) {
         try {
-            if (preview.getDisplay()!=null) imageCapture.setTargetRotation(preview.getDisplay().getRotation());
-            showCaptureFeedback();
-            imageCapture.takePicture(new ImageCapture.OutputFileOptions.Builder(temporary).build(),ContextCompat.getMainExecutor(activity),new ImageCapture.OnImageSavedCallback() {
-                @Override public void onImageSaved(ImageCapture.OutputFileResults result) {
-                    if (!closed) status.setText("Menyimpan foto…");
-                    try {
-                        io.execute(() -> {
-                            Exception failure=null;
-                            try { store.add(temporary); } catch (Exception error) { failure=error; }
-                            finally { temporary.delete(); }
-                            final Exception error=failure;
-                            activity.runOnUiThread(() -> {
-                                busy=false;
-                                if (closed) return;
-                                refresh();
-                                if (error!=null) { status.setText("Foto gagal disimpan · ambil ulang"); android.widget.Toast.makeText(activity,error.getMessage(),android.widget.Toast.LENGTH_LONG).show(); }
-                                else { status.setText("✓ Foto "+store.count()+" tersimpan"); performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY); }
-                            });
-                        });
-                    } catch (java.util.concurrent.RejectedExecutionException error) {
-                        temporary.delete(); busy=false;
-                        if (!closed) { refresh(); status.setText("Foto gagal disimpan · buka kembali kamera"); }
-                    }
-                }
-                @Override public void onError(ImageCaptureException error) {
-                    temporary.delete(); busy=false;
-                    if (closed) return;
-                    refresh(); status.setText("Capture gagal · coba lagi");
-                    android.widget.Toast.makeText(activity,error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
-                }
+            io.execute(() -> {
+                Exception failure=null;
+                try {
+                    store.addCaptured(result.jpeg,result.rotationDegrees,result.flipHorizontal,result.job.captureId,result.job.capturedAt);
+                } catch (Exception error) { failure=error; }
+                final Exception error=failure;
+                final long savedNs=SystemClock.elapsedRealtimeNanos();
+                activity.runOnUiThread(() -> completeSave(result.job,error,savedNs));
             });
-        } catch (Exception error) { temporary.delete(); busy=false; if (!closed) { refresh(); status.setText("Foto tidak dapat disiapkan"); } }
+        } catch (java.util.concurrent.RejectedExecutionException error) {
+            completeCaptureFailure(result.job,error);
+        }
+    }
+
+    private void completeCaptureFailure(CaptureJob job, Exception error) {
+        activity.runOnUiThread(() -> {
+            outstandingCaptures=Math.max(0,outstandingCaptures-1);
+            busy=outstandingCaptures>0;
+            logPerformance(job,SystemClock.elapsedRealtimeNanos(),false,error);
+            if (closed) { maybeShutdownCaptureExecutor(); return; }
+            refresh(); status.setText("Capture gagal · coba lagi");
+            android.widget.Toast.makeText(activity,error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
+        });
+    }
+
+    private void completeSave(CaptureJob job, Exception error, long savedNs) {
+        outstandingCaptures=Math.max(0,outstandingCaptures-1);
+        busy=outstandingCaptures>0;
+        logPerformance(job,savedNs,error==null,error);
+        if (closed) { maybeShutdownCaptureExecutor(); return; }
+        refresh();
+        if (error!=null) {
+            status.setText("Foto gagal disimpan · ambil ulang");
+            android.widget.Toast.makeText(activity,error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
+        } else {
+            long captureMs=millis(job.captureCallbackNs-job.tapNs);
+            long saveMs=millis(savedNs-job.captureCallbackNs);
+            status.setText("✓ Foto "+store.count()+" · capture "+captureMs+" ms · simpan "+saveMs+" ms");
+            performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+        }
+    }
+
+    private void logPerformance(CaptureJob job,long finishedNs,boolean saved,Exception error) {
+        long requestMs=job.requestNs==0?-1:millis(job.requestNs-job.tapNs);
+        long requestCallMs=job.requestReturnNs==0 || job.requestNs==0?-1:millis(job.requestReturnNs-job.requestNs);
+        long startedMs=job.captureStartedNs==0?-1:millis(job.captureStartedNs-job.tapNs);
+        long captureMs=job.captureCallbackNs==0?-1:millis(job.captureCallbackNs-job.tapNs);
+        long saveMs=job.captureCallbackNs==0?-1:millis(finishedNs-job.captureCallbackNs);
+        long totalMs=millis(finishedNs-job.tapNs);
+        Log.i(PERF_TAG,"captureId="+job.captureId+" mode="+(zslEnabled?"ZSL":"MIN_LATENCY")
+            +" tapToRequestMs="+requestMs+" requestCallMs="+requestCallMs+" tapToCaptureStartedMs="+startedMs
+            +" tapToCaptureResultMs="+captureMs+" captureResultToSavedMs="+saveMs
+            +" tapToSavedMs="+totalMs+" sensorTimestampNs="+job.sensorTimestampNs
+            +" saved="+saved+(error==null?"":" error="+error.getClass().getSimpleName()+":"+error.getMessage()));
+    }
+
+    private static long millis(long nanos) { return Math.max(0,TimeUnit.NANOSECONDS.toMillis(nanos)); }
+
+    private void maybeShutdownCaptureExecutor() {
+        if (closed && outstandingCaptures==0 && !captureExecutor.isShutdown()) captureExecutor.shutdown();
     }
 
     private void toggleTorch() {
@@ -332,10 +452,12 @@ final class CameraScreen extends FrameLayout {
     }
     private void resetZoom() { if (!closed && camera!=null) { camera.getCameraControl().setZoomRatio(1f); zoom.setText("1×"); } }
     private void refresh() {
-        counter.setText(String.format(java.util.Locale.ROOT,"%03d foto · 720p",store.count()));
-        finish.setEnabled(store.count()>0&&!busy); finish.setAlpha(finish.isEnabled()?1f:.35f);
-        gallery.setText("Galeri · "+store.count()); gallery.setEnabled(store.count()>0&&!busy); gallery.setAlpha(gallery.isEnabled()?1f:.45f);
-        shutter.setEnabled(!closed&&!busy&&previewReady&&camera!=null&&store.count()<SessionStore.MAX_PHOTOS);
+        int stored=store.count();
+        counter.setText(String.format(java.util.Locale.ROOT,outstandingCaptures>0?"%03d foto · %d diproses · 720p":"%03d foto · 720p",stored,outstandingCaptures));
+        finish.setEnabled(stored>0&&!busy); finish.setAlpha(finish.isEnabled()?1f:.35f);
+        gallery.setText("Galeri · "+stored); gallery.setEnabled(stored>0&&!busy); gallery.setAlpha(gallery.isEnabled()?1f:.45f);
+        boolean capacity=stored+outstandingCaptures<SessionStore.MAX_PHOTOS && outstandingCaptures<MAX_OUTSTANDING_CAPTURES && cameraRequestsInFlight<MAX_CAMERA_REQUESTS;
+        shutter.setEnabled(!closed&&previewReady&&camera!=null&&imageCapture!=null&&capacity);
         shutter.setAlpha(shutter.isEnabled()?1f:.45f);
     }
     boolean isBusy() { return busy; }
@@ -345,12 +467,37 @@ final class CameraScreen extends FrameLayout {
         preview.getPreviewStreamState().removeObservers(activity); preview.setOnTouchListener(null);
         focusOverlay.stop();
         captureFlash.animate().cancel();
+        if (provider!=null) provider.unbindAll(); camera=null; imageCapture=null;
+        // If a capture is still returning its ImageProxy, keep the callback executor alive until
+        // that result is copied and persisted. Normal navigation is already blocked while busy.
+        maybeShutdownCaptureExecutor();
         soundIo.execute(() -> {
             try { if (shutterSound!=null) shutterSound.release(); }
             catch (RuntimeException ignored) { }
         });
         soundIo.shutdown();
-        if (provider!=null) provider.unbindAll(); camera=null; imageCapture=null;
+    }
+
+    private static final class CaptureJob {
+        final long sequence;
+        final String captureId;
+        final long tapNs;
+        final String capturedAt;
+        long requestNs, requestReturnNs, captureStartedNs, captureCallbackNs, sensorTimestampNs;
+        CaptureJob(long sequence,String captureId,long tapNs,String capturedAt) {
+            this.sequence=sequence; this.captureId=captureId; this.tapNs=tapNs; this.capturedAt=capturedAt;
+        }
+    }
+
+    private static final class CaptureResult {
+        final CaptureJob job;
+        final byte[] jpeg;
+        final int rotationDegrees;
+        final boolean flipHorizontal;
+        final Exception error;
+        CaptureResult(CaptureJob job,byte[] jpeg,int rotationDegrees,boolean flipHorizontal,Exception error) {
+            this.job=job; this.jpeg=jpeg; this.rotationDegrees=rotationDegrees; this.flipHorizontal=flipHorizontal; this.error=error;
+        }
     }
 
     private static final class Shutter extends View {

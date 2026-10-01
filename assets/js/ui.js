@@ -573,13 +573,29 @@
     updateReviewActionState();
   };
 
+  function syncDestinationModeHint() {
+    const hint = document.getElementById('destinationModeHint');
+    if (!hint) return;
+    const mode = document.getElementById('destinationMode')?.value || 'batam';
+    hint.textContent = mode === 'mixed'
+      ? 'Satu batch boleh berisi Batam dan luar kota. Periksa wilayah nasional setiap baris, lalu unduh Excel Batam dan Antrean CN23 sebagai dua file terpisah.'
+      : mode === 'cn23'
+        ? 'Dokumen luar Kota Batam disiapkan sebagai Antrean CN23. Periksa wilayah dan kode pos nasional; antrean ini dipakai untuk alat bantu entri CN23.'
+        : 'Kiriman tujuan Batam disiapkan sebagai Excel untuk unggah Mile App.';
+  }
+
   function syncDashboard() {
+    syncDestinationModeHint();
     const rowCount = getRowCount();
     const fileTotal = typeof uploadedFilesManager !== 'undefined' && Array.isArray(uploadedFilesManager) ? uploadedFilesManager.length : 0;
     const mode = document.getElementById('clientMode')?.value || 'KORPORAT';
     const insured = Boolean(document.getElementById('useInsurance')?.checked);
     const { outsideBatamCount } = refreshOutsideBatamState();
     const { reviewRowCount } = refreshReviewState();
+    const nationalMode = ['cn23', 'mixed'].includes(document.getElementById('destinationMode')?.value);
+    const pendingPostalCount = nationalMode
+      ? document.querySelectorAll('#resultTable tbody td[data-postcode-status]:not([data-postcode-status="matched"])').length
+      : 0;
 
     const recordCount = document.getElementById('recordCount');
     const fileCount = document.getElementById('fileCount');
@@ -598,8 +614,10 @@
     if (modeSummary) modeSummary.textContent = modeLabels[mode] || mode;
     if (insuranceSummary) insuranceSummary.textContent = insured ? 'Aktif' : 'Nonaktif';
     if (exportButton) {
-      exportButton.disabled = rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0;
-      exportButton.title = outsideBatamCount > 0
+      exportButton.disabled = rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0 || pendingPostalCount > 0;
+      exportButton.title = pendingPostalCount > 0
+        ? 'Pilih wilayah dan kode pos yang cocok untuk semua tujuan sebelum ekspor.'
+        : outsideBatamCount > 0
         ? 'Perbaiki atau hapus semua alamat luar Kota Batam sebelum ekspor.'
         : reviewRowCount > 0
           ? 'Koreksi semua teks “perlu dicek” sebelum ekspor.'
@@ -610,7 +628,10 @@
 
     if (status) {
       status.classList.remove('is-ready', 'is-busy', 'is-warning');
-      if (outsideBatamCount > 0) {
+      if (pendingPostalCount > 0) {
+        status.classList.add('is-warning');
+        status.innerHTML = `<span class="status-dot"></span>${pendingPostalCount} tujuan/kode pos perlu diperiksa`;
+      } else if (outsideBatamCount > 0) {
         status.classList.add('is-warning');
         const nums = getOutsideBatamRows().slice(0, 4).map(row => getOutsideBatamLocation(row).rowNumber).join(', ');
         status.innerHTML = `<span class="status-dot"></span>Keputusan alamat luar Batam No. ${nums}${outsideBatamCount > 4 ? '…' : ''}`;
@@ -639,7 +660,7 @@
       steps[1].classList.add('is-active');
     }
     if (rowCount > 0 && steps[2]) steps[2].classList.add('is-active');
-    if (rowCount > 0 && outsideBatamCount === 0 && reviewRowCount === 0 && steps[3]) steps[3].classList.add('is-active');
+    if (rowCount > 0 && outsideBatamCount === 0 && reviewRowCount === 0 && pendingPostalCount === 0 && steps[3]) steps[3].classList.add('is-active');
   }
 
   const coreUpdateInterface = window.updateInterface;
@@ -702,11 +723,25 @@
   };
 
   function trackFieldChanges() {
-    ['clientMode', 'corporateTemplate', 'useInsurance'].forEach(id => {
+    ['destinationMode', 'clientMode', 'corporateTemplate', 'useInsurance'].forEach(id => {
       document.getElementById(id)?.addEventListener('change', () => window.setTimeout(syncDashboard, 0));
     });
 
     const resultTable = document.getElementById('resultTable');
+    if (resultTable) {
+      let dashboardRefreshTimer = null;
+      const routeObserver = new MutationObserver(() => {
+        if (dashboardRefreshTimer !== null) window.clearTimeout(dashboardRefreshTimer);
+        dashboardRefreshTimer = window.setTimeout(() => {
+          dashboardRefreshTimer = null;
+          syncDashboard();
+        }, 0);
+      });
+      routeObserver.observe(resultTable, {
+        childList: true, subtree: true, attributes: true,
+        attributeFilter: ['data-postcode-status']
+      });
+    }
     resultTable?.addEventListener('input', event => {
       const input = event.target instanceof HTMLInputElement ? event.target : null;
       if (!input) return;

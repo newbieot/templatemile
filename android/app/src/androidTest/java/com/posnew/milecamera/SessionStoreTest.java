@@ -10,6 +10,7 @@ import android.util.AtomicFile;
 import androidx.exifinterface.media.ExifInterface;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +24,18 @@ import java.util.UUID;
 public final class SessionStoreTest extends InstrumentationTestCase {
     private File testDirectory;
     private Context context;
+    public void testDestinationModePersistsAndLocksAfterCapture() throws Exception {
+        SessionStore store = new SessionStore(context);
+        assertEquals("batam", store.destinationMode());
+        store.setDestinationMode("mixed");
+        store.add(noisyPhoto("destination.jpg",1280,720));
+        assertEquals("mixed", new SessionStore(context).destinationMode());
+        try { store.setDestinationMode("cn23"); fail("Existing photos must keep their batch mode"); } catch(Exception expected) { }
+        store.reset();
+        assertEquals("mixed", store.destinationMode());
+        store.setDestinationMode("cn23");
+        assertEquals("cn23", new SessionStore(context).snapshot().getString("destinationMode"));
+    }
 
     @Override protected void setUp() throws Exception {
         super.setUp();
@@ -94,6 +107,22 @@ public final class SessionStoreTest extends InstrumentationTestCase {
             assertTrue("Mirrored EXIF places red on the right", Color.red(right) > 200 && Color.blue(right) < 50);
         } finally { normalized.recycle(); }
         assertFalse("Normalized JPEG must not flip twice", new ExifInterface(stored).isFlipped());
+    }
+
+    public void testInMemoryCameraCaptureIsRotatedCompressedAndKeepsIdentity() throws Exception {
+        Bitmap bitmap = Bitmap.createBitmap(1280, 720, Bitmap.Config.ARGB_8888);
+        bitmap.eraseColor(Color.WHITE);
+        byte[] cameraJpeg;
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 82, output));
+            cameraJpeg = output.toByteArray();
+        } finally { bitmap.recycle(); }
+        SessionStore store = new SessionStore(context);
+        store.addCaptured(cameraJpeg, 90, false, "native-test-fast-path", "2026-10-01T01:00:00Z");
+        assertSavedPhoto(store, 720, 1280);
+        JSONObject photo = store.snapshot().getJSONArray("photos").getJSONObject(0);
+        assertEquals("native-test-fast-path", photo.getString("captureId"));
+        assertEquals("2026-10-01T01:00:00Z", photo.getString("timestamp"));
     }
 
     public void testLegacyDraftMigratesAndSurvivesRestartWithoutReencoding() throws Exception {

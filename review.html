@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Review Hasil Kamera · Mile App (Direct AI)</title>
   <meta name="description" content="Antarmuka khusus kamera untuk meninjau data kiriman, memilih template pelanggan, dan mengekspor Excel Mile App.">
-  <link rel="stylesheet" href="/assets/css/review.css?v=20260927-26.04-mobile-ui-polish">
+  <link rel="stylesheet" href="/assets/css/review.css?v=20261001-cn23-2">
   <link rel="stylesheet" href="/assets/css/template-picker.css?v=20260927-26.02-customer-template-search">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ef4123'><path d='M4 7h3l1.5-2h7L17 7h3v12H4V7Z'/><circle cx='12' cy='13' r='4'/></svg>">
   <meta name="theme-color" content="#f1f5f9">
@@ -39,7 +39,7 @@
       <div class="camera-session-banner__copy">
         <span class="camera-session-banner__badge">Jalur Kamera · Direct AI</span>
         <strong>Hasil Kamera Sedang / Siap Diproses</strong>
-        <p>Silakan tentukan <strong>Template Pelanggan</strong> atau ubah detail transaksi sebelum mengekspor Excel.</p>
+        <p>Pilih <strong>tujuan kiriman</strong> dan template pelanggan, lalu periksa hasil sebelum ekspor.</p>
       </div>
     </div>
 
@@ -53,6 +53,17 @@
       </div>
 
       <div class="form-grid">
+        <div class="form-group full-width">
+          <label for="destinationMode">Tujuan kiriman</label>
+          <div class="select-shell select-shell--strong">
+            <select id="destinationMode" aria-describedby="destinationModeHint">
+              <option value="batam" selected>Batam · Unggah Excel Mile</option>
+              <option value="cn23">CN23 Dokumen Luar Kota</option>
+              <option value="mixed">Campuran Batam + Luar Kota</option>
+            </select>
+          </div>
+          <span class="field-hint" id="destinationModeHint">Pilih CN23 untuk menyiapkan kiriman dokumen tujuan luar Kota Batam.</span>
+        </div>
         <div class="form-group">
           <label for="clientMode">Jenis transaksi</label>
           <div class="select-shell select-shell--strong">
@@ -154,6 +165,13 @@
             </select>
           </div>
         </div>
+        <div class="form-group full-width" id="cn23Settings" hidden>
+          <div class="form-group" id="cn23PaymentMethodGroup">
+            <label for="cn23PaymentMethod">Pembayaran korporat CN23</label>
+            <div class="select-shell"><select id="cn23PaymentMethod"><option value="INVOICE">Invoice</option><option value="CREDIT">CREDIT</option></select></div>
+          </div>
+          <span class="field-hint">Preset dokumen: 0,2 kg · Nilai barang Rp20.000 · Envelope. Ritel menggunakan Cash.</span>
+        </div>
         <div class="form-group insurance-row">
           <label class="checkbox-wrap" for="useInsurance">
             <input id="useInsurance" type="checkbox">
@@ -225,6 +243,9 @@
       <div class="summary-strip" aria-label="Ringkasan data">
         <div class="summary-item"><span>Baris</span><strong id="recordCount">0</strong></div>
         <div class="summary-item summary-item--outside" id="outsideBatamSummary"><span>Luar Batam</span><strong id="outsideBatamCount">0</strong></div>
+        <div class="summary-item" id="batamRouteSummary" hidden><span>Excel Batam</span><strong id="batamRouteCount">0</strong></div>
+        <div class="summary-item" id="cn23RouteSummary" hidden><span>Antrean CN23</span><strong id="cn23RouteCount">0</strong></div>
+        <div class="summary-item summary-item--review" id="pendingRouteSummary" hidden><span>Tujuan perlu dicek</span><strong id="pendingRouteCount">0</strong></div>
         <div class="summary-item summary-item--review" id="reviewSummary"><span>Perlu Dicek</span><strong id="reviewCount">0</strong></div>
         <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Memeriksa hasil capture…</div>
         <!-- Hidden summary items required by JS -->
@@ -299,12 +320,14 @@
     <div class="review-bottom-dock__inner">
       <div class="dock-summary">
         <strong>Siap Diekspor</strong>
-        <small>Format Workbook Mile App</small>
+        <small id="exportFormatHint">Format Workbook Mile App</small>
       </div>
       <button id="exportButton" class="button button--export" type="button">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <span>Unduh Excel Mile</span>
       </button>
+      <button id="exportBatamButton" class="button button--export" type="button" data-action="export-batam" hidden disabled>Ekspor Excel Batam</button>
+      <button id="exportCn23Button" class="button button--export" type="button" data-action="export-cn23" hidden disabled>Ekspor Antrean CN23</button>
     </div>
   </aside>
 
@@ -385,12 +408,13 @@
 
   <!-- Runtime Scripts -->
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/app-core.js?v=20260927-26.03-camera-primary-cta" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260930-26.31-camera-gemini-7x7" defer></script>
+  <script src="/assets/js/postcode-national.js?v=20261001-cn23-2" defer></script>
+  <script src="/assets/js/app-core.js?v=20261001-cn23-2" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20261001-cn23-2" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
-  <script src="/assets/js/camera-sync.js?v=20260930-26.31-camera-gemini-7x7" defer></script>
-  <script src="/assets/js/camera-import-v2.js?v=20260930-26.31-camera-gemini-7x7" defer></script>
-  <script src="/assets/js/ui.js?v=20260927-26.03-camera-primary-cta" defer></script>
+  <script src="/assets/js/camera-sync.js?v=20261001-cn23-2" defer></script>
+  <script src="/assets/js/camera-import-v2.js?v=20261001-cn23-2" defer></script>
+  <script src="/assets/js/ui.js?v=20261001-cn23-2" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>
   <script src="/assets/js/session-v16.js?v=20260926-16.47-sync" defer></script>

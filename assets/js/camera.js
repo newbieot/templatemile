@@ -16,6 +16,23 @@
   const store = window.MileCameraStore;
   const $ = id => document.getElementById(id);
 
+  function normalizeDestinationMode(value) {
+    return value === 'cn23' || value === 'mixed' ? value : 'batam';
+  }
+
+  function currentDestinationMode() {
+    return normalizeDestinationMode($('destinationMode')?.value);
+  }
+
+  function updateDestinationModeHint() {
+    const hint = $('destinationModeHint');
+    if (hint) hint.textContent = currentDestinationMode() === 'mixed'
+      ? 'Capture Batam dan luar kota dalam satu batch. Hasil dipisah menjadi Excel Batam dan antrean CN23.'
+      : currentDestinationMode() === 'cn23'
+      ? 'Dokumen luar Kota Batam disiapkan untuk antrean CN23 dengan pencocokan kode pos nasional.'
+      : 'Hasil disiapkan untuk unggah Excel tujuan Batam.';
+  }
+
   let stream = null;
   let captures = [];
   let pendingCaptureQueue = [];
@@ -605,6 +622,7 @@
     const id = sessionId;
     const startedAt = sessionStartedAt;
     const draftCaptures = captures.map(draftCapturePayload);
+    const destinationMode = currentDestinationMode();
     const snapshot = {
       id,
       createdAt: Date.parse(startedAt) || Date.now(),
@@ -615,7 +633,9 @@
       captureCount: draftCaptures.length,
       draftCaptures,
       deviceName: currentDeviceName(),
-      aiModel: DEFAULT_AI_MODEL
+      aiModel: DEFAULT_AI_MODEL,
+      destinationMode,
+      form: { destinationMode }
     };
     draftSaveChain = draftSaveChain
       .catch(() => {})
@@ -691,6 +711,9 @@
         const setup = $('deviceNameSetup');
         if (setup) setup.hidden = true;
       }
+      const destinationMode = $('destinationMode');
+      if (destinationMode) destinationMode.value = normalizeDestinationMode(draft.destinationMode || draft.form?.destinationMode);
+      updateDestinationModeHint();
       updateBatchUi();
       setStatus(`${captures.length} capture dari sesi sebelumnya berhasil dipulihkan. Buka kamera untuk melanjutkan.`, 'success');
       toast(`${captures.length} foto dipulihkan otomatis`, 'success');
@@ -1119,6 +1142,7 @@
   async function finishCapturing() {
     if (!captures.length || !sessionId || captureBusy || finalizingBatch) return;
     finalizingBatch = true;
+    if ($('destinationMode')) $('destinationMode').disabled = true;
     setFinishDisabled(true);
     setCaptureDisabled(true);
     exitCameraFullscreen();
@@ -1136,6 +1160,7 @@
       }));
       const deviceName = rememberDeviceName();
       const aiModel = DEFAULT_AI_MODEL;
+      const destinationMode = currentDestinationMode();
       const captureFinishedAt = new Date();
       const captureStartedMs = Date.parse(sessionStartedAt);
       const captureDurationSeconds = Number.isFinite(captureStartedMs)
@@ -1154,12 +1179,15 @@
         inputFormat: 'direct-image',
         deviceName,
         aiModel,
+        destinationMode,
+        form: { destinationMode },
         captureDurationSeconds: Number(captureDurationSeconds.toFixed(3))
       });
       updateProcessingStatus('Membuka Review...', 'Membuka antarmuka review kamera. Foto diproses per 5 gambar/request, hingga 3 permintaan paralel. Audit keyakinan rendah berjalan maksimal 2 jalur...');
       window.location.assign(`/review?cameraSession=${encodeURIComponent(sessionId)}`);
     } catch (error) {
       finalizingBatch = false;
+      if ($('destinationMode')) $('destinationMode').disabled = false;
       hideProcessingStatus();
       setStatus(error?.message || 'Batch tidak dapat disiapkan.', 'error');
       updateBatchUi();
@@ -1170,6 +1198,16 @@
     if (!core || !store) {
       setStatus('Modul camera capture tidak lengkap. Muat ulang halaman.', 'error');
       return;
+    }
+    const destinationMode = $('destinationMode');
+    if (destinationMode) {
+      const requestedMode = new URLSearchParams(window.location.search).get('destinationMode');
+      destinationMode.value = normalizeDestinationMode(requestedMode);
+      updateDestinationModeHint();
+      destinationMode.addEventListener('change', () => {
+        updateDestinationModeHint();
+        if (sessionId && captures.length) void queueDraftSave({ immediate: true });
+      });
     }
     $('openCameraButton').addEventListener('click', startCamera);
     $('captureButton').addEventListener('click', captureImage);

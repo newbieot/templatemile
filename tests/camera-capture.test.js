@@ -294,7 +294,9 @@ async function runAsyncAssertions() {
   assert.match(cameraSync, /camera-batch-item__stats/);
   assert.match(cameraSync, /Perlu dicek/);
   assert.match(cameraSync, /reviewFieldCount/);
-  assert.match(cameraSync, /Luar Batam/);
+  assert.match(cameraSync, /Luar Kota Batam/);
+  assert.match(cameraSync, /Lokal Batam/);
+  assert.match(cameraSync, /Tujuan belum pasti/);
   assert.match(cameraSync, /Waktu proses AI/);
   assert.match(cameraSync, /Rincian \$\{chunkTimings\.length\} kelompok AI/);
   assert.match(cameraSync, /chunkTimings: normalizeChunkTimings/);

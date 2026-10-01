@@ -6,7 +6,7 @@ Aplikasi pendamping Android dengan kamera native CameraX. Login, ekstraksi AI, p
 
 Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.1).
 
-1. Unduh `Mile-Camera-0.1.1.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Pembaruan bisa dipasang menimpa versi 0.1.0 tanpa menghapus draft.
+1. Unduh `Mile-Camera-0.1.3.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
 2. Buka **Mile Camera** dan login terlebih dahulu. Kamera, galeri, dan halaman aplikasi terkunci sebelum login berhasil. Setelah masuk, pilih **Mulai capture** dan izinkan kamera.
 3. Ketuk bagian teks untuk fokus. Indikator biru berarti perangkat melaporkan fokus berhasil; indikator kuning berarti fokus belum terkunci atau lensa tidak mendukung autofocus pada titik.
 4. Ambil foto, periksa **Galeri**, hapus yang tidak layak, lalu tekan **Selesai**.

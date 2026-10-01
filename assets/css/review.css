@@ -1270,3 +1270,24 @@ body.is-mandatory-review .review-alert {
 @keyframes pulse {
   50% { opacity: 0.4; }
 }
+
+/* Separate files for a mixed camera batch. */
+#exportButton[hidden],#exportBatamButton[hidden],#exportCn23Button[hidden],#cn23Settings[hidden],#cn23PaymentMethodGroup[hidden],#batamRouteSummary[hidden],#cn23RouteSummary[hidden],#pendingRouteSummary[hidden] {
+  display: none !important;
+}
+.review-bottom-dock__inner:has(#exportBatamButton:not([hidden])) {
+  flex-wrap: wrap;
+}
+.review-bottom-dock__inner #exportBatamButton,
+.review-bottom-dock__inner #exportCn23Button {
+  flex: 1 1 160px;
+  max-width: none;
+}
+@media (max-width: 640px) {
+  .review-bottom-dock__inner:has(#exportBatamButton:not([hidden])) .dock-summary {
+    flex: 1 1 100%;
+  }
+  body:has(#exportBatamButton:not([hidden])) {
+    padding-bottom: 132px;
+  }
+}

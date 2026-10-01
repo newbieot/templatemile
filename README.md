@@ -24,6 +24,24 @@ Panel **Log Kamera** di desktop menampilkan ID batch/perangkat, waktu capture da
 
 Halaman utama memakai Gemini 3.8 Flash dengan `reasoning_effort: medium` serta profil 15 halaman × 3 jalur. Structured output JSON dipakai bila didukung CosmosHub dan otomatis diulang tanpa schema sekali bila gateway menolaknya. Jika gateway secara eksplisit menolak parameter reasoning, request diulang satu kali memakai default model agar batch tidak gagal; kejadian ini dicatat pada log kelompok. DeepSeek R2 tetap memakai profil 15 halaman × 5 jalur.
 
+## Persiapan dokumen luar Batam dan batch campuran
+
+Pilihan **Tujuan kiriman** pada app/review/beta dan Camera web memisahkan alur Batam, CN23 Dokumen Luar Kota, serta Campuran Batam + Luar Kota. Mode nasional mempertahankan baris luar Batam dan mencocokkan wilayah dengan database lampiran 81.248 baris; hasil ambigu tetap memerlukan pemeriksaan operator. Pada Campuran, Excel unggah Batam dan Excel antrean CN23 diunduh melalui dua tombol berbeda dan tidak memuat tujuan kelompok lainnya. Sesi kamera dan hasil sinkronisasi menyimpan mode tujuan.
+
+Pola dokumen CN23 dan kasus campuran dijelaskan dalam [catatan alur CN23](docs/cn23-document-workflow.md). Ekstensi Chrome versi uji tersedia di [Mile CN23 Helper 0.1.0](downloads/Mile-CN23-Helper-0.1.0.zip), dengan panduan `CARA-INSTALL.txt` dalam ZIP. Ekstensi membaca sheet `CN23_ANTREAN`, menolak tujuan Batam, mengisi preset dokumen, dan mencatat hasil/resi. Mode awal menunggu petugas memeriksa biaya dan mengklik Selesai. Korporat menunggu verifikasi pelanggan; batch otomatis berjalan setelah resi baru cocok. Validasi lokal/simulasi sudah diuji; uji satu transaksi nyata dari ekstensi Chrome terpasang diperlukan sebelum memakai batch.
+
+APK [Mile Camera 0.1.3](downloads/Mile-Camera-0.1.3.apk) mempertahankan shutter cepat dari source 0.1.2 pengguna dan menyimpan mode Lokal, Luar Kota, atau Campuran sampai review web. [Panduan APK](docs/mile-camera-0.1.3.md) menjelaskan instalasi dan batas pengujian. Log kamera menampilkan jumlah Lokal Batam, Luar Kota Batam, dan Tujuan belum pasti; penentuan tujuan nasional menggunakan wilayah terkonfirmasi yang masih sesuai dengan alamat terbaru.
+
+Pemeriksaan lokal: `npm install --prefix tests` lalu `npm test --prefix tests`. Build APK: ikuti `android/README.md`. Keystore/password tidak termasuk repository atau source ZIP.
+
+Bangun ulang data nasional dari sumber lampiran bila diperlukan:
+
+```powershell
+python scripts/build-postcode-data.py "C:/Users/Ikhsan Radiansyah/Documents/Database Kode Pos Seluruh Indonesia.xlsx" assets/data/postcodes-indonesia.json
+```
+
+Pengujian fitur: `node tests/postcode-national.test.js`, `node tests/cn23-core.test.js`, dan `node tests/cn23-ai.test.js`.
+
 ## Eksperimen PC lawas di `/beta`
 
 Halaman `/beta` memakai `deepseek-v4.1-flash` sebagai model default. PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Setiap gambar diunggah ke R2 `mile-beta-ai-images`, lalu URL sementara dikirim ke DeepSeek dalam kelompok 15 halaman × 5 jalur. Mode DeepSeek tidak kembali ke base64 bila unggahan R2 gagal. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.

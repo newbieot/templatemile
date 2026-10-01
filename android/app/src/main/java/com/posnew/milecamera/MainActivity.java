@@ -255,6 +255,24 @@ public final class MainActivity extends ComponentActivity {
         TextView eyebrow=Ui.text(this,"SIAP UNTUK HARI YANG SIBUK",10,Ui.MUTED,true); eyebrow.setLetterSpacing(.12f); page.addView(eyebrow);
         Ui.gap(page,12); page.addView(Ui.text(this,"Foto rapi.\nKerja lebih cepat.",36,Ui.INK,true),Ui.matchWrap());
         Ui.gap(page,12); TextView introduction=Ui.text(this,"Capture label dan dokumen dengan kamera HP. Periksa hasilnya, lalu lanjutkan ke MILE.",15,Ui.MUTED,false); introduction.setLineSpacing(Ui.dp(this,4),1); page.addView(introduction,Ui.matchWrap());
+        Ui.gap(page,18);
+        page.addView(Ui.text(this,"Tujuan kiriman",13,Ui.INK,true),Ui.matchWrap());
+        Ui.gap(page,8);
+        String[] destinationModes={"batam","cn23","mixed"};
+        String[] destinationLabels={"Lokal Batam","Luar Kota Batam · CN23 Dokumen","Campuran · Lokal + Luar Kota"};
+        android.widget.Spinner destination=new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> destinationAdapter=new android.widget.ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,destinationLabels);
+        destination.setAdapter(destinationAdapter);
+        for(int i=0;i<destinationModes.length;i++) if(destinationModes[i].equals(store.destinationMode())) destination.setSelection(i);
+        destination.setEnabled(store.count()==0);
+        destination.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(android.widget.AdapterView<?> parent,View view,int position,long id) {
+                try { store.setDestinationMode(destinationModes[position]); } catch(Exception error) { toast(error.getMessage()); }
+            }
+            public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+        });
+        page.addView(destination,Ui.matchWrap());
+        page.addView(Ui.text(this,store.count()>0?"Mode batch tersimpan. Mulai batch baru untuk mengganti tujuan.":"Campuran dipisah menjadi Excel lokal dan antrean CN23. Alamat yang belum jelas perlu diperiksa.",12,Ui.MUTED,false),Ui.matchWrap());
         Ui.gap(page,26);
         LinearLayout hero=Ui.column(this); hero.setPadding(Ui.dp(this,22),Ui.dp(this,22),Ui.dp(this,22),Ui.dp(this,22)); hero.setBackground(Ui.background(Ui.INK,28,this));
         LinearLayout heroTop=Ui.row(this); heroTop.addView(Ui.text(this,"KAMERA MILE",10,Ui.ACCENT,true),new LinearLayout.LayoutParams(0,-2,1));

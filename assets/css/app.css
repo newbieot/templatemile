@@ -752,3 +752,11 @@ body.camera-mode .ai-config{
   .camera-batch-item__actions{display:grid;grid-template-columns:1fr auto;gap:8px}
   .camera-batch-item__load{width:100%;text-align:center;padding:10px}
 }
+
+/* CN23 and mixed destination exports */
+#exportButton[hidden],#exportBatamButton[hidden],#exportCn23Button[hidden],#cn23Settings[hidden],#cn23PaymentMethodGroup[hidden],#batamRouteSummary[hidden],#cn23RouteSummary[hidden],#pendingRouteSummary[hidden]{display:none!important}
+.export-bar:has(#exportBatamButton:not([hidden])){flex-wrap:wrap;gap:.65rem}
+.export-bar #exportBatamButton,.export-bar #exportCn23Button{flex:1 1 180px;justify-content:center}
+@media(max-width:640px){
+  .export-bar:has(#exportBatamButton:not([hidden])) .export-copy{flex:1 1 100%}
+}

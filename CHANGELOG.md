@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.32 — Dokumen luar kota, batch campuran, APK 0.1.3, dan ekstensi CN23
+
+- Menambahkan tujuan Lokal Batam, CN23 Dokumen Luar Kota, dan Campuran pada kamera/review/app/beta. Mode nasional mempertahankan alamat luar kota, memeriksa database kode pos nasional 81.248 baris, dan menahan alamat ambigu/bertentangan untuk pemeriksaan.
+- Memisahkan Excel upload lokal dan Excel antrean CN23; preset dokumen mengikuti pengisian yang dicontohkan petugas. Log menampilkan Lokal Batam, Luar Kota Batam, serta Tujuan belum pasti.
+- APK 0.1.3 mempertahankan capture cepat/ZSL dari source 0.1.2 pengguna, menyimpan pilihan tujuan dalam draft native, dan meneruskannya ke review web. Sertifikat sama dengan 0.1.1.
+- Menyertakan ekstensi Chrome versi uji 0.1.0 untuk impor CN23, pengisian form, pembayaran, pencatatan resi, jeda, dan ekspor hasil. Status submit disimpan sebelum Selesai; hasil belum pasti tidak diulang otomatis. Korporat menunggu verifikasi pelanggan, Selesai otomatis opsional dan dibatasi biaya.
+- Build/lint release berhasil; sepuluh tes kamera/storage dan lima tes login/sesi Android lulus di emulator. Validasi antrean dan simulasi DOM ekstensi lulus; uji satu transaksi lapangan pada Chrome terpasang tetap diperlukan sebelum batch.
+
 ## v26.31 — Kamera Gemini 7×7 dan fallback 30 detik
 
 - Menetapkan default kamera Gemini 3.8 Flash, lalu fallback Gemini 3.1 Pro → Gemini 3.7 Flash → DeepSeek V4.1 Flash. Sesi tersimpan juga mulai dengan default baru.

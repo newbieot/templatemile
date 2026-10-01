@@ -1,4 +1,4 @@
-const APP_VERSION = '20260930-26.31-camera-gemini-7x7';
+const APP_VERSION = '20261001-26.32-cn23-national-camera';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -38,7 +38,8 @@ const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',
   '/icon-192.png', '/icon-512.png', '/og-cover.png', '/site.webmanifest',
   '/robots.txt', '/404.html', '/assets/css/login-v16.css', '/assets/js/login-v16.js',
-  '/downloads/Mile-Camera-0.1.1.apk'
+  '/downloads/Mile-Camera-0.1.1.apk', '/downloads/Mile-Camera-0.1.3.apk',
+  '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 
 const textEncoder = new TextEncoder();
@@ -781,6 +782,57 @@ function validCameraBatchId(value) {
 
 const MAX_CAMERA_RESULT_BYTES = 2 * 1024 * 1024;
 
+function cameraDestinationMode(form) {
+  return form?.destinationMode === 'cn23' || form?.destinationMode === 'mixed' ? form.destinationMode : 'batam';
+}
+
+function cameraNationalPostcodePending(row) {
+  const address = String(row?.address || '');
+  const query = String(row?._nationalPostcodeQuery || '');
+  const sourceKey = `${address}\n${query}`;
+  const confirmed = row?._confirmedNationalPostcode;
+  if (confirmed?.sourceKey === sourceKey && /^\d{5}$/.test(confirmed.selected?.postcode || '') && confirmed.selected?.city) return false;
+
+  const match = row?._nationalPostcodeMatch;
+  const printedZip = row?._printedPostcode || (row?.postcodeSource === 'label' ? row?.zip : '') || '';
+  const queryZip = query.match(/\b\d{5}\b/)?.[0] || '';
+  const lookupKey = `${sourceKey}\n${queryZip || printedZip}`;
+  return match?.lookupKey !== lookupKey || match?.status !== 'matched' ||
+    !/^\d{5}$/.test(match.selected?.postcode || '') || !match.selected?.city;
+}
+
+function summarizeCameraRows(rows, form) {
+  const destinationMode = cameraDestinationMode(form);
+  const nationalMode = destinationMode === 'cn23' || destinationMode === 'mixed';
+  const summary = { destinationMode, reviewCount: 0, reviewFieldCount: 0, outsideBatamCount: 0, cleanCount: 0, localBatamCount: 0, cn23Count: 0, destinationPendingCount: 0 };
+  rows.forEach(row => {
+    const hydrated = row?._aiReviewHydrated === true && row?._reviewState && typeof row._reviewState === 'object';
+    const reviewFields = hydrated
+      ? Object.entries(row._reviewState).filter(([, state]) => state?.pending).map(([field]) => field)
+      : (Array.isArray(row?.aiReviewFields) ? row.aiReviewFields : (Array.isArray(row?.reviewFields) ? row.reviewFields : []));
+    const pendingFields = new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean));
+    // A saved resolution cannot hide an unreadable value or a destination cache for an older address.
+    ['noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'].forEach(field => {
+      if (/PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row?.[field] || ''))) pendingFields.add(field);
+    });
+    if (nationalMode && cameraNationalPostcodePending(row)) pendingFields.add('kode_pos');
+    const needsReview = pendingFields.size > 0 || Boolean(row?.needsReview) || (!hydrated && Boolean(row?.needsVerification));
+    const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
+    if (nationalMode && cameraNationalPostcodePending(row)) summary.destinationPendingCount++;
+    else {
+      const sourceKey = `${String(row?.address || '')}\n${String(row?._nationalPostcodeQuery || '')}`;
+      const selected = row?._confirmedNationalPostcode?.sourceKey === sourceKey ? row._confirmedNationalPostcode.selected : row?._nationalPostcodeMatch?.selected;
+      const local = nationalMode ? /^(?:KOTA\s+)?BATAM$/i.test(String(selected?.city || '').trim()) : !outsideBatam;
+      if (local) summary.localBatamCount++; else summary.cn23Count++;
+    }
+    if (needsReview) summary.reviewCount++;
+    summary.reviewFieldCount += pendingFields.size || (needsReview ? 1 : 0);
+    if (outsideBatam) summary.outsideBatamCount++;
+    if (!needsReview && (nationalMode || !outsideBatam)) summary.cleanCount++;
+  });
+  return summary;
+}
+
 async function handleCameraBatchSave(request, env, session, url) {
   if (!session) return json({ error: { message: 'Sesi login berakhir. Silakan masuk kembali.' } }, 401);
   if (request.method !== 'POST') return json({ error: { message: 'Method tidak diizinkan.' } }, 405, { allow: 'POST' });
@@ -812,21 +864,7 @@ async function handleCameraBatchSave(request, env, session, url) {
   if (!owner) return json({ error: { message: 'Identitas sesi tidak valid.' } }, 401);
 
   const now = Date.now();
-  let reviewCount = 0;
-  let reviewFieldCount = 0;
-  let outsideBatamCount = 0;
-  let cleanCount = 0;
-  body.rows.forEach(row => {
-    const reviewFields = Array.isArray(row?.aiReviewFields)
-      ? row.aiReviewFields
-      : (Array.isArray(row?.reviewFields) ? row.reviewFields : []);
-    const needsReview = reviewFields.length > 0 || Boolean(row?.needsVerification);
-    const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
-    if (needsReview) reviewCount++;
-    reviewFieldCount += reviewFields.length ? new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean)).size : (needsReview ? 1 : 0);
-    if (outsideBatam) outsideBatamCount++;
-    if (!needsReview && !outsideBatam) cleanCount++;
-  });
+  const rowSummary = summarizeCameraRows(body.rows, body.form);
   const record = {
     id: body.id,
     createdAt: Number(body.createdAt) || now,
@@ -845,13 +883,10 @@ async function handleCameraBatchSave(request, env, session, url) {
     chunkSize: clampMetricNumber(body.chunkSize, 1, 15),
     concurrency: clampMetricNumber(body.concurrency, 1, 5),
     chunkTimings: sanitizeCameraChunkTimings(body.chunkTimings),
-    reviewCount,
-    reviewFieldCount,
-    outsideBatamCount,
-    cleanCount,
+    ...rowSummary,
     expiresAt: (Number(body.createdAt) || now) + CAMERA_BATCH_TTL_MS,
     status: 'complete',
-    form: body.form || {},
+    form: { ...(body.form && typeof body.form === 'object' && !Array.isArray(body.form) ? body.form : {}), destinationMode: rowSummary.destinationMode },
     rows: body.rows
   };
 
@@ -889,21 +924,8 @@ async function handleCameraBatchList(request, env, session) {
             const result = await resultObj.json();
             if (result && (result.expiresAt || 0) > now) {
               const resultRows = Array.isArray(result.rows) ? result.rows : [];
-              let derivedReviewCount = 0;
-              let derivedReviewFieldCount = 0;
-              let derivedOutsideBatamCount = 0;
-              let derivedCleanCount = 0;
-              resultRows.forEach(row => {
-                const reviewFields = Array.isArray(row?.aiReviewFields)
-                  ? row.aiReviewFields
-                  : (Array.isArray(row?.reviewFields) ? row.reviewFields : []);
-                const needsReview = reviewFields.length > 0 || Boolean(row?.needsVerification);
-                const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
-                if (needsReview) derivedReviewCount++;
-                derivedReviewFieldCount += reviewFields.length ? new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean)).size : (needsReview ? 1 : 0);
-                if (outsideBatam) derivedOutsideBatamCount++;
-                if (!needsReview && !outsideBatam) derivedCleanCount++;
-              });
+              const derived = summarizeCameraRows(resultRows, result.form);
+              const useDerived = derived.destinationMode !== 'batam' && Array.isArray(result.rows);
               batches.push({
                 id: result.id,
                 createdAt: result.createdAt,
@@ -915,6 +937,7 @@ async function handleCameraBatchList(request, env, session) {
                 rowCount: result.rowCount,
                 expiresAt: result.expiresAt,
                 status: result.status,
+                destinationMode: derived.destinationMode,
                 deviceName: result.deviceName || '',
                 templateName: result.form?.corporateTemplate || result.templateName || 'MANUAL',
                 customerId: result.form?.customerId || '',
@@ -930,10 +953,13 @@ async function handleCameraBatchList(request, env, session) {
                 durationSeconds: Number(result.durationSeconds) || 0,
                 captureDurationSeconds: Number(result.captureDurationSeconds) || 0,
                 totalDurationSeconds: Number(result.totalDurationSeconds) || 0,
-                reviewCount: Number.isFinite(Number(result.reviewCount)) ? Number(result.reviewCount) : derivedReviewCount,
-                reviewFieldCount: Number.isFinite(Number(result.reviewFieldCount)) ? Number(result.reviewFieldCount) : derivedReviewFieldCount,
-                outsideBatamCount: Number.isFinite(Number(result.outsideBatamCount)) ? Number(result.outsideBatamCount) : derivedOutsideBatamCount,
-                cleanCount: Number.isFinite(Number(result.cleanCount)) ? Number(result.cleanCount) : derivedCleanCount
+                reviewCount: !useDerived && Number.isFinite(Number(result.reviewCount)) ? Number(result.reviewCount) : derived.reviewCount,
+                reviewFieldCount: !useDerived && Number.isFinite(Number(result.reviewFieldCount)) ? Number(result.reviewFieldCount) : derived.reviewFieldCount,
+                outsideBatamCount: !useDerived && Number.isFinite(Number(result.outsideBatamCount)) ? Number(result.outsideBatamCount) : derived.outsideBatamCount,
+                localBatamCount: derived.localBatamCount,
+                cn23Count: derived.cn23Count,
+                destinationPendingCount: derived.destinationPendingCount,
+                cleanCount: !useDerived && Number.isFinite(Number(result.cleanCount)) ? Number(result.cleanCount) : derived.cleanCount
               });
             }
           }
@@ -1192,9 +1218,13 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
-  if (path === '/downloads/Mile-Camera-0.1.1.apk' && response.ok) {
+  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3)\.apk$/.test(path) && response.ok) {
     headers.set('content-type', 'application/vnd.android.package-archive');
-    headers.set('content-disposition', 'attachment; filename="Mile-Camera-0.1.1.apk"');
+    headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
+  }
+  if (path === '/downloads/Mile-CN23-Helper-0.1.0.zip' && response.ok) {
+    headers.set('content-type', 'application/zip');
+    headers.set('content-disposition', 'attachment; filename="Mile-CN23-Helper-0.1.0.zip"');
   }
   if (path === '/camera' || path === '/camera.html') {
     headers.set('permissions-policy', 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
@@ -1220,7 +1250,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/downloads/Mile-Camera.apk' || url.pathname === '/downloads/Mile-Camera-0.1.0.apk') {
-      return redirect('/downloads/Mile-Camera-0.1.1.apk');
+      return redirect('/downloads/Mile-Camera-0.1.3.apk');
     }
     if (url.hostname === 'templatemile.pages.dev') {
       url.hostname = 'mile.posnew.com';

@@ -54,6 +54,16 @@ final class SessionStore {
     synchronized int count() { return session.optJSONArray("photos").length(); }
     synchronized boolean transferred() { return session.optBoolean("transferred"); }
     synchronized String id() { return session.optString("id"); }
+    synchronized String destinationMode() {
+        String mode = session.optString("destinationMode", "batam");
+        return mode.equals("mixed") || mode.equals("cn23") ? mode : "batam";
+    }
+    synchronized void setDestinationMode(String mode) throws Exception {
+        if (!mode.equals("batam") && !mode.equals("cn23") && !mode.equals("mixed")) throw new Exception("Mode tujuan tidak valid.");
+        if (count() > 0 && !mode.equals(destinationMode())) throw new Exception("Mulai batch baru untuk mengganti mode tujuan.");
+        session.put("destinationMode", mode);
+        persist();
+    }
     synchronized JSONObject snapshot() throws Exception { return new JSONObject(session.toString()); }
     synchronized File photoFile(String key) {
         if (!key.matches("[a-f0-9-]{36}")) throw new IllegalArgumentException("Foto tidak valid.");
@@ -71,17 +81,36 @@ final class SessionStore {
         return null;
     }
 
-    synchronized void add(File original) throws Exception {
+    /**
+     * Compatibility path for old callers/tests. Expensive bitmap work intentionally happens outside
+     * the synchronized commit so the UI can keep reading the current session while JPEG work runs.
+     */
+    void add(File original) throws Exception {
+        EncodedPhoto encoded = encodePhoto(original);
+        commitEncoded(encoded, null, Instant.now().toString());
+    }
+
+    /**
+     * Fast CameraX path. The ImageProxy is copied and closed by CameraScreen, then all decode,
+     * rotation, compression, thumbnail generation and file writes happen on the photo worker.
+     */
+    void addCaptured(byte[] originalJpeg, int rotationDegrees, boolean flipHorizontal, String captureId, String capturedAt) throws Exception {
+        EncodedPhoto encoded = encodePhoto(originalJpeg, rotationDegrees, flipHorizontal);
+        commitEncoded(encoded, captureId, capturedAt);
+    }
+
+    private synchronized void commitEncoded(EncodedPhoto encoded, String captureId, String capturedAt) throws Exception {
         if (count() >= MAX_PHOTOS) throw new Exception("Batch sudah berisi 150 foto.");
         String key = UUID.randomUUID().toString();
         boolean previousTransferred = transferred();
         try {
-            EncodedPhoto encoded = encodePhoto(original);
             writeAtomic(photoFile(key), encoded.jpeg);
             writeAtomic(thumbnailFile(key), encoded.thumbnail);
-            JSONObject photo = new JSONObject().put("key", key).put("captureId", "native-" + key)
-                .put("sequence", count() + 1).put("fileName", String.format(java.util.Locale.ROOT, "%03d.jpg", count() + 1))
-                .put("timestamp", Instant.now().toString()).put("width", encoded.width).put("height", encoded.height)
+            int sequence = count() + 1;
+            JSONObject photo = new JSONObject().put("key", key).put("captureId", captureId == null ? "native-" + key : captureId)
+                .put("sequence", sequence).put("fileName", String.format(java.util.Locale.ROOT, "%03d.jpg", sequence))
+                .put("timestamp", capturedAt == null ? Instant.now().toString() : capturedAt)
+                .put("width", encoded.width).put("height", encoded.height)
                 .put("bytes", encoded.jpeg.length).put("encodingProfile", ENCODING_PROFILE).put("source", "android-camerax");
             session.getJSONArray("photos").put(photo);
             session.put("transferred", false);
@@ -115,6 +144,41 @@ final class SessionStore {
                 .put("encodingProfile", ENCODING_PROFILE);
         } else {
             photo.put("width", bounds.outWidth).put("height", bounds.outHeight).put("bytes", original.length());
+        }
+    }
+
+    private static EncodedPhoto encodePhoto(byte[] originalJpeg, int rotationDegrees, boolean flipHorizontal) throws Exception {
+        if (originalJpeg == null || originalJpeg.length == 0) throw new Exception("Foto kamera kosong.");
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(originalJpeg, 0, originalJpeg.length, bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new Exception("Foto kamera tidak dapat dibaca.");
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / options.inSampleSize > 4096) options.inSampleSize *= 2;
+        Bitmap decoded = BitmapFactory.decodeByteArray(originalJpeg, 0, originalJpeg.length, options);
+        if (decoded == null) throw new Exception("Memori tidak cukup untuk membaca foto.");
+        Bitmap upright = decoded;
+        Bitmap cropped = null;
+        Bitmap image = null;
+        Bitmap thumbnail = null;
+        try {
+            Matrix transform = new Matrix();
+            if (rotationDegrees != 0) transform.postRotate(rotationDegrees);
+            if (flipHorizontal) transform.postScale(-1, 1);
+            if (!transform.isIdentity()) upright = Bitmap.createBitmap(decoded, 0, 0, decoded.getWidth(), decoded.getHeight(), transform, true);
+            cropped = crop16By9(upright);
+            image = scale(cropped, PHOTO_LONG_EDGE);
+            byte[] jpeg = jpegWithinBudget(image);
+            thumbnail = scale(image, 320);
+            return new EncodedPhoto(jpeg, compressJpeg(thumbnail, 76), image.getWidth(), image.getHeight());
+        } finally {
+            if (thumbnail != null && thumbnail != image) thumbnail.recycle();
+            if (image != null && image != cropped) image.recycle();
+            if (cropped != null && cropped != upright) cropped.recycle();
+            if (upright != decoded) upright.recycle();
+            decoded.recycle();
         }
     }
 
@@ -164,16 +228,41 @@ final class SessionStore {
     }
 
     private static byte[] jpegWithinBudget(Bitmap image) throws Exception {
-        // Most document frames fit on the first pass; only dense frames need a quality search.
-        byte[] highQuality = compressJpeg(image, 88);
-        if (highQuality.length <= MAX_PHOTO_BYTES) return highQuality;
-        byte[] best = compressJpeg(image, 1);
-        if (best.length > MAX_PHOTO_BYTES) throw new Exception("Foto belum dapat dipadatkan ke 120 KB. Coba ambil ulang.");
-        int low = 2;
-        int high = 87;
-        while (low <= high) {
+        // Document frames normally fit immediately. For dense frames, jump close to the target
+        // quality from the observed byte ratio, then refine only a small bounded range.
+        final int firstQuality = 82;
+        byte[] first = compressJpeg(image, firstQuality);
+        if (first.length <= MAX_PHOTO_BYTES) return first;
+
+        double ratio = MAX_PHOTO_BYTES / (double) first.length;
+        int estimate = Math.max(18, Math.min(78, (int) Math.floor(firstQuality * Math.pow(ratio, 0.72))));
+        byte[] candidate = compressJpeg(image, estimate);
+        int fittingQuality = -1;
+        byte[] best = null;
+        int failingQuality = firstQuality;
+        if (candidate.length <= MAX_PHOTO_BYTES) { fittingQuality = estimate; best = candidate; }
+        else {
+            failingQuality = estimate;
+            int quality = estimate - 8;
+            while (quality >= 2) {
+                candidate = compressJpeg(image, quality);
+                if (candidate.length <= MAX_PHOTO_BYTES) { fittingQuality = quality; best = candidate; break; }
+                failingQuality = quality;
+                quality -= 8;
+            }
+        }
+        if (best == null) {
+            best = compressJpeg(image, 1);
+            if (best.length > MAX_PHOTO_BYTES) throw new Exception("Foto belum dapat dipadatkan ke 120 KB. Coba ambil ulang.");
+            fittingQuality = 1;
+        }
+
+        // At most three refinements keep CPU time bounded while recovering useful OCR quality.
+        int low = fittingQuality + 1;
+        int high = failingQuality - 1;
+        for (int pass = 0; pass < 3 && low <= high; pass++) {
             int quality = (low + high) / 2;
-            byte[] candidate = compressJpeg(image, quality);
+            candidate = compressJpeg(image, quality);
             if (candidate.length <= MAX_PHOTO_BYTES) { best = candidate; low = quality + 1; }
             else high = quality - 1;
         }
@@ -226,6 +315,7 @@ final class SessionStore {
 
     synchronized void markTransferred() throws Exception { session.put("transferred", true); persist(); }
     synchronized void reset() throws Exception {
+        String previousMode = destinationMode();
         JSONArray photos = session.getJSONArray("photos");
         for (int i = 0; i < photos.length(); i++) {
             String key = photos.getJSONObject(i).getString("key");
@@ -233,6 +323,7 @@ final class SessionStore {
             thumbnailFile(key).delete();
         }
         createEmpty();
+        session.put("destinationMode", previousMode);
         persist();
     }
     private void persist() throws Exception {

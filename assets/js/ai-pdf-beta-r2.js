@@ -177,6 +177,27 @@
     return Boolean(document.body?.classList?.contains('camera-mode'));
   }
 
+  function getDestinationMode(options = {}) {
+    if (['batam', 'cn23', 'mixed'].includes(options.destinationMode)) return options.destinationMode;
+    const coreMode = window.__mileCore?.getDestinationMode?.();
+    if (['batam', 'cn23', 'mixed'].includes(coreMode)) return coreMode;
+    if (window.__mileCore?.isCn23Mode?.()) return 'cn23';
+    const selected = $('destinationMode')?.value;
+    return ['cn23', 'mixed'].includes(selected) ? selected : 'batam';
+  }
+
+  function isNationalDestinationMode(mode) {
+    return mode === 'cn23' || mode === 'mixed';
+  }
+
+  async function prepareDestinationData(options = {}) {
+    if (!isNationalDestinationMode(getDestinationMode(options))) return;
+    if (!window.MilePostalNational?.load) {
+      throw new Error('Database kode pos nasional belum tersedia. Muat ulang halaman lalu coba lagi.');
+    }
+    await window.MilePostalNational.load();
+  }
+
   function showToast(message, type = 'info') {
     if (typeof window.showToast === 'function') window.showToast(message, type);
     else window.alert(message);
@@ -214,7 +235,7 @@
     return {
       provider: 'cosmoshub', protocol, model, accuracyMode, speedPreset, verificationPolicy,
       pagesPerRequest, concurrency, requestedPagesPerRequest, requestedConcurrency,
-      networkMode, networkProfile, cameraDirect
+      networkMode, networkProfile, cameraDirect, destinationMode: getDestinationMode()
     };
   }
 
@@ -1298,6 +1319,9 @@
   }
 
   function buildPrompt(startPage, endPage, options = {}) {
+    const nationwideRule = isNationalDestinationMode(getDestinationMode(options))
+      ? '\nAlamat tujuan dapat berada di seluruh Indonesia. Salin wilayah sesuai label, jangan menambahkan BATAM, dan jangan menebak kode pos yang tidak tercetak. di_luar_batam hanya informasi wilayah; tetap buat row untuk setiap alamat luar Batam.'
+      : '';
     const readabilityRule = options.cameraDirect
       ? 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca. Gunakan "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca. Bila teks masih terbaca tetapi ada keraguan kecil, pertahankan bacaannya dan tandai kolom di perlu_dicek_fields untuk pemeriksaan operator.'
       : 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" pada bagian meragukan.';
@@ -1313,7 +1337,7 @@ Aturan:
 1. Buat TEPAT SATU object row untuk SETIAP gambar HALAMAN ${startPage} sampai ${endPage}. Jangan menggabungkan dua gambar, jangan melewati gambar, dan jangan membuat row tambahan. Jika tulisan utama tidak terbaca, tetap buat row untuk halaman itu dengan nilai "PERLU DICEK".
 2. page wajib sama persis dengan nomor pada label HALAMAN di depan gambar; urutan rows harus mengikuti urutan gambar.
 3. nama_penerima: Hapus "KEPADA YTH", "ATTN", dan SETIAP kode/resi panjang yang mencampur huruf dengan angka. Contoh wajib: "FAHRUDIN 0028C20250400784" menjadi "FAHRUDIN". Jangan campur alamat. JL, RUKO, BLOK, dll masuk alamat.
-4. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.
+4. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.${nationwideRule}
 5. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
 6. nomor_surat: PRIORITAS PERTAMA adalah nomor surat resmi setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh pada kepala surat "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara di bagian Jenis Surat bila nomor kepala surat tersedia. Jika nomor surat resmi tidak ada, gunakan isi setelah label PERIHAL/HAL/SUBJECT tanpa kata label; contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)" dan "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Setelah itu barulah gunakan ID Pesanan atau Resi. Nilai boleh berupa teks.
 7. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
@@ -1325,6 +1349,13 @@ Format Wajib:
   }
 
   function buildVerificationPrompt(startPage, endPage, draftRows, options = {}) {
+    const nationalMode = isNationalDestinationMode(getDestinationMode(options));
+    const ignoredCodeRule = nationalMode
+      ? 'Abaikan CABANG BATAM dan kode transaksi yang bukan kode pos tujuan.'
+      : 'Abaikan CABANG BATAM, kode mandiri 5-8 digit.';
+    const nationwideRule = nationalMode
+      ? '\n- Tujuan dapat berada di seluruh Indonesia. Pertahankan wilayah dan kode pos yang tercetak, jangan menambahkan BATAM atau menebak kode pos. Alamat luar Batam tetap disertakan; di_luar_batam hanya informasi.'
+      : '';
     const pages = [...new Set((options.pages || draftRows.map(row => row?.page)).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
     const pageLabel = pages.length ? pages.join(', ') : `${startPage}–${endPage}`;
     return `Audit gambar halaman ${pageLabel} secara INDEPENDEN.
@@ -1339,8 +1370,8 @@ Kembalikan HANYA JSON perbaikan tanpa markdown dan whitespace berlebih:
 Aturan:
 - nama_penerima: Hapus KEPADA YTH dan setiap kode/resi panjang campuran huruf-angka. Contoh "FAHRUDIN 0028C20250400784" wajib menjadi "FAHRUDIN". Jangan campur alamat.
 - nomor_surat: PRIORITASKAN nomor surat resmi pada kepala surat setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara pada Jenis Surat bila nomor kepala surat ada. PERIHAL/HAL/SUBJECT hanya menjadi fallback jika nomor resmi tidak ada.
-- Abaikan CABANG BATAM, kode mandiri 5-8 digit.
-- di_luar_batam: true bila jelas bukan Kota Batam / 294xx.
+- ${ignoredCodeRule}
+- di_luar_batam: true bila jelas bukan Kota Batam / 294xx.${nationwideRule}
 - Gunakan PERLU DICEK bila tak pasti dan tambahkan ke perlu_dicek_fields.
 - Pastikan nomor halaman benar sesuai gambar audit.
 `;
@@ -2057,11 +2088,12 @@ ${clipped}`
     return '';
   }
 
-  function removeIgnoredBniCodesFromAddress(value) {
+  function removeIgnoredBniCodesFromAddress(value, options = {}) {
+    const preserveNationalPostcode = isNationalDestinationMode(getDestinationMode(options));
     return String(value || '')
       .split(/\s*,\s*/)
       .map(part => part.trim())
-      .filter(part => part && !isIgnoredBniStandaloneCode(part))
+      .filter(part => part && (preserveNationalPostcode && /^[1-9]\d{4}$/.test(part) || !isIgnoredBniStandaloneCode(part)))
       .join(', ')
       .replace(/\b(?:DONGDOI|DONGD0I|DONGD01|OOOOOO)\b/gi, ' ')
       .replace(/\s+/g, ' ')
@@ -2086,8 +2118,9 @@ ${clipped}`
     return matches?.length ? matches[matches.length - 1] : '';
   }
 
-  function ensureBatamCity(address) {
+  function ensureBatamCity(address, options = {}) {
     const value = normalizeAddressPunctuation(address);
+    if (isNationalDestinationMode(getDestinationMode(options))) return value;
     const zip = extractPrintedZip(value);
     if (!/^294\d{2}$/.test(zip) || /\bBATAM\b/i.test(value)) return value;
     return value.replace(new RegExp(`\\s*,?\\s*${zip}\\b`), `, BATAM ${zip}`);
@@ -2194,6 +2227,9 @@ ${clipped}`
 
   function normalizeRows(aiRows, template, pageOffset = 0, options = {}) {
     const core = window.__mileCore;
+    const destinationMode = getDestinationMode(options);
+    const nationalMode = isNationalDestinationMode(destinationMode);
+    const destinationOptions = { destinationMode };
     const expectedPages = Array.isArray(options.expectedPages)
       ? options.expectedPages.map(Number).filter(Number.isFinite)
       : [];
@@ -2215,9 +2251,9 @@ ${clipped}`
 
       const split = splitMixedNameAddress(name, address);
       name = split.name;
-      address = ensureBatamCity(removeIgnoredBniCodesFromAddress(split.address));
+      address = ensureBatamCity(removeIgnoredBniCodesFromAddress(split.address, destinationOptions), destinationOptions);
       if (/^(?:245\s+BATAM|CABANG|CARRIAGE)$/i.test(noSurat) || isIgnoredBniStandaloneCode(noSurat)) noSurat = '';
-      const cleanedRawLines = rawLines.filter(line => !isIgnoredBniStandaloneCode(line));
+      const cleanedRawLines = rawLines.filter(line => nationalMode && /^[1-9]\d{4}$/.test(line) || !isIgnoredBniStandaloneCode(line));
 
       const fallbackPage = expectedPages[index] || pageOffset + index + 1;
       const parsedPage = Number(pick(item, ['page', 'halaman', 'page_number'], fallbackPage)) || fallbackPage;
@@ -2245,15 +2281,21 @@ ${clipped}`
         : (aiReviewFields.length ? 0.74 : 0.95);
       const printedZip = extractPrintedZip(address);
       const zip = core?.resolveZipCode
-        ? core.resolveZipCode(address, template, printedZip)
-        : (printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411'));
+        ? core.resolveZipCode(address, template, printedZip, destinationOptions)
+        : (nationalMode ? printedZip : (printedZip || (core?.getZipCodeFromAddress ? core.getZipCodeFromAddress(address, template) : '29411')));
       const row = {
         noSurat, name, phone: phone || '0', zip, address,
-        act: 0.2, p: 10, l: 10, t: 10, cw: '0.20',
+        act: 0.2, p: nationalMode ? 0 : 10, l: nationalMode ? 0 : 10, t: nationalMode ? 0 : 10, cw: '0.20', destinationMode,
+        ...(nationalMode ? { _printedPostcode: printedZip, postcodeSource: printedZip ? 'label' : (zip ? 'database' : '') } : {}),
         outsideBatam, outsideBatamReason: outsideAssessment.reason,
         sourcePage: page, aiConfidence, aiConfidenceExplicit: hasConfidence, aiReviewFields,
         rawLines: cleanedRawLines, bniMode: false
       };
+      if (destinationMode === 'mixed') {
+        const postalMatch = core?.getNationalPostcodeMatch?.(row);
+        const matchedCity = String(postalMatch?.selected?.city || '').toUpperCase().replace(/^KOTA\s+/, '').trim();
+        if (postalMatch?.status === 'matched' && matchedCity === 'BATAM') row.p = row.l = row.t = 10;
+      }
       row.needsVerification = looksSuspiciousRow(row);
       return row;
     }).filter(row => row.name || row.address || row.noSurat);
@@ -2409,6 +2451,7 @@ ${clipped}`
 
   async function processPDFFile(file, options = {}) {
     const core = window.__mileCore;
+    const destinationMode = getDestinationMode(options);
     if (!core) {
       alert('Aplikasi mile.posnew.com belum siap. Muat ulang halaman.');
       return;
@@ -2422,7 +2465,7 @@ ${clipped}`
     } catch (error) {
       showToast(error.message, 'error');
       core.processNextInQueue();
-      return { status: 'FAILED', error: error.message };
+      return { status: 'FAILED', error: error.message, destinationMode };
     }
     const directCameraInput = cameraImages.length > 0;
     const inputName = directCameraInput
@@ -2453,7 +2496,11 @@ ${clipped}`
         if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
         throw new Error('Layanan AI belum dapat dijangkau. Periksa sinyal internet atau konfigurasi server lalu coba lagi.');
       }
-      config = getConfig();
+      config = { ...getConfig(), destinationMode };
+      if (isNationalDestinationMode(config.destinationMode)) {
+        setProgress(1, 'Memuat kode pos nasional', 'Menyiapkan pencocokan wilayah tujuan seluruh Indonesia…');
+        await prepareDestinationData(config);
+      }
       if (config.cameraDirect) config.cameraModelState = { blocked: new Set(), errors: new Map() };
       if (!config.cameraDirect && config.model === DEEPSEEK_R2_MODEL && !lastBetaImagesConfigured) {
         throw new Error('Eksperimen DeepSeek memerlukan penyimpanan R2 Beta yang aktif.');
@@ -2466,7 +2513,7 @@ ${clipped}`
       $('aiConfigPanel')?.setAttribute('open', '');
       showToast(error?.name === 'AbortError' ? `Proses ${directCameraInput ? 'kamera' : 'PDF'} dibatalkan.` : error.message, error?.name === 'AbortError' ? 'info' : 'error');
       core.processNextInQueue();
-      return { status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED', error: error.message };
+      return { status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED', error: error.message, destinationMode };
     }
 
     let pdf = null;
@@ -3137,7 +3184,8 @@ ${clipped}`
           // A visible review row preserves the photo's position without inventing recipient data.
           mergedRows.push({
             noSurat: '', name: 'PERLU DICEK', address: 'PERLU DICEK', phone: '0', zip: '',
-            act: 0.2, p: 10, l: 10, t: 10, cw: '0.20', outsideBatam: false, outsideBatamReason: '',
+            act: 0.2, p: isNationalDestinationMode(config.destinationMode) ? 0 : 10, l: isNationalDestinationMode(config.destinationMode) ? 0 : 10, t: isNationalDestinationMode(config.destinationMode) ? 0 : 10, cw: '0.20', destinationMode: config.destinationMode,
+            ...(isNationalDestinationMode(config.destinationMode) ? { _printedPostcode: '', postcodeSource: '' } : {}), outsideBatam: false, outsideBatamReason: '',
             sourcePage: page, aiConfidence: 0, aiConfidenceExplicit: false,
             aiReviewFields: ['nama_penerima', 'alamat_penerima'], needsVerification: true,
             aiExtractionFailed: true, rawLines: [], bniMode: false
@@ -3159,6 +3207,7 @@ ${clipped}`
 
       const metrics = {
         status: partial ? 'PARTIAL' : 'SUCCESS',
+        destinationMode: config.destinationMode,
         failedPages: [...failedPages].sort((a, b) => a - b),
         auditFailedPages: [...auditFailedPages].sort((a, b) => a - b),
         fileCount: 1,
@@ -3175,13 +3224,13 @@ ${clipped}`
       };
       void submitProcessingMetrics(metrics);
 
-      const itemType = $('itemType')?.value || 'DOKUMEN';
+      const itemType = isNationalDestinationMode(config.destinationMode) ? 'DOKUMEN' : ($('itemType')?.value || 'DOKUMEN');
       if (itemType === 'PAKET') {
         core.tempExtractedRows = mergedRows;
         hideProgress();
         core.showWeightModal();
       } else {
-        core.uploadedFilesManager.push({ id: Date.now(), name: inputName, rows: mergedRows, source: directCameraInput ? 'Camera AI' : 'AI PDF' });
+        core.uploadedFilesManager.push({ id: Date.now(), name: inputName, rows: mergedRows, destinationMode: config.destinationMode, source: directCameraInput ? 'Camera AI' : 'AI PDF' });
         core.updateInterface();
         setProgress(100, partial ? 'Hasil perlu dicek' : 'Selesai', partial
           ? `${mergedRows.length} baris masuk tabel. ${failedPages.size} foto belum berhasil diekstrak dan ${auditFailedPages.size} foto belum selesai diaudit. Foto asli tetap tersimpan untuk dicoba ulang.`
@@ -3199,6 +3248,7 @@ ${clipped}`
       stopStopwatch(elapsed, completedRowCount);
       const failedMetrics = {
         status: error?.name === 'AbortError' ? 'CANCELLED' : 'FAILED',
+        destinationMode: config?.destinationMode || destinationMode,
         fileCount: 1,
         pageCount,
         model: betaPerf.fallbackModels.length
@@ -3293,7 +3343,7 @@ ${clipped}`
     processCameraImages,
     testConnection,
     cancel: cancelProcess,
-    _test: { normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, pageDefaultModel, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
+    _test: { getDestinationMode, isNationalDestinationMode, prepareDestinationData, ensureBatamCity, normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, pageDefaultModel, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

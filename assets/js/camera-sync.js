@@ -2,12 +2,16 @@
   'use strict';
 
   const CAMERA_FORM_FIELD_IDS = new Set([
-    'clientMode', 'corporateTemplate', 'customerId', 'senderName', 'senderPhone',
-    'senderAddress', 'serviceCode', 'tariffCode', 'itemType', 'useInsurance'
+    'destinationMode', 'clientMode', 'corporateTemplate', 'customerId', 'senderName', 'senderPhone',
+    'senderAddress', 'serviceCode', 'tariffCode', 'itemType', 'useInsurance', 'cn23PaymentMethod'
   ]);
   let latestCameraBatchPayload = null;
   let cameraBatchSaveQueue = Promise.resolve(false);
   let cameraBatchResyncTimer = 0;
+
+  function normalizeDestinationMode(value) {
+    return value === 'cn23' || value === 'mixed' ? value : 'batam';
+  }
 
   /**
    * camera-sync.js — Sinkronisasi hasil form kamera ke server (R2)
@@ -27,6 +31,7 @@
       return el.value || '';
     };
     return {
+      destinationMode: normalizeDestinationMode(val('destinationMode')),
       clientMode: val('clientMode'),
       corporateTemplate: val('corporateTemplate'),
       customerId: val('customerId'),
@@ -36,11 +41,12 @@
       serviceCode: val('serviceCode'),
       tariffCode: val('tariffCode'),
       itemType: val('itemType'),
-      useInsurance: val('useInsurance')
+      useInsurance: val('useInsurance'),
+      cn23PaymentMethod: val('cn23PaymentMethod') === 'CREDIT' ? 'CREDIT' : 'INVOICE'
     };
   }
 
-  function setFormValues(form) {
+  async function setFormValues(form) {
     if (!form || typeof form !== 'object') return;
     const set = (id, value) => {
       const el = document.getElementById(id);
@@ -52,21 +58,23 @@
       }
       el.dispatchEvent(new Event('change', { bubbles: true }));
     };
+    const destinationMode = normalizeDestinationMode(form.destinationMode);
+    set('destinationMode', destinationMode);
     set('clientMode', form.clientMode);
-    // Delay template setting so clientMode change handler finishes first
-    setTimeout(() => {
-      set('corporateTemplate', form.corporateTemplate);
-      setTimeout(() => {
-        set('customerId', form.customerId);
-        set('senderName', form.senderName);
-        set('senderPhone', form.senderPhone);
-        set('senderAddress', form.senderAddress);
-        set('serviceCode', form.serviceCode);
-        set('tariffCode', form.tariffCode);
-        set('itemType', form.itemType);
-        set('useInsurance', form.useInsurance);
-      }, 80);
-    }, 80);
+    // Apply the profile before rows; allow the existing mode/template UI updates to finish.
+    await new Promise(resolve => setTimeout(resolve, 80));
+    set('corporateTemplate', form.corporateTemplate);
+    await new Promise(resolve => setTimeout(resolve, 80));
+    set('customerId', form.customerId);
+    set('senderName', form.senderName);
+    set('senderPhone', form.senderPhone);
+    set('senderAddress', form.senderAddress);
+    set('serviceCode', form.serviceCode);
+    set('tariffCode', form.tariffCode);
+    set('itemType', form.itemType);
+    set('useInsurance', form.useInsurance);
+    set('cn23PaymentMethod', form.cn23PaymentMethod === 'CREDIT' ? 'CREDIT' : 'INVOICE');
+    set('destinationMode', destinationMode);
   }
 
   function getAllRows() {
@@ -83,23 +91,49 @@
     return allRows;
   }
 
+  function nationalPostcodePending(row) {
+    const address = String(row?.address || '');
+    const query = String(row?._nationalPostcodeQuery || '');
+    const sourceKey = `${address}\n${query}`;
+    const confirmed = row?._confirmedNationalPostcode;
+    if (confirmed?.sourceKey === sourceKey && /^\d{5}$/.test(confirmed.selected?.postcode || '') && confirmed.selected?.city) return false;
+    const match = row?._nationalPostcodeMatch;
+    const printedZip = row?._printedPostcode || (row?.postcodeSource === 'label' ? row?.zip : '') || '';
+    const queryZip = query.match(/\b\d{5}\b/)?.[0] || '';
+    const lookupKey = `${sourceKey}\n${queryZip || printedZip}`;
+    return match?.lookupKey !== lookupKey || match?.status !== 'matched'
+      || !/^\d{5}$/.test(match.selected?.postcode || '') || !match.selected?.city;
+  }
+
   function summarizeRows(rows) {
-    let reviewCount = 0;
-    let outsideBatamCount = 0;
-    let cleanCount = 0;
+    const destinationMode = normalizeDestinationMode(document.getElementById('destinationMode')?.value);
+    const nationalMode = destinationMode === 'cn23' || destinationMode === 'mixed';
+    const summary = { reviewCount: 0, reviewFieldCount: 0, outsideBatamCount: 0, cleanCount: 0, localBatamCount: 0, cn23Count: 0, destinationPendingCount: 0 };
     rows.forEach(row => {
-      const reviewFields = row?.aiReviewFields || row?.reviewFields || [];
-      const needsReview = (Array.isArray(reviewFields) && reviewFields.length > 0) || Boolean(row?.needsVerification);
+      const hydrated = row?._aiReviewHydrated === true && row?._reviewState && typeof row._reviewState === 'object';
+      const reviewFields = hydrated
+        ? Object.entries(row._reviewState).filter(([, state]) => state?.pending).map(([field]) => field)
+        : (Array.isArray(row?.aiReviewFields) ? row.aiReviewFields : (Array.isArray(row?.reviewFields) ? row.reviewFields : []));
+      const pendingFields = new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean));
+      ['noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'].forEach(field => {
+        if (/PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row?.[field] || ''))) pendingFields.add(field);
+      });
+      if (nationalMode && nationalPostcodePending(row)) pendingFields.add('kode_pos');
+      const needsReview = pendingFields.size > 0 || Boolean(row?.needsReview) || (!hydrated && Boolean(row?.needsVerification));
       const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
-      if (needsReview) reviewCount++;
-      if (outsideBatam) outsideBatamCount++;
-      if (!needsReview && !outsideBatam) cleanCount++;
+      if (nationalMode && nationalPostcodePending(row)) summary.destinationPendingCount++;
+      else {
+        const sourceKey = `${String(row?.address || '')}\n${String(row?._nationalPostcodeQuery || '')}`;
+        const selected = row?._confirmedNationalPostcode?.sourceKey === sourceKey ? row._confirmedNationalPostcode.selected : row?._nationalPostcodeMatch?.selected;
+        const local = nationalMode ? /^(?:KOTA\s+)?BATAM$/i.test(String(selected?.city || '').trim()) : !outsideBatam;
+        if (local) summary.localBatamCount++; else summary.cn23Count++;
+      }
+      if (needsReview) summary.reviewCount++;
+      summary.reviewFieldCount += pendingFields.size || (needsReview ? 1 : 0);
+      if (outsideBatam) summary.outsideBatamCount++;
+      if (!needsReview && (nationalMode || !outsideBatam)) summary.cleanCount++;
     });
-    return {
-      reviewCount,
-      outsideBatamCount,
-      cleanCount
-    };
+    return summary;
   }
 
   function normalizeChunkTimings(value) {
@@ -157,12 +191,18 @@
       const rows = getAllRows();
       if (!rows.length || !latestCameraBatchPayload) return;
       const rowSummary = summarizeRows(rows);
+      const form = getFormValues();
       const payload = {
         ...latestCameraBatchPayload,
-        form: getFormValues(),
+        form,
+        destinationMode: form.destinationMode,
         rows,
         reviewCount: rowSummary.reviewCount,
+        reviewFieldCount: rowSummary.reviewFieldCount,
         outsideBatamCount: rowSummary.outsideBatamCount,
+        localBatamCount: rowSummary.localBatamCount,
+        cn23Count: rowSummary.cn23Count,
+        destinationPendingCount: rowSummary.destinationPendingCount,
         cleanCount: rowSummary.cleanCount
       };
       latestCameraBatchPayload = payload;
@@ -201,10 +241,15 @@
       chunkSize: Number(details.chunkSize || 7),
       concurrency: Number(details.concurrency || 7),
       chunkTimings: normalizeChunkTimings(details.chunkTimings),
-      reviewCount: Number.isFinite(Number(details.reviewCount)) ? Number(details.reviewCount) : rowSummary.reviewCount,
-      outsideBatamCount: Number.isFinite(Number(details.outsideBatamCount)) ? Number(details.outsideBatamCount) : rowSummary.outsideBatamCount,
+      reviewCount: rowSummary.reviewCount,
+      reviewFieldCount: rowSummary.reviewFieldCount,
+      outsideBatamCount: rowSummary.outsideBatamCount,
+      localBatamCount: rowSummary.localBatamCount,
+      cn23Count: rowSummary.cn23Count,
+      destinationPendingCount: rowSummary.destinationPendingCount,
       cleanCount: rowSummary.cleanCount,
       form,
+      destinationMode: form.destinationMode,
       rows: rows
     };
 
@@ -309,12 +354,18 @@
     const reviewCount = Number(batch.reviewCount || 0);
     const reviewFieldCount = Number(batch.reviewFieldCount || reviewCount || 0);
     const outsideBatamCount = Number(batch.outsideBatamCount || 0);
-    const cleanCount = Number(batch.cleanCount || Math.max(0, rowCount - reviewCount - outsideBatamCount));
+    const cleanCount = Number(batch.cleanCount ?? Math.max(0, rowCount - reviewCount - outsideBatamCount));
+    const localBatamCount = Number(batch.localBatamCount ?? Math.max(0, rowCount - outsideBatamCount));
+    const cn23Count = Number(batch.cn23Count ?? outsideBatamCount);
+    const destinationPendingCount = Number(batch.destinationPendingCount || 0);
     const processingSeconds = Number(batch.durationSeconds || 0);
     const secondsPerRow = rowCount > 0 && processingSeconds > 0 ? processingSeconds / rowCount : 0;
     const deviceName = batch.deviceName || 'Kamera HP';
     const statusLabel = batch.status === 'complete' ? 'Selesai' : (batch.status || 'Tersimpan');
     const itemLabel = batch.itemType === 'PAKET' ? 'Paket' : 'Dokumen';
+    const storedDestinationMode = batch.destinationMode || batch.form?.destinationMode;
+    const destinationMode = normalizeDestinationMode(storedDestinationMode);
+    const destinationLabel = destinationMode === 'mixed' ? 'Campuran Lokal + Luar Kota Batam' : destinationMode === 'cn23' ? 'Luar Kota Batam · CN23 Dokumen' : 'Lokal Batam';
     const processScheme = batch.chunkSize && batch.concurrency
       ? `${batch.concurrency} jalur × ${batch.chunkSize} gambar`
       : '—';
@@ -351,6 +402,7 @@
           <span class="camera-batch-badge camera-batch-badge--success">${escapeHtml(statusLabel)}</span>
           <span class="camera-batch-badge">${escapeHtml(formatModel(batch.model))}</span>
           <span class="camera-batch-badge">${escapeHtml(templateLabel)}</span>
+          ${destinationLabel ? `<span class="camera-batch-badge">${escapeHtml(destinationLabel)}</span>` : ''}
         </div>
       </div>
 
@@ -359,7 +411,9 @@
         <div class="camera-batch-stat"><span>Hasil</span><strong>${rowCount}</strong></div>
         <div class="camera-batch-stat camera-batch-stat--clean"><span>Bersih</span><strong>${cleanCount}</strong></div>
         <div class="camera-batch-stat camera-batch-stat--review" title="${reviewFieldCount} kolom perlu diperiksa"><span>Baris Perlu dicek</span><strong>${reviewCount}</strong><small>${reviewFieldCount} kolom</small></div>
-        <div class="camera-batch-stat camera-batch-stat--outside"><span>Luar Batam</span><strong>${outsideBatamCount}</strong></div>
+        <div class="camera-batch-stat camera-batch-stat--clean"><span>Lokal Batam</span><strong>${localBatamCount}</strong></div>
+        <div class="camera-batch-stat camera-batch-stat--outside"><span>Luar Kota Batam</span><strong>${cn23Count}</strong></div>
+        <div class="camera-batch-stat camera-batch-stat--review"><span>Tujuan belum pasti</span><strong>${destinationPendingCount}</strong></div>
       </div>
 
       <dl class="camera-batch-item__details">
@@ -452,7 +506,7 @@
       }
 
       // Set form values
-      setFormValues(batch.form);
+      await setFormValues({ ...batch.form, destinationMode: batch.form?.destinationMode || batch.destinationMode || 'batam' });
 
       // Inject rows into uploadedFilesManager
       const fileEntry = {

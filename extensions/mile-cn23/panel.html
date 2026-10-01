@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="id">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mile CN23 Helper</title><link rel="stylesheet" href="panel.css"></head>
+<body><main>
+<header><span class="badge">VERSI UJI 0.1.0</span><h1>Mile CN23 Helper</h1><p>Excel antrean dokumen luar kota → form CN23 → catat resi.</p></header>
+<section class="card"><h2>1. Masukkan antrean</h2><p>Unduh <strong>Antrean CN23</strong> dari hasil Mile Camera/web. Excel lokal Batam diproses tersendiri melalui upload Mile.</p><label class="file">Pilih Excel CN23 <input id="file" type="file" accept=".xlsx"></label><span id="filename">Belum ada file</span></section>
+<section class="card"><h2>2. Hubungkan ke Mile</h2><div class="actions"><button id="open">Buka form CN23 baru</button><button id="refresh">Perbarui daftar tab</button></div><label>Tab Mile <select id="tabs"><option value="">Pilih tab CN23</option></select></label><p>Login di Chrome yang sama. Gunakan form baru yang kosong.</p></section>
+<section class="card"><h2>3. Jalankan</h2><label class="check"><input type="checkbox" id="advance"> Lanjut ke kiriman berikutnya setelah resi terverifikasi</label><label class="check"><input type="checkbox" id="submit"> Klik Selesai otomatis</label><label>Batas total biaya per kiriman (Rp) <input id="limit" type="number" min="1" placeholder="Contoh 50000" disabled></label><p>Untuk uji pertama, biarkan kedua pilihan kosong. Periksa hasil pengisian dan biaya, lalu klik Selesai di Mile. Korporat memerlukan pemeriksaan Kode Pelanggan sebelum data diisi.</p><div class="actions"><button id="run" class="primary">Isi 1 kiriman / mulai antrean</button><button id="pause">Jeda</button><button id="export">Ekspor hasil & resi</button><button id="clear">Hapus antrean selesai</button></div></section>
+<div id="message" role="status" aria-live="polite"></div><p id="summary"></p>
+<div class="table-wrap"><table><thead><tr><th>ID</th><th>Penerima</th><th>Tujuan</th><th>Pembayaran</th><th>Status</th><th>Resi / tindakan</th></tr></thead><tbody id="rows"></tbody></table></div>
+<footer>Antrean disimpan di Chrome ini. Jangan hapus data ekstensi sebelum mengekspor hasil. Resi dapat dicetak manual belakangan. <a href="CARA-INSTALL.txt" target="_blank">Panduan instalasi & pemakaian</a></footer>
+</main><script src="vendor/xlsx.full.min.js"></script><script src="queue.js"></script><script src="panel.js"></script></body></html>

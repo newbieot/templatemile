@@ -1,0 +1,7 @@
+{
+  "name": "templatemile-verification",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "test": "node run.cjs" },
+  "devDependencies": { "jsdom": "26.1.0" }
+}

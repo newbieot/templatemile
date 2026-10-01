@@ -24,7 +24,7 @@
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
   <meta name="twitter:description" content="Siapkan data bulk upload Mile App lebih cepat dari PDF, Excel, dan CSV.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20260927-26.01-desktop-review-sync">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20261001-cn23-2">
   <link rel="stylesheet" href="/assets/css/template-picker.css?v=20260927-26.02-customer-template-search">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
 </head>
@@ -101,6 +101,17 @@
           </div>
 
           <div class="field-stack">
+            <div class="form-group full-width">
+              <label for="destinationMode">Tujuan kiriman</label>
+              <div class="select-shell select-shell--strong">
+                <select id="destinationMode" aria-describedby="destinationModeHint">
+                  <option value="batam" selected>Batam · Unggah Excel Mile</option>
+                  <option value="cn23">CN23 Dokumen Luar Kota</option>
+                  <option value="mixed">Campuran Batam + Luar Kota</option>
+                </select>
+              </div>
+              <span class="field-hint" id="destinationModeHint">Pilih CN23 untuk menyiapkan kiriman dokumen tujuan luar Kota Batam.</span>
+            </div>
             <div class="form-group full-width">
               <label for="clientMode">Jenis transaksi</label>
               <div class="select-shell select-shell--strong">
@@ -182,6 +193,13 @@
             <div class="form-group full-width" id="wrapItemType">
               <label for="itemType">Jenis kiriman</label>
               <div class="select-shell"><select id="itemType"><option value="DOKUMEN" selected>Dokumen · Default 0,2 kg</option><option value="PAKET">Paket · Input dimensi & berat</option></select></div>
+            </div>
+            <div class="form-group full-width" id="cn23Settings" hidden>
+              <div class="form-group" id="cn23PaymentMethodGroup">
+                <label for="cn23PaymentMethod">Pembayaran korporat CN23</label>
+                <div class="select-shell"><select id="cn23PaymentMethod"><option value="INVOICE">Invoice</option><option value="CREDIT">CREDIT</option></select></div>
+              </div>
+              <span class="field-hint">Preset dokumen: 0,2 kg · Nilai barang Rp20.000 · Envelope. Ritel menggunakan Cash.</span>
             </div>
             <div class="form-group full-width insurance-row">
               <label class="checkbox-wrap" for="useInsurance">
@@ -364,6 +382,9 @@
             <div class="summary-item"><span>Mode</span><strong id="modeSummary">Corporate</strong></div>
             <div class="summary-item"><span>Asuransi</span><strong id="insuranceSummary">Off</strong></div>
             <div class="summary-item summary-item--outside"><span>Luar Kota Batam</span><strong id="outsideBatamCount">0</strong></div>
+            <div class="summary-item" id="batamRouteSummary" hidden><span>Excel Batam</span><strong id="batamRouteCount">0</strong></div>
+            <div class="summary-item" id="cn23RouteSummary" hidden><span>Antrean CN23</span><strong id="cn23RouteCount">0</strong></div>
+            <div class="summary-item summary-item--review" id="pendingRouteSummary" hidden><span>Tujuan perlu dicek</span><strong id="pendingRouteCount">0</strong></div>
             <div class="summary-item summary-item--review"><span>Teks perlu dicek</span><strong id="reviewCount">0</strong></div>
             <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu berkas sumber</div>
           </div>
@@ -413,7 +434,7 @@
           </div>
 
           <div class="table-help">
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk mengoreksi data. Pengirim mengikuti pengaturan awal; khusus PN Batam memakai REF/SURAT setiap baris. Kode pos dihitung otomatis dengan algoritma dua tingkat. Berat dan dimensi hanya ditampilkan untuk Paket.</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk mengoreksi nama, alamat, dan referensi. Pengirim mengikuti pengaturan awal. Pada mode CN23 atau Campuran, periksa pilihan wilayah dan kode pos nasional setiap baris sebelum ekspor.</span>
           </div>
 
           <div class="table-container" role="region" aria-label="Editable recipient data" tabindex="0">
@@ -424,11 +445,13 @@
           </div>
 
           <div class="export-bar">
-            <div class="export-copy"><strong>Ekspor setelah seluruh data benar</strong><span>Workbook hasil mengikuti struktur kolom Mile App.</span></div>
+            <div class="export-copy"><strong>Ekspor setelah seluruh data benar</strong><span id="exportFormatHint">Workbook hasil mengikuti struktur kolom Mile App.</span></div>
             <button id="exportButton" class="button button--primary" type="button" disabled>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg>
               Ekspor workbook Mile App
             </button>
+            <button id="exportBatamButton" class="button button--primary" type="button" data-action="export-batam" hidden disabled>Ekspor Excel Batam</button>
+            <button id="exportCn23Button" class="button button--primary" type="button" data-action="export-cn23" hidden disabled>Ekspor Antrean CN23</button>
           </div>
         </div>
       </section>
@@ -513,11 +536,12 @@
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/app-core.js?v=20260927-26.02-customer-template-search" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20260930-26.31-camera-gemini-7x7" defer></script>
+  <script src="/assets/js/postcode-national.js?v=20261001-cn23-2" defer></script>
+  <script src="/assets/js/app-core.js?v=20261001-cn23-2" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20261001-cn23-2" defer></script>
   <script src="/assets/js/camera-store.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/js/camera-import.js?v=20260926-16.44-review" defer></script>
-  <script src="/assets/js/ui.js?v=20260927-26.01-desktop-review-sync" defer></script>
+  <script src="/assets/js/ui.js?v=20261001-cn23-2" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>

@@ -9,6 +9,10 @@
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     if (!window.MileCameraStore) throw new Error('Halaman belum siap. Periksa koneksi lalu coba lagi.');
+    const destinationMode = ['cn23', 'mixed'].includes(manifest.destinationMode) ? manifest.destinationMode : 'batam';
+    if (destinationMode !== 'batam' && !document.getElementById('destinationMode')) {
+      throw new Error('Web kamera belum mendukung luar kota. Muat ulang web setelah pembaruan; foto tetap tersimpan.');
+    }
     const images = [];
     for (const photo of manifest.photos) {
       const response = await fetch(photo.url, { cache: 'no-store' });
@@ -28,6 +32,8 @@
       startedAt: manifest.startedAt,
       finishedAt: new Date().toISOString(),
       route: 'review',
+      destinationMode,
+      form: { destinationMode },
       draft: false,
       captureCount: images.length,
       captures: images.map(({ blob, ...photo }) => photo),

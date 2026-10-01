@@ -4,12 +4,24 @@
   let reviewWakeLock = null;
   let cameraImportRunning = false;
   let aiProcessingActive = false;
+  let sessionProfileSaveQueue = Promise.resolve();
   const DEFAULT_CAMERA_MODEL = 'gemini-3.8-flash';
   const CAMERA_CHUNK_SIZE = 7;
   const CAMERA_CONCURRENCY = 7;
 
   function storedCameraModel(model) {
     return DEFAULT_CAMERA_MODEL;
+  }
+
+  function normalizeDestinationMode(value) {
+    return value === 'cn23' || value === 'mixed' ? value : 'batam';
+  }
+
+  function restoreDestinationMode(session) {
+    const selector = document.getElementById('destinationMode');
+    if (!selector) return;
+    selector.value = normalizeDestinationMode(session.destinationMode || session.form?.destinationMode);
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   async function requestReviewWakeLock() {
@@ -69,7 +81,7 @@
         <div class="camera-session-banner__copy">
           <div class="camera-session-banner__badge">Mode Kamera Aktif</div>
           <strong>${captureCount ? captureCount + ' Foto Dokumen Siap' : 'Batch Kamera Masuk'}</strong>
-          <p>Unggah berkas dinonaktifkan. Silakan tentukan <strong>Template pelanggan</strong> atau periksa hasil di bawah.</p>
+          <p>Pilih <strong>tujuan kiriman</strong> dan template pelanggan, lalu periksa hasil di bawah.</p>
         </div>
       `;
     }
@@ -149,6 +161,7 @@
       }
 
       const core = window.__mileCore;
+      restoreDestinationMode(session);
       
       if (session.streamedRows && session.streamedRows.length > 0) {
         if (session.streamedRows[0]._error) {
@@ -172,13 +185,13 @@
         await store.remove(sessionId);
         
         if (typeof window.MileCameraSync?.saveBatchResults === 'function') {
+          const mRows = session.streamedRows || [];
+          let outOfTown = 0, reviewCount = 0;
+          mRows.forEach(r => {
+            if (r.outsideBatam || r.outOfTown) outOfTown++;
+            if ((r.aiReviewFields || r.reviewFields)?.length) reviewCount++;
+          });
           try {
-            const mRows = session.streamedRows || [];
-            let outOfTown = 0, reviewCount = 0;
-            mRows.forEach(r => {
-              if (r.outOfTown) outOfTown++;
-              if (r.reviewFields && r.reviewFields.length) reviewCount++;
-            });
             await fetch('/api/metrics/ai', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -324,6 +337,18 @@
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && aiProcessingActive) void requestReviewWakeLock();
+  });
+  document.addEventListener('change', event => {
+    if (event.target?.id !== 'destinationMode') return;
+    const sessionId = new URLSearchParams(window.location.search).get('cameraSession');
+    const store = window.MileCameraStore;
+    if (!sessionId || !/^CAM-[a-zA-Z0-9-]{16,80}$/.test(sessionId) || !store?.get || !store?.save) return;
+    const destinationMode = normalizeDestinationMode(event.target.value);
+    sessionProfileSaveQueue = sessionProfileSaveQueue.catch(() => {}).then(async () => {
+      const session = await store.get(sessionId);
+      if (!session || normalizeDestinationMode(session.destinationMode || session.form?.destinationMode) === destinationMode) return;
+      await store.save({ ...session, destinationMode, form: { ...session.form, destinationMode } });
+    }).catch(() => notify('Mode tujuan belum tersimpan di sesi kamera. Ubah kembali sebelum muat ulang.', 'warning'));
   });
   window.addEventListener('beforeunload', releaseReviewWakeLock);
 })();

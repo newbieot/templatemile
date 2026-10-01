@@ -1,0 +1,69 @@
+MILE CN23 HELPER 0.1.0 — VERSI UJI
+
+INSTALASI CHROME DI KOMPUTER LOKET
+1. Download Mile-CN23-Helper-0.1.0.zip dan pilih Extract All/Ekstrak Semua.
+2. Simpan folder hasil ekstrak di folder tetap; jangan dipindahkan setelah dipasang.
+3. Buka Chrome biasa dan ketik chrome://extensions pada address bar.
+4. Aktifkan Developer mode/Mode developer (kanan atas).
+5. Klik Load unpacked/Muat yang belum dikemas. Pilih folder hasil ekstrak
+   yang langsung berisi manifest.json. Jangan pilih file ZIP atau folder vendor.
+6. Klik ikon puzzle Chrome dan pin Mile CN23 Helper.
+7. Login ke https://expos.mile.app di Chrome yang sama. Jika tab Mile sudah
+   terbuka sebelum instalasi, muat ulang dahulu setelah menyimpan pekerjaan.
+8. Klik ikon Mile CN23 Helper untuk membuka panel antrean.
+
+ALUR KAMERA DAN EXCEL
+1. Di Mile Camera pilih Lokal Batam, Luar Kota Batam, atau Campuran sebelum capture.
+2. Capture label, Proses AI, lalu periksa nama/alamat/nomor/kode pos pada web.
+3. Untuk Campuran, unduh Excel Lokal Batam dan Antrean CN23 secara terpisah.
+   Excel lokal di-upload dengan menu Mile lokal seperti biasa.
+4. Di ekstensi pilih file Antrean_CN23...xlsx, sheet CN23_ANTREAN.
+   File lokal, gabungan, formula, tujuan Batam, kode pos belum pasti ditolak.
+5. Klik Buka form CN23 baru dan pilih tabnya. Form harus kosong.
+6. UJI PERTAMA: jangan centang pilihan otomatis. Klik Isi 1 kiriman.
+7. Periksa alamat/kode pos/zona, service, preset dokumen, asuransi, dan biaya.
+   Klik Selesai di Mile hanya setelah data sesuai. Resi dicatat jika cocok.
+8. Ekspor hasil & resi. Buka tautan resi untuk cetak manual belakangan.
+
+OTOMATISASI BATCH
+- Setelah uji pertama berhasil, centang Lanjut ke kiriman berikutnya.
+- Selesai otomatis opsional: centang, isi batas total biaya per kiriman,
+  dan setujui konfirmasi panel. Bila total biaya tidak dikenali atau melebihi
+  batas, ekstensi menunggu pemeriksaan dan klik Selesai oleh petugas.
+- Retail hanya Cash. Korporat: kode pelanggan diisi dan Enter dahulu;
+  petugas memeriksa pelanggan melalui tombol di bar ekstensi sebelum
+  data diteruskan. Pembayaran harus Invoice/CREDIT sesuai antrean.
+- Resi tidak dicetak otomatis; tab resi tetap tersedia. Form baru dibuka
+  setelah resi kiriman aktif terverifikasi, kemudian antrean dilanjutkan.
+
+JIKA TERHENTI
+- Pengisian gagal SEBELUM Selesai: periksa kesalahan, buka form kosong,
+  klik Siapkan ulang baris tersebut, lalu jalankan lagi.
+- Sesudah Selesai tetapi resi belum terverifikasi: jangan kirim ulang.
+  Periksa transaksi di Mile, lalu Catat resi yang telah diperiksa (nomor+URL).
+- Jangan menghapus data ekstensi, mengganti Chrome/profile, atau mengganti
+  file antrean saat masih ada transaksi dengan hasil belum pasti.
+- Tab print yang sudah terbuka sebelum proses tidak dihitung sebagai resi baru.
+
+PRESET DOKUMEN
+Documents / Ecommerce-Biasa / NPWP 15 angka nol / HS 49011000 /
+DOKUMEN / jumlah 1 / nilai Rp20.000 / berat 0,2 kg / ID /
+EN-Envelope / IMEI 0 dan 0 / dimensi 0 / NON-COD.
+Asuransi, service, pengirim, referensi, instruksi mengikuti Excel antrean.
+Kode zona mengikuti pilihan tujuan Mile, bukan disamakan dengan kode pos.
+
+STATUS DAN DATA
+Paket ini diuji dengan validasi Excel, simulasi antrean, dan struktur form
+yang diamati. Uji transaksi lengkap pada Chrome terpasang belum dilakukan.
+Lakukan satu kiriman nyata yang memang akan dikirim sebelum memakai batch.
+Perubahan tampilan Mile dapat memerlukan pembaruan ekstensi.
+Data antrean tersimpan lokal di Chrome. Ekstensi hanya beroperasi pada
+expos.mile.app dan halaman print apiexpos.mile.app; tidak meminta password
+atau API key. Pemrosesan foto AI tetap memakai layanan web Mile Camera.
+
+Dokumentasi pemasangan resmi Chrome:
+https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-an-unpacked-extension
+
+Untuk memperbarui ekstensi: ekstrak versi baru ke folder baru, simpan/ekspor
+antrean lama dahulu, lalu sesuaikan folder Load unpacked saat tidak ada
+kiriman aktif. Jangan mencopot ekstensi saat hasil kiriman belum pasti.
