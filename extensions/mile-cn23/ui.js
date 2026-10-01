@@ -14,7 +14,7 @@
     notice.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;max-width:90vw;padding:16px 24px;background:#166534;color:white;border-radius:12px;box-shadow:0 6px 28px #0004;font:15px Arial';
   }
   function show(tabId, toggle = false) {
-    if (menu) { if (toggle) {clearInterval(menu.timer);menu.host.remove();menu=null;} return; }
+    if (menu) { if (toggle) {clearInterval(menu.timer);menu.host.remove();menu=null;void request('PANEL_VISIBILITY',{open:false}).catch(()=>{});} return; }
     const host = document.createElement('aside');host.id='mile-cn23-menu';
     host.style.cssText='position:fixed;right:16px;bottom:16px;width:360px;max-width:calc(100vw - 32px);z-index:2147483647';
     const root = host.attachShadow({mode:'closed'});
@@ -34,6 +34,8 @@
       const held=state.skippedPending||[];
       get('notice').textContent=held.length ? `Dilewati dari Excel: ${held.map(row=>'No. '+row.sourceRow+' - '+row.name).join('; ')}. Sudah ditekan Selesai; resi sebelumnya belum terbaca. Periksa transaksi tersebut di Mile. Data lainnya tetap bisa di-Start.` : (state.pendingSubmissions?.length ? `${state.pendingSubmissions.length} transaksi sebelumnya menunggu kepastian resi. Upload Excel; data lainnya tetap bisa diproses.` : '');
       get('error').textContent=state.error||localError;
+      if(state.active?.submittedAt)get('status').textContent+=state.receiptWait?' - '+state.receiptWait:' - Menunggu bukti transaksi dari tab resi';
+      else if(state.waitingNewForm&&state.formWait)get('status').textContent+=' - '+state.formWait;
       get('start').textContent=state.running?'Jeda':'Start';
       get('start').disabled=!state.running&&(Boolean(state.active)||!state.rows.some(row=>['ready','error'].includes(row.status))||state.rows.some(row=>row.status==='unknown'));
       get('upload').disabled=Boolean(state.active)||state.running;
@@ -60,7 +62,8 @@
     get('reset').addEventListener('click',()=>task(async()=>{
       state=await request('RESET');get('file').value='';localError='';render();
     }));
-    menu={host,timer:setInterval(()=>{if(!busy)void refresh().catch(()=>{});},1000)};
+    void request('PANEL_VISIBILITY',{open:true}).catch(()=>{});
+    menu={host,timer:setInterval(()=>{if(!host.isConnected)document.body.append(host);if(!busy)void refresh().catch(()=>{});},1000)};
     void task(refresh);
   }
   chrome.runtime.onMessage.addListener((message,_sender,reply)=>{

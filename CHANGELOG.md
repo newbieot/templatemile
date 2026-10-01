@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.38 — Helper 0.2.4: biarkan resi selesai sebelum navigasi
+
+- Halaman daftar transaksi tidak lagi dipaksa reload ketika transaksi aktif masih menunggu resi. Callback Mile yang membuka halaman cetak dapat selesai sebelum tab utama pindah ke form baru.
+- Panel antrean dipulihkan otomatis setelah reload dan ditempelkan kembali ketika navigasi Vue mengganti isi halaman.
+- Pengelola antrean dapat membaca ulang tab resi yang sudah terbuka apabila pesan awal pembaca resi terlewat. Status penantian resi/kolom ditampilkan pada panel.
+- Pengujian meniru callback cetak yang bergantung pada dokumen asal, format Label Mile yang diamati, pesan resi terlewat, panel setelah reload, serta tiga transaksi dari satu Start.
+
 ## v26.37 — Helper 0.2.3: lanjutkan Excel yang sama setelah Reset
 
 - Kiriman yang sudah ditekan Selesai tetapi resinya belum terbaca hanya dilewati pada baris tersebut; tidak lagi menolak seluruh Excel.

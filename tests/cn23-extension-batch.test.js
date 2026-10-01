@@ -55,7 +55,8 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true}])te
         const receiptText=[document.querySelector('#namapengirim').value,document.querySelector('#namapenerima').value,
           document.querySelector('#alamatPenerima').value,'INDRAGIRI HILIR','29274',field(document,'ref_no').value,
           `P261001000000${index+1}`,`Kode Transaksi: 294002026100100000${index+1}`].join(' ');
-        const receipt=()=>openReceipt(index,receiptText);
+        const submitPage=mainPage;
+        const receipt=()=>{assert.ok(submitPage.w.document,'Mile print callback must survive source-page navigation');openReceipt(index,receiptText);};
         const list=()=>{
           tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});
           if(scenario.spa){mainPage.w.history.replaceState({},'','https://expos.mile.app/transaction-list');mainPage.d.body.replaceChildren();}

@@ -37,7 +37,7 @@ function workerHarness() {
   const panel={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
   const content={id:'fixture',tab:{id:7,url:Q.FORM_URL}};
   const send=(m,sender=panel)=>new Promise(resolve=>listener(m,sender,resolve));
-  return {send,content,order,tabs,created,updated,clicked,get state(){return stored.mileCn23Queue;}};
+  return {send,content,order,tabs,created,updated,clicked,chrome,get state(){return stored.mileCn23Queue;}};
 }
 test('durable submit, old/foreign receipt rejection, no double submit, receipt-gated advance',async()=>{
   const h=workerHarness();assert.equal((await h.send({type:'IMPORT',rows:[sample()],batchId:'hash',fileName:'test.xlsx'})).ok,true);
@@ -91,11 +91,12 @@ test('two-row queue returns from transaction-list, accepts fresh receipt tab and
   assert.ok(h.order.some(item=>item.type==='CN23_PANEL_TOGGLE'));assert.equal(h.order.some(item=>item.event==='new-tab'),false);
   await h.send({type:'RUN',tabId:7});let token=h.state.active.token;
   await h.send({type:'FILLED',token},{...h.content,documentId:'first'});await h.send({type:'SUBMIT_INTENT',token},h.content);
-  h.created({id:11});h.updated(7,{url:'https://expos.mile.app/transaction-list'},{id:7});await h.send({type:'GET'});
-  assert.equal(h.tabs.get(7).url,Q.FORM_URL);assert.equal(h.state.formReturnExpected,true);
-  await h.send({type:'FORM_READY'},{...h.content,documentId:'next'});assert.equal(h.state.rows[0].status,'awaiting_receipt');
+  h.created({id:11});h.tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});h.updated(7,{url:'https://expos.mile.app/transaction-list'},{id:7});await h.send({type:'GET'});
+  assert.equal(h.tabs.get(7).url,'https://expos.mile.app/transaction-list');assert.equal(h.state.formReturnExpected,true);assert.equal(h.order.some(item=>item.event==='navigate'),false,'Never reload the submit document before its print callback finishes');
+  assert.equal(h.state.rows[0].status,'awaiting_receipt');
   const ack=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:11,url:url('first-fresh')}});
-  assert.equal(ack.data.receiptAccepted,true);assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.rows[1].status,'filling');
+  assert.equal(ack.data.receiptAccepted,true);assert.equal(h.state.rows[0].status,'done');assert.equal(h.tabs.get(7).url,Q.FORM_URL);
+  await h.send({type:'FORM_READY'},{...h.content,documentId:'next'});assert.equal(h.state.rows[1].status,'filling');
   assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
   token=h.state.active.token;await h.send({type:'FILLED',token},{...h.content,documentId:'next'});await h.send({type:'SUBMIT_INTENT',token},h.content);
   const receipt={...evidence(),code:'P2610010000002',text:evidence().text.replace('PENERIMA TEST','PENERIMA KEDUA').replace('TEST-REF','TEST-REF-2')};
@@ -196,4 +197,29 @@ test('Reset and reimport the SAME four-row Excel skips the unresolved submission
   const late=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:16,url:url('late-original'),openerTabId:7}});
   assert.equal(late.data.archived,true);assert.equal(h.state.active.token,activeToken);
   assert.equal(h.state.skippedPending.length,0);assert.equal(h.state.skippedCompleted,1);
+});
+
+
+test('PAGE_READY restores the running panel and manual list viewing does not reload while waiting for print',async()=>{
+  const h=workerHarness();await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN'});
+  const token=h.state.active.token;await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
+  h.tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});
+  h.updated(7,{url:'https://expos.mile.app/transaction-list'},h.tabs.get(7));await h.send({type:'GET'});
+  const reply=await h.send({type:'PAGE_READY'},{id:'fixture',url:'https://expos.mile.app/transaction-list',tab:h.tabs.get(7)});
+  assert.equal(reply.data.openPanel,true);assert.equal(h.order.some(item=>item.event==='navigate'),false);
+  assert.equal(h.state.rows[0].status,'awaiting_receipt');
+});
+
+test('worker recovers a missed receipt message by probing the print tab and advances once',async()=>{
+  const h=workerHarness(),second={...sample(),queue_id:'NEXT'};
+  await h.send({type:'IMPORT',rows:[sample(),second]});await h.send({type:'RUN'});const token=h.state.active.token;
+  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
+  h.tabs.set(17,{id:17,url:url('probe-receipt'),openerTabId:7});
+  h.tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});
+  h.chrome.tabs.sendMessage=async(id,m)=>{h.order.push({event:'message',type:m.type});return m.type==='CN23_RECEIPT_PROBE'?{version:Q.VERSION,evidence:evidence()}:{accepted:true};};
+  const state=await h.send({type:'GET'});assert.equal(state.ok,true);
+  assert.equal(h.state.rows[0].status,'done');assert.equal(h.tabs.get(7).url,Q.FORM_URL);
+  await h.send({type:'FORM_READY'},h.content);assert.equal(h.state.rows[1].status,'filling');
+  assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
+  await h.send({type:'GET'});assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
 });
