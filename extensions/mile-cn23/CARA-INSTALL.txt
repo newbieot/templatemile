@@ -1,14 +1,16 @@
-MILE CN23 HELPER 0.2.5
+MILE CN23 HELPER 0.2.6
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.5 ke folder
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.6 ke folder
    ekstensi lama dan timpa file lama, termasuk manifest.json.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.5.
+   Versi harus tertulis 0.2.6.
 3. Buka form CN23 kosong dan muat ulang tab Mile:
    https://expos.mile.app/new-transaction-custom
-4. Cache Excel dan catatan versi lama otomatis dibersihkan pada pembaruan ini.
-   Upload Excel yang ingin diproses, lalu klik Start sekali.
+4. Antrean dari 0.2.5 tetap tersimpan. Bila berhenti karena selisih kode pos,
+   tekan Start untuk melanjutkan; baris selesai tidak diulang. Tidak perlu Reset.
+   Cache 0.2.4 dan versi sebelumnya otomatis dibersihkan. Jika antrean kosong,
+   upload Excel yang ingin diproses, lalu klik Start sekali.
 
 INSTALASI PERTAMA
 1. Ekstrak ZIP ke folder tetap yang langsung berisi manifest.json.
@@ -51,8 +53,10 @@ DOKUMEN / jumlah 1 / nilai Rp20.000 / berat 0,2 kg / ID /
 EN-Envelope / IMEI 0 dan 0 / dimensi 0 / NON-COD.
 Asuransi, service, referensi, dan instruksi mengikuti Excel.
 Kode zona mengikuti pilihan Mile.
+Kode pos dan kode zona yang dikunci Mile selalu dipakai setelah wilayah cocok,
+meskipun berbeda dari Excel. Aturan ini berlaku untuk seluruh tujuan.
 
-PENGUJIAN 0.2.5
+PENGUJIAN 0.2.6
 Satu Start diuji untuk tiga kiriman: Cash, Invoice, lalu CREDIT. Tidak ada
 tab cetak dalam pengujian. Nama penerima, referensi, metode pembayaran,
 dan pengirim korporat diperiksa saat masing-masing tombol Selesai ditekan.
@@ -62,8 +66,14 @@ ditunggu sampai semua kolom termasuk ref_no siap; salinan tersembunyi dari
 form lama diabaikan. Panel setelah navigasi, Reset, upload ulang, dan
 pembersihan cache lama diuji. Uji memakai simulasi DOM dan service worker;
 submit produksi dengan ekstensi Chrome terpasang belum dilakukan.
+Perbedaan beberapa kode pos dan kode zona diuji untuk ritel dan korporat.
+Data kedua dengan kode pos Mile berbeda tetap selesai, lalu data ketiga
+berjalan otomatis. Kemajuan 0.2.5 dan pengulangan hanya baris gagal juga diuji.
 
 Data antrean tersimpan lokal di Chrome. Tidak meminta password/API key.
 Permission storage/alarms, akses situs hanya https://expos.mile.app/*.
 Panduan resmi Chrome:
 https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-an-unpacked-extension
+
+APK, ZIP terbaru, dan petunjuk lengkap:
+https://mile.posnew.com/unduhan

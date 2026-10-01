@@ -10,8 +10,37 @@ test('retail automatically chooses Cash and submits once after durable intent',a
     await until(()=>f.submits===1);assert.equal(f.messages.filter(m=>m.type==='SUBMIT_INTENT').length,1);
   }finally{f.close();}
 });
-test('nonempty user draft and postcode conflict stop before payment',async()=>{
-  for(const options of [{filled:true},{postal:'29276'}]){const f=fixture(options);try{f.start();await until(()=>f.messages.some(m=>m.type==='FORM_ERROR'));assert.equal(f.submits,0);assert.equal(f.messages.some(m=>m.type==='FILLED'),false);if(options.filled)assert.equal(f.d.querySelector('#namapenerima').value,'EXISTING DRAFT');}finally{f.close();}}
+test('nonempty user draft stops before payment',async()=>{
+  const f=fixture({filled:true});try{f.start();await until(()=>f.messages.some(m=>m.type==='FORM_ERROR'));assert.equal(f.submits,0);assert.equal(f.messages.some(m=>m.type==='FILLED'),false);assert.equal(f.d.querySelector('#namapenerima').value,'EXISTING DRAFT');}finally{f.close();}
+});
+
+test('retail and corporate keep Mile postcode/zone despite Excel differences and submit automatically',async()=>{
+  for(const corporate of [false,true]) for(const codes of [
+    {excel:'29274',mile:'29276',excelZone:'29275',mileZone:'29274'},
+    {excel:'11111',mile:'22222',excelZone:'OLD-A',mileZone:'MILE-A'},
+    {excel:'99999',mile:'12345',excelZone:'OLD-B',mileZone:'MILE-B'}
+  ]) {
+    const f=fixture({postal:codes.mile,zone:codes.mileZone,corporate});
+    try {
+      f.start({recipient_postcode:codes.excel,destination_code:codes.excelZone});await until(()=>f.submits===1);
+      assert.equal(f.d.querySelector('[placeholder="KODE POS"]').value,codes.mile);
+      assert.equal(f.d.querySelector('[placeholder="KODE ZONA"]').value,codes.mileZone);
+      assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
+      assert.equal(f.messages.filter(m=>m.type==='SUBMIT_INTENT').length,1);
+    } finally {f.close();}
+  }
+});
+
+test('matching Mile regions sharing another postcode continue without an Excel postcode match',async()=>{
+  const f=fixture({postal:'29276',regionOptions:[
+    'KAB. INDRAGIRI HILIR, KERITANG, PENGALIHAN (29276)',
+    'KAB. INDRAGIRI HILIR, KERITANG, PENGALIHAN / KEMUNING (29276)'
+  ]});
+  try {
+    f.start();await until(()=>f.submits===1);
+    assert.equal(f.d.querySelector('[placeholder="KODE POS"]').value,'29276');
+    assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
+  } finally {f.close();}
 });
 test('corporate presses Enter, waits for sender lookup, preserves canonical sender and selects CREDIT',async()=>{
   const f=fixture({corporate:true});try{f.start();await until(()=>f.submits===1);

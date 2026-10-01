@@ -76,6 +76,19 @@ test('upgrade automatically removes legacy Excel cache, pending records and comp
   await h.send({type:'GET'});assert.equal(h.state.version,5);assert.equal(h.state.rows.length,0);assert.equal(h.state.active,null);
   for(const key of ['pendingSubmissions','history','seenReceipts','completedQueueIds','fileName'])assert.equal(h.state[key],undefined,key);
 });
+
+test('0.2.6 preserves 0.2.5 progress and retries the failed third row without repeating completed rows',async()=>{
+  const rows=Q.validateRows([sample('ROW-1'),sample('ROW-2'),sample('ROW-3')]);
+  rows[0].status='done';rows[1].status='done';rows[2].status='error';rows[2].error='Old postcode mismatch';
+  const h=harness({version:5,helperVersion:'0.2.5',rows,fileName:'twelve.xlsx',tabId:7,active:null,running:false,error:'Old postcode mismatch'});
+  await h.send({type:'GET'});assert.equal(h.state.rows.length,3);assert.equal(h.state.fileName,'twelve.xlsx');
+  h.mount('old-draft',{blank:false});await h.send({type:'RUN'});
+  assert.equal(h.state.rows[2].status,'ready');assert.equal(h.state.waitingNewForm,true);
+  h.mount('new-resume-form');await h.send({type:'FORM_READY',...h.ready});
+  assert.equal(h.state.active.id,'ROW-3');assert.equal(h.state.rows[2].status,'filling');
+  assert.equal(h.state.rows.slice(0,2).every(row=>row.status==='done'),true);
+  assert.equal(h.events.filter(event=>event.type==='CN23_FILL').length,1);
+});
 test('old print-script messages are ignored and cannot affect queue',async()=>{
   const h=harness();await begin(h);await submit(h);
   const before=structuredClone(h.state);await h.send({type:'RECEIPT',evidence:{}});await h.send({type:'RECEIPT_STATUS',reason:'old'});

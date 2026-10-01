@@ -17,7 +17,7 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
   const pages=[],events=[],forms=[],paymentOpens=[],dropped=new Set(),pending=new Set(),tabs=new Map([[7,{id:7,url:Q.FORM_URL}]]);
   const rows=[
     {...base,queue_id:'BATCH-1',ref_no:'REF-1',recipient_name:'PENERIMA SATU',customer_mode:'RITEL',payment_method:'CASH'},
-    {...base,queue_id:'BATCH-2',ref_no:'REF-2',recipient_name:'PENERIMA DUA',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'INVOICE'},
+    {...base,queue_id:'BATCH-2',ref_no:'REF-2',recipient_name:'PENERIMA DUA',destination_code:'29275',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'INVOICE'},
     {...base,queue_id:'BATCH-3',ref_no:'REF-3',recipient_name:'PENERIMA TIGA',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT'}
   ];
   const panel={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
@@ -31,10 +31,10 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
     const corporate=submissionNumber>0;
     if(mainPage&&scenario.spa){
       mainPage.w.history.replaceState({},'',Q.FORM_URL);
-      mainPage.remount({corporate,lateReference:true});return;
+      mainPage.remount({corporate,lateReference:true,postal:submissionNumber===1?'29276':'29274'});return;
     }
     if(mainPage)mainPage.close();
-    mainPage=fixture({corporate,transitionPayment:true,lateReference:number>1,
+    mainPage=fixture({corporate,postal:submissionNumber===1?'29276':'29274',transitionPayment:true,lateReference:number>1,
       runtimeSend:message=>{
         events.push({type:message.type,document:number});
         if(scenario.dropReady&&message.type==='FORM_READY'&&!dropped.has(message.formId)){dropped.add(message.formId);return Promise.resolve({ok:true,data:{ignored:true}});}
@@ -48,6 +48,8 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
         assert.equal(field(document,'ref_no').value,expected.ref_no);
         assert.equal(document.querySelector('#namapenerima').value,expected.recipient_name);
         assert.equal(document.querySelector('.select-payment input').value,index===0?'Cash':index===1?'Invoice':'CREDIT');
+        assert.equal(document.querySelector('[placeholder="KODE POS"]').value,index===1?'29276':'29274','Mile postcode is retained even when Excel differs');
+        assert.equal(document.querySelector('[placeholder="KODE ZONA"]').value,'29274','Mile zone is retained even when Excel differs');
         if(index>0)assert.equal(document.querySelector('#namapengirim').value,'PELANGGAN RESMI');
         events.push({type:'actual-submit',index,document:number});
         paymentOpens.push(mainPage.paymentOpens);

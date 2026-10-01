@@ -20,7 +20,7 @@ test('icon toggles upload/start inside the existing tab, imports real workbook a
     w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
     listener({type:'CN23_PANEL_TOGGLE',tabId:7},null,()=>{});await sleep(20);
     assert.equal(w.document.querySelectorAll('#mile-cn23-menu').length,1);assert.equal(root.querySelectorAll('button').length,3);
-    assert.match(root.querySelector('h3').textContent,/0\.2\.5/);assert.equal(root.getElementById('results'),null);
+    assert.equal(root.querySelector('h3').textContent,`Mile CN23 · ${Q.VERSION}`);assert.equal(root.getElementById('results'),null);
     assert.equal(root.getElementById('upload').textContent,'Upload Excel');assert.equal(root.getElementById('start').disabled,true);
     const row={...Q.defaults,queue_id:'TEST',customer_mode:'RITEL',payment_method:'CASH',service_code:'PKH',sender_name:'PENGIRIM',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_address:'KATEMAN INHIL RIAU',recipient_postcode:'29255',recipient_district:'KATEMAN',recipient_city:'INDRAGIRI HILIR',recipient_province:'RIAU',recipient_village:'',recipient_region_scope:'DISTRICT_POSTCODE'};
     const book=w.XLSX.utils.book_new();w.XLSX.utils.book_append_sheet(book,w.XLSX.utils.json_to_sheet([row]),'CN23_ANTREAN');

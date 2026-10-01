@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.40 — Helper 0.2.6: ikuti kode Mile dan halaman Unduhan & Panduan
+
+- Setelah wilayah tujuan cocok, kode pos dan kode zona yang dikunci Mile dipakai meskipun berbeda dari Excel. Aturan berlaku umum untuk seluruh kode; kandidat wilayah dengan satu kode pos Mile yang sama juga dapat dipilih meskipun kode itu berbeda dari Excel.
+- Antrean 0.2.5 tetap tersimpan. Setelah pembaruan, Start mencoba kembali baris gagal tanpa mengulang baris selesai.
+- Menambahkan tombol Unduhan & Panduan pada halaman login, app, beta, camera, dan review. Halaman publik /unduhan berisi APK 0.1.6, ekstensi 0.2.6, instalasi, penggunaan kamera dan CN23, pembaruan, Reset, serta pemisahan kiriman campuran.
+- Uji mencakup beberapa selisih kode pos/zona pada ritel dan korporat, data kedua berbeda lalu data ketiga berjalan, pemulihan antrean sebelumnya, serta akses publik petunjuk dengan aset aplikasi tetap memerlukan login.
+
 ## v26.39 — Helper 0.2.5: lanjutkan ke form berikutnya tanpa pemeriksaan cetak
 
 - Menghapus pembaca tab cetak, penantian hasil cetak, pesan kepastian, dan akses ke apiexpos dari ekstensi. Transaksi dilanjutkan saat Mile masuk ke daftar transaksi setelah Selesai, atau ketika form CN23 baru yang kosong telah terload.

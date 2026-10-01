@@ -1,4 +1,4 @@
-const APP_VERSION = '20261001-26.39-cn23-next-form-no-receipt';
+const APP_VERSION = '20261001-26.40-cn23-mile-postcode-authority';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -38,6 +38,7 @@ const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',
   '/icon-192.png', '/icon-512.png', '/og-cover.png', '/site.webmanifest',
   '/robots.txt', '/404.html', '/assets/css/login-v16.css', '/assets/js/login-v16.js',
+  '/assets/css/downloads.css',
   '/downloads/Mile-Camera-0.1.1.apk', '/downloads/Mile-Camera-0.1.3.apk', '/downloads/Mile-Camera-0.1.4.apk',
   '/downloads/Mile-Camera-0.1.4-source.zip',
   '/downloads/Mile-Camera-0.1.5.apk', '/downloads/Mile-Camera-0.1.5-source.zip',
@@ -48,6 +49,7 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-CN23-Helper-0.2.3.zip',
   '/downloads/Mile-CN23-Helper-0.2.4.zip',
   '/downloads/Mile-CN23-Helper-0.2.5.zip',
+  '/downloads/Mile-CN23-Helper-0.2.6.zip',
   '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 
@@ -1231,7 +1233,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
     headers.set('content-type', 'application/vnd.android.package-archive');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
-  if (/^\/downloads\/Mile-CN23-Helper-0\.(?:1\.0|2\.[012345])\.zip$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-CN23-Helper-0\.(?:1\.0|2\.[0123456])\.zip$/.test(path) && response.ok) {
     headers.set('content-type', 'application/zip');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
@@ -1281,6 +1283,9 @@ export default {
     }
 
     if (url.pathname === '/api/auth/login') return handleLogin(request, env);
+    if (url.pathname === '/unduhan' || url.pathname === '/unduhan.html') {
+      return assetResponse(request, env, '/unduhan');
+    }
     if (url.pathname === '/api/auth/reset-password') return handlePasswordReset(request, env);
     if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
     if (url.pathname === '/api/beta/image') return handleBetaImageRead(request, env, url);

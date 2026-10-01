@@ -142,16 +142,17 @@
       if (candidates.length === 1) { candidates[0].click(); return true; }
       if (candidates.length > 1) {
         const postalMatches = candidates.filter(el => Q.norm(el.textContent).split(' ').includes(String(row.recipient_postcode)));
-        if (postalMatches.length === candidates.length) { candidates[0].click(); return true; }
-        throw new Error('Pilihan Mile belum menunjukkan satu kode pos yang cocok dengan antrean.');
+        if (postalMatches.length) { postalMatches[0].click(); return true; }
+        const milePostcodes = candidates.map(el => Q.norm(el.textContent).match(/\b\d{5}\b/g) || []);
+        if (milePostcodes.every(codes => codes.length === 1) && new Set(milePostcodes.flat()).size === 1) { candidates[0].click(); return true; }
+        throw new Error('Pilihan wilayah Mile masih memiliki beberapa kode pos berbeda.');
       }
       return false;
     }, 'kelurahan/kecamatan/kota tujuan');
-    await wait(() => one('input[placeholder="KODE POS"]').value, 'kode pos terkunci');
-    const postal = one('input[placeholder="KODE POS"]').value;
-    if (postal !== String(row.recipient_postcode) || !regionTextMatches(Q.norm(input.value), row)) throw new Error(`Tujuan Mile belum cocok. Excel ${row.recipient_postcode}; Mile ${postal}. Periksa pilihan wilayah.`);
-    const zone = one('input[placeholder="KODE ZONA"]').value;
-    if (!zone || (row.destination_code && String(row.destination_code) !== zone)) throw new Error('Kode zona Mile kosong atau berbeda dari antrean. Periksa tujuan.');
+    await wait(() => /^\d{5}$/.test(one('input[placeholder="KODE POS"]').value.trim()) &&
+      one('input[placeholder="KODE ZONA"]').value.trim(), 'kode pos dan kode zona Mile terkunci');
+    if (!regionTextMatches(Q.norm(input.value), row)) throw new Error('Wilayah tujuan Mile belum sesuai alamat kiriman.');
+    // Mile owns both locked fields. Database/Excel differences must not block a matched region.
   }
   function totalCost(dialog) {
     // Label is deliberately required: unrelated amounts must never become the cost limit.
