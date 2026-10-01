@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.37 — Helper 0.2.3: lanjutkan Excel yang sama setelah Reset
+
+- Kiriman yang sudah ditekan Selesai tetapi resinya belum terbaca hanya dilewati pada baris tersebut; tidak lagi menolak seluruh Excel.
+- Panel menampilkan nomor baris dan nama penerima yang dilewati. Start tetap tersedia untuk kiriman lain yang belum diproses.
+- Pesan selesai menyebut kiriman yang dilewati. Resi terlambat memperbarui status kiriman lama tanpa mengganggu antrean baru.
+- Uji mencakup Reset dan upload ulang Excel empat baris, satu kiriman tertahan, serta tiga kiriman berikutnya dari satu Start.
+
 ## v26.36 — Helper 0.2.2: antrean berulang dan Reset
 
 - Panel hanya Upload Excel, Start/Jeda, dan Reset. Menu Unduh hasil & resi dihapus; versi panel mengikuti script.

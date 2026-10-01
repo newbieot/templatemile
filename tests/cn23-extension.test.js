@@ -57,7 +57,7 @@ test('durable submit, old/foreign receipt rejection, no double submit, receipt-g
   assert.equal(h.state.running,false);assert.ok(h.state.completedAt);assert.ok(h.order.some(item=>item.type==='CN23_BATCH_DONE'));
   await h.send({type:'FORM_READY'},h.content);assert.equal(h.state.running,false);assert.equal(h.state.active,null);
   await h.send({type:'CLEAR'});
-  assert.equal((await h.send({type:'IMPORT',rows:[sample()]})).ok,false,'Completed IDs survive clearing and prevent replay of an exported queue');
+  assert.equal((await h.send({type:'IMPORT',rows:[sample()]})).ok,true);assert.equal(h.state.rows.length,0,'Completed IDs survive clearing and prevent replay of an exported queue');
 });
 test('mismatched receipt pauses; uncertain submission cannot be retried or cleared',async()=>{
   const h=workerHarness();await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
@@ -163,7 +163,7 @@ test('Reset after Selesai permits a new queue, preserves unresolved identity, an
   await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
   await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
   await h.send({type:'RESET'});assert.equal(h.state.rows.length,0);assert.equal(h.state.pendingSubmissions.length,1);
-  assert.equal((await h.send({type:'IMPORT',rows:[sample()]})).ok,false);
+  assert.equal((await h.send({type:'IMPORT',rows:[sample()]})).ok,true);assert.equal(h.state.rows.length,0);assert.equal(h.state.skippedPending.length,1);
   assert.equal((await h.send({type:'IMPORT',rows:[fresh]})).ok,true);
   const reply=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:16,url:url('late-after-reset'),openerTabId:7}});
   assert.equal(reply.data.receiptAccepted,true);assert.equal(h.state.pendingSubmissions.length,0);
@@ -179,4 +179,21 @@ test('verified blank new form survives a missed transaction-list event while sti
   assert.equal(h.state.rows[1].status,'ready');
   await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:17,url:url('missed-navigation'),openerTabId:7}});
   assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.rows[1].status,'filling');
+});
+
+
+test('Reset and reimport the SAME four-row Excel skips the unresolved submission and starts remaining rows',async()=>{
+  const h=workerHarness();
+  const rows=[sample(),...Array.from({length:3},(_,i)=>({...sample(),queue_id:'REMAIN-'+i,recipient_name:'REMAIN '+i,ref_no:'REF-'+i}))];
+  await h.send({type:'IMPORT',rows,fileName:'same.xlsx'});await h.send({type:'RUN'});
+  const token=h.state.active.token;await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
+  await h.send({type:'RESET'});
+  const reply=await h.send({type:'IMPORT',rows,fileName:'same.xlsx'});
+  assert.equal(reply.ok,true);assert.equal(h.state.rows.length,3);assert.equal(h.state.skippedCompleted,0);
+  assert.deepEqual(h.state.skippedPending,[{id:sample().queue_id,name:sample().recipient_name,sourceRow:1}]);
+  assert.equal((await h.send({type:'RUN'})).ok,true);assert.equal(h.state.active.id,'REMAIN-0');
+  const activeToken=h.state.active.token;
+  const late=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:16,url:url('late-original'),openerTabId:7}});
+  assert.equal(late.data.archived,true);assert.equal(h.state.active.token,activeToken);
+  assert.equal(h.state.skippedPending.length,0);assert.equal(h.state.skippedCompleted,1);
 });

@@ -1,10 +1,10 @@
-MILE CN23 HELPER 0.2.2
+MILE CN23 HELPER 0.2.3
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.2 ke FOLDER
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.3 ke FOLDER
    ekstensi lama dan timpa file lama, termasuk manifest.json. Jangan uninstall.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.2. Riwayat ID kiriman dan resi tetap tersimpan.
+   Versi harus tertulis 0.2.3. Riwayat ID kiriman dan resi tetap tersimpan.
 3. Simpan pekerjaan, lalu muat ulang tab Mile agar script terbaru aktif.
    Jangan muat ulang transaksi yang belum pasti sesudah tombol Selesai.
 
@@ -76,10 +76,18 @@ Permission tetap storage/alarms, terbatas pada Mile dan halaman print resi.
 Panduan resmi Chrome:
 https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-an-unpacked-extension
 
-VERSI 0.2.2
+VERSI 0.2.3
 Panel hanya Upload Excel, Start/Jeda, Reset. Pemeriksaan form kosong
 berulang setiap detik dan probe otomatis memulihkan laporan siap yang
 terlewat. Navigasi Mile dalam dokumen yang sama didukung. Versi panel
 mengikuti versi script. Resi tetap menjadi bukti keberhasilan internal.
 Reset setelah Selesai menyimpan ID yang belum pasti; data baru tetap bisa
 di-upload, tetapi ID yang hasilnya belum pasti tidak dikirim ulang.
+
+UPLOAD ULANG SETELAH RESET (0.2.3)
+Excel yang sama boleh di-upload lagi. Kiriman yang sudah berhasil dan
+kiriman yang telah ditekan Selesai tetapi resinya belum pasti dilewati.
+Nomor baris dan nama penerima yang tertahan ditampilkan di panel.
+Start tetap aktif untuk baris lainnya yang belum diproses. Jika semua
+baris sudah berhasil atau tertahan, tidak ada kiriman baru untuk Start.
+Tidak perlu menghapus ekstensi untuk melanjutkan Excel yang sama.

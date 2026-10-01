@@ -31,7 +31,7 @@ async function start(s){
 async function finishBatch(s){
   s.running=false;s.active=null;s.completedAt=s.completedAt||Date.now();delete s.waitingNewForm;
   await save(s);
-  await chrome.tabs.sendMessage(s.tabId,{type:'CN23_BATCH_DONE',total:s.rows.length}).catch(()=>{});
+  await chrome.tabs.sendMessage(s.tabId,{type:'CN23_BATCH_DONE',total:s.rows.length,held:s.skippedPending||[]}).catch(()=>{});
   if(!s.formReady)await chrome.tabs.update(s.tabId,{url:Q.FORM_URL});
   if(chrome.action.setBadgeText)await chrome.action.setBadgeText({tabId:s.tabId,text:'OK'});
   return s;
@@ -64,7 +64,7 @@ async function command(m,sender){
     if(sender.tab?.id!==s.tabId)return {ignored:true};
     await returnFromList(s,sender.tab.url);
     const openPanel=Boolean(s.resetPanel);if(openPanel){s.resetPanel=false;await save(s);}
-    return {running:s.running,completedAt:s.completedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length,error:s.error,openPanel,tabId:s.tabId};
+    return {running:s.running,completedAt:s.completedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length,error:s.error,openPanel,tabId:s.tabId,held:s.skippedPending||[]};
   }
   if(m.type==='GET'){s.helperVersion=Q.VERSION;if(Q.recoverInterrupted(s))await save(s);return resumeWaiting(s);}
   if(m.type==='TABS')return mileTabs();
@@ -74,10 +74,11 @@ async function command(m,sender){
     if(s.rows.some(r=>!['done','ready'].includes(r.status)))throw new Error('Periksa kiriman bermasalah di antrean lama sebelum mengganti file.');
     if(s.rows.some(r=>r.status==='done')&&s.rows.some(r=>r.status!=='done'))throw new Error('Selesaikan antrean lama sebelum mengganti file.');
     const imported=Q.validateRows(m.rows);
-    if(imported.some(row=>(s.pendingSubmissions||[]).some(item=>item.row.id===row.id)))throw new Error('Ada kiriman yang sudah ditekan Selesai tetapi resinya belum pasti. Gunakan data baru; kiriman itu tidak boleh dikirim ulang.');
-    const rows=imported.filter(row=>!(s.completedQueueIds||[]).includes(row.id));
-    if(!rows.length)throw new Error('Semua ID kiriman dalam Excel sudah berhasil dibuat. Upload data baru.');
-    const next={...blank(),batchId:String(m.batchId),fileName:String(m.fileName),rows,skippedCompleted:imported.length-rows.length,seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[],pendingSubmissions:s.pendingSubmissions||[],history:archive(s)};
+    const completed=new Set(s.completedQueueIds||[]), pending=new Set((s.pendingSubmissions||[]).map(item=>item.row.id));
+    const skippedPending=imported.flatMap((row,index)=>pending.has(row.id)?[{id:row.id,name:row.data.recipient_name,sourceRow:index+1}]:[]);
+    const rows=imported.filter(row=>!completed.has(row.id)&&!pending.has(row.id));
+    const skippedCompleted=imported.filter(row=>completed.has(row.id)&&!pending.has(row.id)).length;
+    const next={...blank(),batchId:String(m.batchId),fileName:String(m.fileName),rows,skippedCompleted,skippedPending,seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[],pendingSubmissions:s.pendingSubmissions||[],history:archive(s)};
     return save(next);
   }
   if(m.type==='RESET'){
@@ -160,6 +161,9 @@ async function command(m,sender){
     if(held){
       s.seenReceipts.push(id);(s.completedQueueIds||=[]).push(held.row.id);
       s.pendingSubmissions=s.pendingSubmissions.filter(item=>item!==held);
+      if(s.skippedPending?.some(row=>row.id===held.row.id)){
+        s.skippedPending=s.skippedPending.filter(row=>row.id!==held.row.id);s.skippedCompleted=(s.skippedCompleted||0)+1;
+      }
       await save(s);return {receiptAccepted:true,archived:true};
     }
     if(!id||!s.active?.submittedAt||s.seenReceipts.includes(id)||s.active.baseline.includes(id))return {ignored:true};

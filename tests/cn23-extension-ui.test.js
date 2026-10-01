@@ -20,7 +20,7 @@ test('icon toggles upload/start inside the existing tab, imports real workbook a
     w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
     listener({type:'CN23_PANEL_TOGGLE',tabId:7},null,()=>{});await sleep(20);
     assert.equal(w.document.querySelectorAll('#mile-cn23-menu').length,1);assert.equal(root.querySelectorAll('button').length,3);
-    assert.match(root.querySelector('h3').textContent,/0\.2\.2/);assert.equal(root.getElementById('results'),null);
+    assert.match(root.querySelector('h3').textContent,/0\.2\.3/);assert.equal(root.getElementById('results'),null);
     assert.equal(root.getElementById('upload').textContent,'Upload Excel');assert.equal(root.getElementById('start').disabled,true);
     const row={...Q.defaults,queue_id:'TEST',customer_mode:'RITEL',payment_method:'CASH',service_code:'PKH',sender_name:'PENGIRIM',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_address:'KATEMAN INHIL RIAU',recipient_postcode:'29255',recipient_district:'KATEMAN',recipient_city:'INDRAGIRI HILIR',recipient_province:'RIAU',recipient_village:'',recipient_region_scope:'DISTRICT_POSTCODE'};
     const book=w.XLSX.utils.book_new();w.XLSX.utils.book_append_sheet(book,w.XLSX.utils.json_to_sheet([row]),'CN23_ANTREAN');
@@ -45,5 +45,36 @@ test('receipt reader retries an ignored acknowledgement and accepts one freshly 
     w.eval(fs.readFileSync('extensions/mile-cn23/receipt.js','utf8'));await sleep(1150);
     assert.equal(messages.length,2);assert.equal(messages[1].evidence.code,'P2610010000001');assert.equal(messages[1].evidence.transactionCode,'2940020261001000001');
     assert.match(messages[1].evidence.text,/KATEMAN/);await sleep(600);assert.equal(messages.length,2);
+  }finally{w.close();}
+});
+
+
+test('reupload after Reset keeps Start enabled for remaining rows and identifies held row',async()=>{
+  const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'}),w=dom.window;
+  try{
+    let root,listener,state={rows:[],pendingSubmissions:[{row:{id:'OLD'}}]};
+    const attach=w.Element.prototype.attachShadow;w.Element.prototype.attachShadow=function(options){root=attach.call(this,options);return root;};
+    Object.defineProperty(w,'crypto',{value:require('node:crypto').webcrypto});w.MileCN23=Q;
+    w.eval(fs.readFileSync('extensions/mile-cn23/vendor/xlsx.full.min.js','utf8'));
+    const sent=[];w.chrome={runtime:{onMessage:{addListener:fn=>listener=fn},sendMessage:async m=>{
+      sent.push(m);
+      if(m.type==='IMPORT')state={fileName:m.fileName,rows:Q.validateRows(m.rows).slice(1),skippedPending:[{id:'OLD',name:'PREVIOUS RECIPIENT',sourceRow:1}]};
+      if(m.type==='RUN')state.running=true;
+      return {ok:true,data:state};
+    }}};
+    w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
+    listener({type:'CN23_PANEL_TOGGLE',tabId:7},null,()=>{});await sleep(30);
+    const base={...Q.defaults,customer_mode:'RITEL',payment_method:'CASH',service_code:'PKH',sender_name:'SENDER',sender_address:'BATAM',recipient_name:'RECEIVER',recipient_address:'KATEMAN INHIL RIAU',recipient_postcode:'29255',recipient_district:'KATEMAN',recipient_city:'INDRAGIRI HILIR',recipient_province:'RIAU',recipient_village:'',recipient_region_scope:'DISTRICT_POSTCODE'};
+    const rows=['OLD','NEXT-1','NEXT-2','NEXT-3'].map(queue_id=>({...base,queue_id}));
+    const book=w.XLSX.utils.book_new();w.XLSX.utils.book_append_sheet(book,w.XLSX.utils.json_to_sheet(rows),'CN23_ANTREAN');
+    const buffer=w.XLSX.write(book,{type:'array',bookType:'xlsx'});
+    Object.defineProperty(root.getElementById('file'),'files',{value:[{name:'same.xlsx',size:buffer.byteLength,arrayBuffer:async()=>buffer}]});
+    root.getElementById('file').dispatchEvent(new w.Event('change'));await sleep(120);
+    assert.equal(root.getElementById('start').disabled,false);assert.equal(root.getElementById('error').textContent,'');
+    assert.match(root.getElementById('status').textContent,/0\/3/);
+    assert.match(root.getElementById('notice').textContent,/No\. 1.*PREVIOUS RECIPIENT/);
+    root.getElementById('start').click();await sleep(30);assert.ok(sent.some(m=>m.type==='RUN'));
+    listener({type:'CN23_BATCH_DONE',total:3,held:state.skippedPending},null,()=>{});
+    assert.match(w.document.getElementById('mile-cn23-complete').textContent,/1 kiriman dari file dilewati/);
   }finally{w.close();}
 });

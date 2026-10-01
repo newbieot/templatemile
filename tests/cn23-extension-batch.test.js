@@ -98,7 +98,15 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true}])te
   const context={chrome,URL,Date,crypto,console,importScripts:()=>{},MileCN23:Q};
   vm.createContext(context);vm.runInContext(fs.readFileSync('extensions/mile-cn23/background.js','utf8'),context);
   try {
-    openForm();assert.equal((await send({type:'IMPORT',rows,batchId:'three-labels',fileName:'three.xlsx'})).ok,true);
+    openForm();
+    let imported=rows;
+    if(scenario.spa){
+      const old={...base,queue_id:'OLD-UNRESOLVED',recipient_name:'PREVIOUS SHIPMENT',customer_mode:'RITEL',payment_method:'CASH'};
+      stored.mileCn23Queue={rows:[],running:false,active:null,seenReceipts:[],completedQueueIds:[],pendingSubmissions:[{row:Q.validateRows([old])[0],active:{baseline:[],submittedAt:1},tabId:7}]};
+      imported=[old,...rows];
+    }
+    assert.equal((await send({type:'IMPORT',rows:imported,batchId:'three-labels',fileName:'three.xlsx'})).ok,true);
+    if(scenario.spa)assert.equal(stored.mileCn23Queue.skippedPending.length,1);
     assert.equal((await send({type:'RUN',tabId:7})).ok,true);
     await until(()=>failure||stored.mileCn23Queue?.completedAt||stored.mileCn23Queue?.error,'all three shipments');
     if(failure)throw failure;
