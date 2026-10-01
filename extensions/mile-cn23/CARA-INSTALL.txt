@@ -21,7 +21,7 @@ PEMAKAIAN HARIAN
 1. Capture label di Mile Camera, Proses AI, lalu unduh Antrean CN23 (.xlsx).
    Campuran tetap menghasilkan Excel Lokal Batam dan Antrean CN23 terpisah.
 2. Pada tab Mile yang sudah login, klik ikon ekstensi. Menu langsung muncul
-   pada halaman tersebut: Upload Excel dan Start. Tidak membuka tab panel baru.
+   pada halaman tersebut: Upload Excel, Start/Jeda, dan Reset.
 3. Upload file Antrean_CN23...xlsx, sheet CN23_ANTREAN, lalu klik Start sekali.
 4. Korporat: ekstensi mengisi Kode Pelanggan, Enter, lalu menunggu nama,
    telepon, dan alamat pengirim muncul. Pengirim dari Mile dipertahankan.
@@ -40,8 +40,8 @@ GANGGUAN
   diperbaiki, Start mencoba ulang pada form baru yang kosong.
 - Gangguan setelah Selesai: hasil belum pasti ditahan untuk mencegah resi
   ganda. Periksa transaksi di Mile sebelum mengulang atau mengganti antrean.
-  Panel pemulihan versi lama tetap disertakan untuk mencatat resi yang
-  sudah dipastikan milik kiriman aktif. Panel itu bukan menu pemakaian harian.
+  Reset memungkinkan upload kiriman baru, tetapi ID yang hasilnya belum
+  pasti tetap ditahan hingga resinya terdeteksi dan cocok.
 - Jangan menghapus data ekstensi atau mengganti profile Chrome. ID selesai mencegah pemrosesan ganda.
 - Tab resi lama/cetak ulang tidak dianggap bukti sukses transaksi baru.
 
