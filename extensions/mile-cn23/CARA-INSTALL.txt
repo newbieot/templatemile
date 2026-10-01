@@ -1,100 +1,69 @@
-MILE CN23 HELPER 0.2.4
+MILE CN23 HELPER 0.2.5
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.4 ke FOLDER
-   ekstensi lama dan timpa file lama, termasuk manifest.json. Jangan uninstall.
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.5 ke folder
+   ekstensi lama dan timpa file lama, termasuk manifest.json.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.4. Riwayat ID kiriman dan resi tetap tersimpan.
-3. Simpan pekerjaan, lalu muat ulang tab Mile agar script terbaru aktif.
-   Jangan muat ulang transaksi yang belum pasti sesudah tombol Selesai.
+   Versi harus tertulis 0.2.5.
+3. Buka form CN23 kosong dan muat ulang tab Mile:
+   https://expos.mile.app/new-transaction-custom
+4. Cache Excel dan catatan versi lama otomatis dibersihkan pada pembaruan ini.
+   Upload Excel yang ingin diproses, lalu klik Start sekali.
 
 INSTALASI PERTAMA
 1. Ekstrak ZIP ke folder tetap yang langsung berisi manifest.json.
 2. Buka chrome://extensions, aktifkan Developer mode/Mode developer.
 3. Pilih Load unpacked/Muat yang belum dikemas, pilih folder hasil ekstrak.
 4. Pin Mile CN23 Helper dari ikon puzzle Chrome.
-5. Login Mile pada Chrome yang sama, buka form CN23 kosong:
-   https://expos.mile.app/new-transaction-custom
-6. Jika tab dibuka sebelum instalasi, simpan pekerjaan lalu muat ulang tab.
+5. Login Mile pada Chrome yang sama, buka form CN23 kosong, lalu muat ulang
+   tab jika sudah terbuka sebelum instalasi.
 
 PEMAKAIAN HARIAN
 1. Capture label di Mile Camera, Proses AI, lalu unduh Antrean CN23 (.xlsx).
-   Campuran tetap menghasilkan Excel Lokal Batam dan Antrean CN23 terpisah.
-2. Pada tab Mile yang sudah login, klik ikon ekstensi. Menu langsung muncul
-   pada halaman tersebut: Upload Excel, Start/Jeda, dan Reset.
-3. Upload file Antrean_CN23...xlsx, sheet CN23_ANTREAN, lalu klik Start sekali.
-4. Korporat: ekstensi mengisi Kode Pelanggan, Enter, lalu menunggu nama,
-   telepon, dan alamat pengirim muncul. Pengirim dari Mile dipertahankan.
-5. Form, hitung PDRI, Cash untuk ritel / Invoice atau CREDIT sesuai Excel
-   korporat, dan Selesai diproses otomatis.
-6. Daftar transaksi dibiarkan tampil sampai tab resi baru selesai dibuka
-   dan dicocokkan. Setelah itu tab utama kembali ke form CN23 secara
-   otomatis, panel muncul kembali, lalu kiriman berikutnya berjalan.
-   Tidak perlu memilih pembayaran atau menekan Start lagi setiap kiriman.
-7. Semua selesai: pesan hijau tampil. Resi tetap dapat dicetak manual di Mile.
-8. Ingin mengganti Excel: klik Reset, lalu Upload Excel baru dan Start.
-   Reset menghentikan proses lama. ID kiriman yang sudah berhasil tetap
-   dicatat dan dilewati jika ada lagi di file baru. Panel tanpa menu unduh hasil.
+   Excel Lokal Batam dan Antrean CN23 tetap terpisah untuk batch campuran.
+2. Klik ikon ekstensi pada tab Mile. Menu muncul di halaman tersebut:
+   Upload Excel, Start/Jeda, dan Reset.
+3. Upload Antrean_CN23...xlsx, sheet CN23_ANTREAN, lalu klik Start sekali.
+4. Korporat: Kode Pelanggan diisi dan Enter ditekan otomatis. Ekstensi
+   menunggu nama, telepon, dan alamat pengirim dari Mile selesai dimuat.
+5. Pengisian, hitung PDRI, Cash untuk ritel atau Invoice/CREDIT sesuai Excel
+   korporat, dan tombol Selesai diproses otomatis.
+6. Saat Mile masuk ke daftar transaksi, tab utama langsung membuka form CN23.
+   Ekstensi menunggu seluruh kolom form baru siap dan kosong, lalu mengisi
+   data kedua. Alur yang sama berjalan hingga seluruh antrean selesai.
+   Tab cetak tidak dibaca dan tidak menentukan kelanjutan antrean.
+7. Panel muncul kembali setelah navigasi. Tidak perlu menekan Start lagi.
+8. Setelah semua data selesai, pesan selesai tampil. Hasil transaksi dan
+   pencetakan dapat dikelola sendiri melalui Daftar Transaksi Mile.
+9. Untuk mengganti Excel, klik Reset, Upload Excel baru, lalu Start.
+   Reset menghentikan proses dan menghapus seluruh data antrean tersimpan.
+   File yang sama dapat di-upload lagi; semua barisnya menjadi antrean baru.
 
 GANGGUAN
-- Kegagalan sebelum Selesai: kesalahan tampil di menu; setelah penyebabnya
-  diperbaiki, Start mencoba ulang pada form baru yang kosong.
-- Gangguan setelah Selesai: hasil belum pasti ditahan untuk mencegah resi
-  ganda. Periksa transaksi di Mile sebelum mengulang atau mengganti antrean.
-  Reset memungkinkan upload kiriman baru, tetapi ID yang hasilnya belum
-  pasti tetap ditahan hingga resinya terdeteksi dan cocok.
-- Jangan menghapus data ekstensi atau mengganti profile Chrome. ID selesai mencegah pemrosesan ganda.
-- Tab resi lama/cetak ulang tidak dianggap bukti sukses transaksi baru.
+- Jika pengisian gagal, penyebab tampil pada panel. Perbaiki penyebabnya
+  dan gunakan Start untuk mencoba ulang pengisian yang belum dikirim.
+- Jika Mile tidak berpindah setelah Selesai, periksa transaksi di Mile
+  sebelum mengulang kiriman tersebut. Reset tetap dapat mengosongkan data.
 
 PRESET DOKUMEN
 Documents / Ecommerce-Biasa / NPWP 15 angka nol / HS 49011000 /
 DOKUMEN / jumlah 1 / nilai Rp20.000 / berat 0,2 kg / ID /
 EN-Envelope / IMEI 0 dan 0 / dimensi 0 / NON-COD.
 Asuransi, service, referensi, dan instruksi mengikuti Excel.
-Kode zona mengikuti pilihan Mile, tidak ditebak dari kode pos.
+Kode zona mengikuti pilihan Mile.
 
-PENGUJIAN
-Form CN23, pencarian KATEMAN 29255, dan struktur dialog pembayaran
-select-payment diperiksa pada Mile yang terbuka. Dropdown pembayaran
-dibuka melalui wrapper dan dicoba ulang ketika klik pertama diabaikan
-transisi dialog. Daftar yang dipindahkan ke body tetap dikenali.
-Form berikutnya ditunggu sampai seluruh kolom termasuk ref_no siap dan
-stabil, dengan mengabaikan salinan tersembunyi dari form sebelumnya.
-Sinyal siap halaman pertama tidak dipakai untuk kiriman berikutnya;
-kiriman berikutnya menunggu resi cocok dan form baru yang kosong.
-Upload workbook, Cash/Invoice/CREDIT, Enter pelanggan, resi tab baru,
-redirect daftar transaksi, antrean berikutnya dan notifikasi diuji melalui
-simulasi DOM dan service worker, termasuk klik pertama diabaikan,
-dropdown di luar dialog, dan ref_no yang terlambat muncul.
-Uji integrasi tiga kiriman menggabungkan script form, pengelola antrean,
-dan pembaca resi: satu Start, Cash lalu Invoice lalu CREDIT, form baru,
-tiga submit tunggal dan satu notifikasi selesai.
-Submit produksi dengan ekstensi Chrome
-terpasang belum dilakukan. Perubahan tampilan Mile dapat memerlukan adaptasi.
+PENGUJIAN 0.2.5
+Satu Start diuji untuk tiga kiriman: Cash, Invoice, lalu CREDIT. Tidak ada
+tab cetak dalam pengujian. Nama penerima, referensi, metode pembayaran,
+dan pengirim korporat diperiksa saat masing-masing tombol Selesai ditekan.
+Uji mencakup reload penuh, navigasi dalam dokumen yang sama, pesan siap
+yang terlewat, dan data kedua ketika form baru sudah terload. Form berikutnya
+ditunggu sampai semua kolom termasuk ref_no siap; salinan tersembunyi dari
+form lama diabaikan. Panel setelah navigasi, Reset, upload ulang, dan
+pembersihan cache lama diuji. Uji memakai simulasi DOM dan service worker;
+submit produksi dengan ekstensi Chrome terpasang belum dilakukan.
 
-Data antrean lokal di Chrome. Tidak meminta password atau API key.
-Permission tetap storage/alarms, terbatas pada Mile dan halaman print resi.
+Data antrean tersimpan lokal di Chrome. Tidak meminta password/API key.
+Permission storage/alarms, akses situs hanya https://expos.mile.app/*.
 Panduan resmi Chrome:
 https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-an-unpacked-extension
-
-VERSI 0.2.4
-Panel hanya Upload Excel, Start/Jeda, Reset. Pemeriksaan form kosong
-berulang setiap detik dan probe otomatis memulihkan laporan siap yang
-terlewat. Navigasi Mile dalam dokumen yang sama didukung. Versi panel
-mengikuti versi script. Resi tetap menjadi bukti keberhasilan internal.
-Reset setelah Selesai menyimpan ID yang belum pasti; data baru tetap bisa
-di-upload, tetapi ID yang hasilnya belum pasti tidak dikirim ulang.
-
-UPLOAD ULANG SETELAH RESET (0.2.4)
-Excel yang sama boleh di-upload lagi. Kiriman yang sudah berhasil dan
-kiriman yang telah ditekan Selesai tetapi resinya belum pasti dilewati.
-Nomor baris dan nama penerima yang tertahan ditampilkan di panel.
-Start tetap aktif untuk baris lainnya yang belum diproses. Jika semua
-baris sudah berhasil atau tertahan, tidak ada kiriman baru untuk Start.
-Tidak perlu menghapus ekstensi untuk melanjutkan Excel yang sama.
-
-KELANJUTAN ANTREAN 0.2.4
-Tidak memaksa reload halaman asal sebelum resi selesai dibuka dan cocok.
-Panel muncul kembali setelah reload/navigasi Mile. Pembacaan ulang tab
-resi memulihkan pesan yang terlewat; status penantian terlihat di panel.
-Jangan menutup tab resi sebelum status kiriman berubah menjadi selesai.

@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.39 — Helper 0.2.5: lanjutkan ke form berikutnya tanpa pemeriksaan cetak
+
+- Menghapus pembaca tab cetak, penantian hasil cetak, pesan kepastian, dan akses ke apiexpos dari ekstensi. Transaksi dilanjutkan saat Mile masuk ke daftar transaksi setelah Selesai, atau ketika form CN23 baru yang kosong telah terload.
+- Status antrean berikutnya disimpan sebelum navigasi. Form baru ditunggu hingga seluruh kolom siap, termasuk referensi, dan panel dipulihkan setelah halaman dimuat ulang.
+- Pembaruan membersihkan cache Excel dan catatan versi lama. Reset menghapus seluruh antrean; file yang sama boleh di-upload sebagai antrean baru.
+- Uji gabungan tiga kiriman dari satu Start tanpa tab cetak: reload penuh, navigasi dalam dokumen yang sama, pesan kesiapan terlewat, dan form kedua sudah terload meski kejadian daftar transaksi terlewat. Saat submit, nama penerima, referensi, metode pembayaran, dan pengirim korporat diperiksa untuk tiap baris.
+
 ## v26.38 — Helper 0.2.4: biarkan resi selesai sebelum navigasi
 
 - Halaman daftar transaksi tidak lagi dipaksa reload ketika transaksi aktif masih menunggu resi. Callback Mile yang membuka halaman cetak dapat selesai sebelum tab utama pindah ke form baru.

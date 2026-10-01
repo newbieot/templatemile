@@ -37,32 +37,22 @@
       row.queue_id = String(row.queue_id);
       if (ids.has(row.queue_id)) fail('ID kiriman berulang dalam file.');
       ids.add(row.queue_id);
-      return {id:row.queue_id,data:row,status:'ready',error:'',receipt:null};
+      return {id:row.queue_id,data:row,status:'ready',error:'',confirmation:null};
     });
     if (JSON.stringify(rows).length > 5 * 1024 * 1024) throw new Error('Data antrean terlalu besar. Pisahkan menjadi beberapa file.');
     return rows;
-  }
-  function receiptId(url) {
-    try { const u=new URL(url); return u.origin==='https://apiexpos.mile.app' && u.pathname==='/api/v2/print-data' && u.searchParams.get('data_source')==='connote' && u.searchParams.get('parameter_fields')==='connote_id' && /^[A-Za-z0-9-]+$/.test(u.searchParams.get('parameter_id')||'') ? u.searchParams.get('parameter_id') : ''; } catch { return ''; }
-  }
-  function receiptMatches(row,evidence) {
-    const text=norm(evidence.text);
-    const aliases=value=>String(value).split(/[\/;]/).map(norm).filter(Boolean);
-    return /^[A-Z]\d{10,20}$/.test(evidence.code || '') && evidence.transactionCode &&
-      [row.recipient_name,row.sender_name,row.recipient_postcode,row.recipient_city,row.recipient_district].every(value=>text.includes(norm(value))) &&
-      (!row.recipient_village || aliases(row.recipient_village).some(value=>text.includes(value))) && (!row.ref_no || text.includes(norm(row.ref_no)));
   }
   function recoverInterrupted(state,now=Date.now()) {
     if (state.active?.phase === 'payment_ready' || state.active?.phase === 'customer_review') return false;
     if (!state.active || now-state.active.startedAt < 180000) return false;
     const row=state.rows.find(r=>r.id===state.active.id);
-    if (row && row.status !== 'done') { row.status=state.active.submittedAt ? 'unknown':'error'; row.error=state.active.submittedAt ? 'Submit sudah terjadi tetapi resi belum terverifikasi. Periksa di Mile; jangan kirim ulang.' : 'Pengisian terputus. Bersihkan form Mile sebelum mencoba isi ulang.'; }
+    if (row && row.status !== 'done') { row.status=state.active.submittedAt ? 'unknown':'error'; row.error=state.active.submittedAt ? 'Selesai sudah ditekan tetapi Mile belum kembali ke daftar transaksi. Periksa Mile.' : 'Pengisian terputus. Bersihkan form Mile sebelum mencoba isi ulang.'; }
     state.running=false; state.error=row?.error || 'Proses terputus.';
     if (!state.active.submittedAt) state.active=null;
     return true;
   }
-  const VERSION='0.2.4';
-  const api={VERSION,FORM_URL,defaults,required,norm,validateRows,receiptId,receiptMatches,recoverInterrupted};
+  const VERSION='0.2.5';
+  const api={VERSION,FORM_URL,defaults,required,norm,validateRows,recoverInterrupted};
   root.MileCN23=api;
   if (typeof module !== 'undefined') module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

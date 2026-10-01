@@ -1,225 +1,99 @@
 'use strict';
-const test=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const vm=require('node:vm');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const Q=require('../extensions/mile-cn23/queue.js');
-const sample=()=>({...Q.defaults,queue_id:'CN23-TEST-1',customer_mode:'RITEL',payment_method:'CASH',service_code:'PKH',sender_name:'PENGIRIM TEST',sender_address:'BATAM',recipient_name:'PENERIMA TEST',recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_city:'INDRAGIRI HILIR',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',recipient_province:'RIAU',ref_no:'TEST-REF'});
-const url=id=>`https://apiexpos.mile.app/api/v2/print-data?data_source=connote&parameter_fields=connote_id&parameter_id=${id}`;
-const evidence=()=>({code:'P2610010000001',transactionCode:'2940020261001000001',text:'PENGIRIM TEST PENERIMA TEST PENGALIHAN KERITANG INDRAGIRI HILIR 29274 TEST-REF'});
-test('queue rejects local, duplicate, uncertain destination, incorrect preset and payment',()=>{
-  assert.equal(Q.validateRows([sample()])[0].status,'ready');
-  for(const patch of [{recipient_city:'KOTA BATAM'},{recipient_postcode:'PERLU DICEK'},{customer_mode:'KORPORAT',customer_code:''},{payment_method:'INVOICE'},{hs_code:'12345678'},{item_value_idr:0},{weight_kg:1},{insurance:'INVALID'},{workflow:'LOCAL'}]) assert.throws(()=>Q.validateRows([{...sample(),...patch}]));
-  assert.throws(()=>Q.validateRows([sample(),sample()]));
-  assert.equal(Q.validateRows([{...sample(),customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT'}])[0].data.customer_code,'ACME');
-});
-test('new receipt identity and all destination fields must match',()=>{
-  assert.equal(Q.receiptMatches(sample(),evidence()),true);
-  for(const text of ['wrong person',evidence().text.replace('29274','29276'),evidence().text.replace('TEST-REF','DIFFERENT')]) assert.equal(Boolean(Q.receiptMatches(sample(),{...evidence(),text})),false);
-  assert.equal(Q.receiptId(url('t-123')),'t-123');
-  assert.equal(Q.receiptId(url('t-123').replace('apiexpos.mile.app','example.com')),'');
-  assert.equal(Q.receiptId(url('t-123').replace('t-123','t-123,t-456')),'');
-});
-test('interrupted fill can retry; interrupted submission stays unknown; manual review does not expire',()=>{
-  for(const submitted of [false,true]) {
-    const s={rows:Q.validateRows([sample()]),active:{id:sample().queue_id,phase:'filling',startedAt:0,submittedAt:submitted?1:undefined},running:true};
-    assert.equal(Q.recoverInterrupted(s,200000),true);assert.equal(s.rows[0].status,submitted?'unknown':'error');assert.equal(Boolean(s.active),submitted);assert.equal(s.running,false);
-  }
-  const s={rows:Q.validateRows([sample()]),active:{id:sample().queue_id,phase:'payment_ready',startedAt:0},running:true};
-  assert.equal(Q.recoverInterrupted(s,200000),false);
-});
-function workerHarness() {
-  let stored={},listener,created,updated,clicked;const order=[];const tabs=new Map([[7,{id:7,url:Q.FORM_URL}],[8,{id:8,url:url('t-old'),openerTabId:7}]]);
+const sample=(id='ROW-1')=>({...Q.defaults,queue_id:id,customer_mode:'RITEL',payment_method:'CASH',service_code:'PKH',sender_name:'PENGIRIM',sender_address:'BATAM',recipient_name:id,recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_city:'INDRAGIRI HILIR',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',recipient_province:'RIAU',ref_no:'REF-'+id});
+function harness(initial){
+  let stored=initial?{mileCn23Queue:structuredClone(initial)}:{},listener,updated,installed;
+  const tabs=new Map([[7,{id:7,url:Q.FORM_URL}]]),events=[];
+  let probe={version:Q.VERSION,ready:true,blank:true,busy:false,path:'/new-transaction-custom',formId:'form-1',pageId:'page-1'};
   const noop={addListener(){}};
-  const chrome={runtime:{id:'fixture',getURL:path=>'chrome-extension://fixture/'+path,onMessage:{addListener:fn=>listener=fn},onInstalled:noop,onStartup:noop},storage:{local:{get:async key=>({[key]:stored[key]}),set:async value=>{stored=structuredClone(value);order.push({event:'save',status:stored.mileCn23Queue?.rows[0]?.status});},setAccessLevel:async()=>{}}},tabs:{query:async opts=>[...tabs.values()].filter(tab=>opts.url.includes('apiexpos')?tab.url.includes('apiexpos'):tab.url.includes('https://expos')),get:async id=>tabs.get(id),sendMessage:async(_id,message)=>{order.push({event:'message',type:message.type});return{accepted:true};},update:async(id,patch)=>{tabs.set(id,{...tabs.get(id),...patch});order.push({event:'navigate',waiting:stored.mileCn23Queue.waitingNewForm});},create:async()=>{order.push({event:'new-tab'});return{id:7};},onCreated:{addListener:fn=>created=fn},onUpdated:{addListener:fn=>updated=fn}},action:{onClicked:{addListener:fn=>clicked=fn},setBadgeText:async()=>{},setTitle:async()=>{}},alarms:{onAlarm:noop,create:async()=>{}}};
-  const context={chrome,URL,crypto:require('node:crypto').webcrypto,Date,console,importScripts:()=>{},MileCN23:Q};
-  vm.createContext(context);vm.runInContext(fs.readFileSync('extensions/mile-cn23/background.js','utf8'),context);
-  const panel={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
-  const content={id:'fixture',tab:{id:7,url:Q.FORM_URL}};
-  const send=(m,sender=panel)=>new Promise(resolve=>listener(m,sender,resolve));
-  return {send,content,order,tabs,created,updated,clicked,chrome,get state(){return stored.mileCn23Queue;}};
+  const chrome={runtime:{id:'fixture',onMessage:{addListener:fn=>listener=fn},onInstalled:{addListener:fn=>installed=fn},onStartup:noop},
+    storage:{local:{get:async key=>({[key]:structuredClone(stored[key])}),set:async value=>{stored=structuredClone(value);events.push({type:'SAVE',status:stored.mileCn23Queue.rows[0]?.status});},setAccessLevel:async()=>{}}},
+    tabs:{query:async()=>{throw new Error('Queue must NEVER inspect print tabs');},get:async id=>tabs.get(id),sendMessage:async(id,m)=>{events.push({type:m.type,id});if(m.type==='CN23_PROBE')return structuredClone(probe);if(m.type==='CN23_FILL'){const ack={accepted:true,formId:probe.formId,pageId:probe.pageId};probe={...probe,busy:true,blank:false};return ack;}return {accepted:true};},update:async(id,patch)=>{events.push({type:'NAVIGATE',...patch});tabs.set(id,{...tabs.get(id),...patch});probe={...probe,ready:false,blank:false,busy:false};return tabs.get(id);},onUpdated:{addListener:fn=>updated=fn}},
+    action:{onClicked:noop,setBadgeText:async()=>{},setTitle:async()=>{}},alarms:{onAlarm:noop,create:async()=>{}}};
+  const context={chrome,URL,Date,crypto:require('node:crypto').webcrypto,importScripts(){},MileCN23:Q};vm.createContext(context);vm.runInContext(fs.readFileSync('extensions/mile-cn23/background.js','utf8'),context);
+  const sender={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
+  const send=(m,who=sender)=>new Promise(resolve=>listener(m,who,resolve));
+  return {send,events,tabs,installed,mount(id='form-2',patch={}){probe={version:Q.VERSION,ready:true,blank:true,busy:false,path:'/new-transaction-custom',formId:id,pageId:'page-'+id,...patch};},async list(){tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});updated(7,{url:tabs.get(7).url},tabs.get(7));await send({type:'GET'});},get state(){return stored.mileCn23Queue;},get ready(){return structuredClone(probe);}};
 }
-test('durable submit, old/foreign receipt rejection, no double submit, receipt-gated advance',async()=>{
-  const h=workerHarness();assert.equal((await h.send({type:'IMPORT',rows:[sample()],batchId:'hash',fileName:'test.xlsx'})).ok,true);
-  assert.equal((await h.send({type:'RUN',tabId:7,options:{autoAdvance:true}})).ok,true);
-  const token=h.state.active.token;
-  assert.equal(h.order.find(item=>item.event==='save'&&item.status==='filling')?.status,'filling');
-  await h.send({type:'FILLED',token},h.content);
-  await h.send({type:'SUBMIT_INTENT',token},h.content);
-  assert.equal(h.state.rows[0].status,'awaiting_receipt');assert.ok(h.state.active.submittedAt);
-  assert.equal((await h.send({type:'SUBMIT_INTENT',token},h.content)).ok,false);
-  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:8,url:url('t-old'),openerTabId:7}});
-  assert.equal(h.state.rows[0].status,'awaiting_receipt');
-  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:9,url:url('t-new'),openerTabId:99}});
-  assert.equal(h.state.rows[0].status,'awaiting_receipt');
-  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:10,url:url('t-new'),openerTabId:7}});
-  assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.rows[0].receipt.code,evidence().code);
-  assert.equal(h.state.running,false);assert.ok(h.state.completedAt);assert.ok(h.order.some(item=>item.type==='CN23_BATCH_DONE'));
-  await h.send({type:'FORM_READY'},h.content);assert.equal(h.state.running,false);assert.equal(h.state.active,null);
-  await h.send({type:'CLEAR'});
-  assert.equal((await h.send({type:'IMPORT',rows:[sample()]})).ok,true);assert.equal(h.state.rows.length,0,'Completed IDs survive clearing and prevent replay of an exported queue');
-});
-test('mismatched receipt pauses; uncertain submission cannot be retried or cleared',async()=>{
-  const h=workerHarness();await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
-  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
-  await h.send({type:'RECEIPT',evidence:{...evidence(),text:'OTHER SHIPMENT'}},{tab:{id:10,url:url('t-bad'),openerTabId:7}});
-  assert.equal(h.state.rows[0].status,'unknown');assert.equal(h.state.running,false);
-  for(const command of [{type:'RUN',tabId:7},{type:'CLEAR'},{type:'RETRY',id:sample().queue_id},{type:'IMPORT',rows:[sample()]}]) assert.equal((await h.send(command)).ok,false);
-  assert.equal((await h.send({type:'MANUAL_RECEIPT',id:sample().queue_id,code:evidence().code,url:url('t-confirmed')})).ok,true);assert.equal(h.state.rows[0].status,'done');
-});
-test('manifest packages every declared script, local SheetJS, no remote executable code',()=>{
-  const manifest=JSON.parse(fs.readFileSync('extensions/mile-cn23/manifest.json','utf8'));
-  assert.equal(manifest.manifest_version,3);
-  assert.equal(manifest.version,Q.VERSION);
-  for(const script of [manifest.background.service_worker,...manifest.content_scripts.flatMap(item=>item.js),'vendor/xlsx.full.min.js','vendor/LICENSE','CARA-INSTALL.txt']) assert.ok(fs.existsSync('extensions/mile-cn23/'+script),script);
-  assert.deepEqual(manifest.permissions,['storage','alarms']);
-});
-test('refresh during manual review releases fill; refresh after submit holds uncertain result',async()=>{
-  for(const submit of [false,true]){
-    const h=workerHarness();await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
-    await h.send({type:'FILLED',token},{...h.content,documentId:'old-document'});
-    if(submit)await h.send({type:'SUBMIT_INTENT',token},h.content);
-    await h.send({type:'FORM_READY'},{...h.content,documentId:'new-document'});
-    assert.equal(h.state.rows[0].status,submit?'unknown':'error');assert.equal(h.state.running,false);assert.equal(Boolean(h.state.active),submit);
-  }
-});
+async function submit(h){const token=h.state.active.token;assert.equal((await h.send({type:'FILLED',token})).ok,true);assert.equal((await h.send({type:'SUBMIT_INTENT',token})).ok,true);return token;}
+async function begin(h,rows=[sample(),sample('ROW-2')]){assert.equal((await h.send({type:'IMPORT',rows,fileName:'queue.xlsx'})).ok,true);assert.equal((await h.send({type:'RUN'})).ok,true);}
 
-test('two-row queue returns from transaction-list, accepts fresh receipt tab and continues without another Start',async()=>{
-  const h=workerHarness(), second={...sample(),queue_id:'CN23-TEST-2',recipient_name:'PENERIMA KEDUA',ref_no:'TEST-REF-2'};
-  await h.send({type:'IMPORT',rows:[sample(),second]});
-  h.clicked({id:7,url:Q.FORM_URL});await h.send({type:'GET'});
-  assert.ok(h.order.some(item=>item.type==='CN23_PANEL_TOGGLE'));assert.equal(h.order.some(item=>item.event==='new-tab'),false);
-  await h.send({type:'RUN',tabId:7});let token=h.state.active.token;
-  await h.send({type:'FILLED',token},{...h.content,documentId:'first'});await h.send({type:'SUBMIT_INTENT',token},h.content);
-  h.created({id:11});h.tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});h.updated(7,{url:'https://expos.mile.app/transaction-list'},{id:7});await h.send({type:'GET'});
-  assert.equal(h.tabs.get(7).url,'https://expos.mile.app/transaction-list');assert.equal(h.state.formReturnExpected,true);assert.equal(h.order.some(item=>item.event==='navigate'),false,'Never reload the submit document before its print callback finishes');
-  assert.equal(h.state.rows[0].status,'awaiting_receipt');
-  const ack=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:11,url:url('first-fresh')}});
-  assert.equal(ack.data.receiptAccepted,true);assert.equal(h.state.rows[0].status,'done');assert.equal(h.tabs.get(7).url,Q.FORM_URL);
-  await h.send({type:'FORM_READY'},{...h.content,documentId:'next'});assert.equal(h.state.rows[1].status,'filling');
-  assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
-  token=h.state.active.token;await h.send({type:'FILLED',token},{...h.content,documentId:'next'});await h.send({type:'SUBMIT_INTENT',token},h.content);
-  const receipt={...evidence(),code:'P2610010000002',text:evidence().text.replace('PENERIMA TEST','PENERIMA KEDUA').replace('TEST-REF','TEST-REF-2')};
-  await h.send({type:'RECEIPT',evidence:receipt},{tab:{id:12,url:url('second-fresh'),openerTabId:7}});
-  assert.equal(h.state.rows.every(row=>row.status==='done'),true);assert.equal(h.state.running,false);assert.ok(h.order.some(item=>item.type==='CN23_BATCH_DONE'));
-  assert.equal(h.order.some(item=>item.event==='new-tab'),false);
+test('validates outside-document workbook, payments and district-postcode scope',()=>{
+  assert.equal(Q.validateRows([sample()])[0].status,'ready');
+  for(const patch of [{recipient_city:'BATAM'},{recipient_postcode:'PERLU DICEK'},{customer_mode:'KORPORAT',customer_code:''},{payment_method:'INVOICE'},{hs_code:'12345678'},{weight_kg:1},{insurance:'INVALID'}])assert.throws(()=>Q.validateRows([{...sample(),...patch}]));
+  assert.throws(()=>Q.validateRows([sample(),sample()]));
+  assert.equal(Q.validateRows([{...sample(),recipient_village:'',recipient_region_scope:'DISTRICT_POSTCODE'}])[0].status,'ready');
 });
-test('same postcode district scope validates and verifies receipt without inventing a village',()=>{
-  const row={...sample(),recipient_district:'KATEMAN',recipient_village:'',recipient_postcode:'29255',recipient_region_scope:'DISTRICT_POSTCODE'};
-  assert.equal(Q.validateRows([row])[0].status,'ready');assert.equal(Q.receiptMatches(row,{...evidence(),text:'PENGIRIM TEST PENERIMA TEST SUNGAI GUNTUNG KATEMAN INDRAGIRI HILIR 29255 TEST-REF'}),true);
-  assert.throws(()=>Q.validateRows([{...row,recipient_region_scope:''}]));
+test('list redirect completes row one and loads form for row two WITHOUT any print tab',async()=>{
+  const h=harness();await begin(h);const token=await submit(h);
+  assert.equal(h.state.rows[0].status,'awaiting_navigation');
+  assert.equal((await h.send({type:'SUBMIT_INTENT',token})).ok,false);
+  await h.list();assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.rows[1].status,'ready');
+  assert.equal(h.state.waitingNewForm,true);assert.equal(h.tabs.get(7).url,Q.FORM_URL);
+  h.mount();await h.send({type:'FORM_READY',...h.ready});
+  assert.equal(h.state.active.id,'ROW-2');assert.equal(h.state.rows[1].status,'filling');
+  assert.equal(h.events.filter(e=>e.type==='CN23_FILL').length,2);
 });
-test('receipt arriving before list redirect still resumes the next form',async()=>{
-  const h=workerHarness(),second={...sample(),queue_id:'SECOND'};
-  await h.send({type:'IMPORT',rows:[sample(),second]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
-  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
-  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:15,url:url('receipt-first'),openerTabId:7}});
-  assert.equal(h.state.waitingNewForm,true);
-  h.updated(7,{url:'https://expos.mile.app/transaction-list'},{id:7});await h.send({type:'GET'});
-  assert.equal(h.tabs.get(7).url,Q.FORM_URL);await h.send({type:'FORM_READY'},h.content);
-  assert.equal(h.state.rows[1].status,'filling');assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
+test('form two ALREADY LOADED completes prior cursor and fills second row even if list event was missed',async()=>{
+  const h=harness();await begin(h);await submit(h);
+  h.mount('form-2');await h.send({type:'FORM_READY',...h.ready});
+  assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.active.id,'ROW-2');
+  assert.equal(h.state.rows[1].status,'filling');assert.equal(h.events.some(e=>e.type==='NAVIGATE'),false);
 });
-
-test('late readiness of the first form cannot be reused for the next shipment',async()=>{
-  const h=workerHarness(),second={...sample(),queue_id:'SECOND'};
-  await h.send({type:'IMPORT',rows:[sample(),second]});await h.send({type:'RUN',tabId:7});
-  const original={...h.content,documentId:'original'},token=h.state.active.token;
-  await h.send({type:'FORM_READY'},original);
-  assert.equal(h.state.formReady,false);
-  await h.send({type:'FILLED',token},original);await h.send({type:'SUBMIT_INTENT',token},original);
-  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:15,url:url('receipt-first'),openerTabId:7}});
-  assert.equal(h.state.rows[1].status,'ready');assert.equal(h.state.waitingNewForm,true);
-  assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,1);
-  await h.send({type:'FORM_READY'},{...h.content,documentId:'fresh-empty'});
-  assert.equal(h.state.rows[1].status,'filling');assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
+test('GET probe recovers a missed ready message on already loaded second form',async()=>{
+  const h=harness();await begin(h);await submit(h);h.mount('form-2');
+  await h.send({type:'GET'});assert.equal(h.state.active.id,'ROW-2');assert.equal(h.state.rows[0].status,'done');
 });
-
-test('old document readiness during list redirect cannot unlock a second transaction',async()=>{
-  const h=workerHarness();await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});
-  const original={...h.content,documentId:'original'},token=h.state.active.token;
-  await h.send({type:'FILLED',token},original);await h.send({type:'SUBMIT_INTENT',token},original);
-  h.updated(7,{url:'https://expos.mile.app/transaction-list'},{id:7});await h.send({type:'GET'});
-  await h.send({type:'FORM_READY'},original);assert.equal(h.state.formReady,false);
-  await h.send({type:'FORM_READY'},{...h.content,documentId:'fresh-empty'});assert.equal(h.state.formReady,true);
+test('second form waits for all mounted fields then starts exactly once',async()=>{
+  const h=harness();await begin(h);await submit(h);await h.list();
+  h.mount('form-2',{ready:false,blank:false,missing:['#ref_no']});await h.send({type:'GET'});
+  assert.equal(h.state.active,null);assert.match(h.state.formWait,/#ref_no/);
+  h.mount('form-2');await h.send({type:'GET'});await h.send({type:'FORM_READY',...h.ready});
+  assert.equal(h.state.active.id,'ROW-2');assert.equal(h.events.filter(e=>e.type==='CN23_FILL').length,2);
 });
-
-test('Reset archives a partially completed queue, revokes old token and imports fresh remaining data',async()=>{
-  const h=workerHarness(),second={...sample(),queue_id:'SECOND'},fresh={...sample(),queue_id:'FRESH'};
-  await h.send({type:'IMPORT',rows:[sample(),second],fileName:'old.xlsx'});await h.send({type:'RUN',tabId:7});
-  let token=h.state.active.token;
-  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
-  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:15,url:url('reset-receipt'),openerTabId:7}});
-  await h.send({type:'FORM_READY'},h.content);token=h.state.active.token;
-  assert.equal((await h.send({type:'RESET'})).ok,true);
-  assert.equal(h.state.rows.length,0);assert.equal(h.state.active,null);assert.equal(h.state.running,false);
-  assert.ok(h.state.completedQueueIds.includes(sample().queue_id));assert.ok(h.state.seenReceipts.includes('reset-receipt'));
-  assert.equal((await h.send({type:'SUBMIT_INTENT',token},h.content)).ok,false);
-  assert.equal((await h.send({type:'IMPORT',rows:[sample(),second,fresh],fileName:'new.xlsx'})).ok,true);
-  assert.equal(h.state.fileName,'new.xlsx');assert.equal(h.state.skippedCompleted,1);
-  assert.deepEqual(h.state.rows.map(row=>row.id),['SECOND','FRESH']);
+test('late first-form ready signal cannot advance a submitted row',async()=>{
+  const h=harness(),first=h.ready;await begin(h);await submit(h);
+  await h.send({type:'FORM_READY',...first});assert.equal(h.state.rows[0].status,'awaiting_navigation');
+  assert.equal(h.state.active.id,'ROW-1');
 });
-
-test('Reset after Selesai permits a new queue, preserves unresolved identity, and accepts its late receipt',async()=>{
-  const h=workerHarness(),fresh={...sample(),queue_id:'NEW'};
-  await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
-  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
-  await h.send({type:'RESET'});assert.equal(h.state.rows.length,0);assert.equal(h.state.pendingSubmissions.length,1);
-  assert.equal((await h.send({type:'IMPORT',rows:[sample()]})).ok,true);assert.equal(h.state.rows.length,0);assert.equal(h.state.skippedPending.length,1);
-  assert.equal((await h.send({type:'IMPORT',rows:[fresh]})).ok,true);
-  const reply=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:16,url:url('late-after-reset'),openerTabId:7}});
-  assert.equal(reply.data.receiptAccepted,true);assert.equal(h.state.pendingSubmissions.length,0);
-  assert.equal(h.state.rows[0].status,'ready');assert.ok(h.state.completedQueueIds.includes(sample().queue_id));
+test('list viewing before Selesai and a foreign tab do not advance or navigate',async()=>{
+  const h=harness();await begin(h);await h.list();assert.equal(h.state.rows[0].status,'filling');
+  assert.equal(h.events.some(e=>e.type==='NAVIGATE'),false);
+  await submit(h);await h.send({type:'FORM_READY',...h.ready},{id:'fixture',url:Q.FORM_URL,tab:{id:99,url:Q.FORM_URL}});
+  assert.equal(h.state.active.id,'ROW-1');
 });
-
-test('verified blank new form survives a missed transaction-list event while still waiting for receipt',async()=>{
-  const h=workerHarness(),second={...sample(),queue_id:'SECOND'};
-  await h.send({type:'IMPORT',rows:[sample(),second]});await h.send({type:'RUN',tabId:7});const token=h.state.active.token;
-  await h.send({type:'FILLED',token},{...h.content,documentId:'original'});await h.send({type:'SUBMIT_INTENT',token},h.content);
-  await h.send({type:'FORM_READY',version:Q.VERSION,path:'/new-transaction-custom',ready:true,blank:true,busy:false,formId:'fresh-form'},{...h.content,documentId:'fresh-document'});
-  assert.equal(h.state.formReady,true);assert.equal(h.state.rows[0].status,'awaiting_receipt');assert.equal(h.state.running,true);
-  assert.equal(h.state.rows[1].status,'ready');
-  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:17,url:url('missed-navigation'),openerTabId:7}});
-  assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.rows[1].status,'filling');
+test('Reset clears entire Excel and old records; revokes old token; same IDs can be uploaded again',async()=>{
+  const h=harness();await begin(h);const token=await submit(h);await h.send({type:'RESET'});
+  assert.equal(h.state.rows.length,0);assert.equal(h.state.active,null);assert.equal(h.state.fileName,undefined);
+  assert.equal(h.state.pendingSubmissions,undefined);assert.equal(h.state.history,undefined);
+  assert.equal((await h.send({type:'SUBMIT_INTENT',token})).ok,false);
+  assert.equal((await h.send({type:'IMPORT',rows:[sample()],fileName:'new.xlsx'})).ok,true);
+  assert.equal(h.state.rows.length,1);assert.equal(h.state.fileName,'new.xlsx');
 });
-
-
-test('Reset and reimport the SAME four-row Excel skips the unresolved submission and starts remaining rows',async()=>{
-  const h=workerHarness();
-  const rows=[sample(),...Array.from({length:3},(_,i)=>({...sample(),queue_id:'REMAIN-'+i,recipient_name:'REMAIN '+i,ref_no:'REF-'+i}))];
-  await h.send({type:'IMPORT',rows,fileName:'same.xlsx'});await h.send({type:'RUN'});
-  const token=h.state.active.token;await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
-  await h.send({type:'RESET'});
-  const reply=await h.send({type:'IMPORT',rows,fileName:'same.xlsx'});
-  assert.equal(reply.ok,true);assert.equal(h.state.rows.length,3);assert.equal(h.state.skippedCompleted,0);
-  assert.deepEqual(h.state.skippedPending,[{id:sample().queue_id,name:sample().recipient_name,sourceRow:1}]);
-  assert.equal((await h.send({type:'RUN'})).ok,true);assert.equal(h.state.active.id,'REMAIN-0');
-  const activeToken=h.state.active.token;
-  const late=await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:16,url:url('late-original'),openerTabId:7}});
-  assert.equal(late.data.archived,true);assert.equal(h.state.active.token,activeToken);
-  assert.equal(h.state.skippedPending.length,0);assert.equal(h.state.skippedCompleted,1);
+test('upgrade automatically removes legacy Excel cache, pending records and completion IDs',async()=>{
+  const h=harness({version:3,rows:Q.validateRows([sample()]),fileName:'old.xlsx',active:{id:'ROW-1',submittedAt:1},running:true,tabId:7,pendingSubmissions:[{row:{id:'OLD'}}],history:[{}],seenReceipts:['OLD'],completedQueueIds:['ROW-1']});
+  await h.send({type:'GET'});assert.equal(h.state.version,5);assert.equal(h.state.rows.length,0);assert.equal(h.state.active,null);
+  for(const key of ['pendingSubmissions','history','seenReceipts','completedQueueIds','fileName'])assert.equal(h.state[key],undefined,key);
 });
-
-
-test('PAGE_READY restores the running panel and manual list viewing does not reload while waiting for print',async()=>{
-  const h=workerHarness();await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN'});
-  const token=h.state.active.token;await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
-  h.tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});
-  h.updated(7,{url:'https://expos.mile.app/transaction-list'},h.tabs.get(7));await h.send({type:'GET'});
-  const reply=await h.send({type:'PAGE_READY'},{id:'fixture',url:'https://expos.mile.app/transaction-list',tab:h.tabs.get(7)});
-  assert.equal(reply.data.openPanel,true);assert.equal(h.order.some(item=>item.event==='navigate'),false);
-  assert.equal(h.state.rows[0].status,'awaiting_receipt');
+test('old print-script messages are ignored and cannot affect queue',async()=>{
+  const h=harness();await begin(h);await submit(h);
+  const before=structuredClone(h.state);await h.send({type:'RECEIPT',evidence:{}});await h.send({type:'RECEIPT_STATUS',reason:'old'});
+  assert.deepEqual(h.state,before);
 });
-
-test('worker recovers a missed receipt message by probing the print tab and advances once',async()=>{
-  const h=workerHarness(),second={...sample(),queue_id:'NEXT'};
-  await h.send({type:'IMPORT',rows:[sample(),second]});await h.send({type:'RUN'});const token=h.state.active.token;
-  await h.send({type:'FILLED',token},h.content);await h.send({type:'SUBMIT_INTENT',token},h.content);
-  h.tabs.set(17,{id:17,url:url('probe-receipt'),openerTabId:7});
-  h.tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});
-  h.chrome.tabs.sendMessage=async(id,m)=>{h.order.push({event:'message',type:m.type});return m.type==='CN23_RECEIPT_PROBE'?{version:Q.VERSION,evidence:evidence()}:{accepted:true};};
-  const state=await h.send({type:'GET'});assert.equal(state.ok,true);
-  assert.equal(h.state.rows[0].status,'done');assert.equal(h.tabs.get(7).url,Q.FORM_URL);
-  await h.send({type:'FORM_READY'},h.content);assert.equal(h.state.rows[1].status,'filling');
-  assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
-  await h.send({type:'GET'});assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
+test('last list redirect completes batch once and PAGE_READY restores panel',async()=>{
+  const h=harness();await begin(h,[sample()]);await submit(h);await h.list();await h.send({type:'GET'});
+  assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.running,false);assert.ok(h.state.completedAt);
+  assert.equal(h.events.filter(e=>e.type==='CN23_BATCH_DONE').length,1);
+  const result=await h.send({type:'PAGE_READY'});assert.equal(result.data.openPanel,true);assert.equal(result.data.done,1);
+});
+test('interrupted submission reports missing Mile transition; unsubmitted work can retry',()=>{
+  for(const submitted of [false,true]){const s={rows:Q.validateRows([sample()]),active:{id:'ROW-1',startedAt:0,submittedAt:submitted?1:undefined},running:true};assert.equal(Q.recoverInterrupted(s,200000),true);assert.equal(s.rows[0].status,submitted?'unknown':'error');assert.doesNotMatch(s.error,/resi/i);}
+});
+test('package uses ONLY Expos, no print reader, no receipt permissions or user-facing strings',()=>{
+  const m=JSON.parse(fs.readFileSync('extensions/mile-cn23/manifest.json','utf8'));
+  assert.equal(m.version,Q.VERSION);assert.deepEqual(m.permissions,['storage','alarms']);assert.deepEqual(m.host_permissions,['https://expos.mile.app/*']);
+  assert.equal(m.content_scripts.length,1);assert.equal(fs.existsSync('extensions/mile-cn23/receipt.js'),false);
+  for(const name of [m.background.service_worker,...m.content_scripts[0].js,'vendor/LICENSE','CARA-INSTALL.txt'])assert.ok(fs.existsSync('extensions/mile-cn23/'+name),name);
+  assert.doesNotMatch(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'),/resi|pendingSubmissions|skippedPending/i);
 });

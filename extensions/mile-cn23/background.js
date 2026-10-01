@@ -1,280 +1,148 @@
 'use strict';
 importScripts('queue.js');
-const Q=MileCN23;
-const KEY='mileCn23Queue';
+const Q=MileCN23, KEY='mileCn23Queue';
 let chain=Promise.resolve();
 const serial=fn=>{const p=chain.then(fn);chain=p.catch(()=>{});return p;};
-const blank=()=>({version:3,helperVersion:Q.VERSION,rows:[],running:false,active:null,error:'',seenReceipts:[],completedQueueIds:[],pendingSubmissions:[],options:{autoAdvance:true,autoSubmit:true,maxCost:0}});
-async function read(){return (await chrome.storage.local.get(KEY))[KEY]||blank();}
+const blank=()=>({version:5,helperVersion:Q.VERSION,rows:[],running:false,active:null,error:'',options:{autoAdvance:true,autoSubmit:true,maxCost:0}});
 async function save(s){await chrome.storage.local.set({[KEY]:s});return s;}
-async function mileTabs(){return chrome.tabs.query({url:'https://expos.mile.app/*'});}
-function checkPanel(sender){
-  const embedded=sender.tab?.id&&sender.url?.startsWith('https://expos.mile.app/');
-  if(sender.id!==chrome.runtime.id||!embedded)throw new Error('Perintah harus berasal dari menu ekstensi pada Mile.');
+async function read(){
+  const old=(await chrome.storage.local.get(KEY))[KEY];
+  // User requested removal of the previous Excel cache and receipt records.
+  if(!old||old.version!==5)return save({...blank(),tabId:old?.tabId,panelOpen:true});
+  return old;
 }
-function checkActive(s,m,sender){if(!s.active||s.active.token!==m.token||sender.tab?.id!==s.tabId)throw new Error('Pesan bukan dari kiriman atau tab aktif.');}
+function checkPanel(sender){if(sender.id!==chrome.runtime.id||!sender.tab?.id||!sender.url?.startsWith('https://expos.mile.app/'))throw new Error('Gunakan menu ekstensi pada tab Mile.');}
+function checkActive(s,m,sender){if(!s.active||s.active.token!==m.token||sender.tab?.id!==s.tabId)throw new Error('Pesan bukan dari kiriman aktif.');}
 async function start(s){
-  if(s.active)throw new Error('Masih ada kiriman aktif. Selesaikan atau periksa hasilnya dahulu.');
+  if(s.active)throw new Error('Masih ada kiriman aktif.');
   const tab=await chrome.tabs.get(s.tabId).catch(()=>null);
-  if(!tab?.url || new URL(tab.url).origin!=='https://expos.mile.app' || new URL(tab.url).pathname!=='/new-transaction-custom')throw new Error('Buka form Transaksi CN23 pada tab Mile yang dipilih.');
-  const row=s.rows.find(r=>r.status==='ready');
-  if(!row)return finishBatch(s);
-  const receiptTabs=await chrome.tabs.query({url:'https://apiexpos.mile.app/api/v2/print-data*'});
-  const baseline=receiptTabs.map(t=>Q.receiptId(t.url)).filter(Boolean);
+  if(tab?.url!==Q.FORM_URL)throw new Error('Buka form Transaksi CN23 pada tab Mile.');
+  const row=s.rows.find(r=>r.status==='ready');if(!row)return finishBatch(s);
   row.status='filling';row.error='';
-  s.active={id:row.id,token:crypto.randomUUID(),startedAt:Date.now(),baseline,phase:'filling'};
-  s.running=true;s.error='';s.panelOpen=true;delete s.receiptWait;s.formReady=false;s.formReturnExpected=false;delete s.completedAt;await save(s);
-  try { const ack=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_FILL',token:s.active.token,row:row.data,options:s.options}); if(!ack?.accepted)throw new Error(ack?.error||'Form belum siap menerima antrean.'); if(ack.formId){s.active.formId=ack.formId;await save(s);} }
-  catch(error){row.status='error';row.error=error.message;s.error=error.message;s.running=false;s.active=null;await save(s);}
+  s.active={id:row.id,token:crypto.randomUUID(),startedAt:Date.now(),phase:'filling'};
+  s.running=true;s.error='';s.panelOpen=true;s.formReady=false;delete s.completedAt;delete s.waitingNewForm;delete s.formWait;
+  await save(s);
+  try{
+    const ack=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_FILL',token:s.active.token,row:row.data,options:s.options});
+    if(!ack?.accepted)throw new Error(ack?.error||'Form belum siap menerima antrean.');
+    s.active.formId=ack.formId;s.active.pageId=ack.pageId;await save(s);
+  }catch(error){row.status='error';row.error=error.message;s.error=error.message;s.running=false;s.active=null;await save(s);}
   return s;
 }
 async function finishBatch(s){
-  s.running=false;s.active=null;s.completedAt=s.completedAt||Date.now();delete s.waitingNewForm;
+  s.running=false;s.active=null;s.completedAt=s.completedAt||Date.now();delete s.waitingNewForm;delete s.formWait;
   await save(s);
-  await chrome.tabs.sendMessage(s.tabId,{type:'CN23_BATCH_DONE',total:s.rows.length,held:s.skippedPending||[]}).catch(()=>{});
-  if(!s.formReady)await chrome.tabs.update(s.tabId,{url:Q.FORM_URL,active:true});
+  await chrome.tabs.sendMessage(s.tabId,{type:'CN23_BATCH_DONE',total:s.rows.length}).catch(()=>{});
   if(chrome.action.setBadgeText)await chrome.action.setBadgeText({tabId:s.tabId,text:'OK'});
   return s;
 }
-async function returnFromList(s,url){
-  if(!url||new URL(url).origin!=='https://expos.mile.app'||new URL(url).pathname!=='/transaction-list'||(!s.active?.submittedAt&&!(s.running&&s.waitingNewForm)&&!(s.completedAt&&Date.now()-s.completedAt<30000)))return false;
-  if(s.formReturnExpected||!s.running)return false;
-  s.formReturnExpected=true;s.formReady=false;await save(s);
-  // Mile opens the print tab after its list-route transition. A forced reload here
-  // can destroy that callback. Keep the source document until receipt verification.
-  if(s.active?.submittedAt)return false;
-  await chrome.tabs.update(s.tabId,{url:Q.FORM_URL,active:true});return true;
+function freshForm(s,probe){
+  if(probe?.version!==Q.VERSION||!probe.ready||!probe.blank||probe.path!=='/new-transaction-custom')return false;
+  if(probe.busy&&!(probe.submitted&&probe.token===s.active?.token))return false;
+  return !s.active||Boolean(probe.formId&&probe.formId!==s.active.formId);
 }
 async function resumeWaiting(s){
   if(!s.running||!s.waitingNewForm||s.active)return s;
-  const tab=await chrome.tabs.get(s.tabId).catch(()=>null);
-  if(tab?.url!==Q.FORM_URL)return s;
+  const tab=await chrome.tabs.get(s.tabId).catch(()=>null);if(tab?.url!==Q.FORM_URL)return s;
   const probe=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_PROBE'}).catch(()=>null);
-  s.probeSupported=probe?.version===Q.VERSION;
-  if(probe?.ready&&probe.blank&&!probe.busy&&probe.version===Q.VERSION){
-    s.formReady=true;delete s.waitingNewForm;delete s.formWait;return start(s);
-  }
-  s.formWait=probe?.missing?.length?'Menunggu kolom '+probe.missing.join(', '):'Menunggu form CN23 kosong siap';
-  return save(s);
+  if(freshForm(s,probe)){s.formReady=true;return start(s);}
+  s.formWait=probe?.missing?.length?'Menunggu kolom '+probe.missing.join(', '):'Menunggu form CN23 kosong siap';return save(s);
 }
-async function reconcileReceipts(s){
+async function advance(s,via,formAlreadyReady=false){
   if(!s.active?.submittedAt)return s;
-  const token=s.active.token;
-  const tabs=await chrome.tabs.query({url:'https://apiexpos.mile.app/api/v2/print-data*'});
-  let found=false;
-  for(const tab of tabs){
-    const id=Q.receiptId(tab.url);
-    if(!id||s.active?.token!==token||s.seenReceipts.includes(id)||s.active.baseline.includes(id))continue;
-    found=true;
-    const result=await chrome.tabs.sendMessage(tab.id,{type:'CN23_RECEIPT_PROBE'}).catch(()=>null);
-    if(result?.evidence)await command({type:'RECEIPT',evidence:result.evidence},{id:chrome.runtime.id,url:tab.url,tab});
-    else if(result?.reason)await command({type:'RECEIPT_STATUS',reason:result.reason},{id:chrome.runtime.id,url:tab.url,tab});
-    else if((tab.openerTabId===s.tabId||tab.id===s.tabId||s.freshReceiptTabs?.[tab.id])&&s.active?.token===token){s.receiptWait='Tab resi terbuka; menunggu pembaca resi aktif';await save(s);}
-    s=await read();
-  }
-  if(!found&&s.active?.token===token){s.receiptWait='Menunggu Mile membuka tab resi';await save(s);}
+  const row=s.rows.find(r=>r.id===s.active.id);
+  row.status='done';row.error='';row.confirmation={via,at:Date.now()};
+  s.active=null;s.error='';s.formReady=formAlreadyReady;
+  s.waitingNewForm=Boolean(s.running&&s.rows.some(r=>r.status==='ready'));
+  await save(s); // Persist the next cursor BEFORE navigation destroys this document.
+  await chrome.tabs.sendMessage(s.tabId,{type:'CN23_FINISHED'}).catch(()=>{});
+  if(!s.running)return s;
+  if(!s.waitingNewForm)await finishBatch(s);
+  const tab=await chrome.tabs.get(s.tabId).catch(()=>null);
+  if(tab?.url!==Q.FORM_URL)await chrome.tabs.update(s.tabId,{url:Q.FORM_URL,active:true});
+  else if(s.waitingNewForm)await resumeWaiting(s);
   return s;
 }
-function archive(s){
-  return [...(s.history||[]),...(s.rows.length?[{fileName:s.fileName,batchId:s.batchId,at:Date.now(),rows:s.rows.map(r=>({...r}))}]:[])].slice(-10);
+async function inspectNavigation(s,url){
+  if(url==='https://expos.mile.app/transaction-list'&&s.active?.submittedAt)return advance(s,'MILE_TRANSACTION_LIST');
+  if(url===Q.FORM_URL&&s.active?.submittedAt){
+    const probe=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_PROBE'}).catch(()=>null);
+    if(freshForm(s,probe))return advance(s,'NEW_CN23_FORM',true);
+  }
+  return resumeWaiting(s);
 }
 async function command(m,sender){
-  const s=await read();
-  const panelTypes=['GET','IMPORT','RUN','PAUSE','RESET','RETRY','MANUAL_RECEIPT','CLEAR','TABS','OPEN_MILE'];
-  if(panelTypes.includes(m.type))checkPanel(sender);
+  let s=await read();
+  if(['GET','IMPORT','RUN','PAUSE','RESET','PANEL_VISIBILITY'].includes(m.type))checkPanel(sender);
+  if(m.type==='RECEIPT'||m.type==='RECEIPT_STATUS')return {ignored:true}; // Ignore stale scripts; never inspect print tabs.
   if(m.type==='PAGE_READY'){
     if(sender.tab?.id!==s.tabId)return {ignored:true};
-    await returnFromList(s,sender.tab.url);
-    const openPanel=Boolean(s.resetPanel||s.panelOpen||s.running||s.active||s.waitingNewForm);if(openPanel){s.resetPanel=false;await save(s);}
-    return {running:s.running,completedAt:s.completedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length,error:s.error,openPanel,tabId:s.tabId,held:s.skippedPending||[]};
+    s=await inspectNavigation(s,sender.tab.url);
+    const openPanel=Boolean(s.resetPanel||s.panelOpen||s.running||s.active||s.waitingNewForm);s.resetPanel=false;await save(s);
+    return {openPanel,tabId:s.tabId,running:s.running,completedAt:s.completedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length};
   }
-  if(m.type==='PANEL_VISIBILITY'){checkPanel(sender);s.panelOpen=Boolean(m.open);return save(s);}
-  if(m.type==='GET'){const latest=await reconcileReceipts(s);latest.helperVersion=Q.VERSION;if(Q.recoverInterrupted(latest))await save(latest);return resumeWaiting(latest);}
-  if(m.type==='TABS')return mileTabs();
-  if(m.type==='OPEN_MILE'){const tab=await chrome.tabs.create({url:Q.FORM_URL,active:true});return {tabId:tab.id};}
+  if(m.type==='PANEL_VISIBILITY'){s.panelOpen=Boolean(m.open);return save(s);}
+  if(m.type==='GET'){
+    const tab=await chrome.tabs.get(s.tabId).catch(()=>null);s=await inspectNavigation(s,tab?.url);
+    if(Q.recoverInterrupted(s))await save(s);return s;
+  }
   if(m.type==='IMPORT'){
-    if(s.active)throw new Error('Antrean masih memiliki kiriman aktif atau hasil belum pasti. Periksa dahulu sebelum mengganti file.');
-    if(s.rows.some(r=>!['done','ready'].includes(r.status)))throw new Error('Periksa kiriman bermasalah di antrean lama sebelum mengganti file.');
-    if(s.rows.some(r=>r.status==='done')&&s.rows.some(r=>r.status!=='done'))throw new Error('Selesaikan antrean lama sebelum mengganti file.');
-    const imported=Q.validateRows(m.rows);
-    const completed=new Set(s.completedQueueIds||[]), pending=new Set((s.pendingSubmissions||[]).map(item=>item.row.id));
-    const skippedPending=imported.flatMap((row,index)=>pending.has(row.id)?[{id:row.id,name:row.data.recipient_name,sourceRow:index+1}]:[]);
-    const rows=imported.filter(row=>!completed.has(row.id)&&!pending.has(row.id));
-    const skippedCompleted=imported.filter(row=>completed.has(row.id)&&!pending.has(row.id)).length;
-    const next={...blank(),batchId:String(m.batchId),fileName:String(m.fileName),rows,skippedCompleted,skippedPending,seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[],pendingSubmissions:s.pendingSubmissions||[],history:archive(s)};
-    return save(next);
+    if(s.active||s.running||s.rows.some(r=>!['ready','done'].includes(r.status))||(s.rows.some(r=>r.status==='done')&&s.rows.some(r=>r.status!=='done')))throw new Error('Klik Reset untuk mengganti antrean lama.');
+    return save({...blank(),panelOpen:true,tabId:sender.tab.id,batchId:String(m.batchId),fileName:String(m.fileName),rows:Q.validateRows(m.rows)});
   }
   if(m.type==='RESET'){
-    const active=s.active;
-    const pending=[...(s.pendingSubmissions||[])];
-    if(active?.submittedAt){
-      const row=s.rows.find(r=>r.id===active.id);
-      if(row&&!pending.some(item=>item.row.id===row.id))pending.push({row:{...row,status:'unknown'},active:{...active},tabId:s.tabId});
-    }
-    const next={...blank(),tabId:s.tabId||sender.tab?.id,resetPanel:Boolean(active),history:archive(s),pendingSubmissions:pending,seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[]};
-    await save(next); // Revoke the token before a queued old SUBMIT_INTENT can be accepted.
-    const tabId=s.tabId||sender.tab?.id;
-    if(tabId){
-      await chrome.tabs.sendMessage(tabId,{type:'CN23_RESET',token:active?.token}).catch(()=>{});
-      if(active)await chrome.tabs.update(tabId,{url:Q.FORM_URL,active:true});
-    }
-    return next;
+    const next={...blank(),tabId:s.tabId||sender.tab.id,resetPanel:Boolean(s.active),panelOpen:true};
+    await save(next); // Revokes the old token and clears ALL Excel and legacy records.
+    await chrome.tabs.sendMessage(next.tabId,{type:'CN23_RESET',token:s.active?.token}).catch(()=>{});
+    if(s.active)await chrome.tabs.update(next.tabId,{url:Q.FORM_URL,active:true});return next;
   }
   if(m.type==='RUN'){
-    s.tabId=Number(sender.tab?.id||m.tabId);s.options={autoAdvance:true,autoSubmit:true,maxCost:0};
-    if(s.rows.some(r=>r.status==='unknown'))throw new Error('Ada hasil belum pasti. Verifikasi resinya sebelum melanjutkan.');
-    if(!s.active&&s.rows.some(r=>r.status==='error')){
-      s.rows.filter(r=>r.status==='error').forEach(r=>{r.status='ready';r.error='';});
-      s.running=true;s.error='';s.waitingNewForm=true;await save(s);await chrome.tabs.update(s.tabId,{url:Q.FORM_URL,active:true});return s;
-    }
-    return start(s);
+    s.tabId=sender.tab.id;s.options={autoAdvance:true,autoSubmit:true,maxCost:0};
+    if(s.active?.submittedAt){s.running=true;s.error='';await save(s);return inspectNavigation(s,(await chrome.tabs.get(s.tabId)).url);}
+    if(s.active)throw new Error('Masih ada kiriman aktif.');
+    s.rows.filter(r=>r.status==='error').forEach(r=>{r.status='ready';r.error='';});
+    if(s.rows.some(r=>r.status==='unknown'))throw new Error('Klik Reset; periksa transaksi yang belum pasti di daftar transaksi Mile.');
+    if(!s.rows.some(r=>r.status==='ready'))throw new Error('Tidak ada kiriman baru untuk diproses.');
+    s.running=true;s.panelOpen=true;s.error='';s.waitingNewForm=true;await save(s);
+    const probe=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_PROBE'}).catch(()=>null);
+    if(freshForm(s,probe))return start(s);
+    const tab=await chrome.tabs.get(s.tabId);
+    if(tab.url!==Q.FORM_URL||(probe?.ready&&probe.blank===false))await chrome.tabs.update(s.tabId,{url:Q.FORM_URL,active:true});
+    return resumeWaiting(s);
   }
-  if(m.type==='PAUSE'){
-    s.running=false;await save(s);
-    if(s.active)await chrome.tabs.sendMessage(s.tabId,{type:'CN23_PAUSE',token:s.active.token}).catch(()=>{});
-    return s;
-  }
-  if(m.type==='RETRY'){
-    if(s.active)throw new Error('Masih ada kiriman aktif. Jangan isi ulang.');
-    const r=s.rows.find(r=>r.id===m.id);if(!r||r.status!=='error')throw new Error('Hanya pengisian yang gagal sebelum submit boleh dicoba ulang.');
-    r.status='ready';r.error='';return save(s);
-  }
-  if(m.type==='MANUAL_RECEIPT'){
-    const r=s.rows.find(r=>r.id===m.id);
-    if(!r||!['unknown','awaiting_receipt','review'].includes(r.status))throw new Error('Kiriman tidak sedang menunggu pemeriksaan resi.');
-    if(s.active && s.active.id!==r.id)throw new Error('Periksa kiriman yang sedang aktif dahulu.');
-    if(!/^[A-Z]\d{10,20}$/.test(m.code||'')||!Q.receiptId(m.url)||s.seenReceipts.includes(Q.receiptId(m.url)))throw new Error('Nomor resi/tautan resi tidak valid atau sudah dipakai.');
-    r.status='done';r.error='';r.receipt={code:m.code,url:m.url,id:Q.receiptId(m.url),verified:'OPERATOR',at:Date.now()};
-    s.seenReceipts.push(r.receipt.id);(s.completedQueueIds||=[]).push(r.id);s.active=null;s.running=false;s.error='';return save(s);
-  }
-  if(m.type==='CLEAR'){
-    if(s.active||s.rows.some(r=>['filling','review','awaiting_receipt','unknown'].includes(r.status)))throw new Error('Kiriman aktif/hasil belum pasti tidak dapat dihapus.');
-    return save({...blank(),history:s.history||[],pendingSubmissions:s.pendingSubmissions||[],seenReceipts:s.seenReceipts||[],completedQueueIds:s.completedQueueIds||[]});
-  }
+  if(m.type==='PAUSE'){s.running=false;await save(s);if(s.active)await chrome.tabs.sendMessage(s.tabId,{type:'CN23_PAUSE',token:s.active.token}).catch(()=>{});return s;}
   if(m.type==='PROGRESS'){
     checkActive(s,m,sender);
     if(m.customerResolved){
       const row=s.rows.find(r=>r.id===s.active.id);
       if(row.data.customer_mode!=='KORPORAT'||s.active.phase!=='customer_loading')throw new Error('Pelanggan belum dimuat.');
-      for(const key of ['sender_name','sender_phone','sender_address']){
-        const value=String(m.customerResolved[key]||'').trim();if(!value||value.length>1000)throw new Error('Data pengirim pelanggan belum lengkap.');row.data[key]=value;
-      }
+      for(const key of ['sender_name','sender_phone','sender_address']){const value=String(m.customerResolved[key]||'').trim();if(!value||value.length>1000)throw new Error('Data pengirim pelanggan belum lengkap.');row.data[key]=value;}
     }
     s.active.phase=String(m.phase);if(sender.documentId)s.active.documentId=sender.documentId;return save(s);
   }
-  if(m.type==='FILLED'){
-    checkActive(s,m,sender);const r=s.rows.find(r=>r.id===s.active.id);r.status='review';s.active.phase='payment_ready';s.active.startedAt=Date.now();if(sender.documentId)s.active.documentId=sender.documentId;return save(s);
-  }
+  if(m.type==='FILLED'){checkActive(s,m,sender);s.rows.find(r=>r.id===s.active.id).status='review';s.active.phase='payment_ready';s.active.startedAt=Date.now();if(sender.documentId)s.active.documentId=sender.documentId;return save(s);}
   if(m.type==='SUBMIT_INTENT'){
-    checkActive(s,m,sender);
-    if(s.active.submittedAt)throw new Error('Submit sudah dicatat; jangan ulangi Selesai.');
-    const r=s.rows.find(r=>r.id===s.active.id);
-    if(r.status!=='review')throw new Error('Pengisian belum siap diperiksa/dikirim.');
-    s.freshReceiptTabs={};delete s.receiptWait;r.status='awaiting_receipt';s.active.phase='awaiting_receipt';s.active.submittedAt=Date.now();s.active.startedAt=Date.now();return save(s);
+    checkActive(s,m,sender);if(s.active.submittedAt)throw new Error('Selesai sudah ditekan; jangan kirim ulang.');
+    const row=s.rows.find(r=>r.id===s.active.id);if(row.status!=='review')throw new Error('Pengisian belum selesai.');
+    row.status='awaiting_navigation';s.active.phase='awaiting_navigation';s.active.submittedAt=Date.now();s.active.startedAt=Date.now();return save(s);
   }
-  if(m.type==='FORM_ERROR'){
-    checkActive(s,m,sender);const r=s.rows.find(r=>r.id===s.active.id);
-    r.status=s.active.submittedAt?'unknown':'error';r.error=String(m.error).slice(0,1000);s.error=r.error;s.running=false;
-    if(!s.active.submittedAt)s.active=null;return save(s);
-  }
-  if(m.type==='RECEIPT_STATUS'){
-    const id=Q.receiptId(sender.tab?.url);
-    if(!id||!s.active?.submittedAt||s.active.baseline.includes(id)||s.seenReceipts.includes(id))return {ignored:true};
-    if(sender.tab.openerTabId!==s.tabId&&sender.tab.id!==s.tabId&&!s.freshReceiptTabs?.[sender.tab.id])return {ignored:true};
-    s.receiptWait=String(m.reason||'Memuat resi').slice(0,200);return save(s);
-  }
-  if(m.type==='RECEIPT'){
-    const id=Q.receiptId(sender.tab?.url);
-    const held=(s.pendingSubmissions||[]).find(item=>id&&!s.seenReceipts.includes(id)&&!item.active.baseline.includes(id)&&
-      (sender.tab.id===item.tabId||sender.tab.openerTabId===item.tabId)&&Q.receiptMatches(item.row.data,m.evidence));
-    if(held){
-      s.seenReceipts.push(id);(s.completedQueueIds||=[]).push(held.row.id);
-      s.pendingSubmissions=s.pendingSubmissions.filter(item=>item!==held);
-      if(s.skippedPending?.some(row=>row.id===held.row.id)){
-        s.skippedPending=s.skippedPending.filter(row=>row.id!==held.row.id);s.skippedCompleted=(s.skippedCompleted||0)+1;
-      }
-      await save(s);return {receiptAccepted:true,archived:true};
-    }
-    if(!id||!s.active?.submittedAt||s.seenReceipts.includes(id)||s.active.baseline.includes(id))return {ignored:true};
-    if(sender.tab.id!==s.tabId&&sender.tab.openerTabId!==s.tabId){
-      const fresh=s.freshReceiptTabs?.[sender.tab.id];
-      if(sender.tab.openerTabId!=null||!fresh||fresh<s.active.submittedAt)return {ignored:true};
-    }
-    const r=s.rows.find(r=>r.id===s.active.id);
-    if(!Q.receiptMatches(r.data,m.evidence)){
-      r.status='unknown';r.error='Resi baru belum cocok dengan nama, wilayah, dan referensi kiriman aktif. Periksa di Mile.';s.error=r.error;s.running=false;return save(s);
-    }
-    r.status='done';r.error='';r.receipt={id,code:m.evidence.code,transactionCode:m.evidence.transactionCode,url:sender.tab.url,verified:'COCOK RESI',at:Date.now()};
-    s.seenReceipts.push(id);(s.completedQueueIds||=[]).push(r.id);s.active=null;s.error='';delete s.receiptWait;await save(s);
-    await chrome.tabs.sendMessage(s.tabId,{type:'CN23_FINISHED'}).catch(()=>{});
-    if(s.running){
-      if(!s.rows.some(row=>row.status==='ready')){await finishBatch(s);return {...s,receiptAccepted:true};}
-      s.waitingNewForm=true;await save(s);
-      await resumeWaiting(s);
-      if(s.active)return {...s,receiptAccepted:true};
-      const tab=await chrome.tabs.get(s.tabId).catch(()=>null);
-      if(s.formReady&&tab?.url===Q.FORM_URL&&!s.probeSupported){delete s.waitingNewForm;await start(s);}
-      else if(tab?.url!==Q.FORM_URL||!s.probeSupported)await chrome.tabs.update(s.tabId,{url:Q.FORM_URL,active:true});
-      return {...s,receiptAccepted:true};
-    }
-    s.running=false;await save(s);return {...s,receiptAccepted:true};
-  }
+  if(m.type==='FORM_ERROR'){checkActive(s,m,sender);const row=s.rows.find(r=>r.id===s.active.id);row.status=s.active.submittedAt?'unknown':'error';row.error=String(m.error).slice(0,1000);s.error=row.error;s.running=false;if(!s.active.submittedAt)s.active=null;return save(s);}
   if(m.type==='FORM_READY'){
-    if(sender.tab?.id!==s.tabId)return {ignored:true};
-    if(m.blank===false||m.busy||m.path&&m.path!=='/new-transaction-custom'||m.version&&m.version!==Q.VERSION)return {ignored:true};
-    // The initial page-ready acknowledgement can arrive after RUN. It describes the
-    // form being filled, not an empty form for the NEXT shipment. Never reuse it.
-    if(s.active?.submittedAt&&(s.formReturnExpected||(m.blank===true&&m.formId&&m.formId!==s.active.formId))){
-      if(s.active.documentId&&sender.documentId===s.active.documentId&&(!m.formId||m.formId===s.active.formId))return {ignored:true};
-      s.formReady=true;return save(s);
-    }
-    if(s.active?.documentId&&sender.documentId&&s.active.documentId!==sender.documentId){
-      const r=s.rows.find(row=>row.id===s.active.id);r.status=s.active.submittedAt?'unknown':'error';r.error=s.active.submittedAt?'Halaman dimuat ulang setelah submit. Periksa resi; jangan kirim ulang.':'Form dimuat ulang sebelum Selesai. Buka form kosong untuk mencoba pengisian kembali.';
-      s.error=r.error;s.running=false;if(!s.active.submittedAt)s.active=null;return save(s);
-    }
+    if(sender.tab?.id!==s.tabId||!freshForm(s,m))return {ignored:true};
+    if(s.active?.submittedAt)return advance(s,'NEW_CN23_FORM',true);
     if(s.active)return {ignored:true};
-    s.formReady=true;
-    if(s.waitingNewForm&&s.running&&!s.active){delete s.waitingNewForm;return start(s);}
-    return save(s);
+    s.formReady=true;if(s.running&&s.waitingNewForm)return start(s);return save(s);
   }
   throw new Error('Perintah tidak dikenal.');
 }
-chrome.runtime.onMessage.addListener((m,sender,respond)=>{
-  if(!m||typeof m.type!=='string')return false;
-  serial(()=>command(m,sender)).then(data=>respond({ok:true,data}),error=>respond({ok:false,error:error.message}));return true;
-});
-chrome.action.onClicked.addListener(tab=>{
-  void serial(async()=>{
-    if(!tab?.url?.startsWith('https://expos.mile.app/')){
-      await chrome.action.setBadgeText({text:'MILE'});await chrome.action.setTitle({title:'Buka tab Mile yang sudah login, lalu klik ikon ini.'});return;
-    }
-    const ack=await chrome.tabs.sendMessage(tab.id,{type:'CN23_PANEL_TOGGLE',tabId:tab.id}).catch(()=>null);
-    if(!ack?.accepted){await chrome.action.setBadgeText({tabId:tab.id,text:'↻'});await chrome.action.setTitle({tabId:tab.id,title:'Simpan pekerjaan lalu muat ulang tab Mile untuk memakai ekstensi terbaru.'});}
-    else await chrome.action.setBadgeText({tabId:tab.id,text:''});
-  });
-});
-chrome.tabs.onCreated?.addListener(tab=>{
-  void serial(async()=>{const s=await read();if(s.active?.submittedAt){(s.freshReceiptTabs||={})[tab.id]=Date.now();await save(s);}});
-});
-chrome.tabs.onUpdated?.addListener((id,change,tab)=>{
-  if(!change.url&&change.status!=='complete')return;
-  void serial(async()=>{
-    const s=await read();
-    if(id===s.tabId){await returnFromList(s,change.url||tab.url);if(change.status==='complete')await resumeWaiting(await read());}
-    else if(s.active?.submittedAt&&Q.receiptId(change.url||tab.url)){
-      (s.freshReceiptTabs||={})[id]=Date.now();await save(s);
-      if(change.status==='complete')await reconcileReceipts(s);
-    }
-  });
-});
-chrome.alarms.onAlarm.addListener(alarm=>{
-  if(alarm.name==='cn23-watch')void serial(async()=>{const s=await read();if(Q.recoverInterrupted(s))await save(s);});
-});
-chrome.runtime.onInstalled.addListener(()=>{
-  void chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'}).catch(()=>{});
-  void chrome.alarms.create('cn23-watch',{periodInMinutes:1});
-});
-chrome.runtime.onStartup.addListener(()=>{
-  void chrome.alarms.create('cn23-watch',{periodInMinutes:1});
-  void serial(async()=>{const s=await read();if(s.active){s.active.startedAt=0;s.active.phase='interrupted';if(Q.recoverInterrupted(s))await save(s);}});
-});
+chrome.runtime.onMessage.addListener((m,sender,respond)=>{if(!m||typeof m.type!=='string')return false;serial(()=>command(m,sender)).then(data=>respond({ok:true,data}),error=>respond({ok:false,error:error.message}));return true;});
+chrome.action.onClicked.addListener(tab=>{void serial(async()=>{
+  if(!tab?.url?.startsWith('https://expos.mile.app/')){await chrome.action.setBadgeText({text:'MILE'});await chrome.action.setTitle({title:'Buka tab Mile yang sudah login.'});return;}
+  const ack=await chrome.tabs.sendMessage(tab.id,{type:'CN23_PANEL_TOGGLE',tabId:tab.id}).catch(()=>null);
+  if(!ack?.accepted){await chrome.action.setBadgeText({tabId:tab.id,text:'↻'});await chrome.action.setTitle({tabId:tab.id,title:'Muat ulang tab Mile untuk memakai ekstensi terbaru.'});}
+  else await chrome.action.setBadgeText({tabId:tab.id,text:''});
+});});
+chrome.tabs.onUpdated?.addListener((id,change,tab)=>{if(!change.url&&change.status!=='complete')return;void serial(async()=>{const s=await read();if(id===s.tabId)await inspectNavigation(s,change.url||tab.url);});});
+chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name==='cn23-watch')void serial(async()=>{let s=await read();const tab=await chrome.tabs.get(s.tabId).catch(()=>null);s=await inspectNavigation(s,tab?.url);if(Q.recoverInterrupted(s))await save(s);});});
+chrome.runtime.onInstalled.addListener(()=>{void chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'}).catch(()=>{});void chrome.alarms.create('cn23-watch',{periodInMinutes:1});void serial(read);});
+chrome.runtime.onStartup.addListener(()=>{void chrome.alarms.create('cn23-watch',{periodInMinutes:1});});

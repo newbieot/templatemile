@@ -22,16 +22,16 @@
     if (!mounted || !nodes.every((node,i)=>node===probeNodes[i])) {probeSince=Date.now();probeNodes=mounted?nodes:[];formId=mounted?crypto.randomUUID():'';}
     const ready=mounted&&Date.now()-probeSince>=150;
     const blank=ready&&['namapenerima','ref_no','alamatPenerima'].every(id=>!one('#'+id).value.trim())&&!exactButton('Ubah Data');
-    return {version:Q.VERSION,pageId,formId,path:location.pathname,ready,blank,busy:Boolean(current),token:current?.token,missing};
+    return {version:Q.VERSION,pageId,formId,path:location.pathname,ready,blank,busy:Boolean(current),token:current?.token,submitted:Boolean(current?.submitted),missing};
   }
   async function announceForm() {
     const state=formState();
-    if(state.ready&&state.blank&&!state.busy) {
+    if(state.ready&&state.blank&&(!state.busy||state.submitted)) {
       try {await chrome.runtime.sendMessage({type:'FORM_READY',...state});} catch (_) { /* The next heartbeat retries a waking/reloaded worker. */ }
     }
   }
   async function readyForm() {
-    // Vue mounts the sections separately after the receipt redirect. A recipient field alone
+    // Vue mounts the sections separately after the CN23 navigation. A recipient field alone
     // does not establish that reference/service/item controls belong to a complete new form.
     let previous = [];
     return wait(() => {
@@ -168,7 +168,7 @@
     current.submitting = true;
     await send('SUBMIT_INTENT'); // Durable status must precede the irreversible click.
     current.submitted = true; current.permitClick = true;
-    status('Menunggu resi baru. Jangan klik Selesai lagi.');
+    status('Menunggu Mile membuka daftar transaksi.');
     button.click(); current.permitClick = false;
   }
   document.addEventListener('click', event => {
@@ -254,13 +254,13 @@
       current=null;reply({accepted:true,version:Q.VERSION});
     } else if (message.type === 'CN23_PAUSE') {
       if (current?.token === message.token) {
-        current.cancelled = true; status('Dijeda. Kiriman yang sudah dikirim tetap menunggu verifikasi resi.');
+        current.cancelled = true; status('Dijeda. Transaksi yang sudah ditekan Selesai dapat diperiksa di Mile.');
         if (!current.submitted && current.paymentReady) void fail(new Error('Dijeda sebelum Selesai. Buka form kosong untuk melanjutkan.'));
         current?.cancelResolve?.();
       }
       reply({ accepted:true });
     } else if (message.type === 'CN23_FINISHED') {
-      current = null; status('Resi tersimpan. Melanjutkan antrean…'); reply({ accepted:true });
+      current = null; status('Transaksi selesai. Melanjutkan antrean…'); reply({ accepted:true });
     }
     return false;
   });
