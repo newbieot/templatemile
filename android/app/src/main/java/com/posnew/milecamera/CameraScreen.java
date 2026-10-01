@@ -5,6 +5,8 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
@@ -21,14 +23,11 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.activity.ComponentActivity;
-import androidx.annotation.OptIn;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.FocusMeteringResult;
-import androidx.camera.core.ExperimentalZeroShutterLag;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.MeteringPoint;
 import androidx.camera.core.Preview;
@@ -41,7 +40,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
-import java.nio.ByteBuffer;
+import java.io.ByteArrayOutputStream;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -58,10 +57,12 @@ final class CameraScreen extends FrameLayout {
     private final FrameLayout overlays;
     private final View captureFlash;
     private static final String PERF_TAG = "MileCameraPerf";
-    private static final int MAX_CAMERA_REQUESTS = 3;
     private static final int MAX_OUTSTANDING_CAPTURES = 6;
     private final ExecutorService soundIo=Executors.newSingleThreadExecutor();
     private final ExecutorService captureExecutor=Executors.newSingleThreadExecutor();
+    private final ExecutorService analysisExecutor=Executors.newSingleThreadExecutor();
+    private final ShutterFrameBuffer frames=new ShutterFrameBuffer();
+    private final java.util.concurrent.atomic.AtomicBoolean frameRefreshPending=new java.util.concurrent.atomic.AtomicBoolean();
     private final Object resultLock=new Object();
     private final Map<Long,CaptureResult> completedCaptures=new HashMap<>();
     private MediaActionSound shutterSound;
@@ -70,9 +71,10 @@ final class CameraScreen extends FrameLayout {
     private final Shutter shutter;
     private ProcessCameraProvider provider;
     private Camera camera;
-    private ImageCapture imageCapture;
-    private boolean busy, closed, torch, previewReady, zslEnabled;
-    private int focusRequest, cameraRequestsInFlight, outstandingCaptures;
+    private ImageAnalysis analysis;
+    private boolean busy, torch, previewReady, touchCaptured;
+    private volatile boolean closed;
+    private int focusRequest, outstandingCaptures;
     private long nextCaptureSequence=1, nextQueueSequence=1;
 
     CameraScreen(ComponentActivity activity, SessionStore store, ExecutorService io, Runnable home, Runnable openGallery, Runnable process) {
@@ -152,7 +154,18 @@ final class CameraScreen extends FrameLayout {
         gallery.setTextSize(12); gallery.setMinHeight(0);
         gallery.setPadding(Ui.dp(activity,10),0,Ui.dp(activity,10),0);
         shutter=new Shutter(activity); shutter.setContentDescription("Ambil foto dokumen");
-        shutter.setFocusable(true); shutter.setClickable(true); shutter.setOnClickListener(v -> capture());
+        shutter.setFocusable(true); shutter.setClickable(true);
+        shutter.setOnClickListener(v -> { if (!touchCaptured) capture(); });
+        shutter.setOnTouchListener((v,event) -> {
+            if (event.getActionMasked()==MotionEvent.ACTION_DOWN) {
+                touchCaptured=true; shutter.setPressed(true); capture(); return true;
+            }
+            if (event.getActionMasked()==MotionEvent.ACTION_UP) {
+                shutter.setPressed(false); shutter.performClick(); touchCaptured=false; refresh(); return true;
+            }
+            if (event.getActionMasked()==MotionEvent.ACTION_CANCEL) { shutter.setPressed(false); touchCaptured=false; refresh(); return true; }
+            return touchCaptured;
+        });
         finish=Ui.button(activity,landscape?"Selesai":"Selesai →",Color.argb(225,37,99,235),Color.WHITE,() -> { if (!busy && store.count()>0) process.run(); });
         finish.setTextSize(12); finish.setMinHeight(0);
         finish.setPadding(Ui.dp(activity,10),0,Ui.dp(activity,10),0);
@@ -182,20 +195,20 @@ final class CameraScreen extends FrameLayout {
             if (closed) return;
             previewReady=state==PreviewView.StreamState.STREAMING;
             refresh();
-            if (previewReady && cameraRequestsInFlight==0 && status.getText().toString().equals("Menyiapkan kamera…")) status.setText(zslEnabled?"Siap capture · ZSL aktif · ketuk teks untuk fokus":"Siap capture · ketuk teks untuk fokus");
+            if (previewReady && status.getText().toString().equals("Menyiapkan kamera…")) status.setText("Siap capture · ketuk teks untuk fokus");
         });
         refresh();
         GestureDetector taps=new GestureDetector(activity,new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent event) { return true; }
             @Override public boolean onSingleTapUp(MotionEvent event) {
                 preview.performClick();
-                if (cameraRequestsInFlight==0 && previewReady && camera!=null) focusAt(event.getX(),event.getY());
+                if (previewReady && camera!=null) focusAt(event.getX(),event.getY());
                 return true;
             }
         });
         ScaleGestureDetector pinch=new ScaleGestureDetector(activity,new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override public boolean onScale(ScaleGestureDetector detector) {
-                if (camera==null || cameraRequestsInFlight>0 || closed || camera.getCameraInfo().getZoomState().getValue()==null) return true;
+                if (camera==null || closed || camera.getCameraInfo().getZoomState().getValue()==null) return true;
                 androidx.camera.core.ZoomState state=camera.getCameraInfo().getZoomState().getValue();
                 float ratio=Math.max(state.getMinZoomRatio(),Math.min(state.getMaxZoomRatio(),state.getZoomRatio()*detector.getScaleFactor()));
                 camera.getCameraControl().setZoomRatio(ratio);
@@ -213,7 +226,6 @@ final class CameraScreen extends FrameLayout {
     // Insets move only the controls; the camera surface remains edge to edge.
     void setControlInsets(int left,int top,int right,int bottom) { overlays.setPadding(left,top,right,bottom); }
 
-    @OptIn(markerClass = ExperimentalZeroShutterLag.class)
     private void bindCamera() {
         if (closed || ContextCompat.checkSelfPermission(activity,Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) return;
         if (preview.getDisplay()==null || preview.getWidth()==0 || preview.getHeight()==0) { preview.postOnAnimation(this::bindCamera); return; }
@@ -230,18 +242,12 @@ final class CameraScreen extends FrameLayout {
 
                 boolean useBack=provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA);
                 CameraSelector cameraSelector=useBack?CameraSelector.DEFAULT_BACK_CAMERA:CameraSelector.DEFAULT_FRONT_CAMERA;
-                zslEnabled=false;
-                try {
-                    java.util.List<androidx.camera.core.CameraInfo> infos=cameraSelector.filter(provider.getAvailableCameraInfos());
-                    zslEnabled=!infos.isEmpty() && infos.get(0).isZslSupported();
-                } catch (RuntimeException ignored) { zslEnabled=false; }
-                int captureMode=zslEnabled?ImageCapture.CAPTURE_MODE_ZERO_SHUTTER_LAG:ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY;
-                imageCapture=new ImageCapture.Builder().setCaptureMode(captureMode)
-                    .setJpegQuality(82).setOutputFormat(ImageCapture.OUTPUT_FORMAT_JPEG).setResolutionSelector(selector).setFlashMode(ImageCapture.FLASH_MODE_OFF)
-                    .setTargetRotation(preview.getDisplay().getRotation()).build();
-
                 provider.unbindAll();
-                UseCaseGroup.Builder group=new UseCaseGroup.Builder().addUseCase(live).addUseCase(imageCapture);
+                analysis=new ImageAnalysis.Builder().setResolutionSelector(selector)
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setTargetRotation(preview.getDisplay().getRotation()).build();
+                analysis.setAnalyzer(analysisExecutor,image -> receiveFrame(image,!useBack));
+                UseCaseGroup.Builder group=new UseCaseGroup.Builder().addUseCase(live).addUseCase(analysis);
                 boolean horizontal=preview.getWidth()>preview.getHeight();
                 ViewPort viewport=new ViewPort.Builder(new Rational(horizontal?16:9,horizontal?9:16),preview.getDisplay().getRotation())
                     .setScaleType(ViewPort.FILL_CENTER).build();
@@ -250,10 +256,10 @@ final class CameraScreen extends FrameLayout {
                 camera=provider.bindToLifecycle(activity,cameraSelector,group.build());
                 camera.getCameraControl().setZoomRatio(1f); zoom.setText("1×");
                 lamp.setEnabled(camera.getCameraInfo().hasFlashUnit()); lamp.setAlpha(lamp.isEnabled()?1f:.4f);
-                if (previewReady) status.setText(zslEnabled?"Siap capture · ZSL aktif · ketuk teks untuk fokus":"Siap capture · ketuk teks untuk fokus");
+                if (previewReady) status.setText("Siap capture · ketuk teks untuk fokus");
                 refresh();
             } catch (Exception error) {
-                previewReady=false; imageCapture=null; camera=null; zslEnabled=false; refresh();
+                previewReady=false; camera=null; refresh();
                 status.setText("Kamera belum bisa dibuka. Kembali lalu coba lagi.");
                 android.widget.Toast.makeText(activity,"Kamera: "+error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
             }
@@ -276,7 +282,7 @@ final class CameraScreen extends FrameLayout {
         try {
             ListenableFuture<FocusMeteringResult> future=camera.getCameraControl().startFocusAndMetering(action);
             future.addListener(() -> {
-                if (closed || cameraRequestsInFlight>0 || request!=focusRequest) return;
+                if (closed || request!=focusRequest) return;
                 try {
                     boolean success=canFocus && future.get().isFocusSuccessful();
                     status.setText(!canFocus?"Cahaya disesuaikan · lensa fokus tetap":success?"Fokus terkunci · siap capture":"Fokus belum terkunci · ubah jarak kamera");
@@ -288,63 +294,56 @@ final class CameraScreen extends FrameLayout {
         } catch (Exception error) { status.setText("Fokus tidak tersedia saat ini"); }
     }
 
+    private void receiveFrame(ImageProxy image, boolean mirror) {
+        long arrival=SystemClock.elapsedRealtimeNanos();
+        try {
+            if (closed) return;
+            ImageProxy.PlaneProxy[] planes=image.getPlanes();
+            if (image.getFormat()!=ImageFormat.YUV_420_888 || planes.length!=3) throw new IllegalArgumentException("Format live kamera bukan YUV.");
+            Rect crop=image.getCropRect();
+            int left=(crop.left+1)&~1, top=(crop.top+1)&~1;
+            int width=(crop.right-left)&~1, height=(crop.bottom-top)&~1;
+            frames.publish(planes[0].getBuffer(),planes[0].getRowStride(),planes[0].getPixelStride(),
+                planes[1].getBuffer(),planes[1].getRowStride(),planes[1].getPixelStride(),
+                planes[2].getBuffer(),planes[2].getRowStride(),planes[2].getPixelStride(),
+                left,top,width,height,image.getImageInfo().getRotationDegrees(),mirror,image.getImageInfo().getTimestamp(),arrival);
+            if (frameRefreshPending.compareAndSet(false,true)) activity.runOnUiThread(() -> {
+                frameRefreshPending.set(false);
+                if (!closed) refreshShutter();
+            });
+        } catch (RuntimeException error) {
+            Log.w(PERF_TAG,"Live frame tidak terbaca",error);
+        } finally { image.close(); }
+    }
+
     private void capture() {
         final long tapNs=SystemClock.elapsedRealtimeNanos();
-        if (closed || !previewReady || camera==null || imageCapture==null) return;
-        if (cameraRequestsInFlight>=MAX_CAMERA_REQUESTS || outstandingCaptures>=MAX_OUTSTANDING_CAPTURES) return;
+        if (closed || !previewReady || camera==null || analysis==null) return;
+        if (outstandingCaptures>=MAX_OUTSTANDING_CAPTURES) return;
         if (store.count()+outstandingCaptures>=SessionStore.MAX_PHOTOS) return;
-
+        // Freeze a frame already delivered BEFORE feedback and before any background work.
+        // There is no takePicture request that could photograph the next envelope instead.
+        final ShutterFrameBuffer.Snapshot frame=frames.freeze(tapNs);
+        if (frame==null) { status.setText("Menunggu frame baru · ketuk shutter lagi"); refresh(); return; }
         final CaptureJob job=new CaptureJob(nextCaptureSequence++,"native-"+UUID.randomUUID(),tapNs,Instant.now().toString());
-        outstandingCaptures++; cameraRequestsInFlight++; busy=true; ++focusRequest;
+        job.captureCallbackNs=SystemClock.elapsedRealtimeNanos(); job.sensorTimestampNs=frame.sensorNs; job.frameAgeNs=frame.ageNs;
+        outstandingCaptures++; busy=true; ++focusRequest;
         refresh();
-        status.setText(outstandingCaptures>1?"Mengambil "+outstandingCaptures+" foto…":"Mengambil foto…");
+        status.setText("Frame diambil · boleh ganti label");
         showTapFeedback();
-
+        showCaptureStartedFeedback();
         try {
-            if (preview.getDisplay()!=null) imageCapture.setTargetRotation(preview.getDisplay().getRotation());
-            job.requestNs=SystemClock.elapsedRealtimeNanos();
-            imageCapture.takePicture(captureExecutor,new ImageCapture.OnImageCapturedCallback() {
-                @Override public void onCaptureStarted() {
-                    job.captureStartedNs=SystemClock.elapsedRealtimeNanos();
-                    activity.runOnUiThread(() -> { if (!closed) showCaptureStartedFeedback(); });
-                }
-                @Override public void onCaptureSuccess(ImageProxy image) {
-                    job.captureCallbackNs=SystemClock.elapsedRealtimeNanos();
-                    job.sensorTimestampNs=image.getImageInfo().getTimestamp();
-                    byte[] jpeg=null;
-                    Exception failure=null;
-                    int rotation=image.getImageInfo().getRotationDegrees();
-                    try {
-                        if (image.getFormat()!=ImageFormat.JPEG || image.getPlanes().length==0) throw new Exception("Format hasil kamera bukan JPEG.");
-                        ByteBuffer buffer=image.getPlanes()[0].getBuffer().duplicate();
-                        jpeg=new byte[buffer.remaining()];
-                        buffer.get(jpeg);
-                        if (jpeg.length==0) throw new Exception("Hasil kamera kosong.");
-                    } catch (Exception error) { failure=error; }
-                    finally { image.close(); }
-                    final byte[] bytes=jpeg;
-                    final Exception error=failure;
-                    activity.runOnUiThread(() -> {
-                        cameraRequestsInFlight=Math.max(0,cameraRequestsInFlight-1);
-                        if (!closed) refresh();
-                    });
-                    enqueueCaptureResult(new CaptureResult(job,bytes,rotation,false,error));
-                }
-                @Override public void onError(ImageCaptureException error) {
-                    job.captureCallbackNs=SystemClock.elapsedRealtimeNanos();
-                    activity.runOnUiThread(() -> {
-                        cameraRequestsInFlight=Math.max(0,cameraRequestsInFlight-1);
-                        if (!closed) refresh();
-                    });
+            captureExecutor.execute(() -> {
+                try (ByteArrayOutputStream bytes=new ByteArrayOutputStream()) {
+                    YuvImage frozen=new YuvImage(frame.nv21,ImageFormat.NV21,frame.width,frame.height,null);
+                    if (!frozen.compressToJpeg(new Rect(0,0,frame.width,frame.height),95,bytes)) throw new Exception("Frame gagal dikompresi.");
+                    enqueueCaptureResult(new CaptureResult(job,bytes.toByteArray(),frame.rotation,frame.mirror,null));
+                } catch (Exception error) {
                     enqueueCaptureResult(new CaptureResult(job,null,0,false,error));
                 }
             });
-            job.requestReturnNs=SystemClock.elapsedRealtimeNanos();
         } catch (Exception error) {
-            job.captureCallbackNs=SystemClock.elapsedRealtimeNanos();
-            cameraRequestsInFlight=Math.max(0,cameraRequestsInFlight-1);
             enqueueCaptureResult(new CaptureResult(job,null,0,false,error));
-            refresh();
         }
     }
 
@@ -421,15 +420,11 @@ final class CameraScreen extends FrameLayout {
     }
 
     private void logPerformance(CaptureJob job,long finishedNs,boolean saved,Exception error) {
-        long requestMs=job.requestNs==0?-1:millis(job.requestNs-job.tapNs);
-        long requestCallMs=job.requestReturnNs==0 || job.requestNs==0?-1:millis(job.requestReturnNs-job.requestNs);
-        long startedMs=job.captureStartedNs==0?-1:millis(job.captureStartedNs-job.tapNs);
         long captureMs=job.captureCallbackNs==0?-1:millis(job.captureCallbackNs-job.tapNs);
         long saveMs=job.captureCallbackNs==0?-1:millis(finishedNs-job.captureCallbackNs);
         long totalMs=millis(finishedNs-job.tapNs);
-        Log.i(PERF_TAG,"captureId="+job.captureId+" mode="+(zslEnabled?"ZSL":"MIN_LATENCY")
-            +" tapToRequestMs="+requestMs+" requestCallMs="+requestCallMs+" tapToCaptureStartedMs="+startedMs
-            +" tapToCaptureResultMs="+captureMs+" captureResultToSavedMs="+saveMs
+        Log.i(PERF_TAG,"captureId="+job.captureId+" mode=FROZEN_LIVE_FRAME frameAgeMs="+millis(job.frameAgeNs)
+            +" tapToFrozenFrameMs="+captureMs+" frozenFrameToSavedMs="+saveMs
             +" tapToSavedMs="+totalMs+" sensorTimestampNs="+job.sensorTimestampNs
             +" saved="+saved+(error==null?"":" error="+error.getClass().getSimpleName()+":"+error.getMessage()));
     }
@@ -456,9 +451,12 @@ final class CameraScreen extends FrameLayout {
         counter.setText(String.format(java.util.Locale.ROOT,outstandingCaptures>0?"%03d foto · %d diproses · 720p":"%03d foto · 720p",stored,outstandingCaptures));
         finish.setEnabled(stored>0&&!busy); finish.setAlpha(finish.isEnabled()?1f:.35f);
         gallery.setText("Galeri · "+stored); gallery.setEnabled(stored>0&&!busy); gallery.setAlpha(gallery.isEnabled()?1f:.45f);
-        boolean capacity=stored+outstandingCaptures<SessionStore.MAX_PHOTOS && outstandingCaptures<MAX_OUTSTANDING_CAPTURES && cameraRequestsInFlight<MAX_CAMERA_REQUESTS;
-        shutter.setEnabled(!closed&&previewReady&&camera!=null&&imageCapture!=null&&capacity);
-        shutter.setAlpha(shutter.isEnabled()?1f:.45f);
+        refreshShutter();
+    }
+    private void refreshShutter() {
+        boolean capacity=store.count()+outstandingCaptures<SessionStore.MAX_PHOTOS && outstandingCaptures<MAX_OUTSTANDING_CAPTURES;
+        boolean enabled=!closed&&(touchCaptured || (previewReady&&camera!=null&&analysis!=null&&capacity&&frames.available(SystemClock.elapsedRealtimeNanos())));
+        if (shutter.isEnabled()!=enabled) { shutter.setEnabled(enabled); shutter.setAlpha(enabled?1f:.45f); }
     }
     boolean isBusy() { return busy; }
     void close() {
@@ -467,9 +465,10 @@ final class CameraScreen extends FrameLayout {
         preview.getPreviewStreamState().removeObservers(activity); preview.setOnTouchListener(null);
         focusOverlay.stop();
         captureFlash.animate().cancel();
-        if (provider!=null) provider.unbindAll(); camera=null; imageCapture=null;
-        // If a capture is still returning its ImageProxy, keep the callback executor alive until
-        // that result is copied and persisted. Normal navigation is already blocked while busy.
+        if (analysis!=null) analysis.clearAnalyzer();
+        if (provider!=null) provider.unbindAll(); camera=null; analysis=null;
+        analysisExecutor.shutdown(); frames.clear();
+        // Frozen frames remain independent of the live buffers until their files are saved.
         maybeShutdownCaptureExecutor();
         soundIo.execute(() -> {
             try { if (shutterSound!=null) shutterSound.release(); }
@@ -483,7 +482,7 @@ final class CameraScreen extends FrameLayout {
         final String captureId;
         final long tapNs;
         final String capturedAt;
-        long requestNs, requestReturnNs, captureStartedNs, captureCallbackNs, sensorTimestampNs;
+        long captureCallbackNs, sensorTimestampNs, frameAgeNs;
         CaptureJob(long sequence,String captureId,long tapNs,String capturedAt) {
             this.sequence=sequence; this.captureId=captureId; this.tapNs=tapNs; this.capturedAt=capturedAt;
         }

@@ -1,4 +1,4 @@
-const APP_VERSION = '20261001-26.34-cn23-auto-camera-recovery';
+const APP_VERSION = '20261001-26.35-cn23-payment-frozen-shutter';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -42,6 +42,8 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-Camera-0.1.4-source.zip',
   '/downloads/Mile-Camera-0.1.5.apk', '/downloads/Mile-Camera-0.1.5-source.zip',
   '/downloads/Mile-CN23-Helper-0.2.0.zip',
+  '/downloads/Mile-Camera-0.1.6.apk', '/downloads/Mile-Camera-0.1.6-source.zip',
+  '/downloads/Mile-CN23-Helper-0.2.1.zip',
   '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 
@@ -1221,11 +1223,11 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
-  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4|5)\.apk$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4|5|6)\.apk$/.test(path) && response.ok) {
     headers.set('content-type', 'application/vnd.android.package-archive');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
-  if (/^\/downloads\/Mile-CN23-Helper-0\.[12]\.0\.zip$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-CN23-Helper-0\.(?:1\.0|2\.[01])\.zip$/.test(path) && response.ok) {
     headers.set('content-type', 'application/zip');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
@@ -1253,7 +1255,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/downloads/Mile-Camera.apk' || url.pathname === '/downloads/Mile-Camera-0.1.0.apk') {
-      return redirect('/downloads/Mile-Camera-0.1.5.apk');
+      return redirect('/downloads/Mile-Camera-0.1.6.apk');
     }
     if (url.hostname === 'templatemile.pages.dev') {
       url.hostname = 'mile.posnew.com';

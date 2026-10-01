@@ -1,10 +1,10 @@
-MILE CN23 HELPER 0.2.0
+MILE CN23 HELPER 0.2.1
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.0 ke FOLDER
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.1 ke FOLDER
    ekstensi lama dan timpa file lama, termasuk manifest.json. Jangan uninstall.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.0. Riwayat ID kiriman dan resi tetap tersimpan.
+   Versi harus tertulis 0.2.1. Riwayat ID kiriman dan resi tetap tersimpan.
 3. Simpan pekerjaan, lalu muat ulang tab Mile agar script terbaru aktif.
    Jangan muat ulang transaksi yang belum pasti sesudah tombol Selesai.
 
@@ -52,10 +52,22 @@ Asuransi, service, referensi, dan instruksi mengikuti Excel.
 Kode zona mengikuti pilihan Mile, tidak ditebak dari kode pos.
 
 PENGUJIAN
-Form CN23 dan pencarian KATEMAN 29255 diperiksa pada Mile yang terbuka.
+Form CN23, pencarian KATEMAN 29255, dan struktur dialog pembayaran
+select-payment diperiksa pada Mile yang terbuka. Dropdown pembayaran
+dibuka melalui wrapper dan dicoba ulang ketika klik pertama diabaikan
+transisi dialog. Daftar yang dipindahkan ke body tetap dikenali.
+Form berikutnya ditunggu sampai seluruh kolom termasuk ref_no siap dan
+stabil, dengan mengabaikan salinan tersembunyi dari form sebelumnya.
+Sinyal siap halaman pertama tidak dipakai untuk kiriman berikutnya;
+kiriman berikutnya menunggu resi cocok dan form baru yang kosong.
 Upload workbook, Cash/Invoice/CREDIT, Enter pelanggan, resi tab baru,
 redirect daftar transaksi, antrean berikutnya dan notifikasi diuji melalui
-simulasi DOM dan service worker. Submit produksi dengan ekstensi Chrome
+simulasi DOM dan service worker, termasuk klik pertama diabaikan,
+dropdown di luar dialog, dan ref_no yang terlambat muncul.
+Uji integrasi tiga kiriman menggabungkan script form, pengelola antrean,
+dan pembaca resi: satu Start, Cash lalu Invoice lalu CREDIT, form baru,
+tiga submit tunggal dan satu notifikasi selesai.
+Submit produksi dengan ekstensi Chrome
 terpasang belum dilakukan. Perubahan tampilan Mile dapat memerlukan adaptasi.
 
 Data antrean lokal di Chrome. Tidak meminta password atau API key.

@@ -117,3 +117,26 @@ test('receipt arriving before list redirect still resumes the next form',async()
   assert.equal(h.tabs.get(7).url,Q.FORM_URL);await h.send({type:'FORM_READY'},h.content);
   assert.equal(h.state.rows[1].status,'filling');assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
 });
+
+test('late readiness of the first form cannot be reused for the next shipment',async()=>{
+  const h=workerHarness(),second={...sample(),queue_id:'SECOND'};
+  await h.send({type:'IMPORT',rows:[sample(),second]});await h.send({type:'RUN',tabId:7});
+  const original={...h.content,documentId:'original'},token=h.state.active.token;
+  await h.send({type:'FORM_READY'},original);
+  assert.equal(h.state.formReady,false);
+  await h.send({type:'FILLED',token},original);await h.send({type:'SUBMIT_INTENT',token},original);
+  await h.send({type:'RECEIPT',evidence:evidence()},{tab:{id:15,url:url('receipt-first'),openerTabId:7}});
+  assert.equal(h.state.rows[1].status,'ready');assert.equal(h.state.waitingNewForm,true);
+  assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,1);
+  await h.send({type:'FORM_READY'},{...h.content,documentId:'fresh-empty'});
+  assert.equal(h.state.rows[1].status,'filling');assert.equal(h.order.filter(item=>item.type==='CN23_FILL').length,2);
+});
+
+test('old document readiness during list redirect cannot unlock a second transaction',async()=>{
+  const h=workerHarness();await h.send({type:'IMPORT',rows:[sample()]});await h.send({type:'RUN',tabId:7});
+  const original={...h.content,documentId:'original'},token=h.state.active.token;
+  await h.send({type:'FILLED',token},original);await h.send({type:'SUBMIT_INTENT',token},original);
+  h.updated(7,{url:'https://expos.mile.app/transaction-list'},{id:7});await h.send({type:'GET'});
+  await h.send({type:'FORM_READY'},original);assert.equal(h.state.formReady,false);
+  await h.send({type:'FORM_READY'},{...h.content,documentId:'fresh-empty'});assert.equal(h.state.formReady,true);
+});

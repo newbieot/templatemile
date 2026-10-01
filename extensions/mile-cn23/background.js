@@ -145,11 +145,17 @@ async function command(m,sender){
   }
   if(m.type==='FORM_READY'){
     if(sender.tab?.id!==s.tabId)return {ignored:true};
-    if(s.active?.submittedAt&&s.formReturnExpected){s.formReady=true;return save(s);}
+    // The initial page-ready acknowledgement can arrive after RUN. It describes the
+    // form being filled, not an empty form for the NEXT shipment. Never reuse it.
+    if(s.active?.submittedAt&&s.formReturnExpected){
+      if(s.active.documentId&&sender.documentId===s.active.documentId)return {ignored:true};
+      s.formReady=true;return save(s);
+    }
     if(s.active?.documentId&&sender.documentId&&s.active.documentId!==sender.documentId){
       const r=s.rows.find(row=>row.id===s.active.id);r.status=s.active.submittedAt?'unknown':'error';r.error=s.active.submittedAt?'Halaman dimuat ulang setelah submit. Periksa resi; jangan kirim ulang.':'Form dimuat ulang sebelum Selesai. Buka form kosong untuk mencoba pengisian kembali.';
       s.error=r.error;s.running=false;if(!s.active.submittedAt)s.active=null;return save(s);
     }
+    if(s.active)return {ignored:true};
     s.formReady=true;
     if(s.waitingNewForm&&s.running&&!s.active){delete s.waitingNewForm;return start(s);}
     return save(s);

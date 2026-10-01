@@ -11,6 +11,21 @@
     if (list.length !== 1) throw new Error(`Kolom tidak ditemukan atau ganda: ${selector}. Periksa tampilan Mile.`);
     return list[0];
   };
+  const formSelectors = ['#namapengirim', '#phonePengirim', '#alamatPengirim', '#namapenerima', '#phonePenerima', '#alamatPenerima', '#ref_no', '#addressDetail', '#service', '#COD', '#Jenis_Barang', '#instruksi_pengiriman', '#koli_description', '#koli_length', '#koli_width', '#koli_height', '#koli_weight', '#harga_barang', 'input[name="pelanggan"]', 'input[placeholder="KODE POS"]', 'input[placeholder="KODE ZONA"]'];
+  async function readyForm() {
+    // Vue mounts the sections separately after the receipt redirect. A recipient field alone
+    // does not establish that reference/service/item controls belong to a complete new form.
+    let previous = [];
+    return wait(() => {
+      if (all('.el-loading-mask').some(visible)) { previous = []; return false; }
+      const controls = formSelectors.map(selector => all(selector).filter(visible));
+      if (controls.some(list => list.length !== 1)) { previous = []; return false; }
+      const nodes = controls.map(list => list[0]);
+      const stable = nodes.every((node, i) => previous[i] === node);
+      previous = nodes;
+      return stable;
+    }, 'seluruh kolom form CN23 baru', 45000);
+  }
   async function send(type, extra = {}) {
     const reply = await chrome.runtime.sendMessage({ type, token: current?.token, ...extra });
     if (!reply?.ok) throw new Error(reply?.error || 'Status antrean belum dapat disimpan.');
@@ -56,8 +71,31 @@
   }
   async function select(input, labels) {
     const labelList = labels.map(Q.norm);
-    input.click();
-    const option = await wait(() => all('.el-select-dropdown__item').filter(visible).find(el => labelList.includes(Q.norm(el.textContent)) && !el.classList.contains('is-disabled')), 'pilihan ' + labels.join('/'));
+    const container = input.closest('.el-select');
+    // Element UI moves the same dropdown node to body. Retain that node rather than
+    // assuming options remain inside the dialog, or clicking a stale autocomplete list.
+    let dropdown = container?.querySelector('.el-select-dropdown');
+    let lastOpen = 0;
+    const option = await wait(() => {
+      if (!input.isConnected || !visible(input) || input.disabled || container?.classList.contains('is-disabled')) return false;
+      const controlled = input.getAttribute('aria-controls');
+      if (!dropdown?.isConnected && controlled) dropdown = document.getElementById(controlled);
+      const candidates = all('.el-select-dropdown__item', dropdown?.isConnected ? dropdown : document)
+        .filter(visible).filter(el => labelList.includes(Q.norm(el.textContent)) && !el.classList.contains('is-disabled'));
+      if (candidates.length === 1) return candidates[0];
+      if (candidates.length > 1) throw new Error('Pilihan pembayaran/menu ganda: ' + labels.join('/'));
+      // An early click during the payment transition can be ignored. Retry only while
+      // its list is closed; never toggle an already opened list closed again.
+      if (Date.now() - lastOpen >= 750 && !(dropdown && visible(dropdown))) {
+        lastOpen = Date.now();
+        input.focus();
+        const target = container || input;
+        target.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, button:0 }));
+        target.dispatchEvent(new MouseEvent('mouseup', { bubbles:true, button:0 }));
+        target.click();
+      }
+      return false;
+    }, 'pilihan ' + labels.join('/'));
     option.click();
     await wait(() => labelList.includes(Q.norm(input.value)), 'pilihan terkunci ' + labels.join('/'));
   }
@@ -99,7 +137,7 @@
   }
   function totalCost(dialog) {
     // Label is deliberately required: unrelated amounts must never become the cost limit.
-    const labels = all('label, .el-form-item__label', dialog).filter(visible).filter(el => /^(TOTAL TAGIHAN|TOTAL PEMBAYARAN|TOTAL BAYAR|GRAND TOTAL)$/.test(Q.norm(el.textContent)));
+    const labels = all('label, .el-form-item__label, .total span', dialog).filter(visible).filter(el => /^(TOTAL TAGIHAN|TOTAL PEMBAYARAN|TOTAL BAYAR|GRAND TOTAL)$/.test(Q.norm(el.textContent).replace(/\s*:$/, '')));
     if (labels.length !== 1) return NaN;
     const parent = labels[0].closest('.el-form-item') || labels[0].parentElement;
     const value = parent.querySelector('input')?.value || parent.textContent.replace(labels[0].textContent, '');
@@ -128,7 +166,7 @@
     if (!current?.submitted) current = null;
   }
   async function run(row, options) {
-    await wait(() => document.getElementById('namapenerima') && visible(document.getElementById('namapenerima')), 'form CN23');
+    await readyForm();
     if (one('#namapenerima').value.trim() || one('#ref_no').value.trim() || exactButton('Ubah Data')) throw new Error('Form Mile sudah berisi transaksi. Buka form CN23 baru yang kosong dahulu.');
     status(`Mengisi ${row.queue_id} · ${row.recipient_name}`);
     if (row.customer_mode === 'KORPORAT') {
@@ -142,6 +180,7 @@
         one('#namapengirim').value.trim() && one('#phonePengirim').value.trim() && one('#alamatPengirim').value.trim() &&
         !all('.el-loading-mask').some(visible), 'nama dan alamat pelanggan setelah Enter', 45000);
       await send('PROGRESS', { phase:'filling', customerResolved:{sender_name:one('#namapengirim').value.trim(),sender_phone:one('#phonePengirim').value.trim(),sender_address:one('#alamatPengirim').value.trim()} });
+      status(`Mengisi ${row.queue_id} · ${row.recipient_name}`);
     }
     for (const [id, key] of Object.entries({ namapengirim:'sender_name', phonePengirim:'sender_phone', alamatPengirim:'sender_address', namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) { if (row.customer_mode !== 'KORPORAT' || key.startsWith('recipient_')) byId(id, row[key]); }
     await destination(row);
@@ -168,7 +207,11 @@
     await wait(() => exactButton('Ubah Data') && exactButton('Pembayaran'), 'hasil hitung PDRI', 45000);
     exactButton('Pembayaran').click();
     const dialog = await wait(() => all('.el-dialog').filter(visible).find(el => exactButton('Selesai', el)), 'jendela pembayaran');
-    const payment = one('.el-select input', dialog);
+    const payment = await wait(() => {
+      const fields = all('.select-payment input, .el-select input', dialog).filter(visible);
+      return fields.length === 1 && !fields[0].disabled && fields[0];
+    }, 'kolom metode pembayaran');
+    status(`Memilih ${row.payment_method} · ${row.recipient_name}`);
     await select(payment, row.payment_method === 'CASH' ? ['Cash'] : row.payment_method === 'CREDIT' ? ['CREDIT'] : ['Invoice']);
     await send('FILLED'); current.paymentReady = true;
     const button = exactButton('Selesai', dialog);
@@ -195,5 +238,5 @@
     }
     return false;
   });
-  wait(() => document.getElementById('namapenerima'), 'form baru', 45000).then(() => chrome.runtime.sendMessage({ type:'FORM_READY' })).catch(() => {});
+  readyForm().then(() => chrome.runtime.sendMessage({ type:'FORM_READY' })).catch(() => {});
 })();

@@ -4,9 +4,9 @@ Aplikasi pendamping Android dengan kamera native CameraX. Login, ekstraksi AI, p
 
 ## Memakai APK
 
-Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.4).
+Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.6).
 
-1. Unduh `Mile-Camera-0.1.4.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
+1. Unduh `Mile-Camera-0.1.6.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
 2. Buka **Mile Camera** dan login terlebih dahulu. Kamera, galeri, dan halaman aplikasi terkunci sebelum login berhasil. Setelah masuk, pilih **Mulai capture** dan izinkan kamera.
 3. Ketuk bagian teks untuk fokus. Indikator biru berarti perangkat melaporkan fokus berhasil; indikator kuning berarti fokus belum terkunci atau lensa tidak mendukung autofocus pada titik.
 4. Ambil foto, periksa **Galeri**, hapus yang tidak layak, lalu tekan **Selesai**.
@@ -17,9 +17,9 @@ Android 8.0 atau lebih baru. Kamera belakang diprioritaskan; perangkat tanpa kam
 
 ## Kamera dan penyimpanan
 
-- Preview dan still capture memakai CameraX, dengan autofocus bawaan, AF/AE metering pada koordinat ketukan, dan status hasil fokus yang sebenarnya.
-- Shutter langsung memakai CameraX `MINIMIZE_LATENCY`; tidak ada penantian refocus tambahan 1,6 detik pada setiap foto. Autofokus kontinu tetap berjalan saat membidik, dan ketuk fokus tetap tersedia.
-- Kilatan putih pada preview, getaran, serta suara shutter Android diberikan ketika capture diterima. Suara mengikuti volume/kebijakan audio HP. Status tersimpan muncul setelah JPEG berhasil ditulis.
+- Preview dan frame foto memakai CameraX Preview + ImageAnalysis KEEP_ONLY_LATEST, dengan autofocus bawaan, AF/AE metering pada koordinat ketukan, dan status hasil fokus yang sebenarnya.
+- Shutter membekukan salinan frame yang sudah diterima pada finger down sebelum feedback. Kompresi dan penyimpanan berjalan sesudahnya; tidak meminta sensor mengambil gambar berikutnya. Frame yang sudah dipakai atau lebih tua dari 250 ms sejak diterima tidak difoto ulang. Autofokus kontinu tetap berjalan saat membidik, dan ketuk fokus tetap tersedia.
+- Kilatan putih pada preview, getaran, serta suara shutter Android diberikan setelah frame dibekukan. Suara mengikuti volume/kebijakan audio HP. Status tersimpan muncul setelah JPEG berhasil ditulis. Galeri menampilkan resolusi JPEG penuh.
 - Zoom cubit, kembali ke zoom 1×, dan lampu bantu sesuai kemampuan kamera.
 - Kamera memenuhi area layar, dengan kontrol berupa overlay transparan. Landscape tidak memakai panel samping solid. Preview menjaga framing 16:9 utuh; perbedaan rasio layar bisa meninggalkan margin agar gambar tidak dipotong atau tampak zoom.
 - Zoom awal dan setelah rotasi selalu 1×; cubit layar tetap bisa dipakai untuk zoom manual, dan tombol 1× mengembalikan zoom.

@@ -23,7 +23,7 @@ def package_extension():
 
 def package_android():
     base = ROOT / "android"
-    target = OUTPUT / "Mile-Camera-0.1.5-source.zip"
+    target = OUTPUT / "Mile-Camera-0.1.6-source.zip"
     blocked = {".gradle", "build", ".idea"}
     with ZipFile(target, "w", ZIP_DEFLATED) as archive:
         for file in sorted(base.rglob("*")):
@@ -33,7 +33,7 @@ def package_android():
             if file.name == "local.properties" or file.suffix in {".jks", ".keystore", ".apk"}:
                 continue
             archive.write(file, "android/" + relative.as_posix())
-        archive.write(ROOT / "docs" / "mile-camera-0.1.5.md", "PANDUAN-0.1.5.md")
+        archive.write(ROOT / "docs" / "mile-camera-0.1.6.md", "PANDUAN-0.1.6.md")
     return target
 
 if __name__ == "__main__":

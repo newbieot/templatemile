@@ -343,7 +343,7 @@ public final class MainActivity extends ComponentActivity {
         }
         try {
             JSONObject photo=store.snapshot().getJSONArray("photos").getJSONObject(galleryIndex);
-            BitmapFactory.Options options=new BitmapFactory.Options(); options.inSampleSize=2;
+            BitmapFactory.Options options=new BitmapFactory.Options(); options.inSampleSize=1;
             galleryBitmap=BitmapFactory.decodeFile(store.photoFile(photo.getString("key")).getPath(),options);
             ImageView image=new ImageView(this); image.setScaleType(ImageView.ScaleType.FIT_CENTER); image.setImageBitmap(galleryBitmap); image.setContentDescription("Foto dokumen " + (galleryIndex+1));
             imagePane.addView(image,new LinearLayout.LayoutParams(-1,0,1)); Ui.gap(imagePane,12);

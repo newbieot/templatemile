@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.35 — Pembayaran CN23 dan form berikutnya, shutter frame live
+
+- Helper 0.2.1 membuka wrapper pembayaran dengan fokus dan percobaan ulang ketika klik awal diabaikan; dropdown Element UI yang pindah ke body tetap dikenali.
+- Form baru ditunggu sampai seluruh kolom, termasuk ref_no, terlihat unik dan stabil. Sinyal kesiapan halaman yang sedang diisi tidak digunakan kembali untuk antrean berikutnya; sinyal terlambat dari dokumen lama diabaikan setelah redirect.
+- Uji integrasi tiga kiriman menggabungkan script form, background, dan pembaca resi: satu Start, Cash/Invoice/CREDIT, Enter pelanggan, resi sebelum/sesudah redirect, kolom referensi terlambat, tiga submit tunggal, dan satu notifikasi selesai. Seluruh 43 uji web/ekstensi lulus.
+- APK 0.1.6/code 7 membekukan frame live yang sudah diterima pada finger down, sebelum feedback. Kompresi/penyimpanan memakai salinan foto yang tetap; tidak lagi meminta sensor mengambil foto berikutnya. Galeri memakai resolusi JPEG penuh.
+- Build release, lint, empat unit test buffer/stride/freshness, tiga instrumentation kamera, dan delapan instrumentation penyimpanan lulus. Sertifikat APK tetap sama. Emulator menguji perpindahan label segera setelah finger down; transaksi produksi di Chrome belum dilakukan.
+
 ## v26.34 — Antrean CN23 otomatis dan pemulihan foto, APK 0.1.5
 
 - Ekstensi 0.2.0: Upload Excel + Start langsung pada tab Mile. Cash/Invoice/CREDIT dan Selesai otomatis.
