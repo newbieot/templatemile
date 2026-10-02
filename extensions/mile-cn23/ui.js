@@ -1,17 +1,31 @@
 (() => {
   'use strict';
-  let menu = null;
+  let menu = null, noticeTimer = null, dismissedCompletion = null;
+  const NOTICE_DURATION = 5000;
   async function request(type, extra = {}) {
     const reply = await chrome.runtime.sendMessage({ type, ...extra });
     if (!reply?.ok) throw new Error(reply?.error || 'Ekstensi belum siap.');
     return reply.data;
   }
-  function done(total) {
+  function hideNotice() {
+    clearTimeout(noticeTimer);noticeTimer=null;
+    document.getElementById('mile-cn23-complete')?.remove();
+  }
+  function done(total, completedAt = Date.now()) {
+    const remaining=completedAt+NOTICE_DURATION-Date.now();
+    if(remaining<=0||dismissedCompletion===completedAt){hideNotice();return;}
+    clearTimeout(noticeTimer);
     let notice = document.getElementById('mile-cn23-complete');
     if (!notice) { notice = document.createElement('div'); notice.id='mile-cn23-complete'; document.body.append(notice); }
-    notice.textContent = `Selesai: seluruh ${total} kiriman dalam antrean sudah diproses. Cek dan cetak melalui Daftar Transaksi Mile.`;
+    const text=document.createElement('span');
+    text.textContent = `Selesai: seluruh ${total} kiriman dalam antrean sudah diproses. Cek dan cetak melalui Daftar Transaksi Mile.`;
+    const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Tutup pemberitahuan selesai');
+    close.style.cssText='border:0;background:transparent;color:white;font:24px Arial;cursor:pointer;padding:0 4px;flex:none';
+    close.addEventListener('click',()=>{dismissedCompletion=completedAt;hideNotice();void request('DISMISS_COMPLETION',{completedAt}).catch(()=>{});});
+    notice.replaceChildren(text,close);
     notice.setAttribute('role','status');
-    notice.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;max-width:90vw;padding:16px 24px;background:#166534;color:white;border-radius:12px;box-shadow:0 6px 28px #0004;font:15px Arial';
+    notice.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;max-width:90vw;padding:16px 24px;background:#166534;color:white;border-radius:12px;box-shadow:0 6px 28px #0004;font:15px Arial;display:flex;align-items:center;gap:16px';
+    noticeTimer=setTimeout(hideNotice,remaining);
   }
   function show(tabId, toggle = false) {
     if (menu) { if (toggle) {clearInterval(menu.timer);menu.host.remove();menu=null;void request('PANEL_VISIBILITY',{open:false}).catch(()=>{});} return; }
@@ -38,7 +52,7 @@
       get('upload').disabled=Boolean(state.active)||state.running;
       get('reset').disabled=!state.rows.length&&!state.fileName&&!localError;
       if(localError&&!state.running)get('start').disabled=true;
-      if (!state.completedAt) document.getElementById('mile-cn23-complete')?.remove();
+      if (!state.completedAt||state.completionDismissedAt) hideNotice();
     }
     async function refresh(){state=await request('GET');render();}
     get('upload').addEventListener('click',()=>get('file').click());
@@ -65,8 +79,8 @@
   }
   chrome.runtime.onMessage.addListener((message,_sender,reply)=>{
     if(message.type==='CN23_PANEL_TOGGLE'){show(message.tabId,true);reply({accepted:true});}
-    else if(message.type==='CN23_BATCH_DONE'){done(message.total);reply({accepted:true});}
+    else if(message.type==='CN23_BATCH_DONE'){done(message.total,message.completedAt);reply({accepted:true});}
     return false;
   });
-  request('PAGE_READY').then(state=>{if(state?.openPanel)show(state.tabId);if(state?.completedAt&&state.done===state.total&&state.total)done(state.total);}).catch(()=>{});
+  request('PAGE_READY').then(state=>{if(state?.openPanel)show(state.tabId);if(state?.completedAt&&!state.completionDismissedAt&&state.done===state.total&&state.total)done(state.total,state.completedAt);}).catch(()=>{});
 })();

@@ -12,14 +12,14 @@ async function until(fn,description) {
   throw new Error('Batch timeout: '+description);
 }
 
-for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{spa:true,dropReady:true,missList:true}])test(`NO PRINT TAB: one Start completes three shipments ${scenario.missList?'with form two already loaded and the list event missing ':''}with ${scenario.spa?'same-document Mile navigation and lost readiness messages':'full navigations'}`,async()=>{
+for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{spa:true,dropReady:true,missList:true},{spa:false,dropReady:false,serviceCode:'PE'}])test(`NO PRINT TAB: one Start completes three ${scenario.serviceCode||'PKH'} shipments ${scenario.missList?'with form two already loaded and the list event missing ':''}with ${scenario.spa?'same-document Mile navigation and lost readiness messages':'full navigations'}`,async()=>{
   let stored={},listener,onUpdated,mainPage,documentNumber=0,submissionNumber=0,failure;
   const pages=[],events=[],forms=[],paymentOpens=[],dropped=new Set(),pending=new Set(),tabs=new Map([[7,{id:7,url:Q.FORM_URL}]]);
   const rows=[
     {...base,queue_id:'BATCH-1',ref_no:'REF-1',recipient_name:'PENERIMA SATU',customer_mode:'RITEL',payment_method:'CASH'},
     {...base,queue_id:'BATCH-2',ref_no:'REF-2',recipient_name:'PENERIMA DUA',destination_code:'29275',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'INVOICE'},
     {...base,queue_id:'BATCH-3',ref_no:'REF-3',recipient_name:'PENERIMA TIGA',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT'}
-  ];
+  ].map(row=>({...row,service_code:scenario.serviceCode||'PKH'}));
   const panel={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
   const send=(message,sender=panel)=>new Promise(resolve=>listener(message,sender,resolve));
   const defer=(action,ms=0)=>{
@@ -47,6 +47,7 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
         assert.equal(stored.mileCn23Queue.rows[index].status,'awaiting_navigation','Durable intent precedes actual Selesai');
         assert.equal(field(document,'ref_no').value,expected.ref_no);
         assert.equal(document.querySelector('#namapenerima').value,expected.recipient_name);
+        assert.equal(document.querySelector('#service').value,expected.service_code==='PE'?'PE - Pos Express':'PKH','Select the requested service, excluding another code beginning with PE');
         assert.equal(document.querySelector('.select-payment input').value,index===0?'Cash':index===1?'Invoice':'CREDIT');
         assert.equal(document.querySelector('[placeholder="KODE POS"]').value,index===1?'29276':'29274','Mile postcode is retained even when Excel differs');
         assert.equal(document.querySelector('[placeholder="KODE ZONA"]').value,'29274','Mile zone is retained even when Excel differs');

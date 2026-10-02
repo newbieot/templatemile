@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 const assert=require('node:assert/strict');
 const Q=require('../../extensions/mile-cn23/queue.js');
-function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,corporate=false,payment='CREDIT',autoSubmit=true,maxCost=0,lateReference=false,transitionPayment=false,runtimeSend=null,onSubmit=null}={}) {
+function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,serviceOptions=['PKH','PEK - Produk lain','PE - Pos Express'],corporate=false,payment='CREDIT',autoSubmit=true,maxCost=0,lateReference=false,transitionPayment=false,runtimeSend=null,onSubmit=null}={}) {
   const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'});const w=dom.window,d=w.document;
   Object.defineProperty(w,'crypto',{value:require('node:crypto').webcrypto});
   Object.defineProperty(w.HTMLElement.prototype,'getClientRects',{value:function(){return this.closest('[hidden], [style*="display: none"]')?[]:[{width:100,height:30}];}});
@@ -49,7 +49,7 @@ function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,co
   const suggestions=d.createElement('div');suggestions.className='el-autocomplete-suggestion';suggestions.hidden=true;d.body.append(suggestions);
   function suggest(input,text,run){input.addEventListener('input',()=>{suggestions.hidden=false;suggestions.replaceChildren();for(const label of Array.isArray(text)?text:[text]){const item=d.createElement('li');item.textContent=label;suggestions.append(item);item.addEventListener('click',()=>{input.value=label;suggestions.hidden=true;run?.();});}});}
   suggest(d.querySelector('#addressDetail'),regionOptions||'KAB. INDRAGIRI HILIR, KERITANG, PENGALIHAN',()=>{d.querySelector('[placeholder="KODE POS"]').value=postal;d.querySelector('[placeholder="KODE ZONA"]').value=zone;});
-  suggest(d.querySelector('#service'),'PKH');suggest(d.querySelector('[placeholder="Pilih HSCODE"]'),'49011000 BROSUR BAHAN IKLAN DAGANG');
+  suggest(d.querySelector('#service'),serviceOptions);suggest(d.querySelector('[placeholder="Pilih HSCODE"]'),'49011000 BROSUR BAHAN IKLAN DAGANG');
   d.querySelector('[placeholder="Berat"]').addEventListener('input',e=>{d.querySelector('#koli_weight').value=e.target.value;});
   d.querySelector('[placeholder="Rupiah"]').addEventListener('input',e=>{d.querySelector('#harga_barang').value=e.target.value;});
   add('<button id="calculate">Proses Hitung PDRI</button><button id="pay" disabled>Pembayaran</button>');

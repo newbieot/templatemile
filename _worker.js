@@ -1,4 +1,4 @@
-const APP_VERSION = '20261001-26.40-cn23-mile-postcode-authority';
+const APP_VERSION = '20261002-26.41-cn23-completion-toast-pe';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -50,6 +50,7 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-CN23-Helper-0.2.4.zip',
   '/downloads/Mile-CN23-Helper-0.2.5.zip',
   '/downloads/Mile-CN23-Helper-0.2.6.zip',
+  '/downloads/Mile-CN23-Helper-0.2.7.zip',
   '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 
@@ -1233,7 +1234,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
     headers.set('content-type', 'application/vnd.android.package-archive');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
-  if (/^\/downloads\/Mile-CN23-Helper-0\.(?:1\.0|2\.[0123456])\.zip$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-CN23-Helper-0\.(?:1\.0|2\.[01234567])\.zip$/.test(path) && response.ok) {
     headers.set('content-type', 'application/zip');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }

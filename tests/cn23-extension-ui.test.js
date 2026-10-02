@@ -55,3 +55,47 @@ test('running panel restores after full reload and survives a SPA replacing its 
     assert.equal(messages.some(m=>m.type==='RUN'),false,'Restoring panel must not create another submission');
   }finally{w.close();}
 });
+
+function completionFixture({now=10000,completedAt=10000,dismissed=false}={}) {
+  const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'}),w=dom.window;
+  let listener,clock=now,timerId=0;const timers=new Map(),messages=[];
+  w.Date.now=()=>clock;
+  w.setTimeout=(fn,delay)=>{timers.set(++timerId,{fn,at:clock+delay});return timerId;};
+  w.clearTimeout=id=>timers.delete(id);
+  w.MileCN23=Q;
+  w.chrome={runtime:{onMessage:{addListener:fn=>listener=fn},sendMessage:async message=>{
+    messages.push(message);
+    return {ok:true,data:{completedAt,total:8,done:8,completionDismissedAt:dismissed?completedAt:undefined}};
+  }}};
+  w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
+  return {w,messages,notice:()=>w.document.getElementById('mile-cn23-complete'),
+    repeat:()=>listener({type:'CN23_BATCH_DONE',total:8,completedAt},null,()=>{}),
+    advance(ms){clock+=ms;for(const [id,timer] of [...timers])if(timer.at<=clock){timers.delete(id);timer.fn();}},
+    close:()=>w.close()};
+}
+
+test('completion notice expires five seconds after batch, repeated messages and reloads do not restart it',async()=>{
+  const page=completionFixture();
+  try{
+    await sleep(0);assert.match(page.notice().textContent,/seluruh 8 kiriman/);
+    page.advance(2000);page.repeat();page.advance(2999);assert.ok(page.notice());
+    page.advance(1);assert.equal(page.notice(),null);
+    page.repeat();assert.equal(page.notice(),null,'Expired batch cannot revive the notice');
+    assert.equal(page.messages.some(message=>message.type==='RESET'),false,'Hiding the notice must preserve completed shipments');
+  }finally{page.close();}
+  const reload=completionFixture({now:16000});
+  try{await sleep(0);assert.equal(reload.notice(),null,'Old completion is not shown again after reload');}finally{reload.close();}
+});
+
+test('completion notice can be dismissed immediately and stays dismissed after reload',async()=>{
+  const page=completionFixture();
+  try{
+    await sleep(0);const close=page.notice().querySelector('button');
+    assert.equal(close.getAttribute('aria-label'),'Tutup pemberitahuan selesai');close.click();await sleep(0);
+    assert.equal(page.notice(),null);page.repeat();assert.equal(page.notice(),null);
+    assert.deepEqual({...page.messages.find(message=>message.type==='DISMISS_COMPLETION')},{type:'DISMISS_COMPLETION',completedAt:10000});
+    assert.equal(page.messages.some(message=>message.type==='RESET'),false);
+  }finally{page.close();}
+  const reload=completionFixture({now:11000,dismissed:true});
+  try{await sleep(0);assert.equal(reload.notice(),null);}finally{reload.close();}
+});

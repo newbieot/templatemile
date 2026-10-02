@@ -79,6 +79,12 @@ assert.equal(queue[0].width_cm, 0);
 assert.equal(queue[0].height_cm, 0);
 assert.equal(queue[0].description, 'DOKUMEN', 'Deskripsi terpisah dari referensi');
 assert.equal(queue[0].ref_no, 'REF-1');
+for (const mode of ['RITEL', 'KORPORAT']) {
+  const pe = core.buildCn23QueueRows([row], { ...config, serviceCode: 'PE', clientMode: mode, customerId: 'CLIENT1', cn23PaymentMethod: 'INVOICE' })[0];
+  assert.equal(pe.service_code, 'PE', 'PE selected in the camera review must reach the CN23 queue');
+  assert.equal(pe.payment_method, mode === 'RITEL' ? 'CASH' : 'INVOICE');
+  assert.equal(pe.hs_code, '49011000');assert.equal(pe.weight_kg, 0.2);
+}
 assert.equal(core.buildCn23QueueRows([row], { ...config, clientMode: 'KORPORAT', customerId: 'CLIENT1', cn23PaymentMethod: 'CREDIT' })[0].payment_method, 'CREDIT');
 assert.throws(() => core.buildCn23QueueRows([row], { ...config, clientMode: 'KORPORAT', customerId: '' }), /Kode Pelanggan wajib/);
 assert.throws(() => core.buildCn23QueueRows([row], { ...config, clientMode: 'KORPORAT', customerId: 'CLIENT1', cn23PaymentMethod: 'CASH' }), /Invoice atau CREDIT/);
@@ -132,6 +138,11 @@ async function run() {
   }
   assert.equal(sheet.rows[0].item_value_idr, 20000);
   assert.equal(sheet.rows[0].length_cm, 0);
+
+  elements.get('serviceCode').value = 'PE';
+  await sandbox.downloadFinalExcel();
+  assert.equal(written.book.Sheets.CN23_ANTREAN.rows[0].service_code, 'PE', 'PE must be retained in the exported workbook');
+  elements.get('serviceCode').value = 'PKH';
 
   const local = { _rowId: 'local-1', name: 'SITI', address: 'KEL. BELIAN KEC. BATAM KOTA', phone: '0819999999', noSurat: 'BATAM-REF', cw: '0.20', p: 10, l: 10, t: 10 };
   core.uploadedFilesManager[0].rows.push(local);

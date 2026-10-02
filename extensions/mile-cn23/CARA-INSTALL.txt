@@ -1,13 +1,13 @@
-MILE CN23 HELPER 0.2.6
+MILE CN23 HELPER 0.2.7
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.6 ke folder
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.7 ke folder
    ekstensi lama dan timpa file lama, termasuk manifest.json.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.6.
+   Versi harus tertulis 0.2.7.
 3. Buka form CN23 kosong dan muat ulang tab Mile:
    https://expos.mile.app/new-transaction-custom
-4. Antrean dari 0.2.5 tetap tersimpan. Bila berhenti karena selisih kode pos,
+4. Antrean dari 0.2.5 dan 0.2.6 tetap tersimpan. Bila berhenti karena selisih kode pos,
    tekan Start untuk melanjutkan; baris selesai tidak diulang. Tidak perlu Reset.
    Cache 0.2.4 dan versi sebelumnya otomatis dibersihkan. Jika antrean kosong,
    upload Excel yang ingin diproses, lalu klik Start sekali.
@@ -35,8 +35,10 @@ PEMAKAIAN HARIAN
    data kedua. Alur yang sama berjalan hingga seluruh antrean selesai.
    Tab cetak tidak dibaca dan tidak menentukan kelanjutan antrean.
 7. Panel muncul kembali setelah navigasi. Tidak perlu menekan Start lagi.
-8. Setelah semua data selesai, pesan selesai tampil. Hasil transaksi dan
-   pencetakan dapat dikelola sendiri melalui Daftar Transaksi Mile.
+8. Setelah semua data selesai, pesan hijau tampil selama 5 detik. Tombol ×
+   menutupnya langsung. Pesan lama tidak muncul lagi saat halaman dimuat ulang.
+   Status selesai tetap tersimpan di panel; kiriman selesai tidak diulang.
+   Hasil transaksi dan pencetakan dikelola melalui Daftar Transaksi Mile.
 9. Untuk mengganti Excel, klik Reset, Upload Excel baru, lalu Start.
    Reset menghentikan proses dan menghapus seluruh data antrean tersimpan.
    File yang sama dapat di-upload lagi; semua barisnya menjadi antrean baru.
@@ -52,11 +54,13 @@ Documents / Ecommerce-Biasa / NPWP 15 angka nol / HS 49011000 /
 DOKUMEN / jumlah 1 / nilai Rp20.000 / berat 0,2 kg / ID /
 EN-Envelope / IMEI 0 dan 0 / dimensi 0 / NON-COD.
 Asuransi, service, referensi, dan instruksi mengikuti Excel.
+Untuk Pos Express, pilih PE pada Kode layanan saat menyiapkan hasil kamera,
+sebelum mengunduh Excel antrean.
 Kode zona mengikuti pilihan Mile.
 Kode pos dan kode zona yang dikunci Mile selalu dipakai setelah wilayah cocok,
 meskipun berbeda dari Excel. Aturan ini berlaku untuk seluruh tujuan.
 
-PENGUJIAN 0.2.6
+PENGUJIAN 0.2.7
 Satu Start diuji untuk tiga kiriman: Cash, Invoice, lalu CREDIT. Tidak ada
 tab cetak dalam pengujian. Nama penerima, referensi, metode pembayaran,
 dan pengirim korporat diperiksa saat masing-masing tombol Selesai ditekan.
@@ -69,6 +73,12 @@ submit produksi dengan ekstensi Chrome terpasang belum dilakukan.
 Perbedaan beberapa kode pos dan kode zona diuji untuk ritel dan korporat.
 Data kedua dengan kode pos Mile berbeda tetap selesai, lalu data ketiga
 berjalan otomatis. Kemajuan 0.2.5 dan pengulangan hanya baris gagal juga diuji.
+PE juga diuji melalui satu Start untuk tiga kiriman: ritel Cash, korporat
+Invoice, dan korporat CREDIT. Pada tiap submit, kode layanan PE diperiksa,
+termasuk saat berpindah ke form kedua dan ketiga setelah reload penuh.
+Pesan selesai diuji otomatis hilang setelah 5 detik, ditutup dengan ×,
+serta tidak tampil kembali setelah reload. Uji PE memakai simulasi;
+transaksi PE nyata pada Mile belum diuji.
 
 Data antrean tersimpan lokal di Chrome. Tidak meminta password/API key.
 Permission storage/alarms, akses situs hanya https://expos.mile.app/*.

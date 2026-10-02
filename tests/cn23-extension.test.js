@@ -77,7 +77,7 @@ test('upgrade automatically removes legacy Excel cache, pending records and comp
   for(const key of ['pendingSubmissions','history','seenReceipts','completedQueueIds','fileName'])assert.equal(h.state[key],undefined,key);
 });
 
-test('0.2.6 preserves 0.2.5 progress and retries the failed third row without repeating completed rows',async()=>{
+test('current helper preserves 0.2.5 progress and retries the failed third row without repeating completed rows',async()=>{
   const rows=Q.validateRows([sample('ROW-1'),sample('ROW-2'),sample('ROW-3')]);
   rows[0].status='done';rows[1].status='done';rows[2].status='error';rows[2].error='Old postcode mismatch';
   const h=harness({version:5,helperVersion:'0.2.5',rows,fileName:'twelve.xlsx',tabId:7,active:null,running:false,error:'Old postcode mismatch'});
@@ -99,6 +99,18 @@ test('last list redirect completes batch once and PAGE_READY restores panel',asy
   assert.equal(h.state.rows[0].status,'done');assert.equal(h.state.running,false);assert.ok(h.state.completedAt);
   assert.equal(h.events.filter(e=>e.type==='CN23_BATCH_DONE').length,1);
   const result=await h.send({type:'PAGE_READY'});assert.equal(result.data.openPanel,true);assert.equal(result.data.done,1);
+});
+
+test('dismiss completion persists across reloads, rejects stale or foreign dismissals and preserves the completed queue',async()=>{
+  const h=harness();await begin(h,[sample()]);await submit(h);await h.list();
+  const completedAt=h.state.completedAt,rows=structuredClone(h.state.rows);
+  assert.equal((await h.send({type:'DISMISS_COMPLETION',completedAt:completedAt-1})).data.ignored,true);
+  assert.equal((await h.send({type:'DISMISS_COMPLETION',completedAt},{id:'fixture',url:Q.FORM_URL,tab:{id:99,url:Q.FORM_URL}})).data.ignored,true);
+  assert.equal(h.state.completionDismissedAt,undefined);
+  assert.equal((await h.send({type:'DISMISS_COMPLETION',completedAt})).ok,true);
+  const reloaded=harness(h.state),ready=await reloaded.send({type:'PAGE_READY'});
+  assert.ok(ready.data.completionDismissedAt);assert.equal(ready.data.completedAt,completedAt);
+  assert.deepEqual(reloaded.state.rows,rows);assert.equal(ready.data.done,1);
 });
 test('interrupted submission reports missing Mile transition; unsubmitted work can retry',()=>{
   for(const submitted of [false,true]){const s={rows:Q.validateRows([sample()]),active:{id:'ROW-1',startedAt:0,submittedAt:submitted?1:undefined},running:true};assert.equal(Q.recoverInterrupted(s,200000),true);assert.equal(s.rows[0].status,submitted?'unknown':'error');assert.doesNotMatch(s.error,/resi/i);}

@@ -20,7 +20,7 @@ async function start(s){
   const row=s.rows.find(r=>r.status==='ready');if(!row)return finishBatch(s);
   row.status='filling';row.error='';
   s.active={id:row.id,token:crypto.randomUUID(),startedAt:Date.now(),phase:'filling'};
-  s.running=true;s.error='';s.panelOpen=true;s.formReady=false;delete s.completedAt;delete s.waitingNewForm;delete s.formWait;
+  s.running=true;s.error='';s.panelOpen=true;s.formReady=false;delete s.completedAt;delete s.completionDismissedAt;delete s.waitingNewForm;delete s.formWait;
   await save(s);
   try{
     const ack=await chrome.tabs.sendMessage(s.tabId,{type:'CN23_FILL',token:s.active.token,row:row.data,options:s.options});
@@ -32,7 +32,7 @@ async function start(s){
 async function finishBatch(s){
   s.running=false;s.active=null;s.completedAt=s.completedAt||Date.now();delete s.waitingNewForm;delete s.formWait;
   await save(s);
-  await chrome.tabs.sendMessage(s.tabId,{type:'CN23_BATCH_DONE',total:s.rows.length}).catch(()=>{});
+  await chrome.tabs.sendMessage(s.tabId,{type:'CN23_BATCH_DONE',total:s.rows.length,completedAt:s.completedAt}).catch(()=>{});
   if(chrome.action.setBadgeText)await chrome.action.setBadgeText({tabId:s.tabId,text:'OK'});
   return s;
 }
@@ -73,13 +73,17 @@ async function inspectNavigation(s,url){
 }
 async function command(m,sender){
   let s=await read();
-  if(['GET','IMPORT','RUN','PAUSE','RESET','PANEL_VISIBILITY'].includes(m.type))checkPanel(sender);
+  if(['GET','IMPORT','RUN','PAUSE','RESET','PANEL_VISIBILITY','DISMISS_COMPLETION'].includes(m.type))checkPanel(sender);
   if(m.type==='RECEIPT'||m.type==='RECEIPT_STATUS')return {ignored:true}; // Ignore stale scripts; never inspect print tabs.
   if(m.type==='PAGE_READY'){
     if(sender.tab?.id!==s.tabId)return {ignored:true};
     s=await inspectNavigation(s,sender.tab.url);
     const openPanel=Boolean(s.resetPanel||s.panelOpen||s.running||s.active||s.waitingNewForm);s.resetPanel=false;await save(s);
-    return {openPanel,tabId:s.tabId,running:s.running,completedAt:s.completedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length};
+    return {openPanel,tabId:s.tabId,running:s.running,completedAt:s.completedAt,completionDismissedAt:s.completionDismissedAt,total:s.rows.length,done:s.rows.filter(r=>r.status==='done').length};
+  }
+  if(m.type==='DISMISS_COMPLETION'){
+    if(sender.tab.id!==s.tabId||!s.completedAt||m.completedAt!==s.completedAt)return {ignored:true};
+    s.completionDismissedAt=Date.now();return save(s);
   }
   if(m.type==='PANEL_VISIBILITY'){s.panelOpen=Boolean(m.open);return save(s);}
   if(m.type==='GET'){

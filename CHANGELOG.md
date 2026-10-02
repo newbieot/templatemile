@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.41 — Helper 0.2.7: pesan selesai sementara dan uji PE
+
+- Pesan hijau selesai otomatis hilang setelah 5 detik dan memiliki tombol tutup. Waktu tampil dihitung dari waktu antrean selesai, sehingga reload atau pesan ulang tidak memunculkan pemberitahuan lama. Penutupan disimpan tanpa menghapus kemajuan antrean.
+- Menambahkan uji PE dari satu Start sampai tiga kiriman selesai: ritel Cash, korporat Invoice, lalu korporat CREDIT. Uji memeriksa layanan terpilih dan data setiap kiriman setelah form berganti; kode lain dengan awalan PE tidak ikut terpilih.
+- Uji PE memakai simulasi DOM/service worker. Transaksi PE nyata belum diuji; sesi in-app browser pemeriksaan sudah kembali ke login.
+- ZIP dan halaman Unduhan & Panduan diperbarui ke 0.2.7. Antrean 0.2.5/0.2.6 tetap tersimpan; APK tetap 0.1.6.
+
 ## v26.40 — Helper 0.2.6: ikuti kode Mile dan halaman Unduhan & Panduan
 
 - Setelah wilayah tujuan cocok, kode pos dan kode zona yang dikunci Mile dipakai meskipun berbeda dari Excel. Aturan berlaku umum untuk seluruh kode; kandidat wilayah dengan satu kode pos Mile yang sama juga dapat dipilih meskipun kode itu berbeda dari Excel.
