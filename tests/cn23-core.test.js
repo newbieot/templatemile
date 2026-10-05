@@ -206,6 +206,14 @@ async function run() {
   assert.equal(core.getShipmentRoute(actualLocal), 'batam');
   assert.equal(core.getNationalPostcodeMatch(actualLocal).postcode, '29464', 'Mode campuran menampilkan dan mempertahankan nilai database nasional meskipun tabel Batam lama berbeda');
   assert.equal(core.getShipmentRoute({ address: 'KERITANG' }), 'pending');
+  const oldAddress = 'Gedung Sahid Sudirman Center Jl. Jend. Sudirman Kav. 86 Jakarta 10220';
+  const oldMatch = { status: 'matched', postcode: '90553', selected: { city: 'MAROS', postcode: '90553' },
+    lookupKey: `${oldAddress}\n\n` };
+  const restoredCameraRow = { address: oldAddress, _nationalPostcodeMatch: oldMatch };
+  assert.equal(core.getNationalPostcodeMatch(restoredCameraRow).postcode, '10220', 'Restored camera results must invalidate automatic matches from the old algorithm.');
+  assert.equal(restoredCameraRow._nationalPostcodeMatch.matcherVersion, window.MilePostalNational.matcherVersion);
+  const freshMatch = restoredCameraRow._nationalPostcodeMatch;
+  assert.equal(core.getNationalPostcodeMatch(restoredCameraRow), freshMatch, 'Current-version results remain cached.');
   const realSheetJs = require('../assets/vendor/sheetjs/xlsx.full.min.js');
   const actualExports = [];
   window.XLSX = sandbox.XLSX = {

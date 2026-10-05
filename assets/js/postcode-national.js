@@ -2,6 +2,7 @@
   'use strict';
   const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-4';
   const MAX_CANDIDATES = 100;
+  const MATCHER_VERSION = '20261005-tail-region-1';
   let records = [];
   let tokenIndex = new Map();
   let postcodeIndex = new Map();
@@ -14,8 +15,16 @@
   }
 
   function aliases(value) {
-    const parts = String(value || '').split(/[\/;]/);
-    return [...new Set(parts.map(normalize).filter(Boolean))].sort((a, b) => b.length - a.length);
+    const parts = String(value || '').split(/[\/;]/).map(normalize).filter(Boolean);
+    // Source data abbreviates shared words around a slash, e.g.
+    // "LIMA PULUH KOTO / KOTA" and "GEDUNG / GEDONG GUMANTI".
+    // Expanding the shared words prevents KOTA/GEDUNG becoming false regions.
+    if (parts.length === 2) {
+      const words = parts.map(part => part.split(' '));
+      if (words[0].length > 1 && words[1].length === 1) parts[1] = [...words[0].slice(0, -1), parts[1]].join(' ');
+      else if (words[0].length === 1 && words[1].length > 1) parts[0] = [parts[0], ...words[1].slice(1)].join(' ');
+    }
+    return [...new Set(parts)].sort((a, b) => b.length - a.length);
   }
 
   function install(data) {
@@ -44,6 +53,7 @@
         label: `${district} — ${village} — ${city}, ${province} (${postcode})`
       };
       const fields = [aliases(village), aliases(district), aliases(city), aliases(province)];
+      if (province === 'DAERAH KHUSUS IBUKOTA JAKARTA') fields[3].push('JAKARTA');
       const index = nextRecords.length;
       nextRecords.push({ candidate, fields });
       for (const token of new Set(fields.flat().flatMap(field => field.split(' ')))) {
@@ -96,7 +106,10 @@
     if (!loaded) return outcome('unavailable', [], 'Database kode pos nasional belum dimuat.');
     // Expand common administrative abbreviations without changing the label text.
     const text = normalize(address).replace(/\bINHIL\b/g, 'INDRAGIRI HILIR')
-      .replace(/\bINHU\b/g, 'INDRAGIRI HULU').replace(/\bKEPRI\b/g, 'KEPULAUAN RIAU');
+      .replace(/\bINHU\b/g, 'INDRAGIRI HULU').replace(/\bKEPRI\b/g, 'KEPULAUAN RIAU')
+      .replace(/\bJAKPUS\b/g, 'JAKARTA PUSAT').replace(/\bJAKSEL\b/g, 'JAKARTA SELATAN')
+      .replace(/\bJAKBAR\b/g, 'JAKARTA BARAT').replace(/\bJAKTIM\b/g, 'JAKARTA TIMUR')
+      .replace(/\bJAKUT\b/g, 'JAKARTA UTARA');
     const padded = ` ${text} `;
     const explicit = String(postcode || '').trim();
     const printed = String(address || '').match(/\b\d{5}\b/g) || [];
@@ -118,18 +131,87 @@
     const namesByField = [0, 1, 2, 3].map(field => [...new Set(evidence.map(item => item.matchedAliases[field]).filter(Boolean))]);
     const containedNames = namesByField.map(names => new Set(names.filter(name =>
       names.some(longer => longer !== name && ` ${longer} `.includes(` ${name} `)))));
-    const geographic = [];
+    const spansByField = namesByField.map(names => names.flatMap(name => {
+      const spans = [];
+      let start = padded.indexOf(` ${name} `);
+      while (start >= 0) {
+        spans.push({ start, end: start + name.length });
+        start = padded.indexOf(` ${name} `, start + 1);
+      }
+      return spans;
+    }));
+    function areaPosition(name, field) {
+      if (!name || containedNames[field].has(name)) return -1;
+      let position = padded.lastIndexOf(` ${name} `);
+      while (position >= 0) {
+        const before = padded.slice(0, position);
+        const street = /\b(?:JL|JLN|JALAN)(?:\s+(?:JEND|JENDERAL|JENDRAL|H|HJ|KH))?\s*$/.test(before);
+        // YOGYAKARTA inside DAERAH ISTIMEWA YOGYAKARTA is province
+        // evidence, not a second mention of the city or a smaller area.
+        const parent = spansByField.slice(field + 1).some((spans, offset) => spans.some(span =>
+          (span.end - span.start > name.length || field + offset + 1 >= 2) &&
+          span.start <= position && span.end >= position + name.length));
+        if (!street && !parent) return position;
+        if (position === 0) break;
+        position = padded.lastIndexOf(` ${name} `, position - 1);
+      }
+      return -1;
+    }
+    let geographic = [];
     for (const item of evidence) {
       const { index } = item;
-      const matchedAliases = item.matchedAliases.map((name, field) => containedNames[field].has(name) ? '' : name);
+      const positions = item.matchedAliases.map(areaPosition);
+      const matchedAliases = item.matchedAliases.map((name, field) => positions[field] >= 0 ? name : '');
       const hits = matchedAliases.map(Boolean);
       if (!hits.some(Boolean)) continue;
       // A single name repeated in village/district/city is still one piece of evidence.
       const count = new Set(matchedAliases.filter(Boolean)).size;
       const score = hits.reduce((total, hit, i) => total + (hit ? [4, 3, 2, 1][i] : 0), 0);
-      geographic.push({ index, count, score });
+      geographic.push({ index, count, score, matchedAliases, positions });
     }
-    const ranked = geographic;
+    const markers = [/\b(?:KEL|KELURAHAN|DESA|DS)\s*$/, /\b(?:KEC|KECAMATAN)\s*$/,
+      /\b(?:KOTA|KAB|KABUPATEN)\s*$/, /\b(?:PROV|PROVINSI)\s*$/];
+    const explicitPositions = markers.map((marker, field) => geographic.reduce((last, item) => {
+      const position = item.positions[field];
+      return position >= 0 && marker.test(padded.slice(0, position)) ? Math.max(last, position) : last;
+    }, -1));
+    // Read the address from its tail: the last city/province establishes the
+    // outer boundary before village or district names can compete. A province
+    // may contain many cities; narrow it to the last city inside that boundary.
+    // This also handles "Jl. Surabaya ... Jakarta" without routing to Surabaya.
+    const tail = geographic.reduce((last, item) => Math.max(last, item.positions[2], item.positions[3]), -1);
+    if (tail >= 0) {
+      geographic = geographic.filter(item => item.positions[2] === tail || item.positions[3] === tail);
+      const cityTail = geographic.reduce((last, item) => Math.max(last, item.positions[2]), -1);
+      if (cityTail >= 0) geographic = geographic.filter(item => item.positions[2] === cityTail);
+    }
+    for (const [field, position] of explicitPositions.entries()) {
+      if (position < 0) continue;
+      const compatible = geographic.filter(item => item.positions[field] === position);
+      if (!compatible.length) return outcome('ambiguous', geographic.map(item => records[item.index].candidate),
+        'Nama wilayah yang tertulis saling bertentangan. Periksa kelurahan, kecamatan, kota, dan provinsi pada alamat.');
+      geographic = compatible;
+    }
+    // Within the boundary, an explicit kelurahan/kecamatan or two independent
+    // lower-area names are strong evidence. An isolated word in a building or
+    // street name must not defeat a compatible printed postal code.
+    const strongLower = geographic.filter(item => {
+      const lower = item.matchedAliases.slice(0, 2).filter(Boolean);
+      return new Set(lower).size >= 2 || item.matchedAliases.slice(0, 2).some((name, field) => {
+        if (!name) return false;
+        const before = padded.slice(0, item.positions[field]);
+        return markers[field].test(before);
+      });
+    });
+    let ranked = geographic;
+    if (tail >= 0) {
+      // Continue inward from the administrative tail. The last district and
+      // then village inside the known city beat earlier building-name matches.
+      for (const field of [1, 0]) {
+        const last = ranked.reduce((position, item) => Math.max(position, item.positions[field]), -1);
+        if (last >= 0) ranked = ranked.filter(item => item.positions[field] === last);
+      }
+    }
     ranked.sort((a, b) => b.count - a.count || b.score - a.score || a.index - b.index);
     const bestCount = ranked[0]?.count || 0;
     // A village and its district/city together outrank isolated name collisions.
@@ -141,9 +223,12 @@
     }
     if (hint) {
       const hinted = new Set(postcodeIndex.get(hint) || []);
-      const intersection = best.filter(item => hinted.has(item.index));
+      // Intersect postal evidence with the geographic boundary BEFORE ranking
+      // incidental lower names. Keep genuine contradictory area evidence for review.
+      const postalPool = strongLower.length ? strongLower : (tail >= 0 ? geographic : []);
+      const intersection = postalPool.filter(item => hinted.has(item.index));
       if (intersection.length) best = intersection;
-      else if (best.length) {
+      else if (postalPool.length) {
         return outcome('ambiguous', best.map(item => records[item.index].candidate),
           `Kode pos ${hint} tidak cocok dengan wilayah yang terbaca. Pilih wilayah yang benar.`);
       } else {
@@ -157,7 +242,7 @@
     return resolveCandidates(candidates);
   }
 
-  const api = { load, match, isLoaded: () => loaded, normalize, dataUrl: DATA_URL };
+  const api = { load, match, isLoaded: () => loaded, normalize, dataUrl: DATA_URL, matcherVersion: MATCHER_VERSION };
   root.MilePostalNational = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

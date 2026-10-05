@@ -508,6 +508,15 @@
       // Set form values
       await setFormValues({ ...batch.form, destinationMode: batch.form?.destinationMode || batch.destinationMode || 'batam' });
 
+      const destinationMode = normalizeDestinationMode(batch.form?.destinationMode || batch.destinationMode);
+      if (destinationMode !== 'batam' && typeof core.refreshNationalPostcodes === 'function') {
+        // The database request can outlive the form's change events. Await it
+        // before rendering restored rows, and invalidate old automatic matches
+        // through the core's versioned lookup (without rerunning photo OCR).
+        if (!await core.refreshNationalPostcodes()) throw new Error('Database wilayah belum dapat dimuat. Coba muat log kamera lagi.');
+        for (const row of batch.rows) core.getNationalPostcodeMatch(row);
+      }
+
       // Inject rows into uploadedFilesManager
       const fileEntry = {
         id: Date.now(),

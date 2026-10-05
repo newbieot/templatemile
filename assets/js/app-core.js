@@ -53,8 +53,9 @@
             const printedZip = row._printedPostcode || (row.postcodeSource === 'label' ? row.zip : '');
             const queryZip = query.match(/\b\d{5}\b/)?.[0] || '';
             const lookupKey = `${sourceKey}\n${queryZip || printedZip}`;
-            if (row._nationalPostcodeMatch?.lookupKey !== lookupKey) {
-                row._nationalPostcodeMatch = { ...window.MilePostalNational.match(`${address} ${query}`, queryZip || printedZip), lookupKey };
+            const matcherVersion = window.MilePostalNational.matcherVersion;
+            if (row._nationalPostcodeMatch?.lookupKey !== lookupKey || row._nationalPostcodeMatch?.matcherVersion !== matcherVersion) {
+                row._nationalPostcodeMatch = { ...window.MilePostalNational.match(`${address} ${query}`, queryZip || printedZip), lookupKey, matcherVersion };
             }
             return row._nationalPostcodeMatch;
         }

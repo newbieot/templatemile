@@ -64,6 +64,54 @@ function service(fetch) {
   assert.equal(local.selected.city, 'BATAM');
   const belianSource = data.rows.find(row => row[1] === 'BELIAN' && data.dictionaries.cities[row[3]] === 'BATAM');
   assert.equal(local.postcode, belianSource[0], 'Use the supplied source postcode, even if legacy local mapping differs.');
+  const photoAddress = 'PT. Dom Pizza Indonesia 27th Floor Gedung Sahid Sudirman Center Jl. Jend. Sudirman Kav. 86, Jakarta 10220, Indonesia';
+  for (const address of [photoAddress, 'Jl. Jend. Sudirman Kav. 86 Jakarta 10220', 'Gedung Sahid Sudirman Center Jakarta 10220',
+    'Jl. Surabaya, Jakarta 10220', 'Jl. Menteng, Jakarta Pusat 10220', 'Jl. Sudirman Jakpus 10220', 'Jakarta 10220']) {
+    const result = api.match(address);
+    assert.equal(result.status, 'matched', address);
+    assert.equal(result.selected.village, 'KARET TENGSIN', address);
+    assert.equal(result.selected.district, 'TANAH ABANG', address);
+    assert.equal(result.selected.city, 'JAKARTA PUSAT', address);
+    assert.equal(result.postcode, '10220', address);
+  }
+  for (const address of ['Gedung Sahid Sudirman Center Jl. Jend. Sudirman Jakarta', 'Jl. Sudirman DKI Jakarta']) {
+    const result = api.match(address);
+    assert.equal(result.status, 'ambiguous', 'A city without postcode or smaller region must not invent one.');
+    assert.ok(result.candidates.every(candidate => candidate.province === 'DAERAH KHUSUS IBUKOTA JAKARTA'));
+    assert.ok(result.candidateCount > 100, 'Do not limit the search to the first 100 rows.');
+  }
+  for (const address of ['Jakarta 90553', 'Kel. Menteng Jakarta Pusat 10220', 'Kel. Sudirman Kec. Tanralili Jakarta 10220']) {
+    assert.equal(api.match(address).status, 'ambiguous', 'Conflicting geography requires review: ' + address);
+  }
+  assert.equal(api.match('Jl. Riau, Bandung 40115').selected.city, 'BANDUNG');
+  assert.equal(api.match('Gedung Gambir, Karet Tengsin, Tanah Abang, Jakarta').postcode, '10220', 'Later district wins over an earlier building name.');
+  assert.equal(api.match('Sudirman Tanralili Maros Sulawesi Selatan').postcode, '90553', 'The real village Sudirman remains valid in its own region.');
+  assert.equal(api.match('Gedung Gumanti Tegineneng Pesawaran Lampung').postcode, '35363');
+  assert.equal(api.match('Belian Batam Kota').postcode, '29464', 'KOTA is not an alias for Lima Puluh Kota.');
+  const limaPuluh = api.match('Harau Lima Puluh Kota Sumatera Barat');
+  assert.ok(limaPuluh.candidates.every(candidate => candidate.city === 'LIMA PULUH KOTO / KOTA'));
+
+  // Geographic coverage uses the shipped source: one full address per province,
+  // both with and without postcode, with misleading street/building names ahead.
+  // This catches accidental Jakarta-only logic and cross-province collisions.
+  let provinceCases = 0;
+  for (const province of data.dictionaries.provinces) {
+    const row = data.rows.find(entry => data.dictionaries.provinces[entry[4]] === province &&
+      [entry[1], data.dictionaries.districts[entry[2]], data.dictionaries.cities[entry[3]]].every(value => /^[A-Z ]+$/.test(value)));
+    assert.ok(row, province);
+    const [code, village, districtId, cityId] = row;
+    const district = data.dictionaries.districts[districtId], city = data.dictionaries.cities[cityId];
+    for (const zip of ['', code]) {
+      const address = `Gedung Sahid Sudirman, Jl. Merdeka No. 86, Kel. ${village}, Kec. ${district}, ${city}, ${province} ${zip}`;
+      const result = api.match(address);
+      assert.equal(result.status, 'matched', `${province}: ${address}: ${result.reason}`);
+      assert.equal(result.postcode, code, address);
+      assert.equal(result.selected.city, city, address);
+      assert.equal(result.selected.province, province, address);
+      provinceCases++;
+    }
+  }
+  assert.equal(provinceCases, 68);
   let attempts = 0;
   const retry = service(async () => { attempts++; return attempts === 1 ? { ok: false } : { ok: true, json: async () => data }; });
   await assert.rejects(retry.load(), /belum dapat dimuat/);
