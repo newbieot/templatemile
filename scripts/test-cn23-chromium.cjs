@@ -8,7 +8,7 @@ const ROOT=path.resolve(__dirname,'..'),OUT=path.join(ROOT,'.wrangler/chrome-com
 const Q=require('../extensions/mile-cn23/queue.js'),XLSX=require('../extensions/mile-cn23/vendor/xlsx.full.min.js');
 const milestone=process.argv[2]||'109',port=Number(process.argv[3]||9109);
 const sample=(i,payment)=>({...Q.defaults,queue_id:'COMPAT-'+i,recipient_name:'PENERIMA '+i,recipient_phone:'0',recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',recipient_city:'INDRAGIRI HILIR',recipient_province:'RIAU',sender_name:'PENGIRIM EXCEL',sender_phone:'0',sender_address:'BATAM',customer_mode:i===1?'RITEL':'KORPORAT',customer_code:i===1?'':'ACME',payment_method:payment,service_code:'PE',ref_no:'REF-'+i});
-const rows=[sample(1,'CASH'),sample(2,'INVOICE'),sample(3,'CREDIT')];
+const rows=[sample(1,'CASH'),sample(2,'INVOICE'),sample(3,'CREDIT')].map((row,index)=>({...row,weight_kg:[0.2,1.5,2][index]}));
 const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.json_to_sheet(rows),'CN23_ANTREAN');
 const workbookPath=path.join(OUT,'compat-queue-'+milestone+'.xlsx');fs.mkdirSync(OUT,{recursive:true});
 fs.writeFileSync(workbookPath,new Uint8Array(XLSX.write(workbook,{type:'array',bookType:'xlsx'})));
@@ -28,7 +28,7 @@ const onSubmit=()=>{
   const list=JSON.parse(localStorage.getItem('compat-submits')||'[]');
   list.push({recipient:field('namapenerima').value,ref:field('ref_no').value,
     service:field('service').value,payment:d.querySelector('.select-payment input').value,
-    sender:field('namapengirim').value,enters,postcode:d.querySelector('[placeholder="KODE POS"]').value});
+    sender:field('namapengirim').value,enters,postcode:d.querySelector('[placeholder="KODE POS"]').value,weight:Number(field('koli_weight').value)});
   localStorage.setItem('compat-submits',JSON.stringify(list));
   localStorage.setItem('compat-count',String(count+1));
   location.href='https://expos.mile.app/transaction-list';
@@ -93,6 +93,7 @@ async function main(){
     assert.equal(s.service,'PE - Pos Express');assert.equal(s.payment,['Cash','Invoice','CREDIT'][i]);
     assert.equal(s.sender,i===0?'PENGIRIM EXCEL':'PELANGGAN RESMI');assert.equal(s.enters,i===0?0:1);
     assert.equal(s.postcode,i===1?'29276':'29274');
+    assert.equal(s.weight,rows[i].weight_kg);
   });
   assert.deepEqual(errors,[]);
   const result={browser:browser.version(),manifest:manifest.version,minimumChrome:manifest.minimum_chrome_version,milestone,shipments:3,submissions:submitted,pageErrors:errors,productionTransactions:false};

@@ -112,6 +112,32 @@ function service(fetch) {
     }
   }
   assert.equal(provinceCases, 68);
+  for (const [address, expected] of [['Bandung','40111'],['Medan','20111'],['Surabaya','60111'],['Pekanbaru','28111'],['Maros','90511'],['Batam','29411'],['Jambi','36111'],['Tebo Jambi','37511']]) {
+    const result = api.match(address);
+    assert.equal(result.status, 'matched', address);
+    assert.equal(result.postcode, expected, address);
+    assert.equal(result.regionScope, 'CITY_POSTCODE', address);
+    assert.equal(result.selected.village, '', 'Never fabricate a village for a city-only address.');
+    assert.equal(result.selected.district, '', address);
+  }
+  assert.equal(api.match('Jl. Sudirman Batam').postcode, '29411');
+  assert.equal(api.match('Batam 29411').postcode, '29411');
+  assert.equal(api.match('Batam 29411').regionScope, 'CITY_POSTCODE');
+  assert.equal(api.match('Belian Batam Kota 29411').postcode, '29464', 'A generic printed city code yields to a known village.');
+  assert.equal(api.match('Belian Batam Kota').postcode, '29464', 'A known village keeps its actual code.');
+  assert.equal(api.match('Kec. Tanah Abang Jakarta Pusat').status, 'matched', 'District evidence routes automatically.');
+  assert.equal(api.match('Kec. Tanah Abang Jakarta Pusat').regionScope, 'DISTRICT_POSTCODE');
+  assert.equal(api.match('Kel. Karet Tengsin Kec. Tanah Abang Jakarta Pusat').postcode, '10220');
+  assert.equal(api.match('Jakarta Pusat').status, 'ambiguous', 'Jakarta has no blanket city postcode.');
+  let cityCases = 0;
+  for (const city of data.dictionaries.cities) {
+    if (/JAKARTA/.test(city) || city === 'KEPULAUAN SERIBU' || city === 'BANJAR') continue;
+    const result = api.match(city);
+    assert.equal(result.status, 'matched', 'Automatic city routing: ' + city);
+    assert.equal(result.selected.city, city, 'Never route a city into another city: ' + city);
+    cityCases++;
+  }
+  assert.ok(cityCases > 460);
   let attempts = 0;
   const retry = service(async () => { attempts++; return attempts === 1 ? { ok: false } : { ok: true, json: async () => data }; });
   await assert.rejects(retry.load(), /belum dapat dimuat/);

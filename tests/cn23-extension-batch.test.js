@@ -20,7 +20,7 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
     {...base,queue_id:'BATCH-1',ref_no:'REF-1',recipient_name:'PENERIMA SATU',customer_mode:'RITEL',payment_method:'CASH'},
     {...base,queue_id:'BATCH-2',ref_no:'REF-2',recipient_name:'PENERIMA DUA',destination_code:'29275',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'INVOICE'},
     {...base,queue_id:'BATCH-3',ref_no:'REF-3',recipient_name:'PENERIMA TIGA',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT'}
-  ].map(row=>({...row,service_code:scenario.serviceCode||'PKH'}));
+  ].map((row,index)=>({...row,weight_kg:[0.2,1.5,2][index],service_code:scenario.serviceCode||'PKH'}));
   const panel={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
   const send=(message,sender=panel)=>new Promise(resolve=>listener(message,sender,resolve));
   const defer=(action,ms=0)=>{
@@ -48,6 +48,7 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
         assert.equal(stored.mileCn23Queue.rows[index].status,'awaiting_navigation','Durable intent precedes actual Selesai');
         assert.equal(field(document,'ref_no').value,expected.ref_no);
         assert.equal(document.querySelector('#namapenerima').value,expected.recipient_name);
+        assert.equal(Number(document.querySelector('#koli_weight').value),expected.weight_kg,'Edited weight must reach Mile for every shipment, including above 1 kg');
         assert.equal(document.querySelector('#service').value,expected.service_code==='PE'?'PE - Pos Express':'PKH','Select the requested service, excluding another code beginning with PE');
         assert.equal(document.querySelector('.select-payment input').value,index===0?'Cash':index===1?'Invoice':'CREDIT');
         assert.equal(document.querySelector('[placeholder="KODE POS"]').value,index===1?'29276':'29274','Mile postcode is retained even when Excel differs');

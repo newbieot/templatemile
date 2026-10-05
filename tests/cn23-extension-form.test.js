@@ -14,6 +14,22 @@ test('nonempty user draft stops before payment',async()=>{
   const f=fixture({filled:true});try{f.start();await until(()=>f.messages.some(m=>m.type==='FORM_ERROR'));assert.equal(f.submits,0);assert.equal(f.messages.some(m=>m.type==='FILLED'),false);assert.equal(f.d.querySelector('#namapenerima').value,'EXISTING DRAFT');}finally{f.close();}
 });
 
+test('city routing searches city/code automatically and retains edited weight above 1 kg',async()=>{
+  const f=fixture({postal:'40111',zone:'40100',regionOptions:[
+    'KOTA BANDUNG, SUMUR BANDUNG, BRAGA (40111)',
+    'KOTA BANDUNG, BANDUNG WETAN, CITARUM (40115)'
+  ]});
+  try {
+    f.start({recipient_city:'BANDUNG',recipient_province:'JAWA BARAT',recipient_district:'',recipient_village:'',
+      recipient_postcode:'40111',recipient_region_scope:'CITY_POSTCODE',weight_kg:1.5});
+    await until(()=>f.submits===1);
+    assert.equal(Number(f.d.querySelector('#koli_weight').value),1.5);
+    assert.match(f.d.querySelector('#addressDetail').value,/BRAGA/);
+    assert.equal(f.d.querySelector('[placeholder="KODE POS"]').value,'40111');
+    assert.equal(f.messages.some(message=>message.type==='FORM_ERROR'),false);
+  } finally { f.close(); }
+});
+
 test('retail and corporate keep Mile postcode/zone despite Excel differences and submit automatically',async()=>{
   for(const corporate of [false,true]) for(const codes of [
     {excel:'29274',mile:'29276',excelZone:'29275',mileZone:'29274'},

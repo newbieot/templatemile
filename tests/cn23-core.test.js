@@ -74,6 +74,8 @@ assert.equal(queue[0].hs_code, '49011000');
 assert.equal(queue[0].npwp, '000000000000000');
 assert.equal(queue[0].item_value_idr, 20000, 'Nilai deklarasi tetap Rp20.000 tanpa asuransi');
 assert.equal(queue[0].weight_kg, 0.2);
+for (const weight of ['1', '1.5', '1,25', '2']) assert.equal(core.buildCn23QueueRows([{ ...row, cw: weight }], config)[0].weight_kg, Number(weight.replace(',', '.')));
+for (const weight of ['', '0', '-1', '1kg', 'Infinity']) assert.throws(() => core.buildCn23QueueRows([{ ...row, cw: weight }], config), /Berat.*lebih dari 0/);
 assert.equal(queue[0].length_cm, 0);
 assert.equal(queue[0].width_cm, 0);
 assert.equal(queue[0].height_cm, 0);
@@ -160,7 +162,7 @@ async function run() {
   assert.equal(core.resolveZipCode('Alamat tanpa wilayah', 'MANUAL', '', { destinationMode: 'mixed' }), '');
   const makeTr = entry => ({ dataset: { fileId: 'test-file', rowId: entry._rowId }, querySelector: selector => {
     const fields = { '.val-noSurat': 'noSurat', '.val-name': 'name', '.val-phone': 'phone', '.val-address': 'address', '.val-cw': 'cw', '.val-p': 'p', '.val-l': 'l', '.val-t': 't' };
-    return { value: String(entry[fields[selector]] || '') };
+    return { value: String(entry[fields[selector]] ?? (selector === '.val-cw' ? '0.20' : '')) };
   } });
   document.querySelectorAll = selector => selector === '#resultTable tbody tr' ? [makeTr(local), makeTr(row)] : [];
   await window.downloadLocalExcel();

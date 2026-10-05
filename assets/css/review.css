@@ -737,7 +737,8 @@ body.is-mandatory-review .review-alert {
 }
 #resultTable tbody tr {
   display: flex !important;
-  flex-direction: column !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
   gap: 7px !important;
   width: 100% !important;
   background: #ffffff !important;
@@ -767,6 +768,11 @@ body.is-mandatory-review .review-alert {
   font-size: 0.78rem !important;
   font-weight: 900 !important;
   color: var(--navy-950) !important;
+  width: calc(100% - 107px) !important;
+  align-self: center;
+}
+#resultTable tbody td.row-weight-cell {
+  width: 100px !important;
 }
 #resultTable tbody td.row-number-cell::before {
   content: "Data Penerima #" !important;

@@ -639,7 +639,7 @@ body.camera-mode .ai-config{
   #resultTable.is-package-review{display:block!important;width:100%!important;min-width:0!important;border-collapse:separate}
   #resultTable thead{display:none!important}
   #resultTable tbody{display:flex!important;flex-direction:column!important;gap:12px!important;padding:2px 0 12px!important;width:100%!important}
-  #resultTable tbody tr{display:flex!important;flex-direction:column!important;gap:7px!important;width:100%!important;background:#ffffff!important;border:1px solid #dbe2ef!important;border-radius:14px!important;padding:12px 14px!important;box-shadow:0 2px 8px rgba(15,23,42,.05)!important;box-sizing:border-box!important;position:relative!important}
+  #resultTable tbody tr{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;gap:7px!important;width:100%!important;background:#ffffff!important;border:1px solid #dbe2ef!important;border-radius:14px!important;padding:12px 14px!important;box-shadow:0 2px 8px rgba(15,23,42,.05)!important;box-sizing:border-box!important;position:relative!important}
   #resultTable tbody tr:hover td{background:transparent!important}
   #resultTable tbody td{display:flex!important;flex-direction:column!important;width:100%!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;position:static!important;box-sizing:border-box!important}
   #resultTable tbody td:first-child{position:static!important;box-shadow:none!important}
@@ -647,6 +647,8 @@ body.camera-mode .ai-config{
   /* Card Header with row number */
   #resultTable tbody td.row-number-cell{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;padding-bottom:6px!important;border-bottom:1px solid #edf2f7!important;font-size:.76rem!important;font-weight:850!important;color:var(--navy-950)!important;text-align:left!important}
   #resultTable tbody td.row-number-cell::before{content:"Data Penerima #"!important;color:var(--muted)!important;font-weight:700!important}
+  #resultTable tbody td.row-number-cell{width:calc(100% - 107px)!important;align-self:center}
+  #resultTable tbody td.row-weight-cell{width:100px!important}
 
   /* Labels for input fields on cards */
   #resultTable tbody td:has(.val-noSurat)::before{content:"No Ref / Surat";font-size:.58rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}

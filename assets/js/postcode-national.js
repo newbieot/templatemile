@@ -2,7 +2,7 @@
   'use strict';
   const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-4';
   const MAX_CANDIDATES = 100;
-  const MATCHER_VERSION = '20261005-tail-region-1';
+  const MATCHER_VERSION = '20261005-auto-city-weight-2';
   let records = [];
   let tokenIndex = new Map();
   let postcodeIndex = new Map();
@@ -88,7 +88,28 @@
       candidates: matches.slice(0, MAX_CANDIDATES), candidateCount: matches.length, reason };
   }
 
-  function resolveCandidates(matches) {
+  function cityDefault(matches) {
+    const cities = new Set(matches.map(item => JSON.stringify([item.city, item.province])));
+    if (cities.size !== 1) return null;
+    const { city, province } = matches[0];
+    if (province === 'DAERAH KHUSUS IBUKOTA JAKARTA') return null;
+    const all = records.filter(item => item.candidate.city === city && item.candidate.province === province).map(item => item.candidate);
+    const codes = [...new Set(all.map(item => item.postcode))].sort();
+    // City defaults are coarse routing codes, not inferred villages. Prefer
+    // the supplied xx111/xxx11 code; otherwise retain the city's dominant
+    // three-digit routing prefix. Batam's application default is 29411.
+    const prefixes = new Map();
+    all.forEach(item => prefixes.set(item.postcode.slice(0, 3), (prefixes.get(item.postcode.slice(0, 3)) || 0) + 1));
+    const mainPrefix = [...prefixes].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
+    const postcode = city === 'BATAM' ? '29411' :
+      codes.find(code => code.endsWith('111')) || codes.find(code => code.startsWith(mainPrefix) && code.endsWith('11')) ||
+      codes.find(code => code.endsWith('11')) || (mainPrefix ? `${mainPrefix}11` : '');
+    if (!postcode) return null;
+    return { id: `city-${matches[0].id}`, postcode, village: '', district: '', city, province,
+      label: `${city}, ${province} (${postcode}) — kode pos kota` };
+  }
+
+  function resolveCandidates(matches, context = {}) {
     if (matches.length === 1) return outcome('matched', matches);
     // A district-level address can be complete for postal routing even when
     // its village is absent from the supplied data. Never invent a village.
@@ -99,7 +120,24 @@
         label: `${district} — ${city}, ${province} (${postcode})` };
       return { ...outcome('matched', matches), selected, postcode, postcodeConsensus: true, regionScope: 'DISTRICT_POSTCODE' };
     }
-    return outcome('ambiguous', matches, 'Alamat cocok ke beberapa kode pos atau wilayah. Periksa alamat pada foto.');
+    if (context.cityKnown && !context.lowerKnown && !context.postalHint) {
+      const selected = cityDefault(matches);
+      if (selected) return { ...outcome('matched', [selected]), regionScope: 'CITY_POSTCODE', automatic: true };
+    }
+    // Same postcode across several villages can route without inventing a village.
+    const postcodes = new Set(matches.map(item => item.postcode));
+    const districts = new Set(matches.map(item => JSON.stringify([item.district, item.city, item.province])));
+    if (matches.length && context.cityKnown && context.lowerKnown && districts.size === 1) {
+      const counts = new Map();
+      matches.forEach(item => counts.set(item.postcode, (counts.get(item.postcode) || 0) + 1));
+      const postcode = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+      const { district, city, province } = matches[0];
+      const selected = { id: `district-${matches[0].id}`, postcode, village: '', district, city, province,
+        label: `${district} — ${city}, ${province} (${postcode})` };
+      return { ...outcome('matched', [selected]), regionScope: 'DISTRICT_POSTCODE', automatic: true,
+        postcodeConsensus: postcodes.size === 1, routingDefault: postcodes.size > 1 };
+    }
+    return outcome('ambiguous', matches, 'Alamat belum cukup rinci untuk menentukan kode pos secara otomatis.');
   }
 
   function match(address, postcode = '') {
@@ -184,7 +222,19 @@
       geographic = geographic.filter(item => item.positions[2] === tail || item.positions[3] === tail);
       const cityTail = geographic.reduce((last, item) => Math.max(last, item.positions[2]), -1);
       if (cityTail >= 0) geographic = geographic.filter(item => item.positions[2] === cityTail);
+      else if (!markers[3].test(padded.slice(0, tail))) {
+        // A city such as JAMBI shares its name with the province. If no other
+        // city was supplied and the text does not explicitly say Provinsi,
+        // route the city rather than asking the operator to choose among the province.
+        const sameNameCity = geographic.filter(item => records[item.index].fields[2].some(alias =>
+          padded.lastIndexOf(` ${alias} `) === tail && alias === item.matchedAliases[3]));
+        if (sameNameCity.length) {
+          geographic = sameNameCity;
+          geographic.forEach(item => { item.positions[2] = tail; });
+        }
+      }
     }
+    const cityKnown = geographic.some(item => item.positions[2] >= 0);
     for (const [field, position] of explicitPositions.entries()) {
       if (position < 0) continue;
       const compatible = geographic.filter(item => item.positions[field] === position);
@@ -212,6 +262,7 @@
         if (last >= 0) ranked = ranked.filter(item => item.positions[field] === last);
       }
     }
+    const lowerKnown = ranked.some(item => item.positions[0] >= 0 || item.positions[1] >= 0);
     ranked.sort((a, b) => b.count - a.count || b.score - a.score || a.index - b.index);
     const bestCount = ranked[0]?.count || 0;
     // A village and its district/city together outrank isolated name collisions.
@@ -229,8 +280,16 @@
       const intersection = postalPool.filter(item => hinted.has(item.index));
       if (intersection.length) best = intersection;
       else if (postalPool.length) {
+        const cityRouting = cityKnown ? cityDefault(geographic.map(item => records[item.index].candidate)) : null;
+        if (cityRouting?.postcode === hint) {
+          // A generic city code on an older label must not erase a known
+          // village/district. Recompute the finer result instead of asking
+          // the operator to choose between the city default and that area.
+          if (lowerKnown) return resolveCandidates(best.map(item => records[item.index].candidate), { cityKnown, lowerKnown });
+          return { ...outcome('matched', [cityRouting]), regionScope: 'CITY_POSTCODE', automatic: true };
+        }
         return outcome('ambiguous', best.map(item => records[item.index].candidate),
-          `Kode pos ${hint} tidak cocok dengan wilayah yang terbaca. Pilih wilayah yang benar.`);
+          `Kode pos ${hint} tidak cocok dengan wilayah yang terbaca. Alamat perlu diperjelas untuk pencocokan otomatis.`);
       } else {
         const candidates = [...hinted].map(index => records[index].candidate);
         if (!candidates.length) return outcome('not_found', [], `Kode pos ${hint} tidak ditemukan dalam database lampiran.`);
@@ -239,7 +298,7 @@
     }
     const candidates = best.map(item => records[item.index].candidate);
     if (!candidates.length) return outcome('not_found', [], 'Wilayah belum ditemukan. Lengkapi kelurahan/desa, kecamatan, atau kota/kabupaten.');
-    return resolveCandidates(candidates);
+    return resolveCandidates(candidates, { cityKnown, lowerKnown, postalHint: Boolean(hint) });
   }
 
   const api = { load, match, isLoaded: () => loaded, normalize, dataUrl: DATA_URL, matcherVersion: MATCHER_VERSION };

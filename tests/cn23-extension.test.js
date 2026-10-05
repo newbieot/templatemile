@@ -22,9 +22,12 @@ async function begin(h,rows=[sample(),sample('ROW-2')]){assert.equal((await h.se
 
 test('validates outside-document workbook, payments and district-postcode scope',()=>{
   assert.equal(Q.validateRows([sample()])[0].status,'ready');
-  for(const patch of [{recipient_city:'BATAM'},{recipient_postcode:'PERLU DICEK'},{customer_mode:'KORPORAT',customer_code:''},{payment_method:'INVOICE'},{hs_code:'12345678'},{weight_kg:1},{insurance:'INVALID'}])assert.throws(()=>Q.validateRows([{...sample(),...patch}]));
+  for(const patch of [{recipient_city:'BATAM'},{recipient_postcode:'PERLU DICEK'},{customer_mode:'KORPORAT',customer_code:''},{payment_method:'INVOICE'},{hs_code:'12345678'},{weight_kg:0},{weight_kg:-1},{weight_kg:'1kg'},{weight_kg:''},{insurance:'INVALID'}])assert.throws(()=>Q.validateRows([{...sample(),...patch}]));
+  for(const weight of [0.2,1,1.25,2,10,'1,5'])assert.equal(Q.validateRows([{...sample(),weight_kg:weight}])[0].data.weight_kg,Number(String(weight).replace(',','.')));
   assert.throws(()=>Q.validateRows([sample(),sample()]));
   assert.equal(Q.validateRows([{...sample(),recipient_village:'',recipient_region_scope:'DISTRICT_POSTCODE'}])[0].status,'ready');
+  assert.equal(Q.validateRows([{...sample(),recipient_village:'',recipient_district:'',recipient_city:'BANDUNG',recipient_province:'JAWA BARAT',recipient_postcode:'40111',recipient_region_scope:'CITY_POSTCODE'}])[0].status,'ready');
+  assert.throws(()=>Q.validateRows([{...sample(),recipient_village:'',recipient_district:'',recipient_city:'JAKARTA PUSAT',recipient_region_scope:'CITY_POSTCODE'}]),/Jakarta/);
 });
 test('list redirect completes row one and loads form for row two WITHOUT any print tab',async()=>{
   const h=harness();await begin(h);const token=await submit(h);

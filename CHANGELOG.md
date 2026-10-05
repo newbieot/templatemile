@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.44 — Berat dokumen dan wilayah otomatis
+
+- Kolom Kg berada setelah nomor urut, sebelum Nama. Dokumen dapat memakai berat di atas 1 kg; berat tersimpan dalam log dan mengikuti ekspor lokal/CN23.
+- Helper 0.2.10 menerima berat positif dari Excel dan menunggu berat yang sama muncul di form Mile. Mendukung hasil kode pos kota tanpa kecamatan/kelurahan yang dikarang.
+- Kota/kabupaten tanpa rincian memakai kode routing kota xx111/xxx11. Batam memakai 29411. Kecamatan dan kelurahan tetap diprioritaskan; Jakarta Raya tidak memakai default kota umum.
+- Pemilih wilayah manual dihapus. Alamat dengan kota yang tidak unik atau informasi yang bertentangan tetap membutuhkan alamat yang cukup agar sistem tidak mengarang lokasi.
+
 ## v26.43 — Helper 0.2.9: Chrome 88 dan seterusnya
 
 - Setelah rilis Chrome 109 (0.2.8) diterbitkan, batas instalasi diturunkan ke Chrome 88. Paket JavaScript yang sama mendukung 32-bit dan 64-bit.

@@ -128,12 +128,14 @@
     option.click(); await sleep(250);
   }
   function regionTextMatches(text, row) {
+    if (Q.norm(row.recipient_region_scope) === 'CITY POSTCODE') return text.includes(Q.norm(row.recipient_city));
     return [row.recipient_city, row.recipient_district].every(value => text.includes(Q.norm(value))) &&
       (!row.recipient_village || String(row.recipient_village).split(/[\/;]/).some(value => text.includes(Q.norm(value))));
   }
   async function destination(row) {
     const input = one('#addressDetail');
-    const query = `${row.recipient_district} ${row.recipient_village ? String(row.recipient_village).split(/[\/;]/)[0] : row.recipient_postcode}`;
+    const cityScope = Q.norm(row.recipient_region_scope) === 'CITY POSTCODE';
+    const query = cityScope ? `${row.recipient_city} ${row.recipient_postcode}` : `${row.recipient_district} ${row.recipient_village ? String(row.recipient_village).split(/[\/;]/)[0] : row.recipient_postcode}`;
     fill(input, query); input.focus();
     await wait(() => {
       const postal = one('input[placeholder="KODE POS"]').value;
@@ -223,7 +225,7 @@
       pdriSelect.click(); const option = await step(wait(() => all('.el-select-dropdown__item').filter(visible).find(el => /^(INSURANCE|ASURANSI)$/.test(Q.norm(el.textContent))), 'Insurance')); option.click();
       if (!/INSURANCE|ASURANSI/i.test(pdriContainer.textContent)) throw new Error('Asuransi belum terkunci.');
     } else if (/INSURANCE|ASURANSI/i.test(all('.el-tag', pdriContainer).map(el => el.textContent).join(' '))) throw new Error('Asuransi sudah terpilih pada form tanpa asuransi. Buka form baru.');
-    await step(wait(() => Number(one('#koli_weight').value) === .2 && Number(one('#harga_barang').value) === 20000, 'berat/nilai barang dari detail item'));
+    await step(wait(() => Number(one('#koli_weight').value) === Number(row.weight_kg) && Number(one('#harga_barang').value) === 20000, 'berat/nilai barang dari detail item'));
     const calculate = exactButton('Proses Hitung PDRI'); if (!calculate) throw new Error('Proses Hitung PDRI belum aktif.'); calculate.click();
     await step(wait(() => exactButton('Ubah Data') && exactButton('Pembayaran'), 'hasil hitung PDRI', 45000));
     exactButton('Pembayaran').click();

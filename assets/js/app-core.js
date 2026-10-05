@@ -1227,14 +1227,14 @@
 
         function getActiveReviewFieldKeys(row) {
             if (isCn23Mode()) {
-                const fixedFields = ['cw', 'p', 'l', 't', 'insHarga'];
+                const fixedFields = ['p', 'l', 't', 'insHarga'];
                 if (getDestinationMode() === 'mixed' && row && getShipmentRoute(row) === 'batam' && document.getElementById('useInsurance')?.checked) fixedFields.pop();
                 return reviewFieldKeys.filter(field => !fixedFields.includes(field));
             }
             const isPackage = document.getElementById('itemType')?.value === 'PAKET';
             return isPackage
                 ? reviewFieldKeys
-                : reviewFieldKeys.filter(field => !['cw', 'p', 'l', 't'].includes(field));
+                : reviewFieldKeys.filter(field => !['p', 'l', 't'].includes(field));
         }
 
         function ensureRowReviewState(row) {
@@ -1674,16 +1674,11 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 : match.status === 'ambiguous' ? 'Ada beberapa lokasi bernama sama. Periksa alamat penerima pada foto.'
                 : match.status === 'unavailable' ? (nationalPostcodeLoadError || 'Memuat database kode pos nasional…')
                 : 'Alamat belum cukup jelas untuk menentukan kode pos. Periksa tulisan pada foto.';
-            const candidates = match.candidates || [];
-            const choices = candidates.length && !ready ? `<select class="table-input national-postcode-choice" aria-label="Pilih wilayah tujuan">
-                <option value="">-- Pilih wilayah tujuan --</option>
-                ${candidates.map((candidate, index) => `<option value="${index}">${escapeAttribute(candidate.label || `${candidate.village} / ${candidate.district} / ${candidate.city} / ${candidate.province} / ${candidate.postcode}`)}</option>`).join('')}
-            </select>` : '';
             const selectedLabel = ready ? `<small>${escapeAttribute(selected.label || `${selected.village} / ${selected.district} / ${selected.city} / ${selected.province}`)}</small>` : '';
             return `<td class="national-postcode-review" data-postcode-status="${ready ? 'matched' : escapeAttribute(match.status)}">
                 ${getDestinationMode() === 'mixed' ? `<strong>${getShipmentRoute(row) === 'batam' ? 'Batam · Excel Mile' : getShipmentRoute(row) === 'cn23' ? 'Luar kota · Antrean CN23' : 'Tujuan perlu diperiksa'}</strong>` : ''}
-                <span>${escapeAttribute(message)}</span>${selectedLabel}${choices}
-                ${!ready ? '<small>Pilih desa/kelurahan, kecamatan, dan kabupaten/kota yang tertulis pada foto; kode pos diisi otomatis.</small>' : ''}
+                <span>${escapeAttribute(message)}</span>${selectedLabel}
+                ${!ready ? '<small>Kode pos ditentukan otomatis dari alamat. Nama kota atau rincian alamat belum cukup terbaca.</small>' : ''}
             </td>`;
         }
 
@@ -1753,12 +1748,13 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             thead.innerHTML = `
                 <tr>
                     <th style="width: 3%; text-align: center;">NO</th>
-                    <th style="width: 13%;">REF/SURAT</th>
+                    <th class="weight-column-heading" style="width: 7%;">KG</th>
                     <th style="width: 20%;">NAMA PENERIMA</th>
+                    <th style="width: 13%;">REF/SURAT</th>
                     <th style="width: 36%;">ALAMAT</th>
                     ${cn23 ? '<th>KODE POS / WILAYAH CN23</th>' : ''}
                     <th style="width: 10%;">NO HP</th>
-                    ${isPackage ? '<th style="width: 7%;">BERAT(KG)</th><th style="width: 8%;">PxLxT</th>' : ''}
+                    ${isPackage ? '<th style="width: 8%;">PxLxT</th>' : ''}
                     ${useInsurance ? '<th style="width: 9%;">NILAI BRG(Rp)</th>' : ''}
                     <th class="action-column-heading" style="width: 8%; text-align:center;">AKSI</th>
                 </tr>
@@ -1781,7 +1777,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     tr.dataset.rowNumber = String(counter);
                     if (item.aiExtractionFailed && !String(item.name || '').trim() && !String(item.address || '').trim()) {
                         tr.dataset.needsReview = 'true'; tr.className = 'needs-review';
-                        const columnCount = 6 + (cn23 ? 1 : 0) + (isPackage ? 2 : 0) + (useInsurance ? 1 : 0);
+                        const columnCount = 7 + (cn23 ? 1 : 0) + (isPackage ? 1 : 0) + (useInsurance ? 1 : 0);
                         const cell = document.createElement('td'); cell.colSpan = columnCount;
                         cell.textContent = `Foto ${Number(item.sourcePage) || counter} belum berhasil dibaca setelah percobaan ulang otomatis. Foto asli tetap tersimpan; coba proses kembali saat koneksi tersedia.`;
                         tr.append(cell); tbody.append(tr); return;
@@ -1807,7 +1803,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     let insValue = cn23Item ? 20000 : (item.insHarga !== undefined ? item.insHarga : 0);
                     let insColumn = useInsurance ? `<td><input type="number" class="table-input val-ins-harga${reviewClass('insHarga')}"${reviewAttributes('insHarga')} value="${escapeAttribute(insValue)}" ${cn23Item ? 'readonly title="Nilai deklarasi preset CN23 dokumen"' : ''} style="color:#2e7d32; font-weight:bold;"></td>` : ``;
                     let packageColumns = isPackage ? `
-                        <td><input type="text" class="table-input val-cw${reviewClass('cw')}"${reviewAttributes('cw')} style="font-weight:bold; color:#0277bd;" value="${escapeAttribute(item.cw || '0.20')}"></td>
                         <td>
                             <div class="dim-box">
                                 <input type="text" class="val-p${reviewClass('p')}"${reviewAttributes('p')} value="${escapeAttribute(item.p || 10)}">x
@@ -1818,8 +1813,9 @@ Baris ini tidak akan ikut diekspor.`)) return false;
 
                     tr.innerHTML = `
                         <td class="row-number-cell" style="text-align:center; font-weight:bold; color:var(--pos-orange);">${counter}</td>
-                        <td><input type="text" class="table-input val-noSurat${reviewClass('noSurat')}"${reviewAttributes('noSurat')} value="${escapeAttribute(item.noSurat || '')}"></td>
+                        <td class="row-weight-cell"><input type="text" inputmode="decimal" aria-label="Berat kiriman ${counter} dalam kg" class="table-input val-cw${reviewClass('cw')}"${reviewAttributes('cw')} style="font-weight:bold; color:#0277bd;" value="${escapeAttribute(item.cw ?? '0.20')}"></td>
                         <td><input type="text" class="table-input val-name${reviewClass('name')}"${reviewAttributes('name')} value="${escapeAttribute(item.name || '')}"></td>
+                        <td><input type="text" class="table-input val-noSurat${reviewClass('noSurat')}"${reviewAttributes('noSurat')} value="${escapeAttribute(item.noSurat || '')}"></td>
                         <td><input type="text" class="table-input val-address${reviewClass('address')}"${reviewAttributes('address')} value="${escapeAttribute(item.address || '')}"></td>
                         ${cn23 ? renderNationalPostcodeReview(item) : ''}
                         <td><input type="text" class="table-input val-phone${reviewClass('phone')}"${reviewAttributes('phone')} value="${escapeAttribute(item.phone || '')}"></td>
@@ -1843,12 +1839,19 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             });
 
             if (counter === 0) {
-                const columnCount = 6 + (cn23 ? 1 : 0) + (isPackage ? 2 : 0) + (useInsurance ? 1 : 0);
+                const columnCount = 7 + (cn23 ? 1 : 0) + (isPackage ? 1 : 0) + (useInsurance ? 1 : 0);
                 const emptyMessage = document.body.dataset.primarySource === 'camera'
                     ? 'Ambil foto melalui Camera HP atau muat batch dari Log Kamera untuk memulai.'
                     : 'Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.';
                 tbody.innerHTML = `<tr><td colspan="${columnCount}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">${emptyMessage}</td></tr>`;
             }
+        }
+
+        function shipmentWeight(value, rowNumber) {
+            const text = String(value ?? '0.20').trim().replace(',', '.');
+            const weight = /^\d+(?:\.\d+)?$/.test(text) ? Number(text) : NaN;
+            if (!Number.isFinite(weight) || weight <= 0) throw new Error(`Berat pada baris ${rowNumber} harus berupa angka lebih dari 0 kg (contoh: 0,2 atau 1,5).`);
+            return weight;
         }
 
         function buildCn23QueueRows(rows, configuration = {}) {
@@ -1882,7 +1885,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 const region = match.selected || (match.status === 'matched' && match.candidates?.length === 1 ? match.candidates[0] : null);
                 if (match.status !== 'matched' || !region) {
                     if (match.status === 'unavailable') throw new Error(nationalPostcodeLoadError || 'Database kode pos nasional belum siap. Muat ulang halaman atau coba lagi sebelum ekspor.');
-                    throw new Error(`Wilayah tujuan pada baris ${index + 1} ${match.status === 'ambiguous' ? 'masih memiliki beberapa pilihan' : 'belum ditemukan'}. Lengkapi alamat atau pilih wilayah pada kolom Kode Pos / Wilayah CN23.`);
+                    throw new Error(`Wilayah tujuan pada baris ${index + 1} ${match.status === 'ambiguous' ? 'masih memiliki beberapa pilihan karena alamat belum cukup rinci' : 'belum ditemukan'}. Lengkapi alamat penerima agar kode pos dapat ditentukan otomatis.`);
                 }
                 if (getShipmentRoute(row) === 'batam') throw new Error(`Baris ${index + 1} adalah kiriman tujuan Kota Batam. Pilih mode Capture Campuran agar kiriman Batam dan luar kota diekspor menjadi dua file terpisah.`);
                 return sanitizeExcelRowValues({
@@ -1905,7 +1908,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     recipient_city: region.city,
                     recipient_province: region.province,
                     destination_code: '',
-                    postcode_review: match.confirmed ? 'PILIHAN PETUGAS' : 'COCOK DATABASE',
+                    postcode_review: match.confirmed ? 'PILIHAN PETUGAS' : match.regionScope === 'CITY_POSTCODE' ? 'KODE POS KOTA OTOMATIS' : match.routingDefault ? 'KODE POS KECAMATAN OTOMATIS' : 'COCOK DATABASE',
                     service_code: service,
                     payment_method: payment,
                     insurance: insurance ? 'Y' : 'N',
@@ -1921,7 +1924,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     item_name: 'DOKUMEN',
                     quantity: 1,
                     item_value_idr: 20000,
-                    weight_kg: 0.2,
+                    weight_kg: shipmentWeight(row.cw, index + 1),
                     length_cm: 0,
                     width_cm: 0,
                     height_cm: 0,
@@ -2137,8 +2140,9 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 }
 
                 const weightInput = tr.querySelector('.val-cw');
-                let dWeightStr = String(weightInput?.value ?? managedRow.cw ?? '0.20').replace(',', '.');
-                let dWeight = parseFloat(dWeightStr) || 0.2;
+                let dWeight;
+                try { dWeight = shipmentWeight(weightInput?.value ?? managedRow.cw, index + 1); }
+                catch (error) { alert(error.message); validationFailed = true; return; }
 
                 let dP = parseFloat(tr.querySelector('.val-p')?.value ?? managedRow.p) || 10;
                 let dL = parseFloat(tr.querySelector('.val-l')?.value ?? managedRow.l) || 10;

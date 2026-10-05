@@ -2,7 +2,7 @@
   'use strict';
   const FORM_URL = 'https://expos.mile.app/new-transaction-custom';
   const defaults = Object.freeze({ workflow:'CN23 DOKUMEN LUAR KOTA',queue_status:'SIAP',cod:'NON-COD',item_type:'DOKUMEN',nature_of_goods:'Documents',shipment_category:'Ecommerce/Biasa',npwp:'000000000000000',hs_code:'49011000',item_name:'DOKUMEN',quantity:1,item_value_idr:20000,weight_kg:0.2,length_cm:0,width_cm:0,height_cm:0,koli_count:1,country_of_origin:'ID',packaging_code:'EN',packaging_name:'Envelope',imei_1:'0',imei_2:'0',insurance:'N' });
-  const required = ['queue_id','recipient_name','recipient_address','recipient_postcode','recipient_district','recipient_city','recipient_province','sender_name','sender_address','customer_mode','payment_method','service_code'];
+  const required = ['queue_id','recipient_name','recipient_address','recipient_postcode','recipient_city','recipient_province','sender_name','sender_address','customer_mode','payment_method','service_code'];
   const norm = value => String(value ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').replace(/\s+/g,' ').trim();
   function validateRows(input) {
     if (!Array.isArray(input) || !input.length || input.length > 2000) throw new Error('Antrean harus berisi 1–2.000 kiriman.');
@@ -15,7 +15,10 @@
         if (typeof row[key] === 'string' && row[key].length > 3000) fail(`Kolom ${key} terlalu panjang.`);
       });
       required.forEach(key => { if (!String(row[key] ?? '').trim()) fail(`Kolom ${key} belum diisi.`); });
-      if (!String(row.recipient_village || '').trim() && norm(row.recipient_region_scope) !== 'DISTRICT POSTCODE') fail('Kelurahan kosong tanpa hasil pencocokan kecamatan/kode pos.');
+      const cityScope = norm(row.recipient_region_scope) === 'CITY POSTCODE';
+      if (cityScope && /\bJAKARTA\b/.test(norm(row.recipient_city))) fail('Jakarta membutuhkan kode pos wilayah rinci, bukan kode pos kota default.');
+      if (!cityScope && !String(row.recipient_district || '').trim()) fail('Kecamatan kosong tanpa hasil pencocokan kode pos kota.');
+      if (!String(row.recipient_village || '').trim() && !['DISTRICT POSTCODE','CITY POSTCODE'].includes(norm(row.recipient_region_scope))) fail('Kelurahan kosong tanpa hasil pencocokan kecamatan/kode pos atau kota.');
       if (/PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row.recipient_village || ''))) fail('Kelurahan belum terbaca.');
       if (required.some(key => /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row[key])))) fail('Selesaikan pemeriksaan data sebelum impor.');
       if (norm(row.workflow) !== norm(defaults.workflow) || norm(row.queue_status) !== 'SIAP') fail('Gunakan Excel Antrean CN23 yang berstatus SIAP.');
@@ -25,10 +28,13 @@
       if (row.customer_mode === 'KORPORAT' && !String(row.customer_code || '').trim()) fail('Kode Pelanggan korporat wajib diisi.');
       if (row.customer_mode === 'RITEL' ? row.payment_method !== 'CASH' : !['INVOICE','CREDIT'].includes(row.payment_method)) fail('Metode pembayaran tidak sesuai jenis pelanggan.');
       for (const [key,value] of Object.entries(defaults)) {
-        if (['workflow','queue_status','insurance'].includes(key)) continue;
+        if (['workflow','queue_status','insurance','weight_kg'].includes(key)) continue;
         if (typeof value === 'number' ? Number(row[key]) !== value : norm(row[key]) !== norm(value)) fail(`Preset dokumen ${key} harus ${value}.`);
         row[key] = value;
       }
+      const weightText = String(row.weight_kg).replace(',', '.');
+      row.weight_kg = /^\d+(?:\.\d+)?$/.test(weightText) ? Number(weightText) : NaN;
+      if (!Number.isFinite(row.weight_kg) || row.weight_kg <= 0) fail('Berat harus berupa angka lebih dari 0 kg.');
       if (!['N','Y'].includes(row.insurance)) fail('Asuransi harus N atau Y.');
       for (const key of ['sender_phone','recipient_phone']) {
         row[key] = String(row[key] || '0');
@@ -51,7 +57,7 @@
     if (!state.active.submittedAt) state.active=null;
     return true;
   }
-  const VERSION='0.2.9';
+  const VERSION='0.2.10';
   const api={VERSION,FORM_URL,defaults,required,norm,validateRows,recoverInterrupted};
   root.MileCN23=api;
   if (typeof module !== 'undefined') module.exports=api;
