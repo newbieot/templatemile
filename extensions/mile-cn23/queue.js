@@ -51,7 +51,7 @@
     if (!state.active.submittedAt) state.active=null;
     return true;
   }
-  const VERSION='0.2.8';
+  const VERSION='0.2.9';
   const api={VERSION,FORM_URL,defaults,required,norm,validateRows,recoverInterrupted};
   root.MileCN23=api;
   if (typeof module !== 'undefined') module.exports=api;

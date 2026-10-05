@@ -10,7 +10,7 @@ const milestone=process.argv[2]||'109',port=Number(process.argv[3]||9109);
 const sample=(i,payment)=>({...Q.defaults,queue_id:'COMPAT-'+i,recipient_name:'PENERIMA '+i,recipient_phone:'0',recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',recipient_city:'INDRAGIRI HILIR',recipient_province:'RIAU',sender_name:'PENGIRIM EXCEL',sender_phone:'0',sender_address:'BATAM',customer_mode:i===1?'RITEL':'KORPORAT',customer_code:i===1?'':'ACME',payment_method:payment,service_code:'PE',ref_no:'REF-'+i});
 const rows=[sample(1,'CASH'),sample(2,'INVOICE'),sample(3,'CREDIT')];
 const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.json_to_sheet(rows),'CN23_ANTREAN');
-const workbookPath=path.join(OUT,'compat-queue.xlsx');fs.mkdirSync(OUT,{recursive:true});
+const workbookPath=path.join(OUT,'compat-queue-'+milestone+'.xlsx');fs.mkdirSync(OUT,{recursive:true});
 fs.writeFileSync(workbookPath,new Uint8Array(XLSX.write(workbook,{type:'array',bookType:'xlsx'})));
 const source=fs.readFileSync(path.join(ROOT,'tests/helpers/cn23-form-fixture.cjs'),'utf8');
 const mount=source.slice(source.indexOf('  function mount(next={}) {'),source.indexOf('\n  mount();'));
@@ -40,12 +40,16 @@ const html='<!doctype html><html><head><meta charset="utf-8"><style>body{font:14
 async function wait(fn,description,timeout=60000){const end=Date.now()+timeout;while(Date.now()<end){const value=await fn();if(value)return value;await new Promise(r=>setTimeout(r,100));}throw new Error('Timeout: '+description);}
 let testBrowser;
 async function main(){
-  const browser=await chromium.connectOverCDP('http://127.0.0.1:'+port);
+  const browser=await wait(()=>chromium.connectOverCDP('http://127.0.0.1:'+port).catch(()=>null),'isolated browser startup',30000);
   testBrowser=browser;
   const context=browser.contexts()[0];
+  // This browser uses a private test profile. Remove leftover fixture tabs so
+  // panel activation and file upload always address the page under test.
+  const page=await context.newPage();
+  for(const existing of context.pages())if(existing!==page)await existing.close();
   const errors=[];
   await context.route('https://expos.mile.app/**',route=>route.fulfill({status:200,contentType:'text/html',body:route.request().url().endsWith('/new-transaction-custom')?html:'<!doctype html><body>Daftar Transaksi Uji</body>'}));
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  page.on('pageerror',e=>errors.push(e.message));
   await page.goto(Q.FORM_URL);await page.evaluate(()=>localStorage.clear());await page.reload();
   const worker=await wait(()=>context.serviceWorkers().find(w=>w.url().endsWith('/background.js')),'extension service worker');
   const manifest=await worker.evaluate(()=>chrome.runtime.getManifest());
@@ -62,10 +66,22 @@ async function main(){
     return search(doc.root);
   }
   const file=await wait(()=>element('file'),'upload menu');
+  await wait(async()=>{
+    const upload=await element('upload');
+    return upload&&!((upload.attributes||[]).includes('disabled'));
+  },'upload enabled after panel initialization');
   await cdp.send('DOM.setFileInputFiles',{files:[workbookPath],backendNodeId:file.backendNodeId});
+  // Legacy CDP does not consistently dispatch chooser events for a closed
+  // shadow root. Reproduce the events emitted by a real file picker.
+  const fileObject=await cdp.send('DOM.resolveNode',{backendNodeId:file.backendNodeId});
+  await cdp.send('Runtime.callFunctionOn',{objectId:fileObject.object.objectId,functionDeclaration:'function(){this.dispatchEvent(new Event("input",{bubbles:true}));this.dispatchEvent(new Event("change",{bubbles:true}))}'});
   const getState=()=>worker.evaluate(()=>new Promise(resolve=>chrome.storage.local.get('mileCn23Queue',value=>resolve(value.mileCn23Queue))));
-  await wait(async()=>{const s=await getState();return s?.fileName==='compat-queue.xlsx'&&s.rows.length===3;},'Excel imported');
-  const start=await element('start');const object=await cdp.send('DOM.resolveNode',{backendNodeId:start.backendNodeId});
+  await wait(async()=>{const s=await getState();return s?.fileName===path.basename(workbookPath)&&s.rows.length===3;},'Excel imported');
+  const start=await wait(async()=>{
+    const button=await element('start');
+    return button&&!((button.attributes||[]).includes('disabled'))?button:null;
+  },'Start enabled after workbook import');
+  const object=await cdp.send('DOM.resolveNode',{backendNodeId:start.backendNodeId});
   await cdp.send('Runtime.callFunctionOn',{objectId:object.object.objectId,functionDeclaration:'function(){this.click()}'});
   const state=await wait(async()=>{const s=await getState();if(s?.error)throw new Error(s.error);return s?.completedAt?s:null;},'three real extension transactions');
   assert.equal(state.rows.length,3);assert.ok(state.rows.every(row=>row.status==='done'));

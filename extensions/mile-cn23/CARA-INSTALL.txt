@@ -1,18 +1,17 @@
-MILE CN23 HELPER 0.2.8
+MILE CN23 HELPER 0.2.9
 
 KOMPATIBILITAS BROWSER
-Chrome 109 ke atas, termasuk Chrome 109.0.5414.120 pada Windows 7 32-bit.
+Chrome 88 ke atas, termasuk Chrome 109.0.5414.120 pada Windows 7 32-bit.
 Paket yang sama dapat dipakai pada Chrome 32-bit dan 64-bit.
-Dukungan Chrome 88 disiapkan dalam rilis berikutnya.
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.8 ke folder
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.9 ke folder
    ekstensi lama dan timpa file lama, termasuk manifest.json.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.8.
+   Versi harus tertulis 0.2.9.
 3. Buka form CN23 kosong dan muat ulang tab Mile:
    https://expos.mile.app/new-transaction-custom
-4. Antrean dari 0.2.5, 0.2.6, dan 0.2.7 tetap tersimpan. Bila berhenti karena selisih kode pos,
+4. Antrean dari 0.2.5 sampai 0.2.8 tetap tersimpan. Bila berhenti karena selisih kode pos,
    tekan Start untuk melanjutkan; baris selesai tidak diulang. Tidak perlu Reset.
    Cache 0.2.4 dan versi sebelumnya otomatis dibersihkan. Jika antrean kosong,
    upload Excel yang ingin diproses, lalu klik Start sekali.
@@ -65,7 +64,7 @@ Kode zona mengikuti pilihan Mile.
 Kode pos dan kode zona yang dikunci Mile selalu dipakai setelah wilayah cocok,
 meskipun berbeda dari Excel. Aturan ini berlaku untuk seluruh tujuan.
 
-PENGUJIAN 0.2.8
+PENGUJIAN 0.2.9
 Satu Start diuji untuk tiga kiriman: Cash, Invoice, lalu CREDIT. Tidak ada
 tab cetak dalam pengujian. Nama penerima, referensi, metode pembayaran,
 dan pengirim korporat diperiksa saat masing-masing tombol Selesai ditekan.
@@ -73,8 +72,9 @@ Uji mencakup reload penuh, navigasi dalam dokumen yang sama, pesan siap
 yang terlewat, dan data kedua ketika form baru sudah terload. Form berikutnya
 ditunggu sampai semua kolom termasuk ref_no siap; salinan tersembunyi dari
 form lama diabaikan. Panel setelah navigasi, Reset, upload ulang, dan
-pembersihan cache lama diuji. Uji memakai simulasi DOM dan service worker;
-submit produksi dengan ekstensi Chrome terpasang belum dilakukan.
+pembersihan cache lama diuji. Uji memakai simulasi DOM/service worker dan ekstensi terpasang pada
+Chromium 88.0.4324.0 serta 109.0.5414.0 32-bit dengan form uji lokal.
+Pengujian tidak membuat transaksi Mile produksi. Windows 7 tidak diuji langsung.
 Perbedaan beberapa kode pos dan kode zona diuji untuk ritel dan korporat.
 Data kedua dengan kode pos Mile berbeda tetap selesai, lalu data ketiga
 berjalan otomatis. Kemajuan 0.2.5 dan pengulangan hanya baris gagal juga diuji.

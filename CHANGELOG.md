@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.43 — Helper 0.2.9: Chrome 88 dan seterusnya
+
+- Setelah rilis Chrome 109 (0.2.8) diterbitkan, batas instalasi diturunkan ke Chrome 88. Paket JavaScript yang sama mendukung 32-bit dan 64-bit.
+- Memakai API callback dan ID aman yang tersedia pada Chrome 88. Tidak menunggu tab cetak; satu Start menjalankan seluruh antrean.
+- Upload aktif setelah status panel selesai dimuat, sehingga pemilihan file tidak terlewat saat callback Chrome lama masih berjalan. Tombol dinonaktifkan sementara selama perintah diproses.
+- Ekstensi terpasang diuji pada Chromium 88.0.4324.0 serta 109.0.5414.0 32-bit: satu upload dan satu Start sampai tiga kiriman PE selesai, dengan Cash, Invoice, dan CREDIT. Form lokal dipakai tanpa membuat transaksi produksi; Windows 7 tidak diuji langsung.
+- ZIP terbaru dan petunjuk penggunaan diperbarui ke 0.2.9. Paket 0.2.8 tetap tersedia. Kemajuan antrean 0.2.5–0.2.8 dipertahankan.
+
 ## v26.42 — Helper 0.2.8: kompatibilitas Chrome lama
 
 - Ekstensi mendukung Chrome 109 ke atas, termasuk Chrome 109 pada Windows 7 32-bit. Paket yang sama dipakai pada Chrome 32-bit dan 64-bit.

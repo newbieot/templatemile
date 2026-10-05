@@ -36,7 +36,7 @@
     document.body.append(host);
     const get=id=>root.getElementById(id);
     let state={rows:[]},busy=false,localError='';
-    async function task(fn){if(busy)return;busy=true;localError='';get('error').textContent='';try{await fn();}catch(error){localError=error.message;get('error').textContent=localError;render();}finally{busy=false;}}
+    async function task(fn){if(busy)return;busy=true;localError='';get('error').textContent='';render();try{await fn();}catch(error){localError=error.message;get('error').textContent=localError;render();}finally{busy=false;render();}}
     function render(){
       const doneCount=state.rows.filter(row=>row.status==='done').length;
       get('fileName').textContent=state.fileName||'';
@@ -52,6 +52,7 @@
       get('upload').disabled=Boolean(state.active)||state.running;
       get('reset').disabled=!state.rows.length&&!state.fileName&&!localError;
       if(localError&&!state.running)get('start').disabled=true;
+      if(busy){get('upload').disabled=true;get('start').disabled=true;get('reset').disabled=true;}
       if (!state.completedAt||state.completionDismissedAt) hideNotice();
     }
     async function refresh(){state=await request('GET');render();}

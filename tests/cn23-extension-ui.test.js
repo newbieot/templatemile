@@ -3,6 +3,30 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {JSDOM}=require('jsdom');
 const Q=require('../extensions/mile-cn23/queue.js');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+test('upload waits for delayed callback initialization instead of dropping the selected file',async()=>{
+  const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'}),w=dom.window;
+  try{
+    let root,listener,release,chooserOpens=0;
+    const attach=w.Element.prototype.attachShadow;
+    w.Element.prototype.attachShadow=function(options){root=attach.call(this,options);return root;};
+    w.MileCN23=Q;
+    w.chrome={runtime:{onMessage:{addListener:fn=>listener=fn},sendMessage(message,callback){
+      if(message.type==='GET')release=()=>callback({ok:true,data:{rows:[]}});
+      else callback({ok:true,data:{}});
+    }}};
+    w.eval(fs.readFileSync('extensions/mile-cn23/compat.js','utf8'));
+    w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
+    listener({type:'CN23_PANEL_TOGGLE',tabId:7},null,()=>{});
+    root.getElementById('file').click=()=>{chooserOpens++;};
+    const upload=root.getElementById('upload');
+    assert.equal(upload.disabled,true);
+    upload.click();assert.equal(chooserOpens,0,'Do not open the chooser while GET is pending');
+    release();await sleep(0);
+    assert.equal(upload.disabled,false);
+    upload.click();assert.equal(chooserOpens,1,'Chooser works as soon as callbacks finish');
+  }finally{w.close();}
+});
+
 test('icon toggles upload/start inside the existing tab, imports real workbook and announces completion',async()=>{
   const dom=new JSDOM('<body><main>Transaksi CN23</main></body>',{url:Q.FORM_URL,runScripts:'outside-only'}),w=dom.window;
   try{

@@ -33,9 +33,9 @@ test('secure UUID fallback works without randomUUID on Chrome 88',()=>{
   const ids=Array.from({length:1000},()=>C.uuid());assert.equal(new Set(ids).size,1000);
   assert.ok(ids.every(id=>/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)));
 });
-test('manifest supports Chrome 109+ and loads compatibility helpers before consumers',()=>{
+test('manifest supports Chrome 88+ and loads compatibility helpers before consumers',()=>{
   const m=JSON.parse(fs.readFileSync('extensions/mile-cn23/manifest.json','utf8'));
-  assert.equal(m.minimum_chrome_version,'109');assert.equal(m.manifest_version,3);
+  assert.equal(m.minimum_chrome_version,'88');assert.equal(m.manifest_version,3);
   const files=m.content_scripts[0].js;
   for(const name of ['ui.js','form.js'])assert.ok(files.indexOf('compat.js')<files.indexOf(name));
   assert.match(fs.readFileSync('extensions/mile-cn23/background.js','utf8'),/importScripts\('compat.js','queue.js'\)/);
