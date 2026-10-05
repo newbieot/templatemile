@@ -622,7 +622,7 @@
     if (modeSummary) modeSummary.textContent = modeLabels[mode] || mode;
     if (insuranceSummary) insuranceSummary.textContent = insured ? 'Aktif' : 'Nonaktif';
     if (exportButton) {
-      exportButton.disabled = rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0 || pendingPostalCount > 0;
+      exportButton.disabled = exportButton.dataset.exporting === 'true' || rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0 || pendingPostalCount > 0;
       exportButton.title = pendingPostalCount > 0
         ? 'Periksa alamat yang belum dapat dicocokkan otomatis sebelum ekspor.'
         : outsideBatamCount > 0

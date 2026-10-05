@@ -209,9 +209,9 @@ async function cloudProfilesAndReview() {
     assert.match(html, file === 'camera.html' ? /value="mixed" selected/ : /value="batam" selected/);
     assert.match(html, /value="cn23"/); assert.match(html, /value="mixed"/);
     if (file !== 'camera.html') {
-      assert.match(html, /id="exportBatamButton"[^>]*hidden/);
-      assert.match(html, /id="exportCn23Button"[^>]*hidden/);
+      assert.equal((html.match(/id="exportButton"/g) || []).length, 1);
+      assert.doesNotMatch(html, /id="export(?:Batam|Cn23)Button"/);
     }
   }
-  console.log('PASS camera-destination-mode: capture snapshots, three import paths, retry mode, cloud roundtrip, legacy fallback and separate export controls');
+  console.log('PASS camera-destination-mode: capture snapshots, three import paths, retry mode, cloud roundtrip, legacy fallback and single export control');
 })().catch(error => { console.error(error); process.exitCode = 1; });

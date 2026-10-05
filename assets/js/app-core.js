@@ -9,6 +9,7 @@
         let rowIdentityCounter = 0;
         let nationalPostcodeLoadPromise = null;
         let nationalPostcodeLoadError = '';
+        let exportInProgress = false;
 
         function getDestinationMode(options = {}) {
             const value = options.destinationMode ?? document.getElementById('destinationMode')?.value;
@@ -62,7 +63,6 @@
 
         function applyDestinationMode() {
             const cn23 = isCn23Mode();
-            const mixed = getDestinationMode() === 'mixed';
             const mode = document.getElementById('clientMode')?.value;
             const itemInput = document.getElementById('itemType');
             if (cn23 && itemInput) { itemInput.value = 'DOKUMEN'; itemInput.disabled = true; }
@@ -72,25 +72,10 @@
             if (paymentGroup) paymentGroup.hidden = mode !== 'KORPORAT';
             const exportButton = document.getElementById('exportButton');
             if (exportButton) {
-                if (!exportButton.dataset.batamMarkupSaved) {
-                    exportButton.dataset.batamLabel = exportButton.textContent;
-                    exportButton.dataset.batamMarkup = exportButton.innerHTML;
-                    exportButton.dataset.batamMarkupSaved = 'true';
-                }
-                if (cn23) {
-                    exportButton.textContent = 'Ekspor Antrean CN23';
-                    exportButton.dataset.cn23LabelApplied = 'true';
-                } else if (exportButton.dataset.cn23LabelApplied) {
-                    exportButton.innerHTML = exportButton.dataset.batamMarkup;
-                    delete exportButton.dataset.cn23LabelApplied;
-                }
-                exportButton.hidden = mixed;
-                exportButton.style.display = mixed ? 'none' : '';
+                (exportButton.querySelector?.('span') || exportButton).textContent = 'Unduh Excel';
+                exportButton.hidden = false;
+                exportButton.style.display = '';
             }
-            const exportBatamButton = document.getElementById('exportBatamButton');
-            const exportCn23Button = document.getElementById('exportCn23Button');
-            if (exportBatamButton) { exportBatamButton.hidden = !mixed; exportBatamButton.style.display = mixed ? '' : 'none'; }
-            if (exportCn23Button) { exportCn23Button.hidden = !mixed; exportCn23Button.style.display = mixed ? '' : 'none'; }
             document.querySelectorAll('a[href^="/camera"]').forEach(link => {
                 if (/^\/camera(?:\?|$)/.test(link.getAttribute('href') || '')) link.setAttribute('href', `/camera?destinationMode=${getDestinationMode()}`);
             });
@@ -386,8 +371,6 @@
                 if (isCn23Mode() && context?.field === 'address') refreshNationalRowReview(context.row, context.tr);
             });
             document.getElementById('destinationMode')?.addEventListener('change', handleDestinationModeChange);
-            document.getElementById('exportBatamButton')?.addEventListener('click', downloadLocalExcel);
-            document.getElementById('exportCn23Button')?.addEventListener('click', downloadCn23Excel);
             document.getElementById('resultTable')?.addEventListener('change', event => {
                 const target = event.target;
                 if (target.matches?.('.national-postcode-query')) {
@@ -1694,10 +1677,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             const mixed = getDestinationMode() === 'mixed';
             const routeCounts = { batam: 0, cn23: 0, pending: 0 };
             if (mixed) uploadedFilesManager.forEach(file => file.rows.forEach(row => { routeCounts[getShipmentRoute(row)] += 1; }));
-            const batamExportButton = document.getElementById('exportBatamButton');
-            const cn23ExportButton = document.getElementById('exportCn23Button');
-            if (batamExportButton) batamExportButton.disabled = !mixed || routeCounts.batam === 0 || routeCounts.pending > 0;
-            if (cn23ExportButton) cn23ExportButton.disabled = !mixed || routeCounts.cn23 === 0 || routeCounts.pending > 0;
+            const exportButton = document.getElementById('exportButton');
+            if (mixed && exportButton) exportButton.disabled = exportInProgress || routeCounts.batam + routeCounts.cn23 === 0 || routeCounts.pending > 0 || getPendingReviewCount() > 0;
             [['batam', 'batamRoute'], ['cn23', 'cn23Route'], ['pending', 'pendingRoute']].forEach(([route, prefix]) => {
                 const summary = document.getElementById(`${prefix}Summary`);
                 const count = document.getElementById(`${prefix}Count`);
@@ -1715,7 +1696,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             if (exportHint) {
                 if (!exportHint.dataset.batamText) exportHint.dataset.batamText = exportHint.textContent;
                 exportHint.textContent = mixed
-                    ? 'Dua file terpisah: Excel Mile untuk Batam dan Antrean CN23 untuk luar kota. Lengkapi semua tujuan sebelum ekspor. Kode pos mengikuti wilayah database nasional yang tampil di tabel.'
+                    ? 'Satu klik mengunduh Excel Batam dan/atau Antrean CN23 sesuai tujuan kiriman.'
                     : cn23 ? 'Antrean CN23 dokumen untuk alat bantu entri. File ini bukan format unggah Excel Mile. Kode tujuan diperiksa nanti pada pilihan wilayah di Mile.' : exportHint.dataset.batamText;
             }
             const fileQueueDiv = document.getElementById('fileQueue');
@@ -1938,7 +1919,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             });
         }
 
-        async function downloadCn23Queue(rows = uploadedFilesManager.flatMap(file => file.rows), expectedDestinationMode = getDestinationMode()) {
+        async function prepareCn23Queue(rows, expectedDestinationMode) {
             if (!await refreshNationalPostcodes()) { alert(nationalPostcodeLoadError); return; }
             if (getDestinationMode() !== expectedDestinationMode) { alert('Mode tujuan berubah saat menyiapkan ekspor. Jalankan ekspor kembali sesuai mode yang dipilih.'); return; }
             try {
@@ -1954,7 +1935,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 });
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, 'CN23_ANTREAN');
-                XLSX.writeFile(workbook, `Antrean_CN23_Dokumen_${document.getElementById('clientMode')?.value || 'RITEL'}.xlsx`);
+                return { workbook, filename: `Antrean_CN23_Dokumen_${document.getElementById('clientMode')?.value || 'RITEL'}.xlsx` };
             } catch (error) {
                 alert(error?.message || 'Antrean CN23 belum dapat diekspor. Periksa data tujuan.');
             }
@@ -1966,17 +1947,38 @@ Baris ini tidak akan ikut diekspor.`)) return false;
         window.downloadCn23Excel = downloadCn23Excel;
 
         async function downloadFinalExcel(options = {}) {
+            if (exportInProgress) return;
+            exportInProgress = true;
+            const exportButton = document.getElementById('exportButton');
+            const wasDisabled = exportButton?.disabled;
+            if (exportButton) { exportButton.disabled = true; exportButton.dataset.exporting = 'true'; }
+            try {
+                const destinationMode = getDestinationMode();
+                const exportAll = destinationMode === 'mixed' && !options.partition;
+                const partitions = exportAll ? ['batam', 'cn23'] : [options.partition];
+                const files = [];
+                for (const partition of partitions) {
+                    const file = await prepareExcelExport({ ...options, partition, allowEmptyPartition: exportAll });
+                    if (file === undefined) return;
+                    if (file) files.push(file);
+                }
+                if (getDestinationMode() !== destinationMode) { alert('Mode tujuan berubah saat menyiapkan ekspor. Jalankan ekspor kembali sesuai mode yang dipilih.'); return; }
+                // Semua kelompok harus lolos validasi sebelum unduhan pertama.
+                files.forEach(file => XLSX.writeFile(file.workbook, file.filename));
+            } finally {
+                exportInProgress = false;
+                if (exportButton) { exportButton.disabled = wasDisabled; delete exportButton.dataset.exporting; }
+                updateNationalRouteSummary();
+            }
+        }
+
+        async function prepareExcelExport(options = {}) {
             const destinationModeAtExport = getDestinationMode();
             if (typeof window.XLSX === 'undefined') {
                 try {
                     if (!window.MileVendorLoader?.loadSheetJs) throw new Error('Pemuat library spreadsheet tidak tersedia.');
-                    const exportButton = document.getElementById('exportButton');
-                    if (exportButton) exportButton.disabled = true;
                     await window.MileVendorLoader.loadSheetJs();
-                    if (exportButton) exportButton.disabled = false;
                 } catch (error) {
-                    const exportButton = document.getElementById('exportButton');
-                    if (exportButton) exportButton.disabled = false;
                     alert(error?.message || 'Library spreadsheet gagal dimuat. Periksa koneksi lalu coba lagi.');
                     return;
                 }
@@ -1995,14 +1997,14 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     return;
                 }
                 if (!['batam', 'cn23'].includes(options.partition)) {
-                    alert('Pilih Ekspor Batam atau Ekspor Antrean CN23. Kiriman campuran dibuat menjadi dua file Excel terpisah.');
+                    alert('Kelompok tujuan ekspor tidak dikenali. Jalankan kembali Unduh Excel.');
                     return;
                 }
                 if (!await refreshNationalPostcodes()) { alert(nationalPostcodeLoadError); return; }
                 if (getDestinationMode() !== destinationModeAtExport) { alert('Mode tujuan berubah saat menyiapkan ekspor. Jalankan ekspor kembali sesuai mode yang dipilih.'); return; }
                 const unresolved = uploadedFilesManager.flatMap(file => file.rows).filter(row => getShipmentRoute(row) === 'pending');
                 if (unresolved.length) {
-                    alert(`Masih ada ${unresolved.length} tujuan yang belum dapat dipisahkan menjadi Batam atau luar kota. Lengkapi alamat atau pilih wilayah pada kolom Kode Pos / Wilayah CN23 sebelum ekspor.`);
+                    alert(`Masih ada ${unresolved.length} tujuan yang belum dapat dipisahkan menjadi Batam atau luar kota. Lengkapi alamat penerima sebelum ekspor.`);
                     return;
                 }
                 rows = rows.filter(tr => {
@@ -2010,6 +2012,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     return row && getShipmentRoute(row) === options.partition;
                 });
                 if (!rows.length) {
+                    if (options.allowEmptyPartition) return null;
                     alert(options.partition === 'batam' ? 'Tidak ada kiriman tujuan Kota Batam untuk diekspor.' : 'Tidak ada kiriman luar Kota Batam untuk antrean CN23.');
                     return;
                 }
@@ -2036,8 +2039,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             }
 
             if (destinationModeAtExport === 'cn23' || (destinationModeAtExport === 'mixed' && options.partition === 'cn23')) {
-                await downloadCn23Queue(rows.map(tr => findManagedRow(tr.dataset.fileId, tr.dataset.rowId)?.row).filter(Boolean), destinationModeAtExport);
-                return;
+                return prepareCn23Queue(rows.map(tr => findManagedRow(tr.dataset.fileId, tr.dataset.rowId)?.row).filter(Boolean), destinationModeAtExport);
             }
 
             const mode = document.getElementById('clientMode').value;
@@ -2328,6 +2330,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             }
 
             let fileSuffix = mode === 'RITEL' ? "Ritel" : (mode === 'PINDAH' ? "BarangPindah" : (finalCustomerId || "Corporate"));
-            XLSX.writeFile(workbook, `Upload_MileApp_${fileSuffix}.xlsx`);
+            return { workbook, filename: `Upload_MileApp_${fileSuffix}.xlsx` };
         }
     

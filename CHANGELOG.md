@@ -1,5 +1,10 @@
 # Changelog
 
+## v26.45 — Satu tombol ekspor
+
+- Periksa Hasil, app, dan beta memakai satu tombol Unduh Excel. Kiriman campuran menghasilkan Excel Batam dan antrean CN23 jika kedua kelompok berisi data; jika hanya satu kelompok, hanya satu Excel diunduh.
+- Seluruh file disiapkan dan divalidasi sebelum unduhan pertama. Kelompok kosong tidak dibuat, dan klik berulang selama persiapan tidak menggandakan unduhan.
+
 ## v26.44 — Berat dokumen dan wilayah otomatis
 
 - Kolom Kg berada setelah nomor urut, sebelum Nama. Dokumen dapat memakai berat di atas 1 kg; berat tersimpan dalam log dan mengikuti ekspor lokal/CN23.

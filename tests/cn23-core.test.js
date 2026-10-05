@@ -11,7 +11,7 @@ function element(id, value = '') {
   elements.set(id, result);
   return result;
 }
-['dropzone', 'clientMode', 'corporateTemplate', 'itemType', 'useInsurance', 'destinationMode', 'exportButton', 'exportBatamButton', 'exportCn23Button', 'cn23Settings', 'cn23PaymentMethodGroup', 'fileQueue', 'resultTable', 'batamRouteCount', 'cn23RouteCount', 'pendingRouteCount'].forEach(id => element(id));
+['dropzone', 'clientMode', 'corporateTemplate', 'itemType', 'useInsurance', 'destinationMode', 'exportButton', 'cn23Settings', 'cn23PaymentMethodGroup', 'fileQueue', 'resultTable', 'batamRouteCount', 'cn23RouteCount', 'pendingRouteCount'].forEach(id => element(id));
 elements.get('clientMode').value = 'RITEL';
 elements.get('corporateTemplate').value = 'MANUAL';
 elements.get('itemType').value = 'DOKUMEN';
@@ -105,7 +105,7 @@ async function run() {
   assert.equal(core.uploadedFilesManager[0].rows.length, 1, 'Pergantian mode tidak menghapus antrean');
   assert.equal(elements.get('itemType').value, 'DOKUMEN');
   assert.equal(elements.get('itemType').disabled, true);
-  assert.equal(elements.get('exportButton').textContent, 'Ekspor Antrean CN23');
+  assert.equal(elements.get('exportButton').textContent, 'Unduh Excel');
   for (const [id, value] of Object.entries(config)) {
     if (id !== 'useInsurance') (elements.get(id) || element(id)).value = value;
   }
@@ -149,14 +149,10 @@ async function run() {
   const local = { _rowId: 'local-1', name: 'SITI', address: 'KEL. BELIAN KEC. BATAM KOTA', phone: '0819999999', noSurat: 'BATAM-REF', cw: '0.20', p: 10, l: 10, t: 10 };
   core.uploadedFilesManager[0].rows.push(local);
   elements.get('destinationMode').value = 'mixed';
-  elements.get('exportBatamButton').disabled = true;
-  elements.get('exportCn23Button').disabled = true;
+  elements.get('exportButton').disabled = true;
   await core.handleDestinationModeChange();
-  assert.equal(elements.get('exportButton').hidden, true);
-  assert.equal(elements.get('exportBatamButton').hidden, false);
-  assert.equal(elements.get('exportCn23Button').hidden, false);
-  assert.equal(elements.get('exportBatamButton').disabled, false, 'Antrean Batam yang siap mengaktifkan tombol ekspor terpisah');
-  assert.equal(elements.get('exportCn23Button').disabled, false, 'Antrean luar kota yang siap mengaktifkan tombol CN23 terpisah');
+  assert.equal(elements.get('exportButton').hidden, false);
+  assert.equal(elements.get('exportButton').disabled, false, 'Kiriman campuran memakai satu tombol ekspor');
   assert.equal(core.getShipmentRoute(local), 'batam');
   assert.equal(core.getShipmentRoute(row), 'cn23');
   assert.equal(core.resolveZipCode('Alamat tanpa wilayah', 'MANUAL', '', { destinationMode: 'mixed' }), '');
@@ -191,8 +187,7 @@ async function run() {
   elements.get('destinationMode').value = 'mixed';
   core.uploadedFilesManager[0].rows.push({ ...local, _rowId: 'pending-1', address: 'KERITANG' });
   core.updateInterface();
-  assert.equal(elements.get('exportBatamButton').disabled, true, 'Tujuan belum terklasifikasi menahan kedua tombol ekspor');
-  assert.equal(elements.get('exportCn23Button').disabled, true);
+  assert.equal(elements.get('exportButton').disabled, true, 'Tujuan belum terklasifikasi menahan ekspor');
   await assert.rejects(window.downloadLocalExcel(), /belum dapat dipisahkan/, 'Kiriman ambigu tidak boleh dilewati diam-diam saat ekspor Batam');
   await assert.rejects(window.downloadCn23Excel(), /belum dapat dipisahkan/, 'Kiriman ambigu tidak boleh dilewati diam-diam saat ekspor CN23');
   const nationalSource = fs.readFileSync(path.join(__dirname, '../assets/js/postcode-national.js'), 'utf8');
@@ -234,8 +229,7 @@ async function run() {
   actualLocal._rowId = 'actual-local';
   core.uploadedFilesManager.splice(0, core.uploadedFilesManager.length, { id: 'test-file', name: 'mixed-labels.pdf', rows: [actualLocal, actualOutside] });
   document.querySelectorAll = selector => selector === '#resultTable tbody tr' ? [makeTr(actualLocal), makeTr(actualOutside)] : [];
-  await window.downloadLocalExcel();
-  await window.downloadCn23Excel();
+  await sandbox.downloadFinalExcel();
   assert.equal(actualExports.length, 2);
   assert.equal(actualExports[0].filename, 'Upload_MileApp_Ritel.xlsx');
   const actualLocalRows = realSheetJs.utils.sheet_to_json(actualExports[0].book.Sheets.Sheet1);
@@ -250,6 +244,28 @@ async function run() {
   assert.equal(actualOutsideRows[0].npwp, '000000000000000');
   assert.equal(actualOutsideRows[0].length_cm, 0);
   assert.equal(actualOutsideRows[0].item_value_idr, 20000);
+
+  // Satu klik hanya menulis kelompok yang berisi kiriman, tanpa file kosong.
+  for (const [entry, expectedFilename] of [[actualLocal, 'Upload_MileApp_Ritel.xlsx'], [actualOutside, 'Antrean_CN23_Dokumen_RITEL.xlsx']]) {
+    actualExports.length = 0;
+    core.uploadedFilesManager[0].rows = [entry];
+    document.querySelectorAll = selector => selector === '#resultTable tbody tr' ? [makeTr(entry)] : [];
+    await sandbox.downloadFinalExcel();
+    assert.deepEqual(actualExports.map(file => file.filename), [expectedFilename]);
+  }
+  core.uploadedFilesManager[0].rows = [actualLocal, actualOutside];
+  document.querySelectorAll = selector => selector === '#resultTable tbody tr' ? [makeTr(actualLocal), makeTr(actualOutside)] : [];
+  actualExports.length = 0;
+  actualOutside.cw = '0';
+  await assert.rejects(sandbox.downloadFinalExcel(), /Berat.*lebih dari 0/);
+  assert.equal(actualExports.length, 0, 'CN23 gagal validasi tidak boleh meninggalkan unduhan Batam sebagian');
+  delete actualOutside.cw;
+  actualLocal.cw = '0';
+  await assert.rejects(sandbox.downloadFinalExcel(), /Berat.*lebih dari 0/);
+  assert.equal(actualExports.length, 0, 'Batam gagal validasi tidak mengunduh kelompok lain');
+  delete actualLocal.cw;
+  await Promise.all([sandbox.downloadFinalExcel(), sandbox.downloadFinalExcel()]);
+  assert.equal(actualExports.length, 2, 'Pemanggilan serentak tidak menggandakan unduhan');
 
   // Jalankan listener core yang sebenarnya tanpa mengganti editor alamat aktif.
   ['wrapTemplate', 'cardDataPengirim', 'wrapCustomerId', 'wrapSenderName', 'wrapSenderPhone', 'wrapSenderAddress', 'wrapTariffCode', 'wrapItemType', 'tariffCode', 'wrapPindahDest'].forEach(id => { if (!elements.has(id)) element(id); });
@@ -270,8 +286,7 @@ async function run() {
   assert.match(postalCell.outerHTML, /Tujuan perlu diperiksa/);
   assert.equal(elements.get('pendingRouteCount').textContent, '1');
   assert.equal(elements.get('cn23RouteCount').textContent, '0');
-  assert.equal(elements.get('exportBatamButton').disabled, true);
-  assert.equal(elements.get('exportCn23Button').disabled, true);
+  assert.equal(elements.get('exportButton').disabled, true);
   assert.equal(document.activeElement, addressInput, 'Koreksi wilayah tidak mengganti node alamat yang sedang diedit');
   assert.equal(addressInput.selectionStart, 5);
   assert.equal(addressInput.selectionEnd, 5);
@@ -279,11 +294,10 @@ async function run() {
   inputHandlers[0]({ target: addressInput });
   assert.match(postalCell.outerHTML, /29274/);
   assert.equal(elements.get('pendingRouteCount').textContent, '0');
-  assert.equal(elements.get('exportBatamButton').disabled, false);
-  assert.equal(elements.get('exportCn23Button').disabled, false);
+  assert.equal(elements.get('exportButton').disabled, false);
   addressInput.value = 'SUKAMAJU';
   elements.get('resultTable').eventListeners.change[0]({ target: addressInput });
   assert.equal(elements.get('pendingRouteCount').textContent, '1', 'Perubahan pada blur juga menghitung ulang klasifikasi wilayah');
-  console.log('PASS cn23-core: fallback Batam tetap, antrean luar kota dipertahankan, kode pos ambigu wajib dipilih, preset CN23 dan korporat tepat');
+  console.log('PASS cn23-core: one export, one/two workbooks, no empty or partial exports, duplicate-click protection, preserved routing and presets');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
