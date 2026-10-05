@@ -3,9 +3,11 @@ const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 const assert=require('node:assert/strict');
 const Q=require('../../extensions/mile-cn23/queue.js');
-function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,serviceOptions=['PKH','PEK - Produk lain','PE - Pos Express'],corporate=false,payment='CREDIT',autoSubmit=true,maxCost=0,lateReference=false,transitionPayment=false,runtimeSend=null,onSubmit=null}={}) {
+const {callbackOnly}=require('./cn23-chrome-compat.cjs');
+function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,serviceOptions=['PKH','PEK - Produk lain','PE - Pos Express'],corporate=false,payment='CREDIT',autoSubmit=true,maxCost=0,lateReference=false,transitionPayment=false,runtimeSend=null,onSubmit=null,legacyChrome=0}={}) {
   const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'});const w=dom.window,d=w.document;
-  Object.defineProperty(w,'crypto',{value:require('node:crypto').webcrypto});
+  const webcrypto=require('node:crypto').webcrypto;
+  Object.defineProperty(w,'crypto',{value:legacyChrome===88?{getRandomValues:array=>webcrypto.getRandomValues(array)}:webcrypto});
   Object.defineProperty(w.HTMLElement.prototype,'getClientRects',{value:function(){return this.closest('[hidden], [style*="display: none"]')?[]:[{width:100,height:30}];}});
   let listener,submits=0,paymentOpens=0,enters=0;const messages=[];
   function mount(next={}) {
@@ -64,6 +66,8 @@ function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,se
   }
   mount();
   w.chrome={runtime:{onMessage:{addListener:fn=>listener=fn},sendMessage:async m=>{messages.push(m);return runtimeSend ? runtimeSend(m) : {ok:true,data:{}};}}};
+  if(legacyChrome)callbackOnly(w.chrome);
+  w.eval(fs.readFileSync('extensions/mile-cn23/compat.js','utf8'));
   w.MileCN23=Q;w.eval(fs.readFileSync('extensions/mile-cn23/form.js','utf8'));
   const row={...Q.defaults,queue_id:'TEST-1',sender_name:'PENGIRIM',sender_phone:'0',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_phone:'0',recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_city:'INDRAGIRI HILIR',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',service_code:'PKH',customer_mode:corporate?'KORPORAT':'RITEL',customer_code:'ACME',payment_method:corporate?payment:'CASH',ref_no:'TEST-1',description:'Dokumen',shipping_instruction:'Tolong diantar dengan baik'};
   return{w,d,messages,remount:mount,receive(message){let answer;listener(message,null,value=>answer=value);return answer;},get enters(){return enters;},get paymentOpens(){return paymentOpens;},start(patch={},token='TOKEN'){listener({type:'CN23_FILL',token,row:{...row,...patch},options:{autoSubmit,maxCost}},null,()=>{});},pause(){listener({type:'CN23_PAUSE',token:'TOKEN'},null,()=>{});},get submits(){return submits;},close(){w.close();}};

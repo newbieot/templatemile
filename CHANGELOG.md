@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.42 — Helper 0.2.8: kompatibilitas Chrome lama
+
+- Ekstensi mendukung Chrome 109 ke atas, termasuk Chrome 109 pada Windows 7 32-bit. Paket yang sama dipakai pada Chrome 32-bit dan 64-bit.
+- Komunikasi, penyimpanan antrean, dan pembaruan tab memakai callback agar tetap menunggu respons pada API Chrome lama yang belum mengembalikan Promise.
+- ID aman memiliki fallback `crypto.getRandomValues`. `setAccessLevel` dipanggil hanya bila tersedia. Alur antrean, pembayaran, PE, serta kemajuan versi 0.2.5–0.2.7 dipertahankan.
+- Menambahkan uji API callback, error, UUID fallback, dan batch tiga kiriman PE pada profil API Chrome 88/109. ZIP dan halaman unduhan diperbarui ke 0.2.8. APK tetap 0.1.6.
+
 ## v26.41 — Helper 0.2.7: pesan selesai sementara dan uji PE
 
 - Pesan hijau selesai otomatis hilang setelah 5 detik dan memiliki tombol tutup. Waktu tampil dihitung dari waktu antrean selesai, sehingga reload atau pesan ulang tidak memunculkan pemberitahuan lama. Penutupan disimpan tanpa menghapus kemajuan antrean.

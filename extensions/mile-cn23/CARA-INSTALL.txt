@@ -1,13 +1,18 @@
-MILE CN23 HELPER 0.2.7
+MILE CN23 HELPER 0.2.8
+
+KOMPATIBILITAS BROWSER
+Chrome 109 ke atas, termasuk Chrome 109.0.5414.120 pada Windows 7 32-bit.
+Paket yang sama dapat dipakai pada Chrome 32-bit dan 64-bit.
+Dukungan Chrome 88 disiapkan dalam rilis berikutnya.
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.7 ke folder
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.8 ke folder
    ekstensi lama dan timpa file lama, termasuk manifest.json.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.7.
+   Versi harus tertulis 0.2.8.
 3. Buka form CN23 kosong dan muat ulang tab Mile:
    https://expos.mile.app/new-transaction-custom
-4. Antrean dari 0.2.5 dan 0.2.6 tetap tersimpan. Bila berhenti karena selisih kode pos,
+4. Antrean dari 0.2.5, 0.2.6, dan 0.2.7 tetap tersimpan. Bila berhenti karena selisih kode pos,
    tekan Start untuk melanjutkan; baris selesai tidak diulang. Tidak perlu Reset.
    Cache 0.2.4 dan versi sebelumnya otomatis dibersihkan. Jika antrean kosong,
    upload Excel yang ingin diproses, lalu klik Start sekali.
@@ -60,7 +65,7 @@ Kode zona mengikuti pilihan Mile.
 Kode pos dan kode zona yang dikunci Mile selalu dipakai setelah wilayah cocok,
 meskipun berbeda dari Excel. Aturan ini berlaku untuk seluruh tujuan.
 
-PENGUJIAN 0.2.7
+PENGUJIAN 0.2.8
 Satu Start diuji untuk tiga kiriman: Cash, Invoice, lalu CREDIT. Tidak ada
 tab cetak dalam pengujian. Nama penerima, referensi, metode pembayaran,
 dan pengirim korporat diperiksa saat masing-masing tombol Selesai ditekan.
@@ -79,6 +84,10 @@ termasuk saat berpindah ke form kedua dan ketiga setelah reload penuh.
 Pesan selesai diuji otomatis hilang setelah 5 detik, ditutup dengan ×,
 serta tidak tampil kembali setelah reload. Uji PE memakai simulasi;
 transaksi PE nyata pada Mile belum diuji.
+
+Kompatibilitas API callback Chrome lama diuji sampai tiga kiriman PE selesai
+dari satu Start: Cash, Invoice, lalu CREDIT, termasuk pengisian form kedua
+dan ketiga setelah reload. Fallback UUID diuji tanpa randomUUID.
 
 Data antrean tersimpan lokal di Chrome. Tidak meminta password/API key.
 Permission storage/alarms, akses situs hanya https://expos.mile.app/*.

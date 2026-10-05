@@ -3,7 +3,7 @@
   let menu = null, noticeTimer = null, dismissedCompletion = null;
   const NOTICE_DURATION = 5000;
   async function request(type, extra = {}) {
-    const reply = await chrome.runtime.sendMessage({ type, ...extra });
+    const reply = await MileCN23Compat.call(chrome.runtime,'sendMessage',{ type, ...extra });
     if (!reply?.ok) throw new Error(reply?.error || 'Ekstensi belum siap.');
     return reply.data;
   }

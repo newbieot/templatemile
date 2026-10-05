@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const {JSDOM}=require('jsdom');
 const {fixture}=require('./helpers/cn23-form-fixture.cjs');
+const {loadWorker,callbackOnly}=require('./helpers/cn23-chrome-compat.cjs');
 const Q=require('../extensions/mile-cn23/queue.js');
 const crypto=require('node:crypto').webcrypto;
 const field=(document,id)=>[...document.querySelectorAll('#'+id)].find(el=>!el.closest('[hidden]'));
@@ -12,7 +13,7 @@ async function until(fn,description) {
   throw new Error('Batch timeout: '+description);
 }
 
-for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{spa:true,dropReady:true,missList:true},{spa:false,dropReady:false,serviceCode:'PE'}])test(`NO PRINT TAB: one Start completes three ${scenario.serviceCode||'PKH'} shipments ${scenario.missList?'with form two already loaded and the list event missing ':''}with ${scenario.spa?'same-document Mile navigation and lost readiness messages':'full navigations'}`,async()=>{
+for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{spa:true,dropReady:true,missList:true},{spa:false,dropReady:false,serviceCode:'PE'},{spa:false,dropReady:false,serviceCode:'PE',legacyChrome:109},{spa:false,dropReady:false,serviceCode:'PE',legacyChrome:88}])test(`NO PRINT TAB: one Start completes three ${scenario.serviceCode||'PKH'} shipments ${scenario.legacyChrome?'with callback-only Chrome '+scenario.legacyChrome+' APIs ':''}${scenario.missList?'with form two already loaded and the list event missing ':''}with ${scenario.spa?'same-document Mile navigation and lost readiness messages':'full navigations'}`,async()=>{
   let stored={},listener,onUpdated,mainPage,documentNumber=0,submissionNumber=0,failure;
   const pages=[],events=[],forms=[],paymentOpens=[],dropped=new Set(),pending=new Set(),tabs=new Map([[7,{id:7,url:Q.FORM_URL}]]);
   const rows=[
@@ -34,7 +35,7 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
       mainPage.remount({corporate,lateReference:true,postal:submissionNumber===1?'29276':'29274'});return;
     }
     if(mainPage)mainPage.close();
-    mainPage=fixture({corporate,postal:submissionNumber===1?'29276':'29274',transitionPayment:true,lateReference:number>1,
+    mainPage=fixture({corporate,postal:submissionNumber===1?'29276':'29274',transitionPayment:true,lateReference:number>1,legacyChrome:scenario.legacyChrome,
       runtimeSend:message=>{
         events.push({type:message.type,document:number});
         if(scenario.dropReady&&message.type==='FORM_READY'&&!dropped.has(message.formId)){dropped.add(message.formId);return Promise.resolve({ok:true,data:{ignored:true}});}
@@ -84,8 +85,9 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
       },onUpdated:{addListener:fn=>onUpdated=fn}},
     action:{setBadgeText:async()=>{},onClicked:noop,setTitle:async()=>{}},alarms:{onAlarm:noop,create:async()=>{}}
   };
-  const context={chrome,URL,Date,crypto,console,importScripts:()=>{},MileCN23:Q};
-  vm.createContext(context);vm.runInContext(fs.readFileSync('extensions/mile-cn23/background.js','utf8'),context);
+  if(scenario.legacyChrome)callbackOnly(chrome,{omitAccessLevel:scenario.legacyChrome===88});
+  const context={chrome,URL,Date,crypto:scenario.legacyChrome===88?{getRandomValues:array=>crypto.getRandomValues(array)}:crypto,console};
+  loadWorker(context);
   try {
     openForm();
     assert.equal((await send({type:'IMPORT',rows,batchId:'three-labels',fileName:'three.xlsx'})).ok,true);

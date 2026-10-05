@@ -1,9 +1,9 @@
 /* Operates visible Mile fields. Never calls Mile's transaction API. */
 (() => {
   'use strict';
-  const Q = MileCN23;
+  const Q = MileCN23, C = MileCN23Compat;
   let current = null;
-  const pageId=crypto.randomUUID();
+  const pageId=C.uuid();
   const visible = el => Boolean(el && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
   const all = (selector, root = document) => [...root.querySelectorAll(selector)];
   const one = (selector, root = document) => {
@@ -19,7 +19,7 @@
     const missing=onForm?formSelectors.filter((_selector,i)=>controls[i].length!==1):[];
     const nodes=controls.map(list=>list[0]);
     const mounted=onForm&&!missing.length&&!all('.el-loading-mask').some(visible);
-    if (!mounted || !nodes.every((node,i)=>node===probeNodes[i])) {probeSince=Date.now();probeNodes=mounted?nodes:[];formId=mounted?crypto.randomUUID():'';}
+    if (!mounted || !nodes.every((node,i)=>node===probeNodes[i])) {probeSince=Date.now();probeNodes=mounted?nodes:[];formId=mounted?C.uuid():'';}
     const ready=mounted&&Date.now()-probeSince>=150;
     const blank=ready&&['namapenerima','ref_no','alamatPenerima'].every(id=>!one('#'+id).value.trim())&&!exactButton('Ubah Data');
     return {version:Q.VERSION,pageId,formId,path:location.pathname,ready,blank,busy:Boolean(current),token:current?.token,submitted:Boolean(current?.submitted),missing};
@@ -27,7 +27,7 @@
   async function announceForm() {
     const state=formState();
     if(state.ready&&state.blank&&(!state.busy||state.submitted)) {
-      try {await chrome.runtime.sendMessage({type:'FORM_READY',...state});} catch (_) { /* The next heartbeat retries a waking/reloaded worker. */ }
+      try {await C.call(chrome.runtime,'sendMessage',{type:'FORM_READY',...state});} catch (_) { /* The next heartbeat retries a waking/reloaded worker. */ }
     }
   }
   async function readyForm() {
@@ -45,7 +45,7 @@
     }, 'seluruh kolom form CN23 baru', 45000);
   }
   async function send(type, extra = {}) {
-    const reply = await chrome.runtime.sendMessage({ type, token: current?.token, ...extra });
+    const reply = await C.call(chrome.runtime,'sendMessage',{ type, token: current?.token, ...extra });
     if (!reply?.ok) throw new Error(reply?.error || 'Status antrean belum dapat disimpan.');
     return reply.data;
   }

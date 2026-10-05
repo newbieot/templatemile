@@ -17,7 +17,7 @@ test('icon toggles upload/start inside the existing tab, imports real workbook a
       if(m.type==='RESET')state={rows:[]};
       return{ok:true,data:state};
     }}};
-    w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
+    w.eval(fs.readFileSync('extensions/mile-cn23/compat.js','utf8'));w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
     listener({type:'CN23_PANEL_TOGGLE',tabId:7},null,()=>{});await sleep(20);
     assert.equal(w.document.querySelectorAll('#mile-cn23-menu').length,1);assert.equal(root.querySelectorAll('button').length,3);
     assert.equal(root.querySelector('h3').textContent,`Mile CN23 · ${Q.VERSION}`);assert.equal(root.getElementById('results'),null);
@@ -46,7 +46,7 @@ test('running panel restores after full reload and survives a SPA replacing its 
     const state={rows:[{id:'ACTIVE',data:{recipient_name:'PENERIMA'},status:'awaiting_navigation'}],active:{id:'ACTIVE',submittedAt:1},running:true,panelOpen:true,};
     const messages=[];w.MileCN23=Q;
     w.chrome={runtime:{onMessage:{addListener(){}},sendMessage:async m=>{messages.push(m);return {ok:true,data:m.type==='PAGE_READY'?{openPanel:true,tabId:7}:state};}}};
-    w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));await sleep(60);
+    w.eval(fs.readFileSync('extensions/mile-cn23/compat.js','utf8'));w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));await sleep(60);
     assert.equal(w.document.querySelectorAll('#mile-cn23-menu').length,1,'No icon click on new document');
     assert.match(root.getElementById('status').textContent,/Menunggu Mile membuka daftar transaksi/);assert.doesNotMatch(root.textContent,/kepastian|resi/i);
     assert.equal(root.getElementById('start').textContent,'Jeda');
@@ -67,7 +67,7 @@ function completionFixture({now=10000,completedAt=10000,dismissed=false}={}) {
     messages.push(message);
     return {ok:true,data:{completedAt,total:8,done:8,completionDismissedAt:dismissed?completedAt:undefined}};
   }}};
-  w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
+  w.eval(fs.readFileSync('extensions/mile-cn23/compat.js','utf8'));w.eval(fs.readFileSync('extensions/mile-cn23/ui.js','utf8'));
   return {w,messages,notice:()=>w.document.getElementById('mile-cn23-complete'),
     repeat:()=>listener({type:'CN23_BATCH_DONE',total:8,completedAt},null,()=>{}),
     advance(ms){clock+=ms;for(const [id,timer] of [...timers])if(timer.at<=clock){timers.delete(id);timer.fn();}},

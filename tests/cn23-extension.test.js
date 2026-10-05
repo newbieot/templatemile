@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const Q=require('../extensions/mile-cn23/queue.js');
+const {loadWorker}=require('./helpers/cn23-chrome-compat.cjs');
 const sample=(id='ROW-1')=>({...Q.defaults,queue_id:id,customer_mode:'RITEL',payment_method:'CASH',service_code:'PKH',sender_name:'PENGIRIM',sender_address:'BATAM',recipient_name:id,recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_city:'INDRAGIRI HILIR',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',recipient_province:'RIAU',ref_no:'REF-'+id});
 function harness(initial){
   let stored=initial?{mileCn23Queue:structuredClone(initial)}:{},listener,updated,installed;
@@ -11,7 +12,7 @@ function harness(initial){
     storage:{local:{get:async key=>({[key]:structuredClone(stored[key])}),set:async value=>{stored=structuredClone(value);events.push({type:'SAVE',status:stored.mileCn23Queue.rows[0]?.status});},setAccessLevel:async()=>{}}},
     tabs:{query:async()=>{throw new Error('Queue must NEVER inspect print tabs');},get:async id=>tabs.get(id),sendMessage:async(id,m)=>{events.push({type:m.type,id});if(m.type==='CN23_PROBE')return structuredClone(probe);if(m.type==='CN23_FILL'){const ack={accepted:true,formId:probe.formId,pageId:probe.pageId};probe={...probe,busy:true,blank:false};return ack;}return {accepted:true};},update:async(id,patch)=>{events.push({type:'NAVIGATE',...patch});tabs.set(id,{...tabs.get(id),...patch});probe={...probe,ready:false,blank:false,busy:false};return tabs.get(id);},onUpdated:{addListener:fn=>updated=fn}},
     action:{onClicked:noop,setBadgeText:async()=>{},setTitle:async()=>{}},alarms:{onAlarm:noop,create:async()=>{}}};
-  const context={chrome,URL,Date,crypto:require('node:crypto').webcrypto,importScripts(){},MileCN23:Q};vm.createContext(context);vm.runInContext(fs.readFileSync('extensions/mile-cn23/background.js','utf8'),context);
+  const context={chrome,URL,Date,crypto:require('node:crypto').webcrypto};loadWorker(context);
   const sender={id:'fixture',url:Q.FORM_URL,tab:{id:7,url:Q.FORM_URL}};
   const send=(m,who=sender)=>new Promise(resolve=>listener(m,who,resolve));
   return {send,events,tabs,installed,mount(id='form-2',patch={}){probe={version:Q.VERSION,ready:true,blank:true,busy:false,path:'/new-transaction-custom',formId:id,pageId:'page-'+id,...patch};},async list(){tabs.set(7,{id:7,url:'https://expos.mile.app/transaction-list'});updated(7,{url:tabs.get(7).url},tabs.get(7));await send({type:'GET'});},get state(){return stored.mileCn23Queue;},get ready(){return structuredClone(probe);}};
