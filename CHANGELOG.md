@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.46 — Draft APK tidak langsung kedaluwarsa
+
+- Batch dari APK bisa memakai tanggal awal draft beberapa hari sebelumnya. Penyimpanan web kini mencatat waktu simpan terbaru secara terpisah; cleanup tidak memakai umur capture untuk menghapus batch yang baru dikirim.
+- Periksa Hasil memproses foto lokal yang masih tersedia tanpa menolak atau menghapusnya karena tanggal capture lama. APK 0.1.6 tetap didukung; foto dapat dikirim ulang lewat Proses AI tanpa capture ulang.
+- Masa simpan hasil Log Kamera 72 jam dihitung sejak hasil terakhir disimpan, sehingga draft offline lama tetap tersedia setelah diproses.
+
 ## v26.45 — Satu tombol ekspor
 
 - Periksa Hasil, app, dan beta memakai satu tombol Unduh Excel. Kiriman campuran menghasilkan Excel Batam dan antrean CN23 jika kedua kelompok berisi data; jika hanya satu kelompok, hanya satu Excel diunduh.

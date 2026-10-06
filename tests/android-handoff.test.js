@@ -13,7 +13,7 @@ async function run(options={}) {
   };
   sandbox.window=sandbox;
   vm.createContext(sandbox);
-  const manifest={id:'CAM-test',destinationMode:options.mode,startedAt:new Date().toISOString(),deviceName:'QA',photos:Array.from({length:7},(_,i)=>({url:'/native/'+i,sequence:i+1,width:options.badDimensions ? 2048 : 1280,height:720}))};
+  const manifest={id:'CAM-test',destinationMode:options.mode,startedAt:options.startedAt || new Date().toISOString(),deviceName:'QA',photos:Array.from({length:7},(_,i)=>({url:'/native/'+i,sequence:i+1,timestamp:new Date().toISOString(),width:options.badDimensions ? 2048 : 1280,height:720}))};
   await vm.runInContext(script+'('+JSON.stringify(manifest)+')',sandbox);
   return {saved,fetched,state:sandbox.__mileNativeTransfer};
 }
@@ -26,5 +26,10 @@ async function run(options={}) {
   const badOrigin=await run({origin:'https://example.com'}); assert.equal(badOrigin.state.state,'error'); assert.equal(badOrigin.fetched.length,0);
   for(const mode of ['batam','cn23','mixed']) { const result=await run({mode}); assert.equal(result.state.state,'done'); assert.equal(result.saved[0].destinationMode,mode); assert.equal(result.saved[0].form.destinationMode,mode); }
   const oldWeb=await run({mode:'mixed',oldWeb:true}); assert.equal(oldWeb.state.state,'error'); assert.equal(oldWeb.saved.length,0); assert.equal(oldWeb.fetched.length,0);
+  const draftStarted = Date.now() - 10 * 86400000;
+  const freshCapture=await run({startedAt:new Date(draftStarted).toISOString()});
+  assert.equal(freshCapture.state.state,'done');
+  assert.equal(freshCapture.saved[0].createdAt,draftStarted,'APK 0.1.6 can send a draft creation time older than its photos.');
+  assert.ok(Date.now()-Date.parse(freshCapture.saved[0].images[0].timestamp)<10000,'The photo was just captured.');
   console.log('PASS Android handoff: 7 photos, original JPEG, Gemini default, failed image, storage failure, untrusted origin');
 })().catch(e=>{console.error(e);process.exitCode=1;});

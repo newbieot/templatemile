@@ -1,4 +1,4 @@
-const APP_VERSION = '20261005-26.45-single-export';
+const APP_VERSION = '20261006-26.46-camera-draft-expiry';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -882,7 +882,7 @@ async function handleCameraBatchSave(request, env, session, url) {
   const rowSummary = summarizeCameraRows(body.rows, body.form);
   const record = {
     id: body.id,
-    createdAt: Number(body.createdAt) || now,
+    createdAt: Number.isFinite(Number(body.createdAt)) && Number(body.createdAt) > 0 ? Number(body.createdAt) : now,
     savedAt: now,
     startedAt: safeMetricText(body.startedAt, 40),
     captureFinishedAt: safeMetricText(body.captureFinishedAt, 40),
@@ -899,7 +899,7 @@ async function handleCameraBatchSave(request, env, session, url) {
     concurrency: clampMetricNumber(body.concurrency, 1, 5),
     chunkTimings: sanitizeCameraChunkTimings(body.chunkTimings),
     ...rowSummary,
-    expiresAt: (Number(body.createdAt) || now) + CAMERA_BATCH_TTL_MS,
+    expiresAt: now + CAMERA_BATCH_TTL_MS,
     status: 'complete',
     form: { ...(body.form && typeof body.form === 'object' && !Array.isArray(body.form) ? body.form : {}), destinationMode: rowSummary.destinationMode },
     rows: body.rows

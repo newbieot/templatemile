@@ -48,9 +48,11 @@
   }
 
   function save(session) {
+    // Capture timestamps can predate this handoff by days in an offline APK draft.
+    const stored = { ...session, savedAt: Date.now() };
     return runTransaction('readwrite', (store, resolve, reject) => {
-      const request = store.put(session);
-      request.onsuccess = () => resolve(session);
+      const request = store.put(stored);
+      request.onsuccess = () => resolve(stored);
       request.onerror = () => reject(request.error);
     });
   }
@@ -102,7 +104,9 @@
           resolve(true);
           return;
         }
-        if (Number(cursor.value?.createdAt || 0) < cutoff) cursor.delete();
+        const session = cursor.value;
+        const savedAt = Number(session?.savedAt) || Date.parse(session?.finishedAt) || Number(session?.updatedAt) || Number(session?.createdAt) || 0;
+        if (!Number.isFinite(savedAt) || savedAt < cutoff) cursor.delete();
         cursor.continue();
       };
       request.onerror = () => reject(request.error);

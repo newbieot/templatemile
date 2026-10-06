@@ -149,11 +149,8 @@
         throw new Error('Batch camera tidak ditemukan atau sudah selesai diproses.');
       }
       activateCameraMode(session.captureCount);
-      const age = Date.now() - Number(session.createdAt || 0);
-      if (!Number.isFinite(age) || age > 6 * 60 * 60 * 1000) {
-        await store.remove(sessionId);
-        throw new Error('Batch camera sudah kedaluwarsa. Silakan capture ulang.');
-      }
+      // An offline APK draft can have an old capture date. Available local
+      // photos remain processable; only remove them after successful extraction.
 
       if (!window.location.pathname.startsWith('/review')) {
         window.location.replace(`/review?cameraSession=${encodeURIComponent(sessionId)}`);

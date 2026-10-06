@@ -200,9 +200,43 @@ async function cloudProfilesAndReview() {
   }
 }
 
+async function importFreshAndroidPhotos() {
+  const now = Date.now();
+  for (const createdAt of [now - 10 * 86400000, 0, undefined]) {
+    const session = { id: sessionId, createdAt, startedAt: new Date(now - 10 * 86400000).toISOString(),
+      finishedAt: new Date(now).toISOString(), captureCount: 1, destinationMode: 'mixed',
+      images: [{ blob: jpeg, source: 'android-camerax', timestamp: new Date(now).toISOString() }] };
+    const env = environment('batam', session);
+    let processed = 0;
+    env.window.MileAI = {
+      async processCameraImages(images) {
+        processed++;
+        assert.equal(images[0].blob, jpeg, 'The fresh original Android photo must reach AI unchanged.');
+        env.core.uploadedFilesManager.push({ rows: [{ name: 'FRESH CAPTURE' }] });
+        return { status: 'SUCCESS' };
+      }, async processPDFFile() {}
+    };
+    env.run('assets/js/camera-import-v2.js', 'window.importFixture = importCameraBatch;');
+    await env.window.importFixture();
+    assert.equal(processed, 1, 'A draft clock must not reject a just-captured Android photo.');
+    assert.equal(env.selector.value, 'mixed');
+    assert.equal(env.notifications.some(item => /kedaluwarsa|capture ulang/i.test(item.message)), false);
+    assert.equal(env.stored, null, 'Successful extraction may clear the temporary copy.');
+  }
+  const session = { id: sessionId, createdAt: now - 10 * 86400000, captureCount: 1,
+    images: [{ blob: jpeg, source: 'android-camerax', timestamp: new Date(now).toISOString() }] };
+  const env = environment('batam', session);
+  env.window.MileAI = { async processCameraImages() { return { status: 'FAILED', error: 'Koneksi terputus' }; }, async processPDFFile() {} };
+  env.run('assets/js/camera-import-v2.js', 'window.importFixture = importCameraBatch;');
+  await env.window.importFixture();
+  assert.equal(env.stored.images[0].blob, jpeg, 'AI failure must preserve a fresh photo with an older draft timestamp for retry.');
+  assert.equal(env.notifications.some(item => /kedaluwarsa|capture ulang/i.test(item.message)), false);
+}
+
 (async () => {
   await captureSnapshots();
   await importProfiles();
+  await importFreshAndroidPhotos();
   await cloudProfilesAndReview();
   for (const file of ['app.html', 'beta.html', 'review.html', 'camera.html']) {
     const html = fs.readFileSync(path.join(root, file), 'utf8');

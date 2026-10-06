@@ -85,7 +85,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20261005-26.45-single-export');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20261006-26.46-camera-draft-expiry');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -158,4 +158,20 @@ assert.equal(batchList.batches[0].chunkTimings[0].errorStatus, 400);
 assert.equal(batchList.batches[0].chunkTimings[0].upstreamMs, 875);
 assert.equal(batchList.batches[0].chunkTimings[0].requestId, 'req-test-123');
 
-console.log('PASS worker-camera-route: auth gate, camera-only permission, protected assets, review route, dan detail log kamera');
+// Fresh AI results must remain readable even if Android initialized its draft days ago.
+const oldDraftId = 'CAM-old-draft-new-capture-1234';
+const oldDraftCreatedAt = Date.now() - 10 * 86400000;
+const savedOldDraft = await workerModule.default.fetch(new Request(`https://mile.posnew.com/api/camera/batch/${oldDraftId}`, {
+  method: 'POST', headers: { cookie: `__Host-mile_session=${token}`, 'content-type': 'application/json' },
+  body: JSON.stringify({ id: oldDraftId, createdAt: oldDraftCreatedAt, captureCount: 1, rows: [{ name: 'FRESH CAPTURE', address: 'BATAM' }] })
+}), env);
+assert.equal(savedOldDraft.status, 200);
+const restoredOldDraft = await workerModule.default.fetch(new Request(`https://mile.posnew.com/api/camera/batch/${oldDraftId}`, {
+  headers: { cookie: `__Host-mile_session=${token}` }
+}), env);
+assert.equal(restoredOldDraft.status, 200, 'A result saved now must not expire from the APK draft start time.');
+const oldDraftResult = (await restoredOldDraft.json()).batch;
+assert.equal(oldDraftResult.createdAt, oldDraftCreatedAt, 'Original capture metadata is retained.');
+assert.equal(oldDraftResult.expiresAt, oldDraftResult.savedAt + 72 * 60 * 60 * 1000);
+
+console.log('PASS worker-camera-route: auth gate, protected assets, review route, detailed camera log, and 72-hour retention from result save');
