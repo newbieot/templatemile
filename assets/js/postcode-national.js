@@ -2,10 +2,11 @@
   'use strict';
   const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-4';
   const MAX_CANDIDATES = 100;
-  const MATCHER_VERSION = '20261006-auto-destination-4';
+  const MATCHER_VERSION = '20261006-whole-region-5';
   let records = [];
   let tokenIndex = new Map();
   let postcodeIndex = new Map();
+  let compoundLowerNames = [new Set(), new Set()];
   let loaded = false;
   let loading = null;
 
@@ -36,6 +37,27 @@
     const nextRecords = [];
     const nextTokens = new Map();
     const nextPostcodes = new Map();
+    const nextCompoundLowerNames = [new Set(), new Set()];
+    const cityWords = [...new Set(cities.flatMap(aliases))].filter(name => /^[A-Z]{4,}$/.test(name));
+    const cityWordsByInitial = new Map();
+    cityWords.forEach(name => {
+      if (!cityWordsByInitial.has(name[0])) cityWordsByInitial.set(name[0], []);
+      cityWordsByInitial.get(name[0]).push(name);
+    });
+    function lowerAliases(value) {
+      return [...new Set(aliases(value).flatMap(name => {
+        // The data can join a name that labels separate: BATULICIN / BATU
+        // LICIN, BATUBULAN KANGIN / BATU BULAN KANGIN. Derive variants from
+        // whole source words; never interpret their city prefix separately.
+        const spaced = name.split(' ').map(word => {
+          const prefix = (cityWordsByInitial.get(word[0]) || [])
+            .filter(city => word.startsWith(city) && word.length - city.length >= 3)
+            .sort((a, b) => b.length - a.length)[0];
+          return prefix ? `${prefix} ${word.slice(prefix.length)}` : word;
+        }).join(' ');
+        return [name, name.replace(/ /g, ''), spaced];
+      }))];
+    }
     const unique = new Set();
     data.rows.forEach((row, sourceIndex) => {
       const [postcode, village, districtId, cityId, provinceId] = row;
@@ -52,7 +74,14 @@
         id: `postal-${sourceIndex}`, postcode, village, district, city, province,
         label: `${district} — ${village} — ${city}, ${province} (${postcode})`
       };
-      const fields = [aliases(village), aliases(district), aliases(city), aliases(province)];
+      const fields = [lowerAliases(village), lowerAliases(district), aliases(city), aliases(province)];
+      // Keep joined/separated spellings tied to the same source record.
+      fields.slice(0, 2).forEach((names, field) => {
+        names.filter(name => name.includes(' ')).forEach(name => {
+          nextCompoundLowerNames[field].add(name);
+          nextCompoundLowerNames[field].add(name.replace(/ /g, ''));
+        });
+      });
       if (province === 'DAERAH KHUSUS IBUKOTA JAKARTA') fields[3].push('JAKARTA');
       const index = nextRecords.length;
       nextRecords.push({ candidate, fields });
@@ -67,6 +96,7 @@
     records = nextRecords;
     tokenIndex = nextTokens;
     postcodeIndex = nextPostcodes;
+    compoundLowerNames = nextCompoundLowerNames;
     loaded = true;
     return api;
   }
@@ -198,22 +228,23 @@
       if (!matchedAliases.some(Boolean)) continue;
       evidence.push({ index, matchedAliases });
     }
-    // PULAU must not compete with PULAU KIJANG merely because both occur in
-    // the same village phrase. Keep whole, most specific names per field.
+    // Consider whole phrases across administrative levels. A city named
+    // BATU inside the district BATU AJI is not a separate city mention.
     const namesByField = [0, 1, 2, 3].map(field => [...new Set(evidence.map(item => item.matchedAliases[field]).filter(Boolean))]);
-    const containedNames = namesByField.map(names => new Set(names.filter(name =>
-      names.some(longer => longer !== name && ` ${longer} `.includes(` ${name} `)))));
-    const spansByField = namesByField.map(names => names.flatMap(name => {
+    const spansByField = namesByField.map((names, field) => names.flatMap(name => {
       const spans = [];
       let start = padded.indexOf(` ${name} `);
       while (start >= 0) {
-        spans.push({ start, end: start + name.length });
+        spans.push({ start, end: start + name.length, field });
         start = padded.indexOf(` ${name} `, start + 1);
       }
       return spans;
     }));
+    const markers = [/\b(?:KEL|KELURAHAN|DESA|DS)\s*$/, /\b(?:KEC|KECAMATAN)\s*$/,
+      /\b(?:KOTA|KAB|KABUPATEN)\s*$/, /\b(?:PROV|PROVINSI)\s*$/];
+    const allSpans = spansByField.flat();
     function areaPosition(name, field) {
-      if (!name || containedNames[field].has(name)) return -1;
+      if (!name) return -1;
       let position = padded.lastIndexOf(` ${name} `);
       while (position >= 0) {
         const before = padded.slice(0, position);
@@ -224,7 +255,13 @@
         const parent = spansByField.slice(field + 1).some((spans, offset) => spans.some(span =>
           (span.end - span.start > name.length || field + offset + 1 >= 2) &&
           span.start <= position && span.end >= position + name.length));
-        if (!street && !building && !parent) return position;
+        const explicitlyNamed = markers[field].test(before);
+        const insideLongerName = allSpans.some(span => span.end - span.start > name.length &&
+          span.start <= position && span.end >= position + name.length &&
+          (!explicitlyNamed || markers[span.field].test(padded.slice(0, span.start))));
+        // Test each occurrence separately: a later standalone "Kota Batu"
+        // remains valid even if "Batu Aji" appeared earlier in the label.
+        if (!street && !building && !parent && !insideLongerName) return position;
         if (position === 0) break;
         position = padded.lastIndexOf(` ${name} `, position - 1);
       }
@@ -242,15 +279,24 @@
       const score = hits.reduce((total, hit, i) => total + (hit ? [4, 3, 2, 1][i] : 0), 0);
       geographic.push({ index, count, score, matchedAliases, positions });
     }
-    const markers = [/\b(?:KEL|KELURAHAN|DESA|DS)\s*$/, /\b(?:KEC|KECAMATAN)\s*$/,
-      /\b(?:KOTA|KAB|KABUPATEN)\s*$/, /\b(?:PROV|PROVINSI)\s*$/];
     const explicitPositions = markers.map((marker, field) => geographic.reduce((last, item) => {
       const position = item.positions[field];
       return position >= 0 && marker.test(padded.slice(0, position)) ? Math.max(last, position) : last;
     }, -1));
+    const lowerCities = [new Map(), new Map()];
+    geographic.forEach(item => {
+      const { city, province } = records[item.index].candidate;
+      item.matchedAliases.slice(0, 2).forEach((name, field) => {
+        if (!name || !compoundLowerNames[field].has(name)) return;
+        if (!lowerCities[field].has(name)) lowerCities[field].set(name, new Set());
+        lowerCities[field].get(name).add(JSON.stringify([city, province]));
+      });
+    });
     function hasStrongLower(item) {
       const lower = item.matchedAliases.slice(0, 2).filter(Boolean);
-      return new Set(lower).size >= 2 || item.matchedAliases.slice(0, 2).some((name, field) => {
+      // A complete compound area unique to one city supplies its parent
+      // city from the database even when the label omits Batam/etc.
+      return item.matchedAliases.slice(0, 2).some((name, field) => lowerCities[field].get(name)?.size === 1) || new Set(lower).size >= 2 || item.matchedAliases.slice(0, 2).some((name, field) => {
         if (!name) return false;
         return markers[field].test(padded.slice(0, item.positions[field]));
       });
@@ -265,7 +311,29 @@
     const withAddressDefault = result => {
       const strong = geographic.filter(hasStrongLower);
       const strongCities = new Set(strong.map(item => JSON.stringify([records[item.index].candidate.city, records[item.index].candidate.province])));
-      return tail < 0 && !postcodeIndex.has(hint) && strongCities.size !== 1 ? defaultBatam() : result;
+      if (tail >= 0 || postcodeIndex.has(hint)) return result;
+      // For an omitted parent city, a complete, unique district is stronger
+      // routing evidence than villages in other cities with that same name.
+      const uniqueDistricts = geographic.filter(item => lowerCities[1].get(item.matchedAliases[1])?.size === 1);
+      const lastDistrict = uniqueDistricts.reduce((last, item) => Math.max(last, item.positions[1]), -1);
+      const districtTail = uniqueDistricts.filter(item => item.positions[1] === lastDistrict);
+      if (districtTail.length) {
+        const retainsDistrict = districtTail.some(item => {
+          const candidate = records[item.index].candidate;
+          return result.selected?.city === candidate.city && result.selected?.province === candidate.province && result.selected?.district === candidate.district;
+        });
+        return retainsDistrict ? result : resolveCandidates(districtTail.map(item => records[item.index].candidate), { cityKnown: true, lowerKnown: true });
+      }
+      if (strongCities.size === 1) {
+        const selectedCity = JSON.stringify([result.selected?.city, result.selected?.province]);
+        return strongCities.has(selectedCity) ? result : resolveCandidates(strong.map(item => records[item.index].candidate), { cityKnown: true, lowerKnown: true });
+      }
+      // When the omitted city uses the application's Batam default, retain
+      // a complete local area that the source actually recognises. Batu Aji
+      // and Batu Ampar keep their district codes instead of a generic 29411.
+      const local = geographic.filter(item => records[item.index].candidate.city === 'BATAM' &&
+        item.matchedAliases.slice(0, 2).some(Boolean));
+      return local.length ? resolveCandidates(local.map(item => records[item.index].candidate), { cityKnown: true, lowerKnown: true }) : defaultBatam();
     };
     if (tail >= 0) {
       geographic = geographic.filter(item => item.positions[2] === tail || item.positions[3] === tail);

@@ -24,6 +24,62 @@ function service(fetch) {
   assert.equal(data.recordCount, 81248, 'Preserve every source record in the shipped dataset.');
   assert.equal(api.isLoaded(), true);
   for (const address of [
+    'ARTHA INDAH BATU AJI BLOK K NO 19 DI TEMPAT',
+    'ARTHA INDAH BATUAJI BLOK K NO 19',
+    'Artha Indah Batu-Aji Blok K No.19',
+    'Batu Aji', 'Kec. Batu Aji'
+  ]) {
+    const result = api.match(address);
+    assert.equal(result.status, 'matched', address);
+    assert.equal(result.selected.city, 'BATAM', address);
+    assert.equal(result.selected.district, 'BATU AJI', 'Retain the actual district, not just a Batam default: ' + address);
+    assert.equal(result.postcode, '29438', address);
+    assert.equal(result.defaulted, undefined, address);
+  }
+  for (const [address, city, district] of [
+    ['Batu Ampar', 'BATAM', 'BATU AMPAR'],
+    ['Batu Besar', 'BATAM', 'NONGSA'],
+    ['Batu Licin', 'TANAH BUMBU', 'BATULICIN'],
+    ['Batu Bulan Sukawati Gianyar Bali', 'GIANYAR', 'SUKAWATI'],
+    ['Batu Putih Berau Kalimantan Timur', 'BERAU', 'BATU PUTIH'],
+    ['Batu Raja Timur Ogan Komering Ulu Sumatera Selatan', 'OGAN KOMERING ULU', 'BATURAJA TIMUR'],
+    ['Bandung Kulon', 'BANDUNG', 'BANDUNG KULON'],
+    ['Padang Utara', 'PADANG', 'PADANG UTARA'],
+    ['Jambi Selatan', 'JAMBI', 'JAMBI SELATAN']
+  ]) {
+    const result = api.match(address);
+    assert.equal(result.selected.city, city, 'A partial city name cannot override the complete area: ' + address);
+    assert.equal(result.selected.district, district, address);
+    assert.ok(data.rows.some(row => row[0] === result.postcode && data.dictionaries.cities[row[3]] === city && data.dictionaries.districts[row[2]] === district), 'Use a postcode in the identified source district: ' + address);
+  }
+  for (const address of ['Batu', 'Kota Batu Jawa Timur', 'Perumahan Batu Aji, Kota Batu, Jawa Timur', 'Batu Aji, Batu, Jawa Timur']) {
+    const result = api.match(address);
+    assert.equal(result.selected.city, 'BATU', 'An independent final city mention remains valid: ' + address);
+    assert.equal(result.selected.province, 'JAWA TIMUR', address);
+    assert.equal(result.postcode, '65311', address);
+  }
+  // Source-wide coverage for districts containing a shorter city name.
+  // Merge joined/separated source spellings before deciding uniqueness.
+  const districtParents = new Map();
+  data.rows.forEach(row => {
+    const district = data.dictionaries.districts[row[2]].replace(/ /g, '');
+    if (!districtParents.has(district)) districtParents.set(district, new Set());
+    districtParents.get(district).add(data.dictionaries.cities[row[3]]);
+  });
+  const cityNames = data.dictionaries.cities.filter(name => /^[A-Z ]+$/.test(name));
+  let compoundCases = 0;
+  for (const district of data.dictionaries.districts) {
+    const parents = districtParents.get(district.replace(/ /g, ''));
+    if (parents.size !== 1 || !district.includes(' ') || !/^[A-Z ]+$/.test(district) ||
+      cityNames.includes(district) || /^KOTA /.test(district) ||
+      !cityNames.some(city => ` ${district} `.includes(` ${city} `))) continue;
+    const result = api.match(`PERUMAHAN ${district} BLOK K NO 19`);
+    assert.equal(result.selected.city, [...parents][0], 'Whole district parent: ' + district);
+    assert.equal(result.selected.district, district, 'Do not substitute a partial city or a generic default: ' + district);
+    compoundCases++;
+  }
+  assert.ok(compoundCases > 400, 'Exercise compound district names across the national source, not only Batam.');
+  for (const address of [
     'SMA NEGERI 2 KERITANG PENGALIHAN',
     'Desa Pengalehan, Kec. Keritang',
     'Pengalihan, Keritang, Kabupaten Indragiri Hilir, Riau'

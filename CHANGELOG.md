@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.48 — Nama wilayah utuh mengalahkan potongan nama kota
+
+- Pencocokan lintas tingkat wilayah memakai frasa lengkap per kemunculan. “Batu” di dalam Batu Aji, Batu Ampar, Batu Besar, Batu Licin, atau Batu Raja tidak dianggap sebagai Kota Batu. Penyebutan Kota Batu yang berdiri sendiri tetap dikenali.
+- Ejaan gabung/pisah dari nama wilayah sumber didukung, termasuk BATUAJI, Batu Licin, dan Batu Bulan. Kecamatan lengkap yang memiliki satu kota induk dapat menentukan kota tanpa meminta operator memilih wilayah.
+- Jika memakai default kota Batam, wilayah Batam yang sudah terbaca tetap memakai kode rinci. Artha Indah Batu Aji diproses sebagai Batam–Batu Aji 29438 dari database, bukan Batu Jawa Timur 65311 atau kode kota umum.
+- Versi matcher dan URL modul diperbarui. Log Kamera lama, pilihan wilayah lama yang bertentangan, ringkasan kelompok, dan ekspor dihitung ulang memakai algoritma baru.
+- Uji mencakup lebih dari 400 nama kecamatan nasional yang mengandung nama kota lain, variasi ejaan Batu, kota tujuan yang sebenarnya Batu, serta pemuatan/ekspor log Artha Indah lama.
+
 ## v26.47 — Tujuan otomatis dan koreksi wajib yang lebih tepat
 
 - Alamat yang belum dapat dicocokkan dan tidak menyebut kota/provinsi memakai default Batam 29411 secara otomatis. Tampilan menandai hasil sebagai Default Batam tanpa mengarang kecamatan/kelurahan.
