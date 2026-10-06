@@ -110,16 +110,19 @@
     const nationalMode = destinationMode === 'cn23' || destinationMode === 'mixed';
     const summary = { reviewCount: 0, reviewFieldCount: 0, outsideBatamCount: 0, cleanCount: 0, localBatamCount: 0, cn23Count: 0, destinationPendingCount: 0 };
     rows.forEach(row => {
-      const hydrated = row?._aiReviewHydrated === true && row?._reviewState && typeof row._reviewState === 'object';
-      const reviewFields = hydrated
-        ? Object.entries(row._reviewState).filter(([, state]) => state?.pending).map(([field]) => field)
-        : (Array.isArray(row?.aiReviewFields) ? row.aiReviewFields : (Array.isArray(row?.reviewFields) ? row.reviewFields : []));
-      const pendingFields = new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean));
+      window.__mileCore?.ensureRowReviewState?.(row);
+      const pendingFields = new Set(Object.entries(row?._reviewState || {})
+        .filter(([, state]) => state?.pending && state.requiresChange === true && state.source === 'text-marker').map(([field]) => field));
       ['noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'].forEach(field => {
         if (/PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row?.[field] || ''))) pendingFields.add(field);
       });
-      if (nationalMode && nationalPostcodePending(row)) pendingFields.add('kode_pos');
-      const needsReview = pendingFields.size > 0 || Boolean(row?.needsReview) || (!hydrated && Boolean(row?.needsVerification));
+      ['name', 'address'].forEach(field => { if (!String(row?.[field] || '').trim()) pendingFields.add(field); });
+      if (!/[A-Za-z\u00c0-\uffff]/.test(String(row?.name || ''))) pendingFields.add('name');
+      if (row?.cw != null) {
+        const weight = String(row.cw).trim().replace(',', '.');
+        if (!/^\d+(?:\.\d+)?$/.test(weight) || !Number.isFinite(Number(weight)) || Number(weight) <= 0) pendingFields.add('cw');
+      }
+      const needsReview = pendingFields.size > 0;
       const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
       if (nationalMode && nationalPostcodePending(row)) summary.destinationPendingCount++;
       else {
@@ -131,7 +134,7 @@
       if (needsReview) summary.reviewCount++;
       summary.reviewFieldCount += pendingFields.size || (needsReview ? 1 : 0);
       if (outsideBatam) summary.outsideBatamCount++;
-      if (!needsReview && (nationalMode || !outsideBatam)) summary.cleanCount++;
+      if (!needsReview && (nationalMode ? !nationalPostcodePending(row) : !outsideBatam)) summary.cleanCount++;
     });
     return summary;
   }
@@ -357,7 +360,6 @@
     const cleanCount = Number(batch.cleanCount ?? Math.max(0, rowCount - reviewCount - outsideBatamCount));
     const localBatamCount = Number(batch.localBatamCount ?? Math.max(0, rowCount - outsideBatamCount));
     const cn23Count = Number(batch.cn23Count ?? outsideBatamCount);
-    const destinationPendingCount = Number(batch.destinationPendingCount || 0);
     const processingSeconds = Number(batch.durationSeconds || 0);
     const secondsPerRow = rowCount > 0 && processingSeconds > 0 ? processingSeconds / rowCount : 0;
     const deviceName = batch.deviceName || 'Kamera HP';
@@ -413,7 +415,6 @@
         <div class="camera-batch-stat camera-batch-stat--review" title="${reviewFieldCount} kolom perlu diperiksa"><span>Baris Perlu dicek</span><strong>${reviewCount}</strong><small>${reviewFieldCount} kolom</small></div>
         <div class="camera-batch-stat camera-batch-stat--clean"><span>Lokal Batam</span><strong>${localBatamCount}</strong></div>
         <div class="camera-batch-stat camera-batch-stat--outside"><span>Luar Kota Batam</span><strong>${cn23Count}</strong></div>
-        <div class="camera-batch-stat camera-batch-stat--review"><span>Tujuan belum pasti</span><strong>${destinationPendingCount}</strong></div>
       </div>
 
       <dl class="camera-batch-item__details">

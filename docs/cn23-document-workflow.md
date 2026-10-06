@@ -4,25 +4,25 @@ Dicatat dari demonstrasi pengguna pada 1 Oktober 2026 di https://expos.mile.app/
 
 ## Status implementasi lokal
 
-Persiapan data kini memiliki pilihan **Batam · Unggah Excel Mile**, **CN23 Dokumen Luar Kota**, dan **Campuran Batam + Luar Kota** pada halaman app, review, beta, serta Camera web. CN23 dan Campuran mempertahankan hasil luar Batam, memuat database nasional lampiran, dan menyediakan pemilihan wilayah yang ambigu. Mode tersimpan bersama sesi kamera dan hasil sinkronisasi. Sesi lama tanpa mode tetap memakai Batam; operator dapat menggantinya di halaman pemeriksaan.
+Persiapan data memiliki pilihan **Batam · Unggah Excel Mile**, **CN23 Dokumen Luar Kota**, dan **Campuran Batam + Luar Kota** pada halaman app, review, beta, serta Camera web. CN23 dan Campuran mempertahankan hasil luar Batam dan menentukan wilayah otomatis dari akhir alamat. Tidak ada pemilihan wilayah oleh operator. Mode tersimpan bersama sesi kamera dan hasil sinkronisasi.
 
-Database `assets/data/postcodes-indonesia.json` dibuat dari 81.248 baris sheet `full` menggunakan `scripts/build-postcode-data.py`. Alias desa seperti PENGALIHAN / PENGALEHAN didukung. Database hanya dimuat ketika menggunakan CN23 atau Campuran. Hasil yang tidak ditemukan, memiliki beberapa kandidat, atau bertentangan dengan kode pos tercetak harus diperiksa; kode pos Batam tidak dipakai sebagai fallback nasional.
+Database `assets/data/postcodes-indonesia.json` dibuat dari 81.248 baris sheet `full` menggunakan `scripts/build-postcode-data.py`. Alias desa seperti PENGALIHAN / PENGALEHAN didukung. Database dimuat ketika menggunakan CN23 atau Campuran. Kota/provinsi terakhir membatasi kandidat; kecamatan/kelurahan yang jelas memakai kode rinci. Alamat tanpa kota/provinsi yang belum dapat dicocokkan jelas memakai default Batam 29411. Konflik petunjuk diselesaikan otomatis di dalam batas wilayah yang diketahui tanpa mengarang kelurahan.
 
-Perubahan ini berada di checkout lokal. Ekstensi Chrome, entri langsung ke Mile, dan deployment belum dilakukan. APK native tidak dibangun ulang dalam perubahan ini; hasil sesi lama dapat diperiksa dengan mode tujuan yang dipilih di halaman review.
+APK membuka halaman review web yang sama, sehingga perubahan penentuan tujuan berlaku tanpa memasang ulang APK. Helper 0.2.10 menerima berat dokumen di atas 1 kg serta hasil dengan cakupan kota/kecamatan.
 
 ## Kasus kiriman campuran
 
-Petugas memilih **Campuran Batam + Luar Kota** sebelum capture atau sebelum memproses PDF/Excel. Seluruh hasil berada di satu daftar pemeriksaan, kemudian dipisahkan menjadi **dua file Excel tersendiri**. Tombol **Ekspor Excel Batam** menghasilkan workbook unggah Mile untuk lokal; **Ekspor Antrean CN23** menghasilkan workbook khusus dokumen luar Batam untuk penghubung CN23. Tidak ada workbook gabungan atau dua sheet dalam satu file.
+Seluruh hasil berada di satu daftar pemeriksaan. Satu tombol **Unduh Excel** pada CN23 maupun Campuran membuat workbook unggah Mile untuk kelompok Batam dan workbook antrean CN23 untuk kelompok luar kota. Hanya kelompok berisi data yang diunduh: satu kelompok menghasilkan satu Excel, dua kelompok menghasilkan dua Excel.
 
 | Data masuk | Hasil pemeriksaan | File hasil |
 | --- | --- | --- |
 | BELIAN, BATAM KOTA, BATAM | Wilayah nasional terpilih berada di Kota Batam | `Upload_MileApp_Ritel.xlsx`, sheet `Sheet1` |
 | SMA NEGERI 2 KERITANG PENGALIHAN | PENGALIHAN / PENGALEHAN, KERITANG, INDRAGIRI HILIR, RIAU; 29274 | `Antrean_CN23_Dokumen_RITEL.xlsx`, sheet `CN23_ANTREAN` |
-| SUKAMAJU tanpa kecamatan/kabupaten | Beberapa kandidat; tetap disimpan | Ekspor ditunda sampai petugas memilih wilayah |
-| Kode pos tercetak berbeda dari wilayah | Konflik ditampilkan; tetap disimpan | Ekspor ditunda sampai petugas mengonfirmasi kandidat |
-| Batch hanya berisi satu jenis tujuan | Satu kelompok berisi data, kelompok lain kosong | Hanya tombol kelompok berisi data yang aktif |
+| SUKAMAJU tanpa kecamatan/kabupaten | Default Batam 29411 | Excel lokal Batam |
+| Kode pos tercetak berbeda dari wilayah yang jelas | Kota/provinsi membatasi hasil; kecamatan/kelurahan yang jelas diprioritaskan | Kelompok tujuan ditentukan otomatis |
+| Batch hanya berisi satu jenis tujuan | Satu kelompok berisi data, kelompok lain kosong | Satu Excel diunduh |
 
-Klasifikasi lokal menggunakan kota/kabupaten pada wilayah nasional yang terkonfirmasi, bukan awalan kode pos atau flag AI luar Batam. Satu tujuan belum pasti menahan kedua ekspor agar tidak ada baris yang terlewat diam-diam. Setelah alamat diperbaiki atau kandidat dipilih, klasifikasi dan jumlah kelompok dihitung ulang. Mode CN23 tunggal juga menolak tujuan Batam; gunakan Campuran untuk menyimpan kedua kelompok.
+Klasifikasi lokal menggunakan kota/kabupaten hasil algoritma nasional, bukan awalan kode pos atau flag AI luar Batam. Penentuan tujuan tidak meminta intervensi operator. Perubahan alamat dan pemuatan Log Kamera lama menghitung ulang wilayah. Koreksi wajib dibatasi pada masalah konkret seperti teks PERLU DICEK, nama/alamat kosong, nama tidak terbaca, dan berat tidak valid.
 
 Di Campuran, kode pos mengikuti wilayah database nasional yang terlihat pada tabel. Lampiran memuat Belian 29464, sedangkan pemetaan Batam lama memuat 29414; nilai tidak diganti diam-diam saat ekspor. Mode Batam tetap menggunakan aturan sebelumnya. Petugas perlu memeriksa perbedaan terhadap pilihan wilayah aktual Mile. Kode tujuan CN23 dibiarkan kosong dalam antrean sampai pilihan Mile diverifikasi.
 

@@ -296,7 +296,7 @@ async function runAsyncAssertions() {
   assert.match(cameraSync, /reviewFieldCount/);
   assert.match(cameraSync, /Luar Kota Batam/);
   assert.match(cameraSync, /Lokal Batam/);
-  assert.match(cameraSync, /Tujuan belum pasti/);
+  assert.doesNotMatch(cameraSync, /Tujuan belum pasti/);
   assert.match(cameraSync, /Waktu proses AI/);
   assert.match(cameraSync, /Rincian \$\{chunkTimings\.length\} kelompok AI/);
   assert.match(cameraSync, /chunkTimings: normalizeChunkTimings/);
@@ -309,16 +309,16 @@ async function runAsyncAssertions() {
   assert.match(cameraImport, /MileCameraSync/);
   assert.match(reviewHtml, /camera-sync\.js/);
 
-  // Metadata keraguan AI harus tetap menjadi koreksi wajib setelah dimuat ke desktop.
+  // Koreksi wajib harus memeriksa masalah konkret, bukan flag keraguan AI saja.
   assert.match(appCore, /const reviewFieldAliases/);
   assert.match(appCore, /nama_penerima: 'name'/);
   assert.match(appCore, /alamat_penerima: 'address'/);
   assert.match(appCore, /nomor_hp: 'phone'/);
   assert.match(appCore, /nomor_surat: 'noSurat'/);
   assert.match(appCore, /hydrateAIReviewState\(row\)/);
-  assert.match(appCore, /row\.needsVerification \? inferLegacyReviewFields\(row\)/);
+  assert.match(appCore, /explicitFields\.filter\(field => requiredReviewReason\(row, field\)\)/);
   assert.match(appCore, /data-review-requires-change/);
-  assert.match(appCore, /Perbaiki nilai yang salah atau konfirmasi nilai yang sudah benar/);
+  assert.match(appCore, /Koreksi wajib:/);
   assert.match(uiRuntime, /reviewRequiresChange !== 'false'/);
   assert.match(uiRuntime, /Konfirmasi benar & lanjut/);
 

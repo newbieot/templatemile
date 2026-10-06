@@ -63,14 +63,16 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 20));
       assert.equal(queue[0].recipient_village, 'PULAU KIJANG');
       assert.equal(queue[0].recipient_district, 'RETEH');
       assert.equal(queue[0].recipient_postcode, '29273');
-      // An unreadable/non-unique address stays in the batch, without a manual region picker.
+      // Missing city/province uses the configured default without changing or removing the label.
       const editor = get('resultTable').querySelector('.val-address');
       editor.value = 'SUKAMAJU';
       editor.dispatchEvent(new w.Event('input', { bubbles: true }));
       await pause();
-      assert.equal(rows[0].zip, '');
+      assert.equal(rows[0].zip, '29411');
       assert.equal(get('resultTable').querySelector('.national-postcode-choice'), null);
-      assert.match(get('resultTable').querySelector('.national-postcode-review').textContent, /ditentukan otomatis/);
+      assert.match(get('resultTable').querySelector('.national-postcode-review').textContent, /Default Batam: 29411/);
+      assert.equal(get('pendingRouteCount').textContent, '0');
+      assert.equal(get('batamRouteCount').textContent, '2');
       assert.equal(rows.length, 4);
       assert.equal(errors.length, 0, errors.map(String).join('\n'));
     } finally { dom.window.close(); }

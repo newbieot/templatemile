@@ -624,7 +624,7 @@
     if (exportButton) {
       exportButton.disabled = exportButton.dataset.exporting === 'true' || rowCount === 0 || outsideBatamCount > 0 || reviewRowCount > 0 || pendingPostalCount > 0;
       exportButton.title = pendingPostalCount > 0
-        ? 'Periksa alamat yang belum dapat dicocokkan otomatis sebelum ekspor.'
+        ? 'Sistem sedang menentukan kode pos otomatis.'
         : outsideBatamCount > 0
         ? 'Klik Pisahkan lokal dan luar kota untuk memproses semua tujuan.'
         : reviewRowCount > 0
@@ -637,8 +637,8 @@
     if (status) {
       status.classList.remove('is-ready', 'is-busy', 'is-warning');
       if (pendingPostalCount > 0) {
-        status.classList.add('is-warning');
-        status.innerHTML = `<span class="status-dot"></span>${pendingPostalCount} tujuan/kode pos perlu diperiksa`;
+        status.classList.add('is-busy');
+        status.innerHTML = '<span class="status-dot"></span>Menentukan tujuan otomatis…';
       } else if (outsideBatamCount > 0) {
         status.classList.add('is-warning');
         const nums = getOutsideBatamRows().slice(0, 4).map(row => getOutsideBatamLocation(row).rowNumber).join(', ');

@@ -431,7 +431,7 @@
             <div class="review-alert-copy">
               <span class="review-required-label">Koreksi wajib</span><span class="review-location-badge" id="reviewLocationBadge" hidden></span>
               <strong id="reviewAlertTitle">Ada teks yang wajib dikoreksi</strong>
-              <p id="reviewActionHint">Peringatan ini khusus teks hasil AI yang meragukan. Sel kuning wajib diperbaiki. Ganti atau hapus seluruh frasa “perlu dicek”, selesaikan teksnya, lalu klik tombol centang. Mengetik atau berpindah kolom tidak akan menandainya selesai.</p>
+              <p id="reviewActionHint">Peringatan ini hanya untuk teks tidak terbaca, nama/alamat kosong, atau nilai tidak valid. Ganti atau hapus seluruh frasa “perlu dicek”, selesaikan teksnya, lalu klik tombol centang. Mengetik atau berpindah kolom tidak akan menandainya selesai.</p>
             </div>
             <div class="review-alert-actions">
               <button class="button button--review" id="openReviewButton" type="button">Buka koreksi</button>
@@ -440,7 +440,7 @@
           </div>
 
           <div class="table-help">
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk mengoreksi nama, alamat, dan referensi. Pengirim mengikuti pengaturan awal. Pada mode CN23 atau Campuran, periksa pilihan wilayah dan kode pos nasional setiap baris sebelum ekspor.</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Klik sel untuk mengoreksi nama, alamat, dan referensi. Pengirim mengikuti pengaturan awal. Pada mode CN23 atau Campuran, tujuan dan kode pos ditentukan otomatis.</span>
           </div>
 
           <div class="table-container" role="region" aria-label="Editable recipient data" tabindex="0">
@@ -540,12 +540,12 @@
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/vendor/pdfjs/pdf.min.js?v=20260909-beta-r2.1" defer></script>
-  <script src="/assets/js/postcode-national.js?v=20261005-auto-city-weight-2" defer></script>
-  <script src="/assets/js/app-core.js?v=20261005-single-export" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20261001-cn23-4" defer></script>
+  <script src="/assets/js/postcode-national.js?v=20261006-auto-destination-4" defer></script>
+  <script src="/assets/js/app-core.js?v=20261006-auto-destination-4" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20261006-auto-destination-4" defer></script>
   <script src="/assets/js/camera-store.js?v=20261006-camera-draft-expiry" defer></script>
   <script src="/assets/js/camera-import.js?v=20260926-16.44-review" defer></script>
-  <script src="/assets/js/ui.js?v=20261005-single-export" defer></script>
+  <script src="/assets/js/ui.js?v=20261006-auto-destination-4" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
   <script src="/assets/js/events-v16.js?v=20260909-beta-r2.1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260909-beta-r2.1" defer></script>

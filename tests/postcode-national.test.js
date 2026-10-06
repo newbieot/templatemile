@@ -37,28 +37,33 @@ function service(fetch) {
   const broad = api.match('Keritang');
   const kateman=api.match('SUNGAI GUNTUNG KATEMAN INHIL RIAU');
   assert.equal(kateman.status,'matched');assert.equal(kateman.postcode,'29255');assert.equal(kateman.selected.village,'');assert.equal(kateman.regionScope,'DISTRICT_POSTCODE');
-  assert.equal(api.match('SUNGAI GUNTUNG KATEMAN INHIL RIAU','29273').status,'ambiguous');
-  for (const address of ['JL. PENDIDIKAN PULAU KIJANG INHIL-RIAU.', 'PULAU KIJANG RIAU', 'PULAU KIJANG']) {
+  assert.equal(api.match('SUNGAI GUNTUNG KATEMAN INHIL RIAU','29273').postcode,'29255', 'Known geography wins over a conflicting postal hint.');
+  for (const address of ['JL. PENDIDIKAN PULAU KIJANG INHIL-RIAU.', 'PULAU KIJANG RIAU', 'Kel. PULAU KIJANG']) {
     const result = api.match(address);
     assert.equal(result.status, 'matched', 'The whole village phrase must beat its shorter substring: ' + address);
     assert.equal(result.postcode, '29273');
     assert.equal(result.selected.village, 'PULAU KIJANG');
     assert.equal(result.selected.city, 'INDRAGIRI HILIR');
   }
-  assert.equal(api.match('PULAU KIJANG INHIL', '28463').status, 'ambiguous', 'Long-name matching cannot override a conflicting printed postcode.');
+  assert.equal(api.match('PULAU KIJANG INHIL', '28463').postcode, '29273', 'A conflicting number cannot route a known village into another city.');
   assert.equal(api.match('BELIAN BATAM KOTA BATAM KEPRI').postcode, '29464');
-  assert.equal(api.match('PULAU').status, 'ambiguous', 'A broad word alone still needs more evidence.');
-  assert.equal(broad.status, 'ambiguous');
-  assert.equal(broad.postcode, '');
-  assert.ok(broad.candidates.some(candidate => candidate.district === 'KEMUNING'));
-  assert.ok(broad.candidates.some(candidate => candidate.district === 'KERITANG'));
-  assert.equal(api.match('SUKAMAJU').status, 'ambiguous', 'Shared village names must not pick the first record.');
+  for (const address of ['PULAU', 'KERITANG', 'SUKAMAJU', 'Kel. Sukamaju', 'Sekolah tidak teridentifikasi', 'Jl. Sudirman No. 86', 'Jl. Surabaya No. 12', 'Gedung Sahid Sudirman Center']) {
+    const result = api.match(address);
+    assert.equal(result.status, 'matched', address);
+    assert.equal(result.postcode, '29411', address);
+    assert.equal(result.selected.city, 'BATAM', address);
+    assert.equal(result.selected.district, '', 'Do not invent a district for the configured default.');
+    assert.equal(result.selected.village, '', address);
+    assert.equal(result.defaulted, true, address);
+  }
+  assert.equal(broad.postcode, '29411');
   const printed = api.match('Pengalihan Keritang 29274');
   assert.equal(printed.status, 'matched');
   assert.equal(printed.postcode, '29274');
-  assert.equal(api.match('Pengalihan Keritang', '29276').status, 'ambiguous', 'Conflicting printed postcode requires review.');
-  assert.equal(api.match('Sekolah tidak teridentifikasi').status, 'not_found');
-  assert.equal(api.match('Sekolah tidak teridentifikasi').postcode, '', 'Never invent a Batam fallback.');
+  assert.equal(api.match('Pengalihan Keritang', '29276').postcode, '29274', 'Precise area evidence resolves a conflicting printed postcode automatically.');
+  assert.equal(api.match('Sekolah tidak teridentifikasi 99999').postcode, '29411', 'An unknown five-digit reference must not prevent the no-region default.');
+  assert.equal(api.match('Alamat tanpa kota 10220').postcode, '10220', 'Keep a valid printed postcode authoritative.');
+  assert.equal(api.match('Provinsi Jawa Barat').defaulted, undefined, 'A known province must never default to Batam.');
   const local = api.match('BELIAN BATAM KOTA BATAM');
   assert.equal(local.status, 'matched');
   assert.equal(local.selected.city, 'BATAM');
@@ -76,13 +81,19 @@ function service(fetch) {
   }
   for (const address of ['Gedung Sahid Sudirman Center Jl. Jend. Sudirman Jakarta', 'Jl. Sudirman DKI Jakarta']) {
     const result = api.match(address);
-    assert.equal(result.status, 'ambiguous', 'A city without postcode or smaller region must not invent one.');
-    assert.ok(result.candidates.every(candidate => candidate.province === 'DAERAH KHUSUS IBUKOTA JAKARTA'));
-    assert.ok(result.candidateCount > 100, 'Do not limit the search to the first 100 rows.');
+    assert.equal(result.status, 'matched', 'Incomplete Jakarta addresses route automatically inside Jakarta.');
+    assert.equal(result.selected.province, 'DAERAH KHUSUS IBUKOTA JAKARTA');
+    assert.equal(result.selected.village, '', 'A routing default must not fabricate a village.');
+    assert.equal(result.routingDefault, true);
+    assert.equal(result.postcode.endsWith('111'), false, 'Jakarta does not use the generic city suffix.');
   }
   for (const address of ['Jakarta 90553', 'Kel. Menteng Jakarta Pusat 10220', 'Kel. Sudirman Kec. Tanralili Jakarta 10220']) {
-    assert.equal(api.match(address).status, 'ambiguous', 'Conflicting geography requires review: ' + address);
+    const result = api.match(address);
+    assert.equal(result.status, 'matched', 'Resolve conflicting earlier clues automatically: ' + address);
+    assert.equal(result.selected.province, 'DAERAH KHUSUS IBUKOTA JAKARTA', 'The final city/province retains authority.');
   }
+  assert.equal(api.match('Kel. Sudirman Kec. Tanralili Jakarta 10220').postcode, '10220', 'Discard an earlier area outside Jakarta, then use its compatible printed postcode.');
+  assert.equal(api.match('Kota Batam Kec. Batam Kota, kepada Jakarta 10220').postcode, '10220', 'An earlier sender area must not erase the last destination postcode.');
   assert.equal(api.match('Jl. Riau, Bandung 40115').selected.city, 'BANDUNG');
   assert.equal(api.match('Gedung Gambir, Karet Tengsin, Tanah Abang, Jakarta').postcode, '10220', 'Later district wins over an earlier building name.');
   assert.equal(api.match('Sudirman Tanralili Maros Sulawesi Selatan').postcode, '90553', 'The real village Sudirman remains valid in its own region.');
@@ -128,7 +139,15 @@ function service(fetch) {
   assert.equal(api.match('Kec. Tanah Abang Jakarta Pusat').status, 'matched', 'District evidence routes automatically.');
   assert.equal(api.match('Kec. Tanah Abang Jakarta Pusat').regionScope, 'DISTRICT_POSTCODE');
   assert.equal(api.match('Kel. Karet Tengsin Kec. Tanah Abang Jakarta Pusat').postcode, '10220');
-  assert.equal(api.match('Jakarta Pusat').status, 'ambiguous', 'Jakarta has no blanket city postcode.');
+  assert.equal(api.match('Jakarta Pusat').status, 'matched', 'Jakarta routes automatically using a postcode in its own city.');
+  assert.equal(api.match('Jakarta Pusat').selected.village, '');
+  assert.equal(api.match('Jakarta Pusat').postcode.endsWith('111'), false);
+  for (const province of data.dictionaries.provinces) {
+    const result = api.match(`Provinsi ${province}`);
+    assert.equal(result.status, 'matched', province);
+    assert.equal(result.selected.province, province, 'Province-only routing stays inside the known province.');
+    assert.equal(result.selected.village, '', province);
+  }
   let cityCases = 0;
   for (const city of data.dictionaries.cities) {
     if (/JAKARTA/.test(city) || city === 'KEPULAUAN SERIBU' || city === 'BANJAR') continue;

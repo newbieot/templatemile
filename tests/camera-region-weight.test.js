@@ -8,6 +8,7 @@ const data = JSON.parse(fs.readFileSync('assets/data/postcodes-indonesia.json', 
   const w = dom.window, d = w.document;
   const address = 'Gedung Sahid Sudirman Center Jl. Jend. Sudirman Kav. 86 Jakarta 10220';
   let batch = { rows: [{ name: 'PENERIMA', address, cw: '0.20', phone: '0',
+    _confirmedNationalPostcode: { sourceKey: `${address}\n`, selected: { postcode: '90553', city: 'MAROS' } },
     _nationalPostcodeMatch: { status: 'ambiguous', lookupKey: `${address}\n\n`, candidates: [{ city: 'MAROS' }] } }],
     form: { destinationMode: 'mixed', clientMode: 'RITEL', senderName: 'PENGIRIM', senderAddress: 'BATAM', itemType: 'DOKUMEN', serviceCode: 'PKH' } };
   let databaseReady = false, saves = 0;
@@ -33,6 +34,7 @@ const data = JSON.parse(fs.readFileSync('assets/data/postcodes-indonesia.json', 
     assert.equal(core.uploadedFilesManager.length, 1, notifications.join('; '));
     let row = core.uploadedFilesManager[0].rows[0];
     assert.equal(core.getNationalPostcodeMatch(row).postcode, '10220');
+    assert.equal(row._confirmedNationalPostcode, undefined, 'A stale manual selection outside Jakarta must not override the new algorithm.');
     const tr = d.querySelector('#resultTable tbody tr');
     assert.ok(tr.cells[0].classList.contains('row-number-cell'));
     assert.ok(tr.cells[1].querySelector('.val-cw'), 'Kg must be beside row number, before recipient name.');
@@ -59,6 +61,38 @@ const data = JSON.parse(fs.readFileSync('assets/data/postcodes-indonesia.json', 
     assert.equal(core.buildCn23QueueRows([row])[0].recipient_postcode, '40111');
     assert.equal(core.buildCn23QueueRows([row])[0].recipient_region_scope, 'CITY POSTCODE');
     assert.equal(d.querySelector('.national-postcode-choice'), null);
+    const defaultAddress = 'Gedung Sahid Sudirman Center Jl. Jend. Sudirman Kav. 86';
+    batch.rows[0].address = defaultAddress;
+    batch.rows[0]._nationalPostcodeMatch = { status: 'ambiguous', matcherVersion: '20261005-auto-city-weight-2',
+      lookupKey: `${defaultAddress}\n\n`, selected: null };
+    batch.rows[0].aiConfidence = 0.4;
+    batch.rows[0].needsVerification = true;
+    batch.rows[0].aiReviewFields = ['nama_penerima', 'alamat_penerima'];
+    batch.rows[0]._aiReviewHydrated = true;
+    batch.rows[0]._reviewState = { name: { source: 'ai-row', pending: true, requiresChange: false },
+      address: { source: 'ai-field', pending: true, requiresChange: false } };
+    core.uploadedFilesManager.length = 0;
+    await w.MileCameraSync.loadBatchToDesktop('CAM-REGRESSION');
+    row = core.uploadedFilesManager[0].rows[0];
+    const defaultMatch = core.getNationalPostcodeMatch(row);
+    assert.equal(defaultMatch.defaulted, true, 'Restored logs recalculate the new configured default.');
+    assert.equal(defaultMatch.postcode, '29411');
+    assert.equal(core.getShipmentRoute(row), 'batam');
+    assert.equal(d.getElementById('pendingRouteCount').textContent, '0');
+    assert.equal(w.getPendingReviewCount(), 0, 'Readable low-confidence data loaded from old logs requires no mandatory correction.');
+    assert.equal(d.querySelector('input[data-review-pending="true"]'), null);
+    assert.equal(batch.reviewCount, 0, 'Saved log summaries use the reconciled mandatory correction policy.');
+    assert.ok(d.querySelector('.national-postcode-review').textContent.includes('Default Batam: 29411'));
+    assert.equal(d.querySelector('.national-postcode-review').textContent.includes('Tujuan perlu diperiksa'), false);
+    const xlsx = require('../assets/vendor/sheetjs/xlsx.full.min.js'), downloads = [];
+    w.XLSX = { ...xlsx, writeFile(book, filename) {
+      downloads.push({ filename, rows: xlsx.utils.sheet_to_json(book.Sheets[book.SheetNames[0]]) });
+    } };
+    await w.downloadFinalExcel();
+    assert.equal(downloads.length, 1);
+    assert.equal(downloads[0].filename, 'Upload_MileApp_Ritel.xlsx');
+    assert.equal(downloads[0].rows[0].destination_data_customer_zip_code, '29411');
+    assert.equal(downloads[0].rows[0].koli_data_koli_weight, 1.5);
     console.log('PASS camera-region-weight: slow database, stale region reload, editable Kg order, export and saved-log roundtrip');
   } finally { w.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

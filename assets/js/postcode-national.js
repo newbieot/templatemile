@@ -2,7 +2,7 @@
   'use strict';
   const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-4';
   const MAX_CANDIDATES = 100;
-  const MATCHER_VERSION = '20261005-auto-city-weight-2';
+  const MATCHER_VERSION = '20261006-auto-destination-4';
   let records = [];
   let tokenIndex = new Map();
   let postcodeIndex = new Map();
@@ -109,6 +109,40 @@
       label: `${city}, ${province} (${postcode}) — kode pos kota` };
   }
 
+  function defaultBatam() {
+    const selected = { id: 'default-batam-29411', postcode: '29411', village: '', district: '',
+      city: 'BATAM', province: 'KEPULAUAN RIAU', label: 'BATAM, KEPULAUAN RIAU (29411) — default tujuan' };
+    return { ...outcome('matched', [selected]), regionScope: 'CITY_POSTCODE', automatic: true, defaulted: true };
+  }
+
+  function automaticRouting(matches, context = {}) {
+    if (!matches.length) return defaultBatam();
+    // Resolve only inside the boundary established by the address tail. An
+    // incomplete address must never introduce a village from a tied record.
+    const cityCounts = new Map();
+    matches.forEach(item => {
+      const key = JSON.stringify([item.city, item.province]);
+      cityCounts.set(key, (cityCounts.get(key) || 0) + 1);
+    });
+    const cityKey = [...cityCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+    const cityMatches = matches.filter(item => JSON.stringify([item.city, item.province]) === cityKey);
+    if (!context.lowerKnown && !context.postalHint) {
+      const selected = cityDefault(cityMatches);
+      if (selected) return { ...outcome('matched', [selected]), regionScope: 'CITY_POSTCODE', automatic: true, routingDefault: true };
+    }
+    // Jakarta uses an actual postcode from the remaining candidates, never
+    // the generic city suffix. A known district keeps its own postal range.
+    const counts = new Map();
+    cityMatches.forEach(item => counts.set(item.postcode, (counts.get(item.postcode) || 0) + 1));
+    const postcode = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+    const sameDistrict = new Set(cityMatches.map(item => item.district)).size === 1;
+    const { city, province } = cityMatches[0];
+    const district = sameDistrict ? cityMatches[0].district : '';
+    const selected = { id: `routing-${cityMatches[0].id}`, postcode, village: '', district, city, province,
+      label: `${district ? `${district} — ` : ''}${city}, ${province} (${postcode}) — kode pos otomatis` };
+    return { ...outcome('matched', [selected]), regionScope: district ? 'DISTRICT_POSTCODE' : 'CITY_POSTCODE', automatic: true, routingDefault: true };
+  }
+
   function resolveCandidates(matches, context = {}) {
     if (matches.length === 1) return outcome('matched', matches);
     // A district-level address can be complete for postal routing even when
@@ -137,7 +171,7 @@
       return { ...outcome('matched', [selected]), regionScope: 'DISTRICT_POSTCODE', automatic: true,
         postcodeConsensus: postcodes.size === 1, routingDefault: postcodes.size > 1 };
     }
-    return outcome('ambiguous', matches, 'Alamat belum cukup rinci untuk menentukan kode pos secara otomatis.');
+    return automaticRouting(matches, context);
   }
 
   function match(address, postcode = '') {
@@ -184,12 +218,13 @@
       while (position >= 0) {
         const before = padded.slice(0, position);
         const street = /\b(?:JL|JLN|JALAN)(?:\s+(?:JEND|JENDERAL|JENDRAL|H|HJ|KH))?\s*$/.test(before);
+        const building = field < 2 && /\b(?:GEDUNG|BUILDING|MENARA|TOWER)\s*$/.test(before);
         // YOGYAKARTA inside DAERAH ISTIMEWA YOGYAKARTA is province
         // evidence, not a second mention of the city or a smaller area.
         const parent = spansByField.slice(field + 1).some((spans, offset) => spans.some(span =>
           (span.end - span.start > name.length || field + offset + 1 >= 2) &&
           span.start <= position && span.end >= position + name.length));
-        if (!street && !parent) return position;
+        if (!street && !building && !parent) return position;
         if (position === 0) break;
         position = padded.lastIndexOf(` ${name} `, position - 1);
       }
@@ -213,11 +248,25 @@
       const position = item.positions[field];
       return position >= 0 && marker.test(padded.slice(0, position)) ? Math.max(last, position) : last;
     }, -1));
+    function hasStrongLower(item) {
+      const lower = item.matchedAliases.slice(0, 2).filter(Boolean);
+      return new Set(lower).size >= 2 || item.matchedAliases.slice(0, 2).some((name, field) => {
+        if (!name) return false;
+        return markers[field].test(padded.slice(0, item.positions[field]));
+      });
+    }
     // Read the address from its tail: the last city/province establishes the
     // outer boundary before village or district names can compete. A province
     // may contain many cities; narrow it to the last city inside that boundary.
     // This also handles "Jl. Surabaya ... Jakarta" without routing to Surabaya.
     const tail = geographic.reduce((last, item) => Math.max(last, item.positions[2], item.positions[3]), -1);
+    // Without a city/province, unresolved names use the configured Batam
+    // default. Keep a precise match or a valid printed postcode authoritative.
+    const withAddressDefault = result => {
+      const strong = geographic.filter(hasStrongLower);
+      const strongCities = new Set(strong.map(item => JSON.stringify([records[item.index].candidate.city, records[item.index].candidate.province])));
+      return tail < 0 && !postcodeIndex.has(hint) && strongCities.size !== 1 ? defaultBatam() : result;
+    };
     if (tail >= 0) {
       geographic = geographic.filter(item => item.positions[2] === tail || item.positions[3] === tail);
       const cityTail = geographic.reduce((last, item) => Math.max(last, item.positions[2]), -1);
@@ -238,21 +287,15 @@
     for (const [field, position] of explicitPositions.entries()) {
       if (position < 0) continue;
       const compatible = geographic.filter(item => item.positions[field] === position);
-      if (!compatible.length) return outcome('ambiguous', geographic.map(item => records[item.index].candidate),
-        'Nama wilayah yang tertulis saling bertentangan. Periksa kelurahan, kecamatan, kota, dan provinsi pada alamat.');
+      // An earlier administrative name outside the final city/province is
+      // discarded. Still evaluate a compatible printed postcode afterwards.
+      if (!compatible.length) continue;
       geographic = compatible;
     }
     // Within the boundary, an explicit kelurahan/kecamatan or two independent
     // lower-area names are strong evidence. An isolated word in a building or
     // street name must not defeat a compatible printed postal code.
-    const strongLower = geographic.filter(item => {
-      const lower = item.matchedAliases.slice(0, 2).filter(Boolean);
-      return new Set(lower).size >= 2 || item.matchedAliases.slice(0, 2).some((name, field) => {
-        if (!name) return false;
-        const before = padded.slice(0, item.positions[field]);
-        return markers[field].test(before);
-      });
-    });
+    const strongLower = geographic.filter(hasStrongLower);
     let ranked = geographic;
     if (tail >= 0) {
       // Continue inward from the administrative tail. The last district and
@@ -274,9 +317,9 @@
     }
     if (hint) {
       const hinted = new Set(postcodeIndex.get(hint) || []);
-      // Intersect postal evidence with the geographic boundary BEFORE ranking
-      // incidental lower names. Keep genuine contradictory area evidence for review.
-      const postalPool = strongLower.length ? strongLower : (tail >= 0 ? geographic : []);
+      // Intersect postal evidence with the geographic boundary and the known
+      // lower area, so a stray number cannot erase a readable district/village.
+      const postalPool = strongLower.length ? strongLower : (tail >= 0 ? (lowerKnown ? best : geographic) : []);
       const intersection = postalPool.filter(item => hinted.has(item.index));
       if (intersection.length) best = intersection;
       else if (postalPool.length) {
@@ -288,17 +331,18 @@
           if (lowerKnown) return resolveCandidates(best.map(item => records[item.index].candidate), { cityKnown, lowerKnown });
           return { ...outcome('matched', [cityRouting]), regionScope: 'CITY_POSTCODE', automatic: true };
         }
-        return outcome('ambiguous', best.map(item => records[item.index].candidate),
-          `Kode pos ${hint} tidak cocok dengan wilayah yang terbaca. Alamat perlu diperjelas untuk pencocokan otomatis.`);
+        // Explicit geographic evidence wins over a contradictory postal
+        // hint. Do not send the label to a different city for a stray number.
+        return withAddressDefault(resolveCandidates(best.map(item => records[item.index].candidate), { cityKnown, lowerKnown }));
       } else {
         const candidates = [...hinted].map(index => records[index].candidate);
-        if (!candidates.length) return outcome('not_found', [], `Kode pos ${hint} tidak ditemukan dalam database lampiran.`);
-        return resolveCandidates(candidates);
+        if (!candidates.length) return defaultBatam();
+        return resolveCandidates(candidates, { postalHint: true });
       }
     }
     const candidates = best.map(item => records[item.index].candidate);
-    if (!candidates.length) return outcome('not_found', [], 'Wilayah belum ditemukan. Lengkapi kelurahan/desa, kecamatan, atau kota/kabupaten.');
-    return resolveCandidates(candidates, { cityKnown, lowerKnown, postalHint: Boolean(hint) });
+    if (!candidates.length) return defaultBatam();
+    return withAddressDefault(resolveCandidates(candidates, { cityKnown, lowerKnown, postalHint: Boolean(hint) }));
   }
 
   const api = { load, match, isLoaded: () => loaded, normalize, dataUrl: DATA_URL, matcherVersion: MATCHER_VERSION };

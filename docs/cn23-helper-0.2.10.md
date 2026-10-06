@@ -12,10 +12,11 @@ Hasil ini diberi cakupan CITY_POSTCODE, tanpa mengarang kecamatan atau kelurahan
 Kecamatan yang terbaca memakai kode di dalam kecamatan; kelurahan yang cocok memakai
 kode kelurahan. Jakarta Raya tidak memakai default kota umum.
 
-Pemilih wilayah manual dihapus. Bila alamat benar-benar tidak cukup atau saling
-bertentangan (misalnya hanya "Jakarta" tanpa rincian, atau Banjar tanpa provinsi),
-sistem tidak mengarang lokasi. Alamat perlu terbaca lebih rinci agar dapat dirutekan.
-Kode pos yang jelas tetap menjadi petunjuk utama di dalam wilayah yang sesuai.
+Pemilih wilayah manual dihapus. Pembaruan web v26.47 menentukan tujuan otomatis
+di dalam kota/provinsi yang terbaca. Jakarta memakai kode dari wilayah Jakarta,
+tanpa suffix kota umum. Jika kota/provinsi tidak terbaca dan wilayah tidak dapat
+dicocokkan jelas, sistem memakai default Batam 29411. Hasil dengan cakupan kota
+tidak mengarang kelurahan; kode pos yang sesuai dan wilayah rinci diprioritaskan.
 
 Ekstensi menerima berat di atas 1 kg dan cakupan kota tanpa mewajibkan kecamatan/
 kelurahan. Pencarian tujuan kota memakai nama kota + kode routing, kemudian memilih

@@ -85,7 +85,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20261006-26.46-camera-draft-expiry');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20261006-26.47-auto-destination-review');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);
@@ -142,10 +142,10 @@ const batchList = await batchListResponse.json();
 assert.equal(batchList.batches.length, 1);
 assert.equal(batchList.batches[0].deviceName, 'HP Gudang A');
 assert.equal(batchList.batches[0].model, 'deepseek-v4.1-flash');
-assert.equal(batchList.batches[0].reviewCount, 1);
-assert.equal(batchList.batches[0].reviewFieldCount, 2);
+assert.equal(batchList.batches[0].reviewCount, 0, 'AI uncertainty on readable values is not a mandatory correction.');
+assert.equal(batchList.batches[0].reviewFieldCount, 0);
 assert.equal(batchList.batches[0].outsideBatamCount, 1);
-assert.equal(batchList.batches[0].cleanCount, 1);
+assert.equal(batchList.batches[0].cleanCount, 2);
 assert.equal(batchList.batches[0].durationSeconds, 25.5);
 assert.equal(batchList.batches[0].customerId, 'CUST-01');
 assert.equal(batchList.batches[0].chunkTimings.length, 1);

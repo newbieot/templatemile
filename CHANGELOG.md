@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.47 — Tujuan otomatis dan koreksi wajib yang lebih tepat
+
+- Alamat yang belum dapat dicocokkan dan tidak menyebut kota/provinsi memakai default Batam 29411 secara otomatis. Tampilan menandai hasil sebagai Default Batam tanpa mengarang kecamatan/kelurahan.
+- Kecocokan rinci serta kode pos tercetak yang sesuai tetap dipertahankan. Konflik petunjuk diselesaikan di dalam batas kota/provinsi dari akhir alamat; kode pos tidak mengalahkan kecamatan/kelurahan yang jelas. Jakarta memakai kode dalam wilayahnya tanpa suffix kota umum.
+- Log Kamera lama menghitung ulang hasil saat dimuat; default Batam masuk ke Excel lokal dalam ekspor campuran.
+- Web dan halaman Periksa Hasil dalam APK tidak menampilkan “Tujuan perlu diperiksa” atau meminta pemilihan wilayah. CN23 maupun Campuran mengekspor kelompok lokal/luar kota yang berisi data otomatis dari satu tombol.
+- Flag ragu AI, confidence rendah, nama perusahaan panjang, serta HP/referensi kosong tidak mewajibkan koreksi. Koreksi wajib hanya untuk teks PERLU DICEK, nama/alamat kosong atau nama tidak terbaca, dan berat tidak valid; log lama serta ringkasan server mengikuti aturan yang sama.
+
 ## v26.46 — Draft APK tidak langsung kedaluwarsa
 
 - Batch dari APK bisa memakai tanggal awal draft beberapa hari sebelumnya. Penyimpanan web kini mencatat waktu simpan terbaru secara terpisah; cleanup tidak memakai umur capture untuk menghapus batch yang baru dikirim.

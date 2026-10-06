@@ -172,8 +172,9 @@ const normalized = (address, options = {}) => ai.normalizeRows([{
   assert.equal(screenshot.postcodeSource, 'database');
   assert.equal(sandbox.__mileCore.getShipmentRoute(screenshot), 'cn23');
   const realAmbiguous = normalized('JL MERDEKA, SUKAMAJU', { destinationMode: 'cn23' });
-  assert.equal(realAmbiguous.zip, '');
-  assert.equal(sandbox.__mileCore.getNationalPostcodeMatch(realAmbiguous).status, 'ambiguous');
+  assert.equal(realAmbiguous.zip, '29411');
+  assert.equal(sandbox.__mileCore.getNationalPostcodeMatch(realAmbiguous).defaulted, true);
+  assert.equal(sandbox.__mileCore.getShipmentRoute(realAmbiguous), 'batam');
   const realPrinted = normalized('DESA PENGALIHAN, KERITANG, 29274', { destinationMode: 'cn23' });
   assert.equal(realPrinted._printedPostcode, '29274');
   assert.equal(realPrinted.postcodeSource, 'label');
@@ -197,8 +198,8 @@ const normalized = (address, options = {}) => ai.normalizeRows([{
   assert.equal(mixedRows[1].outsideBatam, true);
   assert.doesNotMatch(mixedRows[1].address, /BATAM/);
   assert.deepEqual([mixedRows[1].p, mixedRows[1].l, mixedRows[1].t], [0, 0, 0]);
-  assert.equal(mixedRows[2].zip, '');
-  assert.deepEqual([mixedRows[2].p, mixedRows[2].l, mixedRows[2].t], [0, 0, 0]);
+  assert.equal(mixedRows[2].zip, '29411');
+  assert.deepEqual([mixedRows[2].p, mixedRows[2].l, mixedRows[2].t], [10, 10, 10]);
   assert.ok(mixedRows.every(row => row.destinationMode === 'mixed'));
   assert.match(ai.buildPrompt(1, 3, { destinationMode: 'mixed' }), /seluruh Indonesia/);
   assert.match(ai.buildVerificationPrompt(1, 3, [], { destinationMode: 'mixed' }), /seluruh Indonesia/);
@@ -224,7 +225,7 @@ const normalized = (address, options = {}) => ai.normalizeRows([{
   assert.match(stoppedRun.error, /Database gagal dimuat/);
   assert.equal(requestedUrls.length, 1);
   assert.equal(queuedNext, 1);
-  console.log('PASS cn23-ai: nationwide address preservation, source provenance, no local defaults, stable modes, lazy database loading');
+  console.log('PASS cn23-ai: nationwide address preservation, source provenance, configured no-region Batam default, stable modes, lazy database loading');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

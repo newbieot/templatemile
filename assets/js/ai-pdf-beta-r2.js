@@ -1323,10 +1323,10 @@
       ? '\nAlamat tujuan dapat berada di seluruh Indonesia. Salin seluruh nama desa/kelurahan, kecamatan, kabupaten/kota, provinsi, dan singkatan wilayah yang tertulis pada label ke alamat_penerima, jangan menghilangkan bagian wilayah meskipun berada pada baris terpisah. Jangan menambahkan BATAM, dan jangan menebak kode pos yang tidak tercetak. Kode pos yang tidak tercetak akan dicocokkan otomatis dengan database oleh aplikasi. di_luar_batam hanya informasi wilayah; tetap buat row untuk setiap alamat luar Batam.'
       : '';
     const readabilityRule = options.cameraDirect
-      ? 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca. Gunakan "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca. Bila teks masih terbaca tetapi ada keraguan kecil, pertahankan bacaannya dan tandai kolom di perlu_dicek_fields untuk pemeriksaan operator.'
-      : 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" pada bagian meragukan.';
+      ? 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca. Gunakan "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca. Bila teks masih terbaca tetapi ada keraguan kecil, pertahankan bacaannya tanpa mewajibkan pemeriksaan operator.'
+      : 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca, beri "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca.';
     const confidenceRule = options.cameraDirect
-      ? '\n9. confidence: angka 0 sampai 1 untuk keyakinan membaca nama_penerima dan alamat_penerima. Nilai hanya keterbacaan dua field utama; nomor_hp/nomor_surat yang kosong atau keraguan apakah kota termasuk Batam tidak menurunkan confidence. Keraguan kecil tetap ditandai di perlu_dicek_fields untuk pemeriksaan operator.'
+      ? '\n9. confidence: angka 0 sampai 1 untuk keyakinan membaca nama_penerima dan alamat_penerima. Nilai hanya keterbacaan dua field utama; nomor_hp/nomor_surat yang kosong atau keraguan apakah kota termasuk Batam tidak menurunkan confidence. Keyakinan rendah dipakai untuk audit otomatis, bukan kewajiban koreksi bila teks masih terbaca.'
       : '';
     const confidenceField = options.cameraDirect ? ',"confidence":0.95' : '';
     return `Tolong ubah dokumen ini menjadi data terstruktur.
@@ -1340,8 +1340,8 @@ Aturan:
 4. Abaikan CABANG/CARRIAGE BATAM dan footer transaksi.${nationwideRule}
 5. nomor_hp: Hanya diisi bila ada nomor telp/wa (08..., +62...), abaikan kode mandiri.
 6. nomor_surat: PRIORITAS PERTAMA adalah nomor surat resmi setelah label NOMOR/NOMOR SURAT/NO. SURAT/REF. Contoh pada kepala surat "Nomor: 3166 /PAN.01.W32-U2/HK2. 4/VII/2026" wajib menjadi "3166/PAN.01.W32-U2/HK2.4/VII/2026". Abaikan nomor perkara di bagian Jenis Surat bila nomor kepala surat tersedia. Jika nomor surat resmi tidak ada, gunakan isi setelah label PERIHAL/HAL/SUBJECT tanpa kata label; contoh "Perihal: Surat Pemberitahuan (SP1)" menjadi "Surat Pemberitahuan (SP1)" dan "Perihal Penagihan dan Peringatan Terakhir" menjadi "Penagihan dan Peringatan Terakhir". Setelah itu barulah gunakan ID Pesanan atau Resi. Nilai boleh berupa teks.
-7. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false dan tandai alamat_penerima di perlu_dicek_fields.
-8. perlu_dicek_fields: array string nama kolom jika ragu dengan bacaan.${confidenceRule}
+7. di_luar_batam: true HANYA JIKA jelas bukan Kota Batam atau kode pos bukan 294xx. Jika meragukan, false; aplikasi menentukan tujuan otomatis. Jangan menandai alamat hanya karena wilayah belum diketahui.
+8. perlu_dicek_fields: array string nama kolom hanya jika teks benar-benar tidak terbaca atau nama/alamat wajib tidak ditemukan. Nomor HP dan nomor surat kosong boleh, jangan ditandai.${confidenceRule}
 
 Format Wajib:
 {"rows":[{"page":1,"nama_penerima":"...","alamat_penerima":"...","nomor_hp":"","nomor_surat":"","di_luar_batam":false,"perlu_dicek_fields":[]${confidenceField}}]}

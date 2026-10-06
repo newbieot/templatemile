@@ -91,12 +91,12 @@ assert.equal(core.buildCn23QueueRows([row], { ...config, clientMode: 'KORPORAT',
 assert.throws(() => core.buildCn23QueueRows([row], { ...config, clientMode: 'KORPORAT', customerId: '' }), /Kode Pelanggan wajib/);
 assert.throws(() => core.buildCn23QueueRows([row], { ...config, clientMode: 'KORPORAT', customerId: 'CLIENT1', cn23PaymentMethod: 'CASH' }), /Invoice atau CREDIT/);
 assert.throws(() => core.buildCn23QueueRows([row], { ...config, clientMode: 'PINDAH' }), /Ritel atau Korporat/);
-assert.throws(() => core.buildCn23QueueRows([{ ...row, address: 'KERITANG' }], config), /beberapa pilihan/);
+assert.throws(() => core.buildCn23QueueRows([{ ...row, address: 'KERITANG' }], config), /Penentuan tujuan otomatis/);
 
 const ambiguous = { ...row, address: 'KERITANG', _confirmedNationalPostcode: { sourceKey: 'KERITANG\n', selected: region } };
 assert.equal(core.buildCn23QueueRows([ambiguous], config)[0].postcode_review, 'PILIHAN PETUGAS');
 ambiguous.address = 'ALAMAT TIDAK DIKENAL';
-assert.throws(() => core.buildCn23QueueRows([ambiguous], config), /belum ditemukan/, 'Pilihan lama harus gugur saat alamat berubah');
+assert.throws(() => core.buildCn23QueueRows([ambiguous], config), /Penentuan tujuan otomatis/, 'Pilihan lama harus gugur saat alamat berubah');
 loaded = false;
 assert.throws(() => core.buildCn23QueueRows([row], config), /belum siap/, 'Ekspor diblokir ketika database belum siap');
 
@@ -188,8 +188,8 @@ async function run() {
   core.uploadedFilesManager[0].rows.push({ ...local, _rowId: 'pending-1', address: 'KERITANG' });
   core.updateInterface();
   assert.equal(elements.get('exportButton').disabled, true, 'Tujuan belum terklasifikasi menahan ekspor');
-  await assert.rejects(window.downloadLocalExcel(), /belum dapat dipisahkan/, 'Kiriman ambigu tidak boleh dilewati diam-diam saat ekspor Batam');
-  await assert.rejects(window.downloadCn23Excel(), /belum dapat dipisahkan/, 'Kiriman ambigu tidak boleh dilewati diam-diam saat ekspor CN23');
+  await assert.rejects(window.downloadLocalExcel(), /Penentuan tujuan otomatis/, 'Data dari matcher lama menunggu penghitungan ulang');
+  await assert.rejects(window.downloadCn23Excel(), /Penentuan tujuan otomatis/, 'Data dari matcher lama menunggu penghitungan ulang');
   const nationalSource = fs.readFileSync(path.join(__dirname, '../assets/js/postcode-national.js'), 'utf8');
   const nationalData = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/data/postcodes-indonesia.json'), 'utf8'));
   sandbox.fetch = async () => ({ ok: true, json: async () => nationalData });
@@ -202,7 +202,7 @@ async function run() {
   assert.equal(core.getNationalPostcodeMatch(actualOutside).postcode, '29274');
   assert.equal(core.getShipmentRoute(actualLocal), 'batam');
   assert.equal(core.getNationalPostcodeMatch(actualLocal).postcode, '29464', 'Mode campuran menampilkan dan mempertahankan nilai database nasional meskipun tabel Batam lama berbeda');
-  assert.equal(core.getShipmentRoute({ address: 'KERITANG' }), 'pending');
+  assert.equal(core.getShipmentRoute({ address: 'KERITANG' }), 'batam', 'Missing outer region uses the configured Batam default.');
   const oldAddress = 'Gedung Sahid Sudirman Center Jl. Jend. Sudirman Kav. 86 Jakarta 10220';
   const oldMatch = { status: 'matched', postcode: '90553', selected: { city: 'MAROS', postcode: '90553' },
     lookupKey: `${oldAddress}\n\n` };
@@ -236,6 +236,12 @@ async function run() {
   assert.equal(actualLocalRows.length, 1);
   assert.equal(actualLocalRows[0].destination_data_customer_name, 'SITI');
   assert.equal(actualLocalRows[0].destination_data_customer_zip_code, '29464');
+  actualExports.length = 0;
+  elements.get('destinationMode').value = 'cn23';
+  await sandbox.downloadFinalExcel();
+  assert.equal(actualExports.length, 2, 'CN23 also exports a default/local Batam group without asking the operator to change destination mode.');
+  assert.equal(realSheetJs.utils.sheet_to_json(actualExports[0].book.Sheets.Sheet1)[0].destination_data_customer_zip_code, '29464', 'National Batam matches retain their precise postcode in CN23 mode too.');
+  elements.get('destinationMode').value = 'mixed';
   assert.equal(actualExports[1].filename, 'Antrean_CN23_Dokumen_RITEL.xlsx');
   const actualOutsideRows = realSheetJs.utils.sheet_to_json(actualExports[1].book.Sheets.CN23_ANTREAN);
   assert.equal(actualOutsideRows.length, 1);
@@ -273,7 +279,7 @@ async function run() {
   const postalCell = { outerHTML: '' };
   const editTr = { dataset: { fileId: 'test-file', rowId: 'actual-outside' }, querySelector: selector => selector === '.national-postcode-review' ? postalCell : null };
   const addressInput = new sandbox.HTMLInputElement();
-  Object.assign(addressInput, { value: 'SUKAMAJU', dataset: { reviewPending: 'false' }, selectionStart: 5, selectionEnd: 5,
+  Object.assign(addressInput, { value: 'SUKAMAJU JAKARTA', dataset: { reviewPending: 'false' }, selectionStart: 5, selectionEnd: 5,
     classList: { contains: name => name === 'val-address', toggle() {}, remove() {}, add() {} },
     closest: selector => selector === 'tr[data-file-id][data-row-id]' ? editTr : null,
     matches: selector => selector === '.val-address' });
@@ -281,12 +287,12 @@ async function run() {
   const inputHandlers = elements.get('resultTable').eventListeners.input;
   assert.equal(inputHandlers.length, 1);
   inputHandlers[0]({ target: addressInput });
-  assert.equal(actualOutside.address, 'SUKAMAJU');
-  assert.match(postalCell.outerHTML, /data-postcode-status="ambiguous"|data-postcode-status="not_found"/);
-  assert.match(postalCell.outerHTML, /Tujuan perlu diperiksa/);
-  assert.equal(elements.get('pendingRouteCount').textContent, '1');
-  assert.equal(elements.get('cn23RouteCount').textContent, '0');
-  assert.equal(elements.get('exportButton').disabled, true);
+  assert.equal(actualOutside.address, 'SUKAMAJU JAKARTA');
+  assert.match(postalCell.outerHTML, /data-postcode-status="matched"/);
+  assert.doesNotMatch(postalCell.outerHTML, /Tujuan perlu diperiksa/);
+  assert.equal(elements.get('pendingRouteCount').textContent, '0');
+  assert.equal(elements.get('cn23RouteCount').textContent, '1');
+  assert.equal(elements.get('exportButton').disabled, false);
   assert.equal(document.activeElement, addressInput, 'Koreksi wilayah tidak mengganti node alamat yang sedang diedit');
   assert.equal(addressInput.selectionStart, 5);
   assert.equal(addressInput.selectionEnd, 5);
@@ -295,9 +301,9 @@ async function run() {
   assert.match(postalCell.outerHTML, /29274/);
   assert.equal(elements.get('pendingRouteCount').textContent, '0');
   assert.equal(elements.get('exportButton').disabled, false);
-  addressInput.value = 'SUKAMAJU';
+  addressInput.value = 'SUKAMAJU JAKARTA';
   elements.get('resultTable').eventListeners.change[0]({ target: addressInput });
-  assert.equal(elements.get('pendingRouteCount').textContent, '1', 'Perubahan pada blur juga menghitung ulang klasifikasi wilayah');
+  assert.equal(elements.get('pendingRouteCount').textContent, '0', 'Perubahan pada blur juga menentukan wilayah otomatis');
   console.log('PASS cn23-core: one export, one/two workbooks, no empty or partial exports, duplicate-click protection, preserved routing and presets');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,4 +1,4 @@
-const APP_VERSION = '20261006-26.46-camera-draft-expiry';
+const APP_VERSION = '20261006-26.47-auto-destination-review';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -821,17 +821,19 @@ function summarizeCameraRows(rows, form) {
   const nationalMode = destinationMode === 'cn23' || destinationMode === 'mixed';
   const summary = { destinationMode, reviewCount: 0, reviewFieldCount: 0, outsideBatamCount: 0, cleanCount: 0, localBatamCount: 0, cn23Count: 0, destinationPendingCount: 0 };
   rows.forEach(row => {
-    const hydrated = row?._aiReviewHydrated === true && row?._reviewState && typeof row._reviewState === 'object';
-    const reviewFields = hydrated
-      ? Object.entries(row._reviewState).filter(([, state]) => state?.pending).map(([field]) => field)
-      : (Array.isArray(row?.aiReviewFields) ? row.aiReviewFields : (Array.isArray(row?.reviewFields) ? row.reviewFields : []));
-    const pendingFields = new Set(reviewFields.map(value => String(value || '').trim()).filter(Boolean));
+    const pendingFields = new Set(Object.entries(row?._reviewState || {})
+      .filter(([, state]) => state?.pending && state.requiresChange === true && state.source === 'text-marker').map(([field]) => field));
     // A saved resolution cannot hide an unreadable value or a destination cache for an older address.
     ['noSurat', 'name', 'address', 'phone', 'cw', 'p', 'l', 't', 'insHarga'].forEach(field => {
       if (/PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row?.[field] || ''))) pendingFields.add(field);
     });
-    if (nationalMode && cameraNationalPostcodePending(row)) pendingFields.add('kode_pos');
-    const needsReview = pendingFields.size > 0 || Boolean(row?.needsReview) || (!hydrated && Boolean(row?.needsVerification));
+    ['name', 'address'].forEach(field => { if (!String(row?.[field] || '').trim()) pendingFields.add(field); });
+    if (!/[A-Za-z\u00c0-\uffff]/.test(String(row?.name || ''))) pendingFields.add('name');
+    if (row?.cw != null) {
+      const weight = String(row.cw).trim().replace(',', '.');
+      if (!/^\d+(?:\.\d+)?$/.test(weight) || !Number.isFinite(Number(weight)) || Number(weight) <= 0) pendingFields.add('cw');
+    }
+    const needsReview = pendingFields.size > 0;
     const outsideBatam = Boolean(row?.outsideBatam || row?.outOfTown);
     if (nationalMode && cameraNationalPostcodePending(row)) summary.destinationPendingCount++;
     else {
@@ -843,7 +845,7 @@ function summarizeCameraRows(rows, form) {
     if (needsReview) summary.reviewCount++;
     summary.reviewFieldCount += pendingFields.size || (needsReview ? 1 : 0);
     if (outsideBatam) summary.outsideBatamCount++;
-    if (!needsReview && (nationalMode || !outsideBatam)) summary.cleanCount++;
+    if (!needsReview && (nationalMode ? !cameraNationalPostcodePending(row) : !outsideBatam)) summary.cleanCount++;
   });
   return summary;
 }

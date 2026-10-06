@@ -194,8 +194,9 @@ async function cloudProfilesAndReview() {
     staleEnv.run('assets/js/camera-sync.js');
     await staleEnv.window.MileCameraSync.saveBatchResults(sessionId, 1, Date.now(), 'Fixture', 2);
     assert.equal(staleEnv.serverBatch.cleanCount, 0, 'A selected region for an older address cannot make the edited destination ready.');
-    assert.equal(staleEnv.serverBatch.reviewCount, 1);
-    assert.equal(staleEnv.serverBatch.reviewFieldCount, 1);
+    assert.equal(staleEnv.serverBatch.reviewCount, 0, 'Destination calculation does not require operator text correction.');
+    assert.equal(staleEnv.serverBatch.reviewFieldCount, 0);
+    assert.equal(staleEnv.serverBatch.destinationPendingCount, 1, 'The stale cache still awaits system recalculation.');
     assert.equal(staleEnv.serverBatch.rows.length, 1, 'Pending destinations remain in the persisted batch.');
   }
 }

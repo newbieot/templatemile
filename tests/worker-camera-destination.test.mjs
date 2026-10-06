@@ -19,23 +19,26 @@ const ambiguous = {
   _nationalPostcodeMatch: { status: 'ambiguous', selected: null, candidates: [region], lookupKey: 'PENGALIHAN\n\n' }
 };
 const local = matchedRow('BELIAN, BATAM', { ...region, postcode: '29464', village: 'BELIAN', district: 'BATAM KOTA', city: 'BATAM' }, false);
-const pendingText = { ...outside, needsReview: true };
+const pendingText = { ...outside, name: 'PERLU DICEK', needsReview: true };
 
 assert.deepEqual(worker.summarizeCameraRows([outside], { destinationMode: 'cn23' }), {
   destinationMode: 'cn23', reviewCount: 0, reviewFieldCount: 0, outsideBatamCount: 1, cleanCount: 1, localBatamCount: 0, cn23Count: 1, destinationPendingCount: 0
 });
 assert.equal(worker.summarizeCameraRows([reviewedOutside], { destinationMode: 'cn23' }).cleanCount, 1);
 assert.deepEqual(worker.summarizeCameraRows([ambiguous], { destinationMode: 'cn23' }), {
-  destinationMode: 'cn23', reviewCount: 1, reviewFieldCount: 1, outsideBatamCount: 1, cleanCount: 0, localBatamCount: 0, cn23Count: 0, destinationPendingCount: 1
+  destinationMode: 'cn23', reviewCount: 0, reviewFieldCount: 0, outsideBatamCount: 1, cleanCount: 0, localBatamCount: 0, cn23Count: 0, destinationPendingCount: 1
 });
 assert.deepEqual(worker.summarizeCameraRows([local, reviewedOutside, ambiguous, pendingText], { destinationMode: 'mixed' }), {
-  destinationMode: 'mixed', reviewCount: 2, reviewFieldCount: 2, outsideBatamCount: 3, cleanCount: 2, localBatamCount: 1, cn23Count: 2, destinationPendingCount: 1
+  destinationMode: 'mixed', reviewCount: 1, reviewFieldCount: 1, outsideBatamCount: 3, cleanCount: 2, localBatamCount: 1, cn23Count: 2, destinationPendingCount: 1
 });
 assert.equal(worker.summarizeCameraRows([{ ...outside, destinationMode: 'mixed' }], {}).destinationMode, 'batam');
 assert.equal(worker.summarizeCameraRows([outside], { destinationMode: 'unsupported' }).cleanCount, 0);
 assert.equal(worker.summarizeCameraRows([local, outside], undefined).cleanCount, 1);
-assert.equal(worker.summarizeCameraRows([{ ...outside, _nationalPostcodeMatch: undefined }], { destinationMode: 'cn23' }).reviewCount, 1);
-assert.equal(worker.summarizeCameraRows([{ ...reviewedOutside, _reviewState: { address: { pending: true } } }], { destinationMode: 'cn23' }).cleanCount, 0);
+assert.equal(worker.summarizeCameraRows([{ ...outside, _nationalPostcodeMatch: undefined }], { destinationMode: 'cn23' }).reviewCount, 0, 'Destination calculation is a system task, not operator correction.');
+assert.equal(worker.summarizeCameraRows([{ ...reviewedOutside, _reviewState: { address: { source: 'ai-field', pending: true, requiresChange: false } } }], { destinationMode: 'cn23' }).cleanCount, 1);
+assert.equal(worker.summarizeCameraRows([{ ...outside, needsReview: true, aiConfidence: 0.3, aiReviewFields: ['nama_penerima'] }], { destinationMode: 'cn23' }).reviewCount, 0);
+assert.equal(worker.summarizeCameraRows([{ ...outside, name: '', address: '' }], { destinationMode: 'cn23' }).reviewFieldCount, 2);
+assert.equal(worker.summarizeCameraRows([{ ...outside, cw: '0' }], { destinationMode: 'cn23' }).reviewFieldCount, 1);
 assert.equal(worker.summarizeCameraRows([{ ...reviewedOutside, name: 'PERLU DICEK' }], { destinationMode: 'cn23' }).reviewCount, 1);
 
 const confirmed = {
@@ -83,7 +86,7 @@ assert.equal(savedCn23.destinationMode, 'cn23', 'The stored form takes priority 
 assert.equal(savedCn23.form.destinationMode, 'cn23');
 assert.equal(savedCn23.form.customerId, 'CUSTOMER');
 assert.equal(savedCn23.cleanCount, 1);
-assert.equal(savedCn23.reviewCount, 2);
+assert.equal(savedCn23.reviewCount, 1);
 assert.equal(savedCn23.outsideBatamCount, 3);
 assert.deepEqual(savedCn23.rows, cn23Rows, 'Review and national lookup metadata survive the result roundtrip');
 
@@ -123,8 +126,8 @@ const listed = (await listedResponse.json()).batches;
 const listedCn23 = listed.find(batch => batch.id === savedCn23.id);
 assert.equal(listedCn23.destinationMode, 'cn23');
 assert.equal(listedCn23.cleanCount, 1);
-assert.equal(listedCn23.reviewCount, 2);
-assert.equal(listedCn23.reviewFieldCount, 2);
+assert.equal(listedCn23.reviewCount, 1);
+assert.equal(listedCn23.reviewFieldCount, 1);
 assert.equal(listedCn23.outsideBatamCount, 3);
 const listedLegacy = listed.find(batch => batch.id === savedLegacy.id);
 assert.equal(listedLegacy.destinationMode, 'batam');

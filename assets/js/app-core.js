@@ -42,10 +42,7 @@
             const query = String(row._nationalPostcodeQuery || '');
             const sourceKey = `${address}\n${query}`;
             const confirmed = row._confirmedNationalPostcode;
-            if (confirmed?.sourceKey === sourceKey && confirmed.selected) {
-                return { status: 'matched', postcode: confirmed.selected.postcode, candidates: [confirmed.selected], selected: confirmed.selected, confirmed: true };
-            }
-            if (confirmed) delete row._confirmedNationalPostcode;
+            if (confirmed && confirmed.sourceKey !== sourceKey) delete row._confirmedNationalPostcode;
             if (!window.MilePostalNational?.isLoaded?.()) {
                 return { status: 'unavailable', postcode: '', candidates: [], selected: null };
             }
@@ -57,6 +54,18 @@
             const matcherVersion = window.MilePostalNational.matcherVersion;
             if (row._nationalPostcodeMatch?.lookupKey !== lookupKey || row._nationalPostcodeMatch?.matcherVersion !== matcherVersion) {
                 row._nationalPostcodeMatch = { ...window.MilePostalNational.match(`${address} ${query}`, queryZip || printedZip), lookupKey, matcherVersion };
+            }
+            if (confirmed?.sourceKey === sourceKey && confirmed.selected) {
+                const automatic = row._nationalPostcodeMatch;
+                const selected = automatic.selected;
+                const sameCity = !selected || String(selected.city || '').toUpperCase() === String(confirmed.selected.city || '').toUpperCase();
+                const precise = selected?.village || selected?.district;
+                if (sameCity && (!precise || selected.postcode === confirmed.selected.postcode)) {
+                    return { status: 'matched', postcode: confirmed.selected.postcode, candidates: [confirmed.selected], selected: confirmed.selected, confirmed: true };
+                }
+                // A historical selection cannot keep an address in the wrong
+                // city or override a precise result from the new algorithm.
+                delete row._confirmedNationalPostcode;
             }
             return row._nationalPostcodeMatch;
         }
@@ -355,6 +364,7 @@
             splitRecipientAndAddress,
             cleanReference,
             cleanPhoneNumber,
+            ensureRowReviewState,
             sanitizeExcelText,
             sanitizeExcelRowValues,
             hasForbiddenExcelCharacters,
@@ -1152,31 +1162,22 @@
             return Array.from(new Set(source.map(normalizeReviewFieldKey).filter(Boolean)));
         }
 
+        function requiredReviewReason(row, field) {
+            const value = String(row?.[field] ?? '').trim();
+            if (containsReviewMarker(value)) return 'Teks masih mengandung penanda “PERLU DICEK”.';
+            if (['name', 'address'].includes(field) && !value) return `${reviewFieldNames[field]} wajib diisi.`;
+            if (field === 'name' && !/[A-Za-z\u00c0-\uffff]/.test(value)) return 'Nama penerima belum berisi nama yang dapat dibaca.';
+            if (field === 'cw' && row?.cw != null) {
+                const text = value.replace(',', '.');
+                if (!/^\d+(?:\.\d+)?$/.test(text) || !Number.isFinite(Number(text)) || Number(text) <= 0) return 'Berat harus berupa angka lebih dari 0 kg.';
+            }
+            return '';
+        }
+
         function inferLegacyReviewFields(row) {
-            const inferred = [];
-            const add = field => { if (field && !inferred.includes(field)) inferred.push(field); };
-            const name = String(row?.name || '');
-            const address = String(row?.address || '');
-            const noSurat = String(row?.noSurat || '');
-            const administrativePattern = /\b(?:CABANG|CARRIAGE|TGL\s*TRANS|TGL\s*VALUTA|NO\s*DOKUMEN|URAIAN\s+MUTASI)\b/i;
-
-            if (!name || /^\s*(?:KEPADA|YTH|ATTN)\b/i.test(name) || name.length > 72 || /\b(?:JL\.?|JALAN|RUKO|PERUM(?:AHAN)?|KOMP(?:LEK)?|KAVLING|GEDUNG)\b/i.test(name) || administrativePattern.test(name)) add('name');
-            if (!address || administrativePattern.test(address)) add('address');
-            if (administrativePattern.test(noSurat)) add('noSurat');
-
-            const confidence = Number(row?.aiConfidence);
-            if (Number.isFinite(confidence) && confidence < 0.82) {
-                add('name');
-                add('address');
-            }
-
-            // Batch lama hanya menyimpan needsVerification tanpa alasan field.
-            // Tandai dua field utama agar keraguan tidak pernah berubah menjadi "bersih" secara diam-diam.
-            if (!inferred.length) {
-                add('name');
-                add('address');
-            }
-            return inferred;
+            // Confidence and legacy AI flags trigger automatic audits, not
+            // mandatory operator confirmation of otherwise readable data.
+            return reviewFieldKeys.filter(field => requiredReviewReason(row, field));
         }
 
         function hydrateAIReviewState(row) {
@@ -1185,11 +1186,11 @@
                 ...normalizeReviewFieldList(row.aiReviewFields),
                 ...normalizeReviewFieldList(row.reviewFields)
             ]));
-            const fields = explicitFields.length
-                ? explicitFields
-                : (row.needsVerification ? inferLegacyReviewFields(row) : []);
+            const fields = Array.from(new Set([
+                ...explicitFields.filter(field => requiredReviewReason(row, field)),
+                ...inferLegacyReviewFields(row)
+            ]));
             const sourcePage = Number(row.sourcePage || row.page || 0) || 0;
-            const fallback = !explicitFields.length && Boolean(row.needsVerification);
 
             fields.forEach(field => {
                 if (row._reviewState[field]) return;
@@ -1197,12 +1198,10 @@
                     pending: true,
                     dirty: false,
                     originalValue: String(row[field] ?? ''),
-                    source: fallback ? 'ai-row' : 'ai-field',
+                    source: containsReviewMarker(row[field]) ? 'text-marker' : 'validation',
                     sourcePage,
-                    reason: fallback
-                        ? 'AI menandai baris ini perlu diperiksa, tetapi batch lama tidak menyimpan nama field yang spesifik.'
-                        : `AI menandai ${reviewFieldNames[field] || field} sebagai bagian yang perlu diperiksa.`,
-                    requiresChange: false
+                    reason: requiredReviewReason(row, field),
+                    requiresChange: true
                 };
             });
             row._aiReviewHydrated = true;
@@ -1211,7 +1210,7 @@
         function getActiveReviewFieldKeys(row) {
             if (isCn23Mode()) {
                 const fixedFields = ['p', 'l', 't', 'insHarga'];
-                if (getDestinationMode() === 'mixed' && row && getShipmentRoute(row) === 'batam' && document.getElementById('useInsurance')?.checked) fixedFields.pop();
+                if (row && getShipmentRoute(row) === 'batam' && document.getElementById('useInsurance')?.checked) fixedFields.pop();
                 return reviewFieldKeys.filter(field => !fixedFields.includes(field));
             }
             const isPackage = document.getElementById('itemType')?.value === 'PAKET';
@@ -1231,8 +1230,22 @@
             // tidak pernah dapat tersembunyi hanya karena status lama sempat ditandai selesai.
             reviewFieldKeys.forEach(field => {
                 const currentValue = String(row[field] ?? '');
+                const reason = requiredReviewReason(row, field);
                 const hasMarker = containsReviewMarker(currentValue);
                 let state = row._reviewState[field];
+
+                // Old logs can already be hydrated with overly broad AI
+                // warnings. Release those without reopening correct values.
+                if (!reason && state?.pending && (['ai-row', 'ai-field', 'validation'].includes(state.source) || state.requiresChange === false)) {
+                    state.pending = false;
+                    state.dirty = false;
+                    state.resolvedValue = currentValue;
+                }
+
+                if (reason && !hasMarker) {
+                    state = row._reviewState[field] = { ...state, pending: true, dirty: false,
+                        originalValue: currentValue, source: 'validation', reason, requiresChange: true };
+                }
 
                 if (hasMarker && !state) {
                     state = row._reviewState[field] = {
@@ -1377,6 +1390,11 @@
                 input.dataset.reviewOriginal = String(reviewState.originalValue ?? '');
                 input.dataset.reviewDirty = String(changed);
                 input.classList.toggle('is-review-dirty', changed);
+            } else if (reviewState) {
+                input.dataset.reviewPending = 'false';
+                input.dataset.reviewDirty = 'false';
+                input.classList.remove('needs-review-field', 'is-review-dirty');
+                input.closest('td')?.classList.remove('needs-review-cell');
             }
             return { ...context, reviewState };
         }
@@ -1653,15 +1671,13 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             const ready = match.status === 'matched' && selected;
             row.zip = ready ? selected.postcode : '';
             const message = ready
-                ? `${match.confirmed ? 'Pilihan petugas' : 'Kode pos otomatis'}: ${selected.postcode}`
-                : match.status === 'ambiguous' ? 'Ada beberapa lokasi bernama sama. Periksa alamat penerima pada foto.'
-                : match.status === 'unavailable' ? (nationalPostcodeLoadError || 'Memuat database kode pos nasional…')
-                : 'Alamat belum cukup jelas untuk menentukan kode pos. Periksa tulisan pada foto.';
+                ? `${match.confirmed ? 'Pilihan petugas' : match.defaulted ? 'Default Batam' : 'Kode pos otomatis'}: ${selected.postcode}`
+                : nationalPostcodeLoadError || 'Menentukan kode pos otomatis…';
             const selectedLabel = ready ? `<small>${escapeAttribute(selected.label || `${selected.village} / ${selected.district} / ${selected.city} / ${selected.province}`)}</small>` : '';
             return `<td class="national-postcode-review" data-postcode-status="${ready ? 'matched' : escapeAttribute(match.status)}">
-                ${getDestinationMode() === 'mixed' ? `<strong>${getShipmentRoute(row) === 'batam' ? 'Batam · Excel Mile' : getShipmentRoute(row) === 'cn23' ? 'Luar kota · Antrean CN23' : 'Tujuan perlu diperiksa'}</strong>` : ''}
+                ${getDestinationMode() === 'mixed' ? `<strong>${getShipmentRoute(row) === 'batam' ? 'Batam · Excel Mile' : getShipmentRoute(row) === 'cn23' ? 'Luar kota · Antrean CN23' : 'Menentukan tujuan otomatis…'}</strong>` : ''}
                 <span>${escapeAttribute(message)}</span>${selectedLabel}
-                ${!ready ? '<small>Kode pos ditentukan otomatis dari alamat. Nama kota atau rincian alamat belum cukup terbaca.</small>' : ''}
+                ${!ready ? '<small>Tujuan diproses otomatis oleh sistem.</small>' : ''}
             </td>`;
         }
 
@@ -1695,9 +1711,9 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             const exportHint = document.getElementById('exportFormatHint');
             if (exportHint) {
                 if (!exportHint.dataset.batamText) exportHint.dataset.batamText = exportHint.textContent;
-                exportHint.textContent = mixed
+                exportHint.textContent = cn23
                     ? 'Satu klik mengunduh Excel Batam dan/atau Antrean CN23 sesuai tujuan kiriman.'
-                    : cn23 ? 'Antrean CN23 dokumen untuk alat bantu entri. File ini bukan format unggah Excel Mile. Kode tujuan diperiksa nanti pada pilihan wilayah di Mile.' : exportHint.dataset.batamText;
+                    : exportHint.dataset.batamText;
             }
             const fileQueueDiv = document.getElementById('fileQueue');
             if (uploadedFilesManager.length === 0) {
@@ -1835,6 +1851,14 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             return weight;
         }
 
+        function pendingReviewMessage() {
+            const reasons = new Set();
+            uploadedFilesManager.forEach(file => file.rows.forEach(row => {
+                pendingReviewFields(row).forEach(field => reasons.add(getFieldReviewState(row, field).reason));
+            }));
+            return `Koreksi wajib: ${Array.from(reasons).filter(Boolean).join(' ')}`;
+        }
+
         function buildCn23QueueRows(rows, configuration = {}) {
             const mode = configuration.clientMode || document.getElementById('clientMode')?.value || 'RITEL';
             if (!['RITEL', 'KORPORAT'].includes(mode)) throw new Error('CN23 Dokumen mendukung kiriman Ritel atau Korporat. Pilih jenis pelanggan tersebut terlebih dahulu.');
@@ -1866,7 +1890,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 const region = match.selected || (match.status === 'matched' && match.candidates?.length === 1 ? match.candidates[0] : null);
                 if (match.status !== 'matched' || !region) {
                     if (match.status === 'unavailable') throw new Error(nationalPostcodeLoadError || 'Database kode pos nasional belum siap. Muat ulang halaman atau coba lagi sebelum ekspor.');
-                    throw new Error(`Wilayah tujuan pada baris ${index + 1} ${match.status === 'ambiguous' ? 'masih memiliki beberapa pilihan karena alamat belum cukup rinci' : 'belum ditemukan'}. Lengkapi alamat penerima agar kode pos dapat ditentukan otomatis.`);
+                    throw new Error('Penentuan tujuan otomatis belum selesai. Tunggu sistem memuat database kode pos.');
                 }
                 if (getShipmentRoute(row) === 'batam') throw new Error(`Baris ${index + 1} adalah kiriman tujuan Kota Batam. Pilih mode Capture Campuran agar kiriman Batam dan luar kota diekspor menjadi dua file terpisah.`);
                 return sanitizeExcelRowValues({
@@ -1954,7 +1978,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             if (exportButton) { exportButton.disabled = true; exportButton.dataset.exporting = 'true'; }
             try {
                 const destinationMode = getDestinationMode();
-                const exportAll = destinationMode === 'mixed' && !options.partition;
+                const exportAll = isCn23Mode() && !options.partition;
                 const partitions = exportAll ? ['batam', 'cn23'] : [options.partition];
                 const files = [];
                 for (const partition of partitions) {
@@ -1991,7 +2015,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
 
             document.querySelectorAll('#resultTable tbody tr input').forEach(input => syncManagedRowFromInput(input));
 
-            if (destinationModeAtExport === 'mixed') {
+            if (isCn23Mode()) {
                 if (!['RITEL', 'KORPORAT'].includes(document.getElementById('clientMode')?.value)) {
                     alert('Capture campuran dokumen mendukung pelanggan Ritel atau Korporat. Pilih salah satunya sebelum ekspor.');
                     return;
@@ -2004,7 +2028,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 if (getDestinationMode() !== destinationModeAtExport) { alert('Mode tujuan berubah saat menyiapkan ekspor. Jalankan ekspor kembali sesuai mode yang dipilih.'); return; }
                 const unresolved = uploadedFilesManager.flatMap(file => file.rows).filter(row => getShipmentRoute(row) === 'pending');
                 if (unresolved.length) {
-                    alert(`Masih ada ${unresolved.length} tujuan yang belum dapat dipisahkan menjadi Batam atau luar kota. Lengkapi alamat penerima sebelum ekspor.`);
+                    alert('Penentuan tujuan otomatis belum selesai. Tunggu sistem memuat database kode pos.');
                     return;
                 }
                 rows = rows.filter(tr => {
@@ -2030,7 +2054,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             const pendingReviewCount = getPendingReviewCount();
             const unresolvedReviewInputs = Array.from(document.querySelectorAll('#resultTable tbody tr input[data-review-pending="true"]'));
             if (pendingReviewCount > 0) {
-                alert(`Masih ada ${pendingReviewCount} bagian yang perlu diperiksa. Perbaiki nilai yang salah atau konfirmasi nilai yang sudah benar. Kolom tidak boleh kosong, penanda “perlu dicek” harus dihapus, dan seluruh bagian harus ditandai selesai sebelum ekspor.`);
+                alert(pendingReviewMessage());
                 const firstIssue = unresolvedReviewInputs[0];
                 firstIssue?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
                 firstIssue?.focus({ preventScroll: true });
@@ -2038,14 +2062,14 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 return;
             }
 
-            if (destinationModeAtExport === 'cn23' || (destinationModeAtExport === 'mixed' && options.partition === 'cn23')) {
+            if (isCn23Mode() && options.partition === 'cn23') {
                 return prepareCn23Queue(rows.map(tr => findManagedRow(tr.dataset.fileId, tr.dataset.rowId)?.row).filter(Boolean), destinationModeAtExport);
             }
 
             const mode = document.getElementById('clientMode').value;
             const template = document.getElementById('corporateTemplate').value;
             const useInsurance = document.getElementById('useInsurance').checked;
-            const mixedBatamExport = destinationModeAtExport === 'mixed' && options.partition === 'batam';
+            const mixedBatamExport = isCn23Mode() && options.partition === 'batam';
             
             let finalCustomerId = "";
             let finalTariffCode = "";
