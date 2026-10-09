@@ -14,6 +14,8 @@
       throw new Error('Web kamera belum mendukung luar kota. Muat ulang web setelah pembaruan; foto tetap tersimpan.');
     }
     const images = [];
+    const blurredPhoto = manifest.photos.find(photo => photo.requiresRetake);
+    if (blurredPhoto) throw new Error(`Foto ${blurredPhoto.sequence} buram. Wajib ambil ulang sebelum proses AI.`);
     for (const photo of manifest.photos) {
       const response = await fetch(photo.url, { cache: 'no-store' });
       if (!response.ok) throw new Error(`Foto ${photo.sequence} belum dapat dibaca.`);

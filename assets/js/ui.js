@@ -200,6 +200,7 @@
 
   function focusReviewInput(target, options = {}) {
     if (!(target instanceof HTMLInputElement)) return;
+    if (target.closest('tr')?.hidden) window.setShipmentRouteFilter?.('all');
     const { smooth = true, select = true } = options;
     target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center', inline: 'center' });
     window.setTimeout(() => {
@@ -275,7 +276,11 @@
 
     if (summary) {
       summary.textContent = String(count);
-      summary.closest('.summary-item')?.classList.toggle('has-outside', count > 0);
+      const card = summary.closest('.summary-item');
+      if (card) {
+        card.classList.toggle('has-outside', count > 0);
+        card.hidden = ['cn23', 'mixed'].includes(document.getElementById('destinationMode')?.value);
+      }
     }
     if (alert) alert.hidden = count === 0;
 

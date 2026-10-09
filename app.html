@@ -24,7 +24,7 @@
   <meta name="twitter:title" content="mile.posnew.com | PosNew Hub">
   <meta name="twitter:description" content="Ambil foto langsung dari HP atau unggah PDF untuk diproses menjadi data Mile App.">
   <meta name="twitter:image" content="https://mile.posnew.com/og-cover.png">
-  <link rel="stylesheet" href="/assets/css/app.css?v=20261005-single-export">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20261009-camera-update-1">
   <link rel="stylesheet" href="/assets/css/template-picker.css?v=20260927-26.02-customer-template-search">
   <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
   <link rel="stylesheet" href="/assets/css/downloads.css?v=20261001-26.40">
@@ -391,18 +391,19 @@
           </div>
 
           <div class="summary-strip" aria-label="Current workspace summary">
-            <div class="summary-item"><span>Baris</span><strong id="recordCount">0</strong></div>
+            <button type="button" class="summary-item summary-route-filter" data-action="filter-shipment-route" data-route="all" aria-pressed="true"><span>Semua</span><strong id="recordCount">0</strong></button>
             <div class="summary-item"><span>Berkas</span><strong id="fileCount">0</strong></div>
             <div class="summary-item"><span>Mode</span><strong id="modeSummary">Corporate</strong></div>
             <div class="summary-item"><span>Asuransi</span><strong id="insuranceSummary">Off</strong></div>
             <div class="summary-item summary-item--outside"><span>Luar Kota Batam</span><strong id="outsideBatamCount">0</strong></div>
-            <div class="summary-item" id="batamRouteSummary" hidden><span>Excel Batam</span><strong id="batamRouteCount">0</strong></div>
-            <div class="summary-item" id="cn23RouteSummary" hidden><span>Antrean CN23</span><strong id="cn23RouteCount">0</strong></div>
+            <button type="button" class="summary-item summary-route-filter" id="batamRouteSummary" hidden data-action="filter-shipment-route" data-route="batam" aria-pressed="false"><span>Lokal Batam</span><strong id="batamRouteCount">0</strong></button>
+            <button type="button" class="summary-item summary-route-filter" id="cn23RouteSummary" hidden data-action="filter-shipment-route" data-route="cn23" aria-pressed="false"><span>Luar kota / CN23</span><strong id="cn23RouteCount">0</strong></button>
             <div class="summary-item summary-item--review" id="pendingRouteSummary" hidden><span>Tujuan perlu dicek</span><strong id="pendingRouteCount">0</strong></div>
             <div class="summary-item summary-item--review"><span>Teks perlu dicek</span><strong id="reviewCount">0</strong></div>
             <div class="workspace-status" id="workspaceStatus"><span class="status-dot"></span>Menunggu foto atau berkas PDF</div>
           </div>
 
+          <p class="shipment-route-filter-hint" id="shipmentRouteFilterHint" role="status" aria-live="polite" hidden></p>
           <div class="bulk-reference-editor" id="bulkPdfReferenceEditor" hidden>
             <div class="bulk-reference-copy">
               <span class="bulk-reference-label">Hasil PDF AI</span>
@@ -565,13 +566,13 @@
   <script src="/assets/js/vendor-loader.js?v=20260927-26.00-camera-mobile-gallery" defer></script>
   <script src="/assets/vendor/sheetjs/xlsx.full.min.js?v=20260908-16.23" defer></script>
   <script src="/assets/js/postcode-national.js?v=20261009-address-context-6" defer></script>
-  <script src="/assets/js/app-core.js?v=20261006-auto-destination-4" defer></script>
+  <script src="/assets/js/app-core.js?v=20261009-camera-update-1" defer></script>
   <script src="/assets/js/ai-pdf-beta-r2.js?v=20261009-address-context-6" defer></script>
   <script src="/assets/js/camera-store.js?v=20261006-camera-draft-expiry" defer></script>
   <script src="/assets/js/camera-sync.js?v=20261006-auto-destination-4" defer></script>
-  <script src="/assets/js/ui.js?v=20261006-auto-destination-4" defer></script>
+  <script src="/assets/js/ui.js?v=20261009-camera-update-1" defer></script>
   <script src="/assets/js/template-picker.js?v=20260927-26.02-customer-template-search" defer></script>
-  <script src="/assets/js/events-v16.js?v=20260926-16.47-sync" defer></script>
+  <script src="/assets/js/events-v16.js?v=20261009-camera-update-1" defer></script>
   <script src="/assets/js/session-v16.js?v=20260926-16.47-sync" defer></script>
 </body>
 </html>

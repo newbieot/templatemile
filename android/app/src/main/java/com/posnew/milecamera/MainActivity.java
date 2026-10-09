@@ -54,6 +54,7 @@ public final class MainActivity extends ComponentActivity {
     private static final String ORIGIN="https://mile.posnew.com";
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private final ExecutorService authIo=Executors.newSingleThreadExecutor();
+    private final ExecutorService updateIo=Executors.newSingleThreadExecutor();
     private final String transferToken=UUID.randomUUID().toString();
     private FrameLayout root;
     private SessionStore store;
@@ -71,6 +72,13 @@ public final class MainActivity extends ComponentActivity {
     private Bitmap galleryBitmap;
     private int galleryIndex;
     private boolean cameraLayoutPending;
+    private boolean qualityCheckBusy, updateCheckBusy, updatePromptVisible, resumed;
+    private String retakeKey;
+    private AppUpdates.Release availableUpdate;
+    private TextView updateStatus;
+    private int promptedUpdateVersion;
+    private long lastUpdateCheck;
+    private final Runnable updateCheck=() -> checkUpdates(false);
     private final ActivityResultLauncher<String> cameraPermission=registerForActivityResult(new ActivityResultContracts.RequestPermission(),granted -> {
         if (granted && hasSession()) showCamera();
         else if(!hasSession()) showLogin("");
@@ -119,6 +127,51 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private boolean hasSession() { return session!=null && session.available(); }
+    private int installedVersionCode() {
+        try { return getPackageManager().getPackageInfo(getPackageName(),0).versionCode; }
+        catch(Exception ignored) { return 0; }
+    }
+    private String installedVersionName() {
+        try { return getPackageManager().getPackageInfo(getPackageName(),0).versionName; }
+        catch(Exception ignored) { return ""; }
+    }
+    private void checkUpdates(boolean manual) {
+        if(root==null || isDestroyed() || updateCheckBusy || !resumed) return;
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(!manual && lastUpdateCheck>0 && now-lastUpdateCheck<300000) {
+            root.removeCallbacks(updateCheck); root.postDelayed(updateCheck,300000-(now-lastUpdateCheck)); return;
+        }
+        lastUpdateCheck=now; updateCheckBusy=true;
+        updateIo.execute(() -> {
+            AppUpdates.Release offered=null; boolean success=false;
+            try { offered=AppUpdates.check(installedVersionCode()); success=true; } catch(Exception ignored) { }
+            final AppUpdates.Release release=offered; final boolean checked=success;
+            runOnUiThread(() -> {
+                if(isDestroyed()) return;
+                updateCheckBusy=false;
+                if(checked) availableUpdate=release;
+                if(updateStatus!=null && screen.equals("home")) updateStatus.setText(availableUpdate==null?"Versi "+installedVersionName()+" · Periksa update":"Update "+availableUpdate.versionName+" tersedia · Unduh");
+                if(manual && checked && release==null) toast("Aplikasi sudah memakai versi terbaru.");
+                if(manual && !checked) toast("Update belum dapat diperiksa. Coba lagi saat internet tersedia.");
+                showUpdatePrompt();
+                root.removeCallbacks(updateCheck); if(resumed) root.postDelayed(updateCheck,300000);
+            });
+        });
+    }
+    private void downloadUpdate() {
+        if(availableUpdate==null) return;
+        try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(availableUpdate.downloadUrl))); }
+        catch(Exception ignored) { toast("Buka mile.posnew.com/unduhan untuk mengunduh update."); }
+    }
+    private void showUpdatePrompt() {
+        if(availableUpdate==null || updatePromptVisible || promptedUpdateVersion==availableUpdate.versionCode
+            || !resumed || (!screen.equals("home") && !screen.equals("login")) || isFinishing() || isDestroyed()) return;
+        promptedUpdateVersion=availableUpdate.versionCode; updatePromptVisible=true;
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Update Mile Camera tersedia")
+            .setMessage("Versi "+availableUpdate.versionName+" sudah tersedia. Unduh dan pasang pembaruan untuk memakai perbaikan terbaru. Foto batch tetap tersimpan.")
+            .setPositiveButton("Unduh update",(d,w)->downloadUpdate()).setNegativeButton("Nanti",null).create();
+        dialog.setOnDismissListener(d -> updatePromptVisible=false); dialog.show();
+    }
     private void installCookie() {
         if(!hasSession()) return;
         CookieManager manager=CookieManager.getInstance(); manager.setAcceptCookie(true);
@@ -199,6 +252,7 @@ public final class MainActivity extends ComponentActivity {
         }),Ui.matchWrap());
         Ui.gap(page,16); TextView note=Ui.text(this,"Login pertama memerlukan internet. Kamera memakai 720p dengan ukuran maksimal 120 KB per foto.",12,Ui.MUTED,false); note.setGravity(Gravity.CENTER); page.addView(note,Ui.matchWrap());
         scroll.addView(page); root.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
+        root.post(this::showUpdatePrompt);
     }
     private EditText loginField(String hint,int inputType) {
         EditText field=new EditText(this); field.setSingleLine(true); field.setTextSize(16); field.setTextColor(Ui.INK); field.setHintTextColor(Ui.MUTED);
@@ -285,7 +339,7 @@ public final class MainActivity extends ComponentActivity {
         if (store.count()>0) {
             LinearLayout draft=Ui.column(this); draft.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18)); draft.setBackground(Ui.background(Color.WHITE,22,this));
             draft.addView(Ui.text(this,store.count()+" foto tersimpan",19,Ui.INK,true)); Ui.gap(draft,6);
-            draft.addView(Ui.text(this,store.transferred()?"Sudah dikirim ke review. Salinan foto masih ada di HP.":"Batch terakhir siap dilanjutkan atau diperiksa.",12,Ui.MUTED,false)); Ui.gap(draft,16);
+            draft.addView(Ui.text(this,store.retakeCount()>0?store.retakeCount()+" foto buram wajib diambil ulang sebelum proses AI.":store.transferred()?"Sudah dikirim ke review. Salinan foto masih ada di HP.":"Batch terakhir siap dilanjutkan atau diperiksa.",12,Ui.MUTED,false)); Ui.gap(draft,16);
             LinearLayout actions=Ui.row(this); actions.addView(Ui.button(this,"Lihat foto",Ui.PAPER,Ui.INK,()->showGallery(store.count()-1)),new LinearLayout.LayoutParams(0,-2,1));
             View space=new View(this); actions.addView(space,new LinearLayout.LayoutParams(Ui.dp(this,10),1));
             actions.addView(Ui.button(this,"Proses AI →",Ui.INK,Color.WHITE,this::beginTransfer),new LinearLayout.LayoutParams(0,-2,1)); draft.addView(actions,Ui.matchWrap()); page.addView(draft,Ui.matchWrap()); Ui.gap(page,12);
@@ -297,10 +351,14 @@ public final class MainActivity extends ComponentActivity {
         Ui.gap(page,16); page.addView(Ui.text(this,"Masuk sebagai "+session.email(),12,Ui.MUTED,false),Ui.matchWrap());
         page.addView(Ui.button(this,"Keluar dari akun",Color.TRANSPARENT,Color.rgb(185,28,28),this::logout),Ui.matchWrap());
         Ui.gap(page,12); TextView privacy=Ui.text(this,"Sesi tetap tersimpan sampai logout. Capture 720p bisa tanpa internet; proses AI memerlukan koneksi.",12,Ui.MUTED,false); privacy.setGravity(Gravity.CENTER); privacy.setLineSpacing(Ui.dp(this,3),1); page.addView(privacy,Ui.matchWrap());
+        updateStatus=Ui.button(this,availableUpdate==null?"Versi "+installedVersionName()+" · Periksa update":"Update "+availableUpdate.versionName+" tersedia · Unduh",Color.TRANSPARENT,Ui.BLUE,()->{ if(availableUpdate!=null) downloadUpdate(); else checkUpdates(true); });
+        page.addView(updateStatus,Ui.matchWrap());
         scroll.addView(page); root.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
+        root.post(this::showUpdatePrompt);
     }
     private void openCamera() {
         if(!hasSession()) { showLogin(""); return; }
+        retakeKey=null;
         if (store.transferred()) {
             new AlertDialog.Builder(this).setTitle("Batch sebelumnya sudah dikirim")
                 .setMessage("Mulai batch baru agar foto berikutnya tidak mengirim ulang batch sebelumnya. Salinan foto lama di aplikasi akan dihapus.")
@@ -312,7 +370,7 @@ public final class MainActivity extends ComponentActivity {
     private void showCamera() {
         if(!hasSession()) { showLogin(""); return; }
         clearScreen("camera"); theme(true);
-        cameraScreen=new CameraScreen(this,store,io,this::showHome,()->showGallery(store.count()-1),this::beginTransfer);
+        cameraScreen=new CameraScreen(this,store,io,this::showHome,()->showGallery(store.firstRetakeRequired()>=0?store.firstRetakeRequired():store.count()-1),this::beginTransfer,retakeKey);
         root.addView(cameraScreen,new FrameLayout.LayoutParams(-1,-1));
         ViewCompat.requestApplyInsets(root);
     }
@@ -327,6 +385,9 @@ public final class MainActivity extends ComponentActivity {
         if(!hasSession()) { showLogin(""); return; }
         if (store.count()==0) { showHome(); return; }
         clearScreen("gallery"); theme(true); galleryIndex=Math.max(0,Math.min(index,store.count()-1));
+        final JSONObject selectedPhoto;
+        try { selectedPhoto=store.snapshot().getJSONArray("photos").getJSONObject(galleryIndex); }
+        catch(Exception error) { toast("Foto tidak dapat dibaca."); showHome(); return; }
         LinearLayout page=Ui.column(this); page.setPadding(Ui.dp(this,20),Ui.dp(this,12),Ui.dp(this,20),Ui.dp(this,16));
         LinearLayout header=Ui.row(this); TextView back=Ui.button(this,"‹",Ui.PANEL,Color.WHITE,this::showHome); back.setContentDescription("Kembali ke beranda");
         header.addView(back,new LinearLayout.LayoutParams(Ui.dp(this,48),Ui.dp(this,48)));
@@ -353,7 +414,15 @@ public final class MainActivity extends ComponentActivity {
         TextView previous=Ui.button(this,"← Sebelum",Ui.PANEL,Color.WHITE,()->showGallery(galleryIndex-1)); previous.setTextSize(13); previous.setEnabled(galleryIndex>0); previous.setAlpha(previous.isEnabled()?1:.35f); navigation.addView(previous,new LinearLayout.LayoutParams(0,-2,1));
         View gap=new View(this); navigation.addView(gap,new LinearLayout.LayoutParams(Ui.dp(this,10),1));
         TextView next=Ui.button(this,"Berikut →",Ui.PANEL,Color.WHITE,()->showGallery(galleryIndex+1)); next.setTextSize(13); next.setEnabled(galleryIndex<store.count()-1); next.setAlpha(next.isEnabled()?1:.35f); navigation.addView(next,new LinearLayout.LayoutParams(0,-2,1)); controls.addView(navigation,Ui.matchWrap()); Ui.gap(controls,10);
-        controls.addView(Ui.button(this,"Hapus foto ini",Color.TRANSPARENT,Color.rgb(255,165,150),()->new AlertDialog.Builder(this).setTitle("Hapus foto " +(galleryIndex+1)+"?")
+        if(selectedPhoto.optBoolean("requiresRetake")) {
+            controls.addView(Ui.text(this,"Foto ini buram. Wajib ambil ulang sebelum proses AI. Ketuk teks untuk fokus dan tahan HP tetap stabil.",14,Color.rgb(255,165,150),true),Ui.matchWrap());
+            Ui.gap(controls,10);
+            controls.addView(Ui.button(this,"Ambil ulang foto "+(galleryIndex+1),Ui.BLUE,Color.WHITE,()->{
+                retakeKey=selectedPhoto.optString("key");
+                if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED) showCamera();
+                else cameraPermission.launch(Manifest.permission.CAMERA);
+            }),Ui.matchWrap());
+        } else controls.addView(Ui.button(this,"Hapus foto ini",Color.TRANSPARENT,Color.rgb(255,165,150),()->new AlertDialog.Builder(this).setTitle("Hapus foto " +(galleryIndex+1)+"?")
             .setMessage("Foto ini dihapus dari batch. Urutan foto lainnya akan dirapikan.").setPositiveButton("Hapus",(d,w)->{ try { store.remove(galleryIndex); showGallery(galleryIndex); } catch(Exception error) { toast(error.getMessage()); } }).setNegativeButton("Kembali",null).show()),Ui.matchWrap());
         controls.addView(Ui.button(this,"Lanjut capture",Ui.BLUE,Color.WHITE,this::openCamera),Ui.matchWrap()); root.addView(page,new FrameLayout.LayoutParams(-1,-1));
     }
@@ -365,6 +434,7 @@ public final class MainActivity extends ComponentActivity {
         WebSettings settings=web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false); settings.setAllowContentAccess(false); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setMediaPlaybackRequiresUserGesture(true); settings.setSupportMultipleWindows(false);
+        settings.setUserAgentString(settings.getUserAgentString()+" MileCamera/"+installedVersionName());
         CookieManager.getInstance().setAcceptCookie(true); CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onProgressChanged(WebView view,int progress) { if(webProgress!=null) { webProgress.setProgress(progress); webProgress.setVisibility(progress<100?View.VISIBLE:View.GONE); } }
@@ -426,10 +496,24 @@ public final class MainActivity extends ComponentActivity {
     private void beginTransfer() {
         if(!hasSession()) { showLogin(""); return; }
         if (store.count()==0) return;
-        pendingTransfer=true; transferStarted=false; showWeb(ORIGIN+"/camera");
+        if(qualityCheckBusy) return;
+        qualityCheckBusy=true; final String batchId=store.id();
+        io.execute(() -> {
+            int invalid=-1; String failure="";
+            try { invalid=store.inspectDraftQuality(); } catch(Exception error) { failure=error.getMessage(); }
+            final int bad=invalid; final String message=failure;
+            runOnUiThread(() -> {
+                qualityCheckBusy=false;
+                if(isDestroyed() || !hasSession() || !batchId.equals(store.id())) return;
+                if(!message.isEmpty()) { toast(message); return; }
+                if(bad>=0) { pendingTransfer=false; transferStarted=false; showGallery(bad); toast("Foto "+(bad+1)+" buram. Ambil ulang sebelum proses AI."); return; }
+                pendingTransfer=true; transferStarted=false; showWeb(ORIGIN+"/camera");
+            });
+        });
     }
     private void injectPhotos() {
         if (!hasSession() || !pendingTransfer || transferStarted) return;
+        if(store.firstRetakeRequired()>=0) { pendingTransfer=false; showGallery(store.firstRetakeRequired()); return; }
         transferStarted=true; pollCount=0; webTitle.setText("Menyiapkan " +store.count()+" foto…");
         try {
             JSONObject manifest=store.snapshot(); JSONArray photos=manifest.getJSONArray("photos");
@@ -482,10 +566,10 @@ public final class MainActivity extends ComponentActivity {
         if(cameraScreen.isBusy()) { root.postDelayed(this::applyCameraRotation,150); return; }
         cameraLayoutPending=false; showCamera();
     }
-    @Override protected void onResume() { super.onResume(); if(root!=null && store!=null && hasSession()) verifySession(); }
-    @Override protected void onPause() { if(root!=null) root.removeCallbacks(sessionCheck); super.onPause(); }
+    @Override protected void onResume() { super.onResume(); resumed=true; if(root!=null && store!=null && hasSession()) verifySession(); checkUpdates(false); showUpdatePrompt(); }
+    @Override protected void onPause() { resumed=false; if(root!=null) { root.removeCallbacks(sessionCheck); root.removeCallbacks(updateCheck); } super.onPause(); }
     @Override protected void onDestroy() {
-        authGeneration++; if(root!=null) root.removeCallbacks(sessionCheck);
-        if(cameraScreen!=null) cameraScreen.close(); if(web!=null) web.destroy(); io.shutdown(); authIo.shutdown(); super.onDestroy();
+        authGeneration++; if(root!=null) { root.removeCallbacks(sessionCheck); root.removeCallbacks(updateCheck); }
+        if(cameraScreen!=null) cameraScreen.close(); if(web!=null) web.destroy(); io.shutdown(); authIo.shutdown(); updateIo.shutdown(); super.onDestroy();
     }
 }

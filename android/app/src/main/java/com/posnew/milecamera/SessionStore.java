@@ -53,6 +53,46 @@ final class SessionStore {
     }
 
     synchronized int count() { return session.optJSONArray("photos").length(); }
+    synchronized int firstRetakeRequired() {
+        JSONArray photos=session.optJSONArray("photos");
+        for(int i=0;i<photos.length();i++) if(photos.optJSONObject(i).optBoolean("requiresRetake")) return i;
+        return -1;
+    }
+    synchronized int retakeCount() {
+        int total=0; JSONArray photos=session.optJSONArray("photos");
+        for(int i=0;i<photos.length();i++) if(photos.optJSONObject(i).optBoolean("requiresRetake")) total++;
+        return total;
+    }
+    // Preflight older drafts once, off the UI thread. Unknown quality must be
+    // assessed before transfer; a failed decode never silently approves a photo.
+    int inspectDraftQuality() throws Exception {
+        JSONArray photos=snapshot().getJSONArray("photos");
+        for(int i=0;i<photos.length();i++) {
+            JSONObject photo=photos.getJSONObject(i);
+            if(PhotoQuality.VERSION.equals(photo.optString("qualityVersion"))) continue;
+            Bitmap bitmap=BitmapFactory.decodeFile(photoFile(photo.getString("key")).getPath());
+            if(bitmap==null) throw new Exception("Foto "+(i+1)+" tidak dapat dibaca. Ambil ulang foto tersebut.");
+            PhotoQuality.Assessment quality;
+            try {
+                int width=bitmap.getWidth(),height=bitmap.getHeight();
+                int[] pixels=new int[width*height]; bitmap.getPixels(pixels,0,width,0,0,width,height);
+                byte[] gray=new byte[pixels.length];
+                for(int p=0;p<pixels.length;p++) { int color=pixels[p]; gray[p]=(byte)((77*((color>>16)&255)+150*((color>>8)&255)+29*(color&255))>>8); }
+                quality=PhotoQuality.assess(gray,width,height);
+            } finally { bitmap.recycle(); }
+            synchronized(this) {
+                JSONArray current=session.getJSONArray("photos");
+                for(int p=0;p<current.length();p++) if(photo.getString("key").equals(current.getJSONObject(p).optString("key")))
+                    setQuality(current.getJSONObject(p),quality);
+                persist();
+            }
+        }
+        return firstRetakeRequired();
+    }
+    private static void setQuality(JSONObject photo,PhotoQuality.Assessment quality) throws Exception {
+        photo.put("qualityVersion",PhotoQuality.VERSION).put("requiresRetake",!quality.accepted)
+            .put("sharpness",quality.sharpness).put("sharpTiles",quality.sharpTiles);
+    }
     synchronized boolean transferred() { return session.optBoolean("transferred"); }
     synchronized String id() { return session.optString("id"); }
     synchronized String destinationMode() {
@@ -96,30 +136,49 @@ final class SessionStore {
      * rotation, compression, thumbnail generation and file writes happen on the photo worker.
      */
     void addCaptured(byte[] originalJpeg, int rotationDegrees, boolean flipHorizontal, String captureId, String capturedAt) throws Exception {
+        addCaptured(originalJpeg,rotationDegrees,flipHorizontal,captureId,capturedAt,null,null);
+    }
+    void addCaptured(byte[] originalJpeg,int rotationDegrees,boolean flipHorizontal,String captureId,String capturedAt,
+                     PhotoQuality.Assessment quality,String replacementKey) throws Exception {
+        // A failed retake keeps the original slot and remains blocked. The
+        // operator can immediately retry without appending another bad photo.
+        if(replacementKey!=null && quality!=null && !quality.accepted) return;
         EncodedPhoto encoded = encodePhoto(originalJpeg, rotationDegrees, flipHorizontal);
-        commitEncoded(encoded, captureId, capturedAt);
+        commitEncoded(encoded, captureId, capturedAt,quality,replacementKey);
     }
 
     private synchronized void commitEncoded(EncodedPhoto encoded, String captureId, String capturedAt) throws Exception {
-        if (count() >= MAX_PHOTOS) throw new Exception("Batch sudah berisi 150 foto.");
+        commitEncoded(encoded,captureId,capturedAt,null,null);
+    }
+    private synchronized void commitEncoded(EncodedPhoto encoded,String captureId,String capturedAt,
+                                            PhotoQuality.Assessment quality,String replacementKey) throws Exception {
+        JSONArray photos=session.getJSONArray("photos"); int replacement=-1; JSONObject previous=null;
+        if(replacementKey!=null) {
+            for(int i=0;i<photos.length();i++) if(replacementKey.equals(photos.getJSONObject(i).optString("key"))) replacement=i;
+            if(replacement<0 || !photos.getJSONObject(replacement).optBoolean("requiresRetake")) throw new Exception("Foto ulang tidak lagi diperlukan. Periksa batch.");
+            previous=photos.getJSONObject(replacement);
+        } else if (count() >= MAX_PHOTOS) throw new Exception("Batch sudah berisi 150 foto.");
         String key = UUID.randomUUID().toString();
         boolean previousTransferred = transferred();
         try {
             writeAtomic(photoFile(key), encoded.jpeg);
             writeAtomic(thumbnailFile(key), encoded.thumbnail);
-            int sequence = count() + 1;
+            int sequence = replacement>=0?replacement+1:count()+1;
             JSONObject photo = new JSONObject().put("key", key).put("captureId", captureId == null ? "native-" + key : captureId)
                 .put("sequence", sequence).put("fileName", String.format(java.util.Locale.ROOT, "%03d.jpg", sequence))
                 .put("timestamp", capturedAt == null ? Instant.now().toString() : capturedAt)
                 .put("width", encoded.width).put("height", encoded.height)
                 .put("bytes", encoded.jpeg.length).put("encodingProfile", ENCODING_PROFILE).put("source", "android-camerax");
-            session.getJSONArray("photos").put(photo);
+            if(quality!=null) setQuality(photo,quality);
+            if(previous!=null) photo.put("retakeOf",previous.optString("captureId"));
+            if(replacement>=0) photos.put(replacement,photo); else photos.put(photo);
             session.put("transferred", false);
             try { persist(); } catch (Exception failure) {
-                session.getJSONArray("photos").remove(count() - 1);
+                if(replacement>=0) photos.put(replacement,previous); else photos.remove(count()-1);
                 session.put("transferred", previousTransferred);
                 throw failure;
             }
+            if(previous!=null) { photoFile(previous.getString("key")).delete(); thumbnailFile(previous.getString("key")).delete(); }
         } catch (Exception error) {
             photoFile(key).delete();
             thumbnailFile(key).delete();
@@ -314,7 +373,10 @@ final class SessionStore {
         thumbnailFile(photo.getString("key")).delete();
     }
 
-    synchronized void markTransferred() throws Exception { session.put("transferred", true); persist(); }
+    synchronized void markTransferred() throws Exception {
+        if(firstRetakeRequired()>=0) throw new Exception("Foto buram wajib diambil ulang sebelum proses AI.");
+        session.put("transferred", true); persist();
+    }
     synchronized void reset() throws Exception {
         JSONArray photos = session.getJSONArray("photos");
         for (int i = 0; i < photos.length(); i++) {

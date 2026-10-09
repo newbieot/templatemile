@@ -1,4 +1,4 @@
-const APP_VERSION = '20261009-26.49-address-context';
+const APP_VERSION = '20261009-26.50-camera-update';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -44,6 +44,7 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-Camera-0.1.5.apk', '/downloads/Mile-Camera-0.1.5-source.zip',
   '/downloads/Mile-CN23-Helper-0.2.0.zip',
   '/downloads/Mile-Camera-0.1.6.apk', '/downloads/Mile-Camera-0.1.6-source.zip',
+  '/downloads/Mile-Camera-0.1.7.apk', '/downloads/Mile-Camera-0.1.7-source.zip', '/downloads/mile-camera-update.json',
   '/downloads/Mile-CN23-Helper-0.2.1.zip',
   '/downloads/Mile-CN23-Helper-0.2.2.zip',
   '/downloads/Mile-CN23-Helper-0.2.3.zip',
@@ -1235,7 +1236,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
-  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4|5|6)\.apk$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4|5|6|7)\.apk$/.test(path) && response.ok) {
     headers.set('content-type', 'application/vnd.android.package-archive');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
@@ -1267,13 +1268,17 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/downloads/Mile-Camera.apk' || url.pathname === '/downloads/Mile-Camera-0.1.0.apk') {
-      return redirect('/downloads/Mile-Camera-0.1.6.apk');
+      return redirect('/downloads/Mile-Camera-0.1.7.apk');
     }
     if (url.hostname === 'templatemile.pages.dev') {
       url.hostname = 'mile.posnew.com';
       return Response.redirect(url.toString(), 301);
     }
 
+    if (url.pathname === '/api/android/update') {
+      if (!['GET', 'HEAD'].includes(request.method)) return json({ error: { message: 'Gunakan GET untuk memeriksa update.' } }, 405, { Allow: 'GET, HEAD' });
+      return assetResponse(request, env, '/downloads/mile-camera-update.json');
+    }
     if (url.pathname === '/api/health') {
       return json({
         ok: true,

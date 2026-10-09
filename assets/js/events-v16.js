@@ -36,7 +36,8 @@
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const action = button.dataset.action;
-    if (action === 'delete-file') invoke('deleteFileFromQueue', button.dataset.fileId);
+    if (action === 'filter-shipment-route') invoke('setShipmentRouteFilter', button.dataset.route);
+    else if (action === 'delete-file') invoke('deleteFileFromQueue', button.dataset.fileId);
     else if (action === 'delete-row') invoke('deleteDataRow', button.dataset.fileId, button.dataset.rowId);
     else if (action === 'keep-outside-batam') invoke('keepOutsideBatamRow', button.dataset.fileId, button.dataset.rowId);
     else if (action === 'delete-outside-batam') invoke('deleteOutsideBatamRow', button.dataset.fileId, button.dataset.rowId);

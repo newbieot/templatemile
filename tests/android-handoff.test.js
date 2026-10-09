@@ -13,13 +13,14 @@ async function run(options={}) {
   };
   sandbox.window=sandbox;
   vm.createContext(sandbox);
-  const manifest={id:'CAM-test',destinationMode:options.mode,startedAt:options.startedAt || new Date().toISOString(),deviceName:'QA',photos:Array.from({length:7},(_,i)=>({url:'/native/'+i,sequence:i+1,timestamp:new Date().toISOString(),width:options.badDimensions ? 2048 : 1280,height:720}))};
+  const manifest={id:'CAM-test',destinationMode:options.mode,startedAt:options.startedAt || new Date().toISOString(),deviceName:'QA',photos:Array.from({length:7},(_,i)=>({url:'/native/'+i,sequence:i+1,timestamp:new Date().toISOString(),width:options.badDimensions ? 2048 : 1280,height:720,requiresRetake:Boolean(options.blur && i===2)}))};
   await vm.runInContext(script+'('+JSON.stringify(manifest)+')',sandbox);
   return {saved,fetched,state:sandbox.__mileNativeTransfer};
 }
 (async()=>{
   const success=await run(); assert.equal(success.saved[0].images.length,7); assert.equal(success.saved[0].aiModel,'gemini-3.8-flash'); assert.equal(success.state.state,'done'); assert.equal(success.saved[0].images[0].blob.type,'image/jpeg'); assert.equal('url' in success.saved[0].images[0],false);
   const badPhoto=await run({failed:true}); assert.equal(badPhoto.state.state,'error'); assert.equal(badPhoto.saved.length,0);
+  const blur=await run({blur:true}); assert.equal(blur.state.state,'error'); assert.match(blur.state.message,/Foto 3 buram/); assert.equal(blur.saved.length,0); assert.equal(blur.fetched.length,0);
   const tooLarge=await run({oversize:true}); assert.equal(tooLarge.state.state,'error'); assert.equal(tooLarge.saved.length,0);
   const tooWide=await run({badDimensions:true}); assert.equal(tooWide.state.state,'error'); assert.equal(tooWide.saved.length,0);
   const quota=await run({quota:true}); assert.equal(quota.state.state,'error'); assert.equal(quota.saved.length,0);

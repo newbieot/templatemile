@@ -69,6 +69,7 @@ final class CameraScreen extends FrameLayout {
     private final FocusOverlay focusOverlay;
     private final TextView status, counter, zoom, lamp, finish, gallery;
     private final Shutter shutter;
+    private final String replacementKey;
     private ProcessCameraProvider provider;
     private Camera camera;
     private ImageAnalysis analysis;
@@ -78,7 +79,11 @@ final class CameraScreen extends FrameLayout {
     private long nextCaptureSequence=1, nextQueueSequence=1;
 
     CameraScreen(ComponentActivity activity, SessionStore store, ExecutorService io, Runnable home, Runnable openGallery, Runnable process) {
+        this(activity,store,io,home,openGallery,process,null);
+    }
+    CameraScreen(ComponentActivity activity,SessionStore store,ExecutorService io,Runnable home,Runnable openGallery,Runnable process,String replacementKey) {
         super(activity);
+        this.replacementKey=replacementKey;
         this.activity=activity; this.store=store; this.io=io;
         setBackgroundColor(Color.BLACK);
         boolean landscape=activity.getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
@@ -320,7 +325,8 @@ final class CameraScreen extends FrameLayout {
         final long tapNs=SystemClock.elapsedRealtimeNanos();
         if (closed || !previewReady || camera==null || analysis==null) return;
         if (outstandingCaptures>=MAX_OUTSTANDING_CAPTURES) return;
-        if (store.count()+outstandingCaptures>=SessionStore.MAX_PHOTOS) return;
+        if (replacementKey==null && store.count()+outstandingCaptures>=SessionStore.MAX_PHOTOS) return;
+        if (replacementKey!=null && (outstandingCaptures>0 || store.findPhoto(replacementKey)==null)) return;
         // Freeze a frame already delivered BEFORE feedback and before any background work.
         // There is no takePicture request that could photograph the next envelope instead.
         final ShutterFrameBuffer.Snapshot frame=frames.freeze(tapNs);
@@ -329,15 +335,16 @@ final class CameraScreen extends FrameLayout {
         job.captureCallbackNs=SystemClock.elapsedRealtimeNanos(); job.sensorTimestampNs=frame.sensorNs; job.frameAgeNs=frame.ageNs;
         outstandingCaptures++; busy=true; ++focusRequest;
         refresh();
-        status.setText("Frame diambil · boleh ganti label");
+        status.setText("Frame diambil · ketajaman diperiksa otomatis");
         showTapFeedback();
         showCaptureStartedFeedback();
         try {
             captureExecutor.execute(() -> {
                 try (ByteArrayOutputStream bytes=new ByteArrayOutputStream()) {
+                    PhotoQuality.Assessment quality=PhotoQuality.assess(frame.nv21,frame.width,frame.height);
                     YuvImage frozen=new YuvImage(frame.nv21,ImageFormat.NV21,frame.width,frame.height,null);
                     if (!frozen.compressToJpeg(new Rect(0,0,frame.width,frame.height),95,bytes)) throw new Exception("Frame gagal dikompresi.");
-                    enqueueCaptureResult(new CaptureResult(job,bytes.toByteArray(),frame.rotation,frame.mirror,null));
+                    enqueueCaptureResult(new CaptureResult(job,bytes.toByteArray(),frame.rotation,frame.mirror,null,quality));
                 } catch (Exception error) {
                     enqueueCaptureResult(new CaptureResult(job,null,0,false,error));
                 }
@@ -380,11 +387,11 @@ final class CameraScreen extends FrameLayout {
             io.execute(() -> {
                 Exception failure=null;
                 try {
-                    store.addCaptured(result.jpeg,result.rotationDegrees,result.flipHorizontal,result.job.captureId,result.job.capturedAt);
+                    store.addCaptured(result.jpeg,result.rotationDegrees,result.flipHorizontal,result.job.captureId,result.job.capturedAt,result.quality,replacementKey);
                 } catch (Exception error) { failure=error; }
                 final Exception error=failure;
                 final long savedNs=SystemClock.elapsedRealtimeNanos();
-                activity.runOnUiThread(() -> completeSave(result.job,error,savedNs));
+                activity.runOnUiThread(() -> completeSave(result.job,error,savedNs,result.quality));
             });
         } catch (java.util.concurrent.RejectedExecutionException error) {
             completeCaptureFailure(result.job,error);
@@ -402,7 +409,7 @@ final class CameraScreen extends FrameLayout {
         });
     }
 
-    private void completeSave(CaptureJob job, Exception error, long savedNs) {
+    private void completeSave(CaptureJob job, Exception error, long savedNs,PhotoQuality.Assessment quality) {
         outstandingCaptures=Math.max(0,outstandingCaptures-1);
         busy=outstandingCaptures>0;
         logPerformance(job,savedNs,error==null,error);
@@ -411,10 +418,13 @@ final class CameraScreen extends FrameLayout {
         if (error!=null) {
             status.setText("Foto gagal disimpan · ambil ulang");
             android.widget.Toast.makeText(activity,error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
+        } else if(quality!=null && !quality.accepted) {
+            status.setText("Foto belum tajam · wajib ambil ulang sebelum AI");
+            android.widget.Toast.makeText(activity,"Foto buram. Buka Galeri untuk mengambil ulang; proses AI terkunci.",android.widget.Toast.LENGTH_LONG).show();
         } else {
             long captureMs=millis(job.captureCallbackNs-job.tapNs);
             long saveMs=millis(savedNs-job.captureCallbackNs);
-            status.setText("✓ Foto "+store.count()+" · capture "+captureMs+" ms · simpan "+saveMs+" ms");
+            status.setText(replacementKey!=null?"✓ Foto ulang tajam · tekan Selesai":"✓ Foto "+store.count()+" · capture "+captureMs+" ms · simpan "+saveMs+" ms");
             performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
         }
     }
@@ -449,12 +459,15 @@ final class CameraScreen extends FrameLayout {
     private void refresh() {
         int stored=store.count();
         counter.setText(String.format(java.util.Locale.ROOT,outstandingCaptures>0?"%03d foto · %d diproses · 720p":"%03d foto · 720p",stored,outstandingCaptures));
+        int retakes=store.retakeCount();
+        finish.setText(retakes>0?"Ambil ulang · "+retakes:"Selesai");
         finish.setEnabled(stored>0&&!busy); finish.setAlpha(finish.isEnabled()?1f:.35f);
         gallery.setText("Galeri · "+stored); gallery.setEnabled(stored>0&&!busy); gallery.setAlpha(gallery.isEnabled()?1f:.45f);
         refreshShutter();
     }
     private void refreshShutter() {
-        boolean capacity=store.count()+outstandingCaptures<SessionStore.MAX_PHOTOS && outstandingCaptures<MAX_OUTSTANDING_CAPTURES;
+        boolean capacity=replacementKey!=null?(outstandingCaptures==0 && store.findPhoto(replacementKey)!=null):
+            store.count()+outstandingCaptures<SessionStore.MAX_PHOTOS && outstandingCaptures<MAX_OUTSTANDING_CAPTURES;
         boolean enabled=!closed&&(touchCaptured || (previewReady&&camera!=null&&analysis!=null&&capacity&&frames.available(SystemClock.elapsedRealtimeNanos())));
         if (shutter.isEnabled()!=enabled) { shutter.setEnabled(enabled); shutter.setAlpha(enabled?1f:.45f); }
     }
@@ -494,8 +507,13 @@ final class CameraScreen extends FrameLayout {
         final int rotationDegrees;
         final boolean flipHorizontal;
         final Exception error;
+        final PhotoQuality.Assessment quality;
         CaptureResult(CaptureJob job,byte[] jpeg,int rotationDegrees,boolean flipHorizontal,Exception error) {
+            this(job,jpeg,rotationDegrees,flipHorizontal,error,null);
+        }
+        CaptureResult(CaptureJob job,byte[] jpeg,int rotationDegrees,boolean flipHorizontal,Exception error,PhotoQuality.Assessment quality) {
             this.job=job; this.jpeg=jpeg; this.rotationDegrees=rotationDegrees; this.flipHorizontal=flipHorizontal; this.error=error;
+            this.quality=quality;
         }
     }
 

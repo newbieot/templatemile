@@ -64,7 +64,7 @@ assert.equal(newApk.status, 200); assert.equal(newApk.headers.get('content-dispo
 const extensionZip = await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/Mile-CN23-Helper-0.2.10.zip'), env);
 assert.equal(extensionZip.status, 200); assert.equal(extensionZip.headers.get('content-type'), 'application/zip');
 const latestApk = await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/Mile-Camera.apk'), env);
-assert.equal(latestApk.headers.get('location'), '/downloads/Mile-Camera-0.1.6.apk');
+assert.equal(latestApk.headers.get('location'), '/downloads/Mile-Camera-0.1.7.apk');
 assert.deepEqual(new Uint8Array(await apk.arrayBuffer()), new Uint8Array([0x50,0x4b,3,4]));
 assert.equal((await workerModule.default.fetch(new Request('https://mile.posnew.com/downloads/other.apk'), env)).status, 302);
 
@@ -73,7 +73,7 @@ for (const path of ['/unduhan','/unduhan.html']) {
   assert.equal(guide.status,200);assert.match(guide.headers.get('content-type'),/text\/html/);
   assert.match(guide.headers.get('cache-control'),/no-store/);
   const html=await guide.text();
-  assert.match(html,/Mile-Camera-0\.1\.6\.apk/);assert.match(html,/Mile-CN23-Helper-0\.2\.10\.zip/);
+  assert.match(html,/Mile-Camera-0\.1\.7\.apk/);assert.match(html,/Mile-CN23-Helper-0\.2\.10\.zip/);
   assert.match(html,/Chrome 88 ke atas/);assert.match(html,/32-bit dan 64-bit/);
   assert.match(html,/CN23_ANTREAN/);assert.match(html,/Kode pos dan kode zona mengikuti Mile/);
 }
@@ -85,7 +85,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20261009-26.49-address-context');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20261009-26.50-camera-update');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);

@@ -10,6 +10,7 @@
         let nationalPostcodeLoadPromise = null;
         let nationalPostcodeLoadError = '';
         let exportInProgress = false;
+        let shipmentRouteFilter = 'all';
 
         function getDestinationMode(options = {}) {
             const value = options.destinationMode ?? document.getElementById('destinationMode')?.value;
@@ -356,6 +357,7 @@
             refreshNationalPostcodes,
             getNationalPostcodeMatch,
             getShipmentRoute,
+            setShipmentRouteFilter,
             buildCn23QueueRows,
             isClearlyBatamAddress,
             cleanArtifacts,
@@ -1687,18 +1689,55 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             // tetap berada pada node yang sama agar fokus serta kursor tidak berpindah.
             if (postalCell) postalCell.outerHTML = renderNationalPostcodeReview(row);
             updateNationalRouteSummary();
+            applyShipmentRouteFilter();
+        }
+
+        function setShipmentRouteFilter(route) {
+            shipmentRouteFilter = ['batam', 'cn23'].includes(route) && isCn23Mode() ? route : 'all';
+            applyShipmentRouteFilter();
+            const table = document.getElementById('resultTable');
+            const header = document.querySelector('.review-header, .app-header');
+            const sticky = header && ['sticky', 'fixed'].includes(window.getComputedStyle(header).position);
+            if (table) {
+                table.style.scrollMarginTop = `${16 + (sticky ? header.getBoundingClientRect().height : 0)}px`;
+                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        window.setShipmentRouteFilter = setShipmentRouteFilter;
+
+        function applyShipmentRouteFilter() {
+            if (!isCn23Mode()) shipmentRouteFilter = 'all';
+            let visible = 0, total = 0;
+            document.querySelectorAll('#resultTable tbody tr[data-file-id][data-row-id]').forEach(tr => {
+                const row = findManagedRow(tr.dataset.fileId, tr.dataset.rowId)?.row;
+                const route = row && isCn23Mode() ? getShipmentRoute(row) : 'batam';
+                tr.dataset.shipmentRoute = route;
+                tr.hidden = shipmentRouteFilter !== 'all' && route !== shipmentRouteFilter;
+                total++;
+                if (!tr.hidden) visible++;
+            });
+            document.querySelectorAll('[data-action="filter-shipment-route"]').forEach(button => {
+                button.setAttribute('aria-pressed', String(button.dataset.route === shipmentRouteFilter));
+            });
+            const hint = document.getElementById('shipmentRouteFilterHint');
+            if (hint) {
+                hint.hidden = shipmentRouteFilter === 'all';
+                hint.textContent = shipmentRouteFilter === 'all' ? '' :
+                    `${shipmentRouteFilter === 'batam' ? 'Lokal Batam' : 'Luar kota / CN23'}: ${visible} dari ${total} data. Klik Semua untuk melihat seluruh hasil. Ekspor tetap memuat seluruh kiriman.`;
+            }
         }
 
         function updateNationalRouteSummary() {
             const mixed = getDestinationMode() === 'mixed';
             const routeCounts = { batam: 0, cn23: 0, pending: 0 };
-            if (mixed) uploadedFilesManager.forEach(file => file.rows.forEach(row => { routeCounts[getShipmentRoute(row)] += 1; }));
+            if (isCn23Mode()) uploadedFilesManager.forEach(file => file.rows.forEach(row => { routeCounts[getShipmentRoute(row)] += 1; }));
             const exportButton = document.getElementById('exportButton');
             if (mixed && exportButton) exportButton.disabled = exportInProgress || routeCounts.batam + routeCounts.cn23 === 0 || routeCounts.pending > 0 || getPendingReviewCount() > 0;
             [['batam', 'batamRoute'], ['cn23', 'cn23Route'], ['pending', 'pendingRoute']].forEach(([route, prefix]) => {
                 const summary = document.getElementById(`${prefix}Summary`);
                 const count = document.getElementById(`${prefix}Count`);
-                if (summary) { summary.hidden = !mixed; summary.style.display = mixed ? '' : 'none'; }
+                const show = route !== 'pending' && isCn23Mode();
+                if (summary) { summary.hidden = !show; summary.style.display = show ? '' : 'none'; }
                 if (count) count.textContent = String(routeCounts[route]);
             });
         }
@@ -1842,6 +1881,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     : 'Tarik file PDF, Excel, atau CSV ke panel kiri untuk memulai.';
                 tbody.innerHTML = `<tr><td colspan="${columnCount}" style="text-align: center; color: #888; padding: 40px; font-style: italic;">${emptyMessage}</td></tr>`;
             }
+            applyShipmentRouteFilter();
         }
 
         function shipmentWeight(value, rowNumber) {

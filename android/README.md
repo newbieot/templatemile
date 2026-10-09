@@ -4,14 +4,16 @@ Aplikasi pendamping Android dengan kamera native CameraX. Login, ekstraksi AI, p
 
 ## Memakai APK
 
-Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.6).
+Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.7).
 
-1. Unduh `Mile-Camera-0.1.6.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
+1. Unduh `Mile-Camera-0.1.7.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
 2. Buka **Mile Camera** dan login terlebih dahulu. Kamera, galeri, dan halaman aplikasi terkunci sebelum login berhasil. Setelah masuk, pilih **Mulai capture** dan izinkan kamera.
 3. Ketuk bagian teks untuk fokus. Indikator biru berarti perangkat melaporkan fokus berhasil; indikator kuning berarti fokus belum terkunci atau lensa tidak mendukung autofocus pada titik.
-4. Ambil foto, periksa **Galeri**, hapus yang tidak layak, lalu tekan **Selesai**.
+4. Ambil foto dan periksa **Galeri**. Foto yang terdeteksi buram wajib diganti melalui **Ambil ulang foto**; foto ulang tetap memakai nomor urut semula. **Selesai / Proses AI** membuka foto buram pertama sampai seluruh foto yang ditandai selesai diambil ulang.
 5. Foto disimpan ke sesi review yang sama dengan pipeline web, lalu diproses oleh Gemini 3.8 → Gemini 3.1 Pro → Gemini 3.7 → DeepSeek 4.1 Flash, 7 gambar × 7 jalur, maksimal 30 detik per model.
 6. Foto asli dalam aplikasi tetap tersedia sampai pengguna menghapusnya atau memulai batch baru. Memulai batch baru meminta konfirmasi; hasil MILE yang sudah disimpan tidak dihapus.
+7. Klik **Lokal Batam / Luar kota / CN23** di hasil untuk menampilkan kiriman kelompok tersebut, atau **Semua** untuk mengembalikan seluruh data. Ekspor tetap mencakup seluruh batch.
+8. Versi baru diperiksa di background saat aplikasi aktif. Pesan update muncul di beranda/login dan membuka APK resmi; **Periksa update** juga tersedia di beranda. Fitur ini mulai tersedia pada APK 0.1.7.
 
 Android 8.0 atau lebih baru. Kamera belakang diprioritaskan; perangkat tanpa kamera belakang memakai kamera depan. Kamera dengan lensa fokus tetap tidak bisa dibuat autofocus melalui perangkat lunak. Setelah login pertama, sesi tersimpan saat aplikasi ditutup atau HP direstart; capture bisa offline. Login, logout server, dan AI memerlukan koneksi. Bila logout gagal karena koneksi, aplikasi memberi tahu pengguna untuk mencoba kembali.
 
@@ -19,6 +21,7 @@ Android 8.0 atau lebih baru. Kamera belakang diprioritaskan; perangkat tanpa kam
 
 - Preview dan frame foto memakai CameraX Preview + ImageAnalysis KEEP_ONLY_LATEST, dengan autofocus bawaan, AF/AE metering pada koordinat ketukan, dan status hasil fokus yang sebenarnya.
 - Shutter membekukan salinan frame yang sudah diterima pada finger down sebelum feedback. Kompresi dan penyimpanan berjalan sesudahnya; tidak meminta sensor mengambil gambar berikutnya. Frame yang sudah dipakai atau lebih tua dari 250 ms sejak diterima tidak difoto ulang. Autofokus kontinu tetap berjalan saat membidik, dan ketuk fokus tetap tersedia.
+- Deteksi blur memakai luminance pada worker foto sesudah frame dibekukan, dengan pengurangan noise serta ketajaman tepi pada dua arah. Tidak menunggu pemeriksaan blur pada event shutter. Draft lama diperiksa sebelum handoff; penanda retake disimpan persisten dan dicek kembali oleh handoff native.
 - Kilatan putih pada preview, getaran, serta suara shutter Android diberikan setelah frame dibekukan. Suara mengikuti volume/kebijakan audio HP. Status tersimpan muncul setelah JPEG berhasil ditulis. Galeri menampilkan resolusi JPEG penuh.
 - Zoom cubit, kembali ke zoom 1×, dan lampu bantu sesuai kemampuan kamera.
 - Kamera memenuhi area layar, dengan kontrol berupa overlay transparan. Landscape tidak memakai panel samping solid. Preview menjaga framing 16:9 utuh; perbedaan rasio layar bisa meninggalkan margin agar gambar tidak dipotong atau tampak zoom.
@@ -47,12 +50,17 @@ Build QA pada komputer ini menggunakan pengaturan JVM lokal untuk menghindari ma
 
 ## Verifikasi
 
-`node --test tests/android-handoff.test.js tests/worker-android-session.test.mjs tests/worker-camera-route.test.mjs tests/worker-camera-timeout.test.mjs` memeriksa handoff 7 foto, batas foto, kegagalan penyimpanan, autentikasi, sesi persisten/revokasi logout, dan timeout AI.
+`:app:testDebugUnitTest` menguji blur defocus, blur gerakan dua arah, noise, tulisan kontras rendah, frame shutter, serta validasi URL/versi update. `npm test --prefix tests` memeriksa handoff, blokir foto buram, filter hasil, ekspor kedua kelompok, endpoint update, hash APK, autentikasi, sesi persisten, dan timeout AI.
 
 Tes Android ada di `src/androidTest`. Build `:app:assembleDebug :app:assembleDebugAndroidTest`, instal keduanya ke emulator, berikan izin kamera kepada paket `.preview`, lalu jalankan:
 
 ```text
-adb shell am instrument -w -e class com.posnew.milecamera.AndroidSessionTest,com.posnew.milecamera.LoginGateTest,com.posnew.milecamera.SessionStoreTest,com.posnew.milecamera.CameraCaptureTest com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
+adb shell am instrument -w -e class com.posnew.milecamera.AndroidSessionTest,com.posnew.milecamera.LoginGateTest,com.posnew.milecamera.SessionStoreTest,com.posnew.milecamera.PhotoSafetyTest com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
+adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#testImmediateFeedbackAnd720pCaptureAtOneX' com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
+adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#testRapidRepeatedCapturePersistsEveryPhotoInOrder' com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
+adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#testTouchDownFreezesLabelBeforeReleaseAndSaving' com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
 ```
 
-Harness kamera hanya ada dalam build debug, tidak disertakan di APK release. Emulator memverifikasi UI, penyimpanan, dan capture virtual; autofocus optik, kecepatan perangkat, serta suara di HP fisik tetap perlu diuji.
+Harness kamera hanya ada dalam build debug, tidak disertakan di APK release. Tes kamera dijalankan pada proses terpisah agar sensor virtual dilepas di antara tes; menjalankan semuanya dalam satu proses dapat membuat preview emulator tidak tersambung kembali. Emulator memverifikasi UI, penyimpanan, dan capture virtual; autofocus optik, kecepatan perangkat, serta suara di HP fisik tetap perlu diuji.
+
+Untuk rilis berikutnya, lihat prosedur metadata update dan paket source di `docs/mile-camera-0.1.7.md`. Deploy APK dan `downloads/mile-camera-update.json` bersama-sama agar aplikasi yang sudah terpasang dapat menawarkan versi baru.

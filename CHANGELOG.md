@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.50 — Kamera, foto ulang wajib, update APK, dan filter hasil
+
+- APK 0.1.7/code 8 mendeteksi blur pada worker setelah frame shutter dibekukan. Capture berurutan tetap tersedia; proses AI diblokir sampai foto yang ditandai diganti melalui Ambil ulang foto. Urutan batch dipertahankan, termasuk setelah aplikasi dibuka ulang. Draft lama diperiksa sebelum handoff.
+- Pemeriksaan versi berjalan di background memakai endpoint publik tanpa cache. Versi baru memunculkan pesan update di beranda/login dan tautan APK resmi, tanpa memotong capture.
+- Ringkasan Lokal Batam / Luar kota CN23 dapat diklik untuk melihat baris kelompok tersebut di web dan Android. Semua mengembalikan seluruh data; ekspor selalu mencakup seluruh batch dan perubahan berat/alamat tetap tersimpan.
+- Menambahkan tes blur defocus/gerakan/noise/kontras rendah, retake persisten dan draft lama, update versi/URL/hash APK, serta filter dan ekspor kedua kelompok. Source ZIP dan panduan unduhan diperbarui ke 0.1.7.
+
 ## v26.49 — Konteks nama kompleks dan wilayah administratif
 
 - Nama kota/provinsi di dalam nama perumahan, kompleks, gedung, atau ruko tidak langsung menjadi batas wilayah tujuan. Pemisah alamat, blok/nomor/tahap, dan penanda administratif dipakai untuk mengenali bagian nama; kota/provinsi yang sebenarnya di akhir tetap diprioritaskan.

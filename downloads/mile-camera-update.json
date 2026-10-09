@@ -1,0 +1,13 @@
+{
+  "applicationId": "com.posnew.milecamera",
+  "versionCode": 8,
+  "versionName": "0.1.7",
+  "downloadUrl": "https://mile.posnew.com/downloads/Mile-Camera-0.1.7.apk",
+  "releaseNotes": [
+    "Foto buram wajib diambil ulang sebelum proses AI; shutter tetap mengambil frame saat disentuh.",
+    "Pemberitahuan ketika tersedia versi APK baru.",
+    "Klik Lokal Batam atau Luar kota / CN23 untuk menampilkan kelompok hasil."
+  ],
+  "sha256": "b7250b4c93ffb27dcff66319f6d427ac3a3b4646c8a56b243b1dc8239d369b13",
+  "bytes": 5305269
+}
