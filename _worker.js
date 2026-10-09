@@ -1,4 +1,4 @@
-const APP_VERSION = '20261006-26.48-whole-region';
+const APP_VERSION = '20261009-26.49-address-context';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.49 — Konteks nama kompleks dan wilayah administratif
+
+- Nama kota/provinsi di dalam nama perumahan, kompleks, gedung, atau ruko tidak langsung menjadi batas wilayah tujuan. Pemisah alamat, blok/nomor/tahap, dan penanda administratif dipakai untuk mengenali bagian nama; kota/provinsi yang sebenarnya di akhir tetap diprioritaskan.
+- Alias desa yang hanya berupa angka atau ordinal I/II/III tidak mencocokkan tahap, blok, atau nomor rumah. Potongan nama yang saling bertumpang tindih di dalam nama kompleks juga tidak membentuk desa rekaan.
+- Nama lengkap Tiban Riau Bertuah dicocokkan dengan Patam Lestari–Sekupang–Batam, berdasarkan [Pemko Batam](https://mediacenter.batam.go.id/2023/04/12/jefridin-ajak-masyarakat-terus-dukung-pembangunan-batam/) dan [Kemendikdasmen](https://referensi.data.kemendikdasmen.go.id/pendidikan/npsn/11003106). Kode pos 29427 mengikuti database nasional yang dipakai aplikasi; tidak menebak Tiban Baru/Lama hanya dari kata Tiban.
+- Gemini yang sudah terhubung mendapat aturan konteks alamat pada ekstraksi dan audit. Flag luar Batam hasil AI mengikuti hasil validasi database pada mode nasional, tanpa permintaan API tambahan atau pemilihan wilayah oleh operator.
+- Versi matcher dan URL modul diperbarui agar Log Kamera yang lama menghitung ulang hasil, ringkasan, dan Excel saat dimuat. Uji mencakup 136 kombinasi nama kompleks/provinsi, variasi tahap/ejaan, konflik kode pos, tujuan akhir yang sebenarnya di luar Batam, dan log Tiban yang sebelumnya tersimpan sebagai Indragiri Hulu.
+
 ## v26.48 — Nama wilayah utuh mengalahkan potongan nama kota
 
 - Pencocokan lintas tingkat wilayah memakai frasa lengkap per kemunculan. “Batu” di dalam Batu Aji, Batu Ampar, Batu Besar, Batu Licin, atau Batu Raja tidak dianggap sebagai Kota Batu. Penyebutan Kota Batu yang berdiri sendiri tetap dikenali.

@@ -85,7 +85,7 @@ const authenticated = await workerModule.default.fetch(new Request('https://mile
 }), env);
 assert.equal(authenticated.status, 200);
 assert.equal(authenticated.headers.get('permissions-policy'), 'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)');
-assert.equal(authenticated.headers.get('x-mile-app-version'), '20261006-26.48-whole-region');
+assert.equal(authenticated.headers.get('x-mile-app-version'), '20261009-26.49-address-context');
 assert.match(await authenticated.text(), /Camera Capture Batch/);
 
 const unauthenticatedReview = await workerModule.default.fetch(new Request('https://mile.posnew.com/review'), env);

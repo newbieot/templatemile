@@ -171,6 +171,14 @@ const normalized = (address, options = {}) => ai.normalizeRows([{
   assert.equal(screenshot.zip, '29273', 'The supplied screenshot address fills the postcode automatically.');
   assert.equal(screenshot.postcodeSource, 'database');
   assert.equal(sandbox.__mileCore.getShipmentRoute(screenshot), 'cn23');
+  const tiban = normalized('PERUM TIBAN RIAU BERTUAH THP II BLOK F NO 19', { destinationMode: 'mixed' });
+  assert.equal(tiban.zip, '29427');
+  assert.equal(tiban.outsideBatam, false, 'Validated destination overrides a mistaken AI outside-Batam flag.');
+  assert.equal(sandbox.__mileCore.getNationalPostcodeMatch(tiban).selected.village, 'PATAM LESTARI');
+  assert.equal(sandbox.__mileCore.getShipmentRoute(tiban), 'batam');
+  assert.deepEqual([tiban.p, tiban.l, tiban.t], [10, 10, 10]);
+  assert.match(ai.buildPrompt(1, 1, { destinationMode: 'mixed' }), /nama perumahan.*wilayah administratif/);
+  assert.match(ai.buildVerificationPrompt(1, 1, [], { destinationMode: 'mixed' }), /THP II adalah tahap/);
   const realAmbiguous = normalized('JL MERDEKA, SUKAMAJU', { destinationMode: 'cn23' });
   assert.equal(realAmbiguous.zip, '29411');
   assert.equal(sandbox.__mileCore.getNationalPostcodeMatch(realAmbiguous).defaulted, true);

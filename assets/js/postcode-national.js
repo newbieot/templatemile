@@ -2,7 +2,15 @@
   'use strict';
   const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-4';
   const MAX_CANDIDATES = 100;
-  const MATCHER_VERSION = '20261006-whole-region-5';
+  const MATCHER_VERSION = '20261009-address-context-6';
+  // Gazetteer entries require a complete place name and a verified parent
+  // chain. The postcode always comes from the existing national database.
+  // https://mediacenter.batam.go.id/2023/04/12/jefridin-ajak-masyarakat-terus-dukung-pembangunan-batam/
+  // https://referensi.data.kemendikdasmen.go.id/pendidikan/npsn/11003106
+  const VERIFIED_PLACES = [{
+    names: ['TIBAN RIAU BERTUAH', 'TIBAN RIAUBERTUAH'], village: 'PATAM LESTARI', district: 'SEKUPANG',
+    city: 'BATAM', province: 'KEPULAUAN RIAU'
+  }];
   let records = [];
   let tokenIndex = new Map();
   let postcodeIndex = new Map();
@@ -20,12 +28,16 @@
     // Source data abbreviates shared words around a slash, e.g.
     // "LIMA PULUH KOTO / KOTA" and "GEDUNG / GEDONG GUMANTI".
     // Expanding the shared words prevents KOTA/GEDUNG becoming false regions.
-    if (parts.length === 2) {
+    if (parts.length >= 2) {
       const words = parts.map(part => part.split(' '));
-      if (words[0].length > 1 && words[1].length === 1) parts[1] = [...words[0].slice(0, -1), parts[1]].join(' ');
-      else if (words[0].length === 1 && words[1].length > 1) parts[0] = [parts[0], ...words[1].slice(1)].join(' ');
+      if (words[0].length > 1 && words.slice(1).every(part => part.length === 1)) {
+        parts.slice(1).forEach((part, index) => { parts[index + 1] = [...words[0].slice(0, -1), part].join(' '); });
+      } else if (parts.length === 2 && words[0].length === 1 && words[1].length > 1) parts[0] = [parts[0], ...words[1].slice(1)].join(' ');
     }
-    return [...new Set(parts)].sort((a, b) => b.length - a.length);
+    // A slash-separated ordinal (e.g. LAMBANG SARI I / II / III) cannot
+    // independently identify a village from THP II, BLOK III, or NO 100.
+    return [...new Set(parts)].filter(name => !/^(?:\d+|[IVX]{1,8})$/.test(name))
+      .sort((a, b) => b.length - a.length);
   }
 
   function install(data) {
@@ -75,6 +87,10 @@
         label: `${district} — ${village} — ${city}, ${province} (${postcode})`
       };
       const fields = [lowerAliases(village), lowerAliases(district), aliases(city), aliases(province)];
+      VERIFIED_PLACES.filter(place => [village, district, city, province].every((name, field) =>
+        name === [place.village, place.district, place.city, place.province][field]))
+        .forEach(place => fields[0].push(...place.names.flatMap(lowerAliases)));
+      fields[0].sort((a, b) => b.length - a.length);
       // Keep joined/separated spellings tied to the same source record.
       fields.slice(0, 2).forEach((names, field) => {
         names.filter(name => name.includes(' ')).forEach(name => {
@@ -207,11 +223,12 @@
   function match(address, postcode = '') {
     if (!loaded) return outcome('unavailable', [], 'Database kode pos nasional belum dimuat.');
     // Expand common administrative abbreviations without changing the label text.
-    const text = normalize(address).replace(/\bINHIL\b/g, 'INDRAGIRI HILIR')
+    const expand = value => normalize(value).replace(/\bINHIL\b/g, 'INDRAGIRI HILIR')
       .replace(/\bINHU\b/g, 'INDRAGIRI HULU').replace(/\bKEPRI\b/g, 'KEPULAUAN RIAU')
       .replace(/\bJAKPUS\b/g, 'JAKARTA PUSAT').replace(/\bJAKSEL\b/g, 'JAKARTA SELATAN')
       .replace(/\bJAKBAR\b/g, 'JAKARTA BARAT').replace(/\bJAKTIM\b/g, 'JAKARTA TIMUR')
       .replace(/\bJAKUT\b/g, 'JAKARTA UTARA');
+    const text = expand(address);
     const padded = ` ${text} `;
     const explicit = String(postcode || '').trim();
     const printed = String(address || '').match(/\b\d{5}\b/g) || [];
@@ -243,6 +260,30 @@
     const markers = [/\b(?:KEL|KELURAHAN|DESA|DS)\s*$/, /\b(?:KEC|KECAMATAN)\s*$/,
       /\b(?:KOTA|KAB|KABUPATEN)\s*$/, /\b(?:PROV|PROVINSI)\s*$/];
     const allSpans = spansByField.flat();
+    // Keep the name of a complex/building separate from the administrative
+    // suffix. RIAU in PERUM ... RIAU BERTUAH and BANDUNG in GEDUNG BANDUNG
+    // INDAH are names, not destination boundaries. Lower-area phrases remain
+    // usable: PERUM BATU AJI can still identify its district.
+    const componentEnds = [];
+    let componentCursor = 0;
+    String(address || '').split(/[,;\r\n]+/).map(expand).filter(Boolean).forEach(part => {
+      const start = padded.indexOf(` ${part} `, componentCursor);
+      if (start < 0) return;
+      componentEnds.push(start + part.length + 1);
+      componentCursor = start + part.length + 1;
+    });
+    const propertySpans = [...padded.matchAll(/\b(?:PERUM(?:AHAN)?|KOMP(?:LEK|LEKS)?|KOMPLEKS|CLUSTER|RESIDENCE|RUKO|GEDUNG|BUILDING|MENARA|TOWER|APARTEMEN)\s+/g)].map(hit => {
+      const start = hit.index + hit[0].length;
+      const rest = padded.slice(start);
+      const boundary = rest.search(/\b(?:BLOK|BLK|BLOCK|NO|NOMOR|RT|RW|KAV|LANTAI|LT|TAHAP|THP|KEL|KELURAHAN|DESA|DS|KEC|KECAMATAN|KOTA|KAB|KABUPATEN|PROV|PROVINSI)\b/);
+      const componentEnd = componentEnds.find(end => end > start) ?? padded.length;
+      return { start: start - 1, end: Math.min(boundary < 0 ? padded.length : start + boundary, componentEnd) };
+    });
+    function administrativeSuffix(name, position, field) {
+      const rest = padded.slice(position + name.length + 1).trim()
+        .replace(/\b\d{5}\b/g, '').replace(/\bINDONESIA\b/g, '').trim();
+      return !rest || (field === 2 && namesByField[3].includes(rest));
+    }
     function areaPosition(name, field) {
       if (!name) return -1;
       let position = padded.lastIndexOf(` ${name} `);
@@ -256,12 +297,23 @@
           (span.end - span.start > name.length || field + offset + 1 >= 2) &&
           span.start <= position && span.end >= position + name.length));
         const explicitlyNamed = markers[field].test(before);
+        const propertyName = field >= 2 && !explicitlyNamed && propertySpans.some(span =>
+          position >= span.start && position + name.length < span.end) && !administrativeSuffix(name, position, field);
+        // Do not splice a new village out of two overlapping name fragments:
+        // PERUM JAWA TIMUR INDAH must not become the village TIMUR INDAH.
+        // A full lower phrase containing the city (BATU AJI) remains valid.
+        const propertyOverlap = field < 2 && !explicitlyNamed && allSpans.some(span => span.field >= 2 &&
+          span.start < position + name.length && span.end > position &&
+          !(span.start >= position && span.end <= position + name.length) &&
+          !(span.start <= position && span.end >= position + name.length) &&
+          propertySpans.some(property => Math.min(position, span.start) >= property.start &&
+            Math.max(position + name.length, span.end) < property.end));
         const insideLongerName = allSpans.some(span => span.end - span.start > name.length &&
           span.start <= position && span.end >= position + name.length &&
           (!explicitlyNamed || markers[span.field].test(padded.slice(0, span.start))));
         // Test each occurrence separately: a later standalone "Kota Batu"
         // remains valid even if "Batu Aji" appeared earlier in the label.
-        if (!street && !building && !parent && !insideLongerName) return position;
+        if (!street && !building && !propertyName && !propertyOverlap && !parent && !insideLongerName) return position;
         if (position === 0) break;
         position = padded.lastIndexOf(` ${name} `, position - 1);
       }

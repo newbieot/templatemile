@@ -1320,7 +1320,7 @@
 
   function buildPrompt(startPage, endPage, options = {}) {
     const nationwideRule = isNationalDestinationMode(getDestinationMode(options))
-      ? '\nAlamat tujuan dapat berada di seluruh Indonesia. Salin seluruh nama desa/kelurahan, kecamatan, kabupaten/kota, provinsi, dan singkatan wilayah yang tertulis pada label ke alamat_penerima, jangan menghilangkan bagian wilayah meskipun berada pada baris terpisah. Jangan menambahkan BATAM, dan jangan menebak kode pos yang tidak tercetak. Kode pos yang tidak tercetak akan dicocokkan otomatis dengan database oleh aplikasi. di_luar_batam hanya informasi wilayah; tetap buat row untuk setiap alamat luar Batam.'
+      ? '\nAlamat tujuan dapat berada di seluruh Indonesia. Salin seluruh nama desa/kelurahan, kecamatan, kabupaten/kota, provinsi, dan singkatan wilayah yang tertulis pada label ke alamat_penerima, jangan menghilangkan bagian wilayah meskipun berada pada baris terpisah. Pertahankan pemisah koma/baris antara nama perumahan atau gedung dan wilayah administratif. Baca rantai wilayah dari akhir alamat: provinsi, kota/kabupaten, kecamatan, kelurahan. Nama kota/provinsi di dalam nama perumahan, gedung, atau jalan bukan otomatis wilayah tujuan; contoh RIAU pada PERUM TIBAN RIAU BERTUAH adalah bagian nama kompleks, dan THP II adalah tahap, bukan nama desa. Jangan menambahkan BATAM, dan jangan menebak kode pos yang tidak tercetak. Kode pos yang tidak tercetak akan dicocokkan otomatis dengan database oleh aplikasi. di_luar_batam hanya informasi wilayah; tetap buat row untuk setiap alamat luar Batam.'
       : '';
     const readabilityRule = options.cameraDirect
       ? 'Cocokkan tulisan dari gambar, JANGAN menebak yang tidak terbaca. Gunakan "PERLU DICEK" hanya pada teks yang benar-benar tidak terbaca. Bila teks masih terbaca tetapi ada keraguan kecil, pertahankan bacaannya tanpa mewajibkan pemeriksaan operator.'
@@ -1354,7 +1354,7 @@ Format Wajib:
       ? 'Abaikan CABANG BATAM dan kode transaksi yang bukan kode pos tujuan.'
       : 'Abaikan CABANG BATAM, kode mandiri 5-8 digit.';
     const nationwideRule = nationalMode
-      ? '\n- Tujuan dapat berada di seluruh Indonesia. Pertahankan seluruh nama desa/kelurahan, kecamatan, kabupaten/kota, provinsi, singkatan wilayah, dan kode pos yang tercetak dalam alamat_penerima; jangan menghilangkan baris wilayah. Jangan menambahkan BATAM atau menebak kode pos. Alamat luar Batam tetap disertakan; di_luar_batam hanya informasi.'
+      ? '\n- Tujuan dapat berada di seluruh Indonesia. Pertahankan seluruh nama desa/kelurahan, kecamatan, kabupaten/kota, provinsi, singkatan wilayah, dan kode pos yang tercetak dalam alamat_penerima; jangan menghilangkan baris wilayah. Pertahankan pemisah koma/baris antara nama perumahan atau gedung dan wilayah administratif. Baca rantai wilayah dari akhir alamat. Nama kota/provinsi di dalam nama perumahan, gedung, atau jalan bukan otomatis wilayah tujuan; RIAU pada PERUM TIBAN RIAU BERTUAH adalah nama kompleks dan THP II adalah tahap. Jangan menambahkan BATAM atau menebak kode pos. Alamat luar Batam tetap disertakan; di_luar_batam hanya informasi.'
       : '';
     const pages = [...new Set((options.pages || draftRows.map(row => row?.page)).map(Number).filter(Number.isFinite))].sort((a, b) => a - b);
     const pageLabel = pages.length ? pages.join(', ') : `${startPage}–${endPage}`;
@@ -2291,10 +2291,14 @@ ${clipped}`
         sourcePage: page, aiConfidence, aiConfidenceExplicit: hasConfidence, aiReviewFields,
         rawLines: cleanedRawLines, bniMode: false
       };
-      if (destinationMode === 'mixed') {
+      if (nationalMode) {
         const postalMatch = core?.getNationalPostcodeMatch?.(row);
         const matchedCity = String(postalMatch?.selected?.city || '').toUpperCase().replace(/^KOTA\s+/, '').trim();
-        if (postalMatch?.status === 'matched' && matchedCity === 'BATAM') row.p = row.l = row.t = 10;
+        if (postalMatch?.status === 'matched' && matchedCity) {
+          row.outsideBatam = matchedCity !== 'BATAM';
+          row.outsideBatamReason = row.outsideBatam ? `Tujuan ${postalMatch.selected.city}, ${postalMatch.selected.province} dari database wilayah.` : '';
+          if (destinationMode === 'mixed' && matchedCity === 'BATAM') row.p = row.l = row.t = 10;
+        }
       }
       row.needsVerification = looksSuspiciousRow(row);
       return row;

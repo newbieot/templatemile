@@ -68,6 +68,31 @@ const data = JSON.parse(fs.readFileSync('assets/data/postcodes-indonesia.json', 
     assert.equal(downloads.length, 1, 'Only a local Batam workbook is downloaded.');
     assert.equal(downloads[0].filename, 'Upload_MileApp_Ritel.xlsx');
     assert.equal(downloads[0].rows[0].destination_data_customer_zip_code, '29438');
-    console.log('PASS camera-region-reload: delayed database, Jakarta and Batu Aji stale logs recalculated, stale manual/outside flags overridden, local summary and correct Excel export');
+    const housingAddress = 'PERUM TIBAN RIAU BERTUAH THP II BLOK F NO 19';
+    const wrongRiau = { city: 'INDRAGIRI HULU', province: 'RIAU', district: 'LIRIK', village: 'LAMBANG SARI I / II / III', postcode: '29353' };
+    batch.rows = [{ name: 'PENERIMA TIBAN', address: housingAddress, cw: '1.50', phone: '0', zip: '29353', outsideBatam: true,
+      _nationalPostcodeMatch: { status: 'matched', selected: wrongRiau, postcode: '29353',
+        matcherVersion: '20261006-whole-region-5', lookupKey: `${housingAddress}\n\n` },
+      _confirmedNationalPostcode: { sourceKey: `${housingAddress}\n`, selected: wrongRiau } }];
+    core.uploadedFilesManager.length = 0;
+    await w.MileCameraSync.loadBatchToDesktop('CAM-TIBAN-REGION');
+    const housing = core.uploadedFilesManager[0].rows[0];
+    const housingMatch = core.getNationalPostcodeMatch(housing);
+    assert.equal(housingMatch.selected.city, 'BATAM');
+    assert.equal(housingMatch.selected.district, 'SEKUPANG');
+    assert.equal(housingMatch.selected.village, 'PATAM LESTARI');
+    assert.equal(housing.zip, '29427');
+    assert.equal(housing._confirmedNationalPostcode, undefined);
+    assert.equal(core.getShipmentRoute(housing), 'batam');
+    await w.MileCameraSync.saveBatchResults('CAM-TIBAN-REGION', 1, Date.now(), 'Fixture', 3);
+    assert.equal(saved.localBatamCount, 1);
+    assert.equal(saved.cn23Count, 0);
+    assert.equal(saved.rows[0].zip, '29427');
+    await w.downloadFinalExcel();
+    assert.equal(downloads.length, 2);
+    assert.equal(downloads[1].filename, 'Upload_MileApp_Ritel.xlsx');
+    assert.equal(downloads[1].rows[0].destination_data_customer_zip_code, '29427');
+    assert.equal(downloads[1].rows[0].koli_data_koli_weight, 1.5);
+    console.log('PASS camera-region-reload: delayed database, Jakarta/Batu Aji/Tiban stale logs recalculated, stale manual/outside flags overridden, local summary and correct Excel export');
   } finally { w.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
