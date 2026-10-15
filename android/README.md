@@ -4,14 +4,14 @@ Aplikasi pendamping Android dengan kamera native CameraX. Login, ekstraksi AI, p
 
 ## Memakai APK
 
-Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.7).
+Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.8).
 
-1. Unduh `Mile-Camera-0.1.7.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
+1. Unduh `Mile-Camera-0.1.8.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
 2. Buka **Mile Camera** dan login terlebih dahulu. Kamera, galeri, dan halaman aplikasi terkunci sebelum login berhasil. Setelah masuk, pilih **Mulai capture** dan izinkan kamera.
 3. Ketuk bagian teks untuk fokus. Indikator biru berarti perangkat melaporkan fokus berhasil; indikator kuning berarti fokus belum terkunci atau lensa tidak mendukung autofocus pada titik.
-4. Ambil foto dan periksa **Galeri**. Foto yang terdeteksi buram wajib diganti melalui **Ambil ulang foto**; foto ulang tetap memakai nomor urut semula. **Selesai / Proses AI** membuka foto buram pertama sampai seluruh foto yang ditandai selesai diambil ulang.
+4. Ambil foto dan tekan **Selesai**. Foto dan PDF otomatis disimpan di riwayat tanpa izin/pemilih folder, lalu pop-up menawarkan **Proses AI**, **Unduh PDF**, dan **Lihat batch**. Foto buram wajib diganti melalui **Ambil ulang foto** sebelum AI; foto ulang tetap memakai nomor urut semula dan PDF diperbarui setelahnya.
 5. Foto disimpan ke sesi review yang sama dengan pipeline web, lalu diproses oleh Gemini 3.8 → Gemini 3.1 Pro → Gemini 3.7 → DeepSeek 4.1 Flash, 7 gambar × 7 jalur, maksimal 30 detik per model.
-6. Foto asli dalam aplikasi tetap tersedia sampai pengguna menghapusnya atau memulai batch baru. Memulai batch baru meminta konfirmasi; hasil MILE yang sudah disimpan tidak dihapus.
+6. **Riwayat batch · Foto & PDF** menyimpan tanggal/jam dan jumlah gambar setiap batch. Foto/PDF dapat dibuka atau diunduh dan AI dapat dijalankan untuk batch terpilih, tanpa mengganti draft baru. Batch lama disalin ke riwayat sebelum memulai batch baru; tidak ikut masa simpan log server.
 7. Klik **Lokal Batam / Luar kota / CN23** di hasil untuk menampilkan kiriman kelompok tersebut, atau **Semua** untuk mengembalikan seluruh data. Ekspor tetap mencakup seluruh batch.
 8. Versi baru diperiksa di background saat aplikasi aktif. Pesan update muncul di beranda/login dan membuka APK resmi; **Periksa update** juga tersedia di beranda. Fitur ini mulai tersedia pada APK 0.1.7.
 
@@ -29,11 +29,12 @@ Android 8.0 atau lebih baru. Kamera belakang diprioritaskan; perangkat tanpa kam
 - Rotasi memakai sensor HP dalam empat arah, termasuk saat pengaturan rotasi Android dikunci portrait (`fullSensor`). Galeri ikut menyesuaikan; foto yang sedang disimpan diselesaikan sebelum layout kamera dipasang ulang.
 - Palet navy dan biru mengikuti web MILE.
 - Still capture JPEG 720p: maksimal 1280 × 720 landscape atau 720 × 1280 portrait, maksimal **120.000 byte (120 KB)** per foto. Kompresi JPEG adaptif mempertahankan resolusi dan memenuhi batas byte. Draft lama dikonversi atomik sebelum dipakai, termasuk normalisasi EXIF.
-- Draft dan foto tersimpan di ruang privat aplikasi. Manifest ditulis atomik. Tidak diperlukan izin penyimpanan umum, lokasi, atau mikrofon.
+- Draft, riwayat, dan PDF otomatis tersimpan di ruang privat aplikasi. JPEG dan manifest ditulis atomik. Satu JPEG utuh per halaman PDF, tanpa kompresi ulang; penulisan streaming tidak menahan seluruh bitmap dalam memori. PDF yang terpotong dibuat ulang, dan retake menghasilkan PDF sesuai foto terbaru.
+- Penyimpanan otomatis tidak memerlukan izin. **Unduh PDF** menggunakan MediaStore Downloads pada Android 10+, atau meminta WRITE_EXTERNAL_STORAGE pada Android 8–9 saja. FileProvider tidak diekspor dan memberi pembaca PDF izin sementara hanya untuk file yang dibuka. Tidak ada izin lokasi, mikrofon, atau akses seluruh berkas.
 - WebView hanya menjalankan aplikasi pada origin HTTPS MILE. Tidak ada JavaScript interface native. Foto diberikan melalui rute lokal ber-token yang dicegat WebView; rute tersebut tidak dikirim ke server.
 - Login dilakukan lewat form Android dan endpoint HTTPS yang memverifikasi Firebase serta allowlist. Token sesi persisten disimpan terenkripsi dengan Android Keystore; password tidak disimpan. Sesi server berada di R2 `auth/android-sessions/` tanpa expiry dan dihapus ketika logout berhasil. Lifecycle bucket hanya mengekspirasikan prefix `beta/`, bukan sesi login. Sesi web biasa tetap 12 jam/7 hari.
 - Handoff selesai hanya setelah IndexedDB berhasil menyimpan batch. Gagal membaca foto, penyimpanan penuh, atau gagal koneksi mempertahankan draft native.
-- Menghapus aplikasi/data aplikasi akan menghapus draft lokal serta sesi login/IndexedDB aplikasi.
+- Menghapus aplikasi/data aplikasi akan menghapus draft, riwayat/PDF privat, dan sesi login/IndexedDB aplikasi. Salinan yang sudah diunduh ke Download tetap merupakan berkas terpisah.
 
 ## Build
 
@@ -55,7 +56,7 @@ Build QA pada komputer ini menggunakan pengaturan JVM lokal untuk menghindari ma
 Tes Android ada di `src/androidTest`. Build `:app:assembleDebug :app:assembleDebugAndroidTest`, instal keduanya ke emulator, berikan izin kamera kepada paket `.preview`, lalu jalankan:
 
 ```text
-adb shell am instrument -w -e class com.posnew.milecamera.AndroidSessionTest,com.posnew.milecamera.LoginGateTest,com.posnew.milecamera.SessionStoreTest,com.posnew.milecamera.PhotoSafetyTest com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
+adb shell am instrument -w -e class com.posnew.milecamera.AndroidSessionTest,com.posnew.milecamera.LoginGateTest,com.posnew.milecamera.SessionStoreTest,com.posnew.milecamera.PhotoSafetyTest,com.posnew.milecamera.BatchHistoryTest,com.posnew.milecamera.BatchHistoryUiTest com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
 adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#testImmediateFeedbackAnd720pCaptureAtOneX' com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
 adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#testRapidRepeatedCapturePersistsEveryPhotoInOrder' com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
 adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#testTouchDownFreezesLabelBeforeReleaseAndSaving' com.posnew.milecamera.preview.test/android.test.InstrumentationTestRunner
@@ -63,4 +64,6 @@ adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#tes
 
 Harness kamera hanya ada dalam build debug, tidak disertakan di APK release. Tes kamera dijalankan pada proses terpisah agar sensor virtual dilepas di antara tes; menjalankan semuanya dalam satu proses dapat membuat preview emulator tidak tersambung kembali. Emulator memverifikasi UI, penyimpanan, dan capture virtual; autofocus optik, kecepatan perangkat, serta suara di HP fisik tetap perlu diuji.
 
-Untuk rilis berikutnya, lihat prosedur metadata update dan paket source di `docs/mile-camera-0.1.7.md`. Deploy APK dan `downloads/mile-camera-update.json` bersama-sama agar aplikasi yang sudah terpasang dapat menawarkan versi baru.
+Tes BatchHistory memakai PdfRenderer Android untuk memeriksa jumlah halaman, orientasi, urutan/pixel gambar, PDF 150 halaman, pemulihan PDF terpotong, penyimpanan ulang, retake, unduhan MediaStore, serta kegagalan arsip yang tidak boleh menghapus draft. Tes UI memverifikasi PDF sudah ada sebelum pilihan pop-up diklik, dan Proses AI membuka batch tersebut tanpa menimpa draft baru.
+
+Untuk rilis berikutnya, lihat prosedur metadata update di `docs/mile-camera-0.1.7.md` dan fitur riwayat di `docs/mile-camera-0.1.8.md`. Deploy APK dan `downloads/mile-camera-update.json` bersama-sama agar aplikasi yang sudah terpasang dapat menawarkan versi baru.

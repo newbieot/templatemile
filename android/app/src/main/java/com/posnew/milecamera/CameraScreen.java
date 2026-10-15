@@ -459,8 +459,7 @@ final class CameraScreen extends FrameLayout {
     private void refresh() {
         int stored=store.count();
         counter.setText(String.format(java.util.Locale.ROOT,outstandingCaptures>0?"%03d foto · %d diproses · 720p":"%03d foto · 720p",stored,outstandingCaptures));
-        int retakes=store.retakeCount();
-        finish.setText(retakes>0?"Ambil ulang · "+retakes:"Selesai");
+        finish.setText("Selesai");
         finish.setEnabled(stored>0&&!busy); finish.setAlpha(finish.isEnabled()?1f:.35f);
         gallery.setText("Galeri · "+stored); gallery.setEnabled(stored>0&&!busy); gallery.setAlpha(gallery.isEnabled()?1f:.45f);
         refreshShutter();

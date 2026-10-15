@@ -1,13 +1,13 @@
 {
   "applicationId": "com.posnew.milecamera",
-  "versionCode": 8,
-  "versionName": "0.1.7",
-  "downloadUrl": "https://mile.posnew.com/downloads/Mile-Camera-0.1.7.apk",
+  "versionCode": 9,
+  "versionName": "0.1.8",
+  "downloadUrl": "https://mile.posnew.com/downloads/Mile-Camera-0.1.8.apk",
   "releaseNotes": [
-    "Foto buram wajib diambil ulang sebelum proses AI; shutter tetap mengambil frame saat disentuh.",
-    "Pemberitahuan ketika tersedia versi APK baru.",
-    "Klik Lokal Batam atau Luar kota / CN23 untuk menampilkan kelompok hasil."
+    "Riwayat batch di HP berisi tanggal, jumlah gambar, lihat gambar, unduh PDF, dan Proses AI.",
+    "Selesai capture otomatis menyimpan foto dan PDF tanpa dialog lokasi atau izin.",
+    "Batch baru tidak menghapus foto/PDF batch sebelumnya; shutter tetap mengambil frame saat disentuh."
   ],
-  "sha256": "b7250b4c93ffb27dcff66319f6d427ac3a3b4646c8a56b243b1dc8239d369b13",
-  "bytes": 5305269
+  "sha256": "0c19d734464d00b12aa60e00eadeabb0d4b69353c55798df17f55abe9d80b930",
+  "bytes": 5305929
 }

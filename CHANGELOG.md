@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.51 — Riwayat batch Android dan PDF otomatis
+
+- APK 0.1.8/code 9 menyimpan setiap batch selesai beserta seluruh gambar dan PDF di HP. Riwayat menampilkan tanggal, jumlah gambar, lihat gambar, buka/unduh PDF, serta Proses AI untuk batch terpilih tanpa mengganggu draft baru.
+- Selesai capture otomatis membuat PDF, lalu menampilkan pop-up PDF tersimpan / Proses AI. Satu JPEG utuh per halaman, tanpa kompresi ulang; pembuatan PDF di worker dan tidak menambah pekerjaan shutter.
+- Batch lama disimpan sebelum mulai batch baru. Penulisan atomik, PDF streaming 150 halaman, pemulihan hasil terpotong, dan penggantian PDF setelah retake diuji di Android.
+- Salinan privat tidak memerlukan izin. Unduh ke Download/MileCamera memakai MediaStore pada Android 10+; izin storage dibatasi Android 8–9 dan hanya diminta saat unduh. Pembaruan, APK, source ZIP, dan panduan publik diperbarui bersama.
+
 ## v26.50 — Kamera, foto ulang wajib, update APK, dan filter hasil
 
 - APK 0.1.7/code 8 mendeteksi blur pada worker setelah frame shutter dibekukan. Capture berurutan tetap tersedia; proses AI diblokir sampai foto yang ditandai diganti melalui Ambil ulang foto. Urutan batch dipertahankan, termasuk setelah aplikasi dibuka ulang. Draft lama diperiksa sebelum handoff.

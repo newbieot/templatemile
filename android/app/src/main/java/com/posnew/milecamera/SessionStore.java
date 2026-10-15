@@ -29,7 +29,10 @@ final class SessionStore {
     private JSONObject session;
 
     SessionStore(Context context) throws Exception {
-        directory = new File(context.getFilesDir(), "capture-draft");
+        this(new File(context.getFilesDir(), "capture-draft"));
+    }
+    SessionStore(File folder) throws Exception {
+        directory = folder;
         if (!directory.exists() && !directory.mkdirs()) throw new Exception("Penyimpanan foto tidak tersedia.");
         metadata = new AtomicFile(new File(directory, "session.json"));
         try { session = new JSONObject(new String(metadata.readFully(), StandardCharsets.UTF_8)); }

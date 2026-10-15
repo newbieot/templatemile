@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -46,6 +47,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -58,6 +60,8 @@ public final class MainActivity extends ComponentActivity {
     private final String transferToken=UUID.randomUUID().toString();
     private FrameLayout root;
     private SessionStore store;
+    private SessionStore activeStore;
+    private BatchHistory history;
     private AndroidSession session;
     private int authGeneration;
     private boolean loginBusy;
@@ -72,13 +76,19 @@ public final class MainActivity extends ComponentActivity {
     private Bitmap galleryBitmap;
     private int galleryIndex;
     private boolean cameraLayoutPending;
-    private boolean qualityCheckBusy, updateCheckBusy, updatePromptVisible, resumed;
+    private boolean batchTaskBusy, updateCheckBusy, updatePromptVisible, resumed;
+    private String pendingPdfDownload;
     private String retakeKey;
     private AppUpdates.Release availableUpdate;
     private TextView updateStatus;
     private int promptedUpdateVersion;
     private long lastUpdateCheck;
     private final Runnable updateCheck=() -> checkUpdates(false);
+    private final ActivityResultLauncher<String> storagePermission=registerForActivityResult(new ActivityResultContracts.RequestPermission(),granted -> {
+        String id=pendingPdfDownload; pendingPdfDownload=null;
+        if(granted && id!=null) downloadBatchPdf(id);
+        else toast("PDF tetap tersimpan di riwayat. Izin hanya diperlukan untuk menyalin ke Download pada Android ini.");
+    });
     private final ActivityResultLauncher<String> cameraPermission=registerForActivityResult(new ActivityResultContracts.RequestPermission(),granted -> {
         if (granted && hasSession()) showCamera();
         else if(!hasSession()) showLogin("");
@@ -104,10 +114,11 @@ public final class MainActivity extends ComponentActivity {
         session=new AndroidSession(this);
         getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
+                if(batchTaskBusy) { toast("Tunggu batch selesai disimpan. Foto tetap aman."); return; }
                 if(screen.equals("login") || screen.equals("starting")) { finish(); return; }
                 if(screen.equals("signout")) { toast("Tunggu logout selesai."); return; }
                 if (cameraScreen!=null && cameraScreen.isBusy()) { toast("Tunggu foto selesai disimpan."); return; }
-                if (screen.equals("gallery")) openCamera();
+                if (screen.equals("gallery")) { if(store!=activeStore) showHistory(); else openCamera(); }
                 else if (screen.equals("web") && transferStarted) toast("Tunggu foto selesai disiapkan.");
                 else if (screen.equals("web") && web!=null && web.canGoBack() && !pendingTransfer) web.goBack();
                 else if (!screen.equals("home")) showHome();
@@ -119,7 +130,9 @@ public final class MainActivity extends ComponentActivity {
         io.execute(() -> {
             try {
                 SessionStore restored=new SessionStore(this);
-                runOnUiThread(() -> { if(isDestroyed()) return; store=restored; if(hasSession()) { installCookie(); showHome(); verifySession(); } else showLogin(""); });
+                BatchHistory restoredHistory=new BatchHistory(this);
+                if(restored.count()>0 && restored.transferred()) { restoredHistory.save(restored); restored.reset(); }
+                runOnUiThread(() -> { if(isDestroyed()) return; activeStore=restored; store=restored; history=restoredHistory; if(hasSession()) { installCookie(); showHome(); verifySession(); } else showLogin(""); });
             } catch(Exception error) {
                 runOnUiThread(() -> { if(!isDestroyed()) new AlertDialog.Builder(this).setTitle("Penyimpanan belum siap").setMessage(error.getMessage()).setPositiveButton("Tutup",(d,w)->finish()).setCancelable(false).show(); });
             }
@@ -297,6 +310,7 @@ public final class MainActivity extends ComponentActivity {
     }
     private void showHome() {
         if(!hasSession()) { showLogin(""); return; }
+        store=activeStore;
         pendingTransfer=false; transferStarted=false;
         clearScreen("home"); theme(false);
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false);
@@ -347,7 +361,8 @@ public final class MainActivity extends ComponentActivity {
         } else {
             LinearLayout steps=Ui.row(this); steps.setGravity(Gravity.CENTER); steps.addView(Ui.text(this,"01  Capture   ·   02  Periksa   ·   03  Sinkron",12,Ui.MUTED,true)); page.addView(steps,Ui.matchWrap()); Ui.gap(page,18);
         }
-        Ui.gap(page,12); page.addView(Ui.button(this,"Buka hasil & akun MILE",Color.rgb(232,238,252),Ui.INK,()->showWeb(ORIGIN+"/app")),Ui.matchWrap());
+        Ui.gap(page,12); page.addView(Ui.button(this,"Riwayat batch · Foto & PDF",Ui.INK,Color.WHITE,this::showHistory),Ui.matchWrap());
+        Ui.gap(page,10); page.addView(Ui.button(this,"Buka hasil & akun MILE",Color.rgb(232,238,252),Ui.INK,()->showWeb(ORIGIN+"/app")),Ui.matchWrap());
         Ui.gap(page,16); page.addView(Ui.text(this,"Masuk sebagai "+session.email(),12,Ui.MUTED,false),Ui.matchWrap());
         page.addView(Ui.button(this,"Keluar dari akun",Color.TRANSPARENT,Color.rgb(185,28,28),this::logout),Ui.matchWrap());
         Ui.gap(page,12); TextView privacy=Ui.text(this,"Sesi tetap tersimpan sampai logout. Capture 720p bisa tanpa internet; proses AI memerlukan koneksi.",12,Ui.MUTED,false); privacy.setGravity(Gravity.CENTER); privacy.setLineSpacing(Ui.dp(this,3),1); page.addView(privacy,Ui.matchWrap());
@@ -360,9 +375,7 @@ public final class MainActivity extends ComponentActivity {
         if(!hasSession()) { showLogin(""); return; }
         retakeKey=null;
         if (store.transferred()) {
-            new AlertDialog.Builder(this).setTitle("Batch sebelumnya sudah dikirim")
-                .setMessage("Mulai batch baru agar foto berikutnya tidak mengirim ulang batch sebelumnya. Salinan foto lama di aplikasi akan dihapus.")
-                .setPositiveButton("Batch baru",(d,w)->resetAndCapture()).setNegativeButton("Lihat foto",(d,w)->showGallery(store.count()-1)).show(); return;
+            resetAndCapture(); return;
         }
         if (ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED) showCamera();
         else cameraPermission.launch(Manifest.permission.CAMERA);
@@ -370,16 +383,115 @@ public final class MainActivity extends ComponentActivity {
     private void showCamera() {
         if(!hasSession()) { showLogin(""); return; }
         clearScreen("camera"); theme(true);
-        cameraScreen=new CameraScreen(this,store,io,this::showHome,()->showGallery(store.firstRetakeRequired()>=0?store.firstRetakeRequired():store.count()-1),this::beginTransfer,retakeKey);
+        cameraScreen=new CameraScreen(this,store,io,this::showHome,()->showGallery(store.firstRetakeRequired()>=0?store.firstRetakeRequired():store.count()-1),this::finishBatch,retakeKey);
         root.addView(cameraScreen,new FrameLayout.LayoutParams(-1,-1));
         ViewCompat.requestApplyInsets(root);
     }
     private void newBatch() {
         if(!hasSession()) { showLogin(""); return; }
-        new AlertDialog.Builder(this).setTitle("Mulai batch baru?").setMessage("Hapus " + store.count() + " foto batch ini dari aplikasi. Hasil yang sudah tersimpan di MILE tetap tersedia.")
-            .setPositiveButton("Hapus & mulai",(d,w)->resetAndCapture()).setNegativeButton("Kembali",null).show();
+        resetAndCapture();
     }
-    private void resetAndCapture() { if(!hasSession()) { showLogin(""); return; } try { store.reset(); openCamera(); } catch (Exception error) { toast(error.getMessage()); } }
+    private void resetAndCapture() {
+        runBatchTask("Menyimpan batch sebelumnya…",()->{ history.startNewBatch(activeStore); return activeStore; },result->{ store=result; openCamera(); });
+    }
+
+    private interface BatchWork<T> { T run() throws Exception; }
+    private interface BatchResult<T> { void accept(T value); }
+    private static final class SavedBatch {
+        final SessionStore store; final JSONObject snapshot;
+        SavedBatch(SessionStore store) throws Exception { this.store=store; snapshot=store.snapshot(); }
+    }
+    private <T> void runBatchTask(String label,BatchWork<T> work,BatchResult<T> next) {
+        if(!hasSession()) { showLogin(""); return; }
+        if(batchTaskBusy) return;
+        if(cameraScreen!=null && cameraScreen.isBusy()) { toast("Tunggu foto selesai disimpan."); return; }
+        batchTaskBusy=true; clearScreen("saving"); theme(false);
+        LinearLayout panel=Ui.column(this); panel.setGravity(Gravity.CENTER); panel.setPadding(Ui.dp(this,24),Ui.dp(this,24),Ui.dp(this,24),Ui.dp(this,24));
+        panel.addView(new ProgressBar(this),new LinearLayout.LayoutParams(Ui.dp(this,40),Ui.dp(this,40))); Ui.gap(panel,18);
+        TextView status=Ui.text(this,label,18,Ui.INK,true); status.setGravity(Gravity.CENTER); panel.addView(status,Ui.matchWrap()); root.addView(panel,new FrameLayout.LayoutParams(-1,-1));
+        final int generation=authGeneration;
+        io.execute(()->{
+            T result=null; String failure=null;
+            try { result=work.run(); } catch(Exception error) { failure=error.getMessage()==null?"Penyimpanan belum tersedia. Coba kembali.":error.getMessage(); }
+            final T value=result; final String message=failure;
+            runOnUiThread(()->{
+                batchTaskBusy=false;
+                if(isDestroyed() || generation!=authGeneration || !hasSession()) return;
+                if(message!=null) {
+                    showHome(); new AlertDialog.Builder(this).setTitle("Batch tetap tersimpan").setMessage(message)
+                        .setPositiveButton("Kembali",null).show(); return;
+                }
+                next.accept(value);
+            });
+        });
+    }
+    private void finishBatch() {
+        if(store==null || store.count()==0) return;
+        final SessionStore batch=store;
+        runBatchTask("Menyimpan foto & membuat PDF…",()->{
+            history.save(batch); SavedBatch saved=new SavedBatch(history.open(batch.id()));
+            if(batch==activeStore) activeStore.reset();
+            return saved;
+        },saved->{
+            JSONObject snapshot=saved.snapshot;
+            showHome();
+            String warning=saved.store.retakeCount()>0?"\n\n"+saved.store.retakeCount()+" foto buram wajib diambil ulang sebelum proses AI.":"";
+            new AlertDialog.Builder(this).setTitle("PDF tersimpan otomatis")
+                .setMessage(snapshot.optJSONArray("photos").length()+" gambar · "+BatchHistory.displayDate(snapshot.optString("startedAt"))+"\n\n"+BatchHistory.downloadName(snapshot)+"\n\nFoto dan PDF tersedia di Riwayat batch. Tidak perlu menyimpan ulang."+warning)
+                .setPositiveButton("Proses AI",(d,w)->{ store=saved.store; beginTransfer(); })
+                .setNeutralButton("Unduh PDF",(d,w)->downloadBatchPdf(snapshot.optString("id")))
+                .setNegativeButton("Lihat batch",(d,w)->showHistory()).show();
+        });
+    }
+    private void showHistory() {
+        runBatchTask("Memuat riwayat batch…",()->{
+            List<JSONObject> batches=history.list();
+            for(JSONObject batch:batches) if(activeStore.count()>0 && activeStore.id().equals(batch.optString("id"))) {
+                history.save(activeStore); return history.list();
+            }
+            return batches;
+        },this::renderHistory);
+    }
+    private void renderHistory(List<JSONObject> batches) {
+        store=activeStore; clearScreen("history"); theme(false);
+        ScrollView scroll=new ScrollView(this); LinearLayout page=Ui.column(this);
+        page.setPadding(Ui.dp(this,20),Ui.dp(this,20),Ui.dp(this,20),Ui.dp(this,24));
+        page.addView(Ui.button(this,"‹ Beranda",Color.TRANSPARENT,Ui.BLUE,this::showHome),Ui.matchWrap()); Ui.gap(page,12);
+        page.addView(Ui.text(this,"Riwayat batch",28,Ui.INK,true),Ui.matchWrap()); Ui.gap(page,8);
+        page.addView(Ui.text(this,batches.size()+" batch · Foto dan PDF tersimpan di HP, termasuk setelah mulai batch baru.",13,Ui.MUTED,false),Ui.matchWrap()); Ui.gap(page,18);
+        if(batches.isEmpty()) page.addView(Ui.text(this,"Belum ada batch selesai. Tekan Selesai setelah capture untuk menyimpan foto dan PDF secara otomatis.",15,Ui.MUTED,false),Ui.matchWrap());
+        for(JSONObject batch:batches) {
+            String id=batch.optString("id"); int count=batch.optJSONArray("photos").length();
+            LinearLayout card=Ui.column(this); card.setPadding(Ui.dp(this,16),Ui.dp(this,18),Ui.dp(this,16),Ui.dp(this,18)); card.setBackground(Ui.background(Color.WHITE,22,this));
+            card.addView(Ui.text(this,BatchHistory.displayDate(batch.optString("startedAt")),18,Ui.INK,true),Ui.matchWrap()); Ui.gap(card,8);
+            card.addView(Ui.text(this,count+" gambar · "+(batch.optBoolean("transferred")?"Sudah dikirim ke hasil":"Tersimpan di HP"),13,Ui.MUTED,false),Ui.matchWrap()); Ui.gap(card,12);
+            LinearLayout top=Ui.row(this); top.addView(Ui.button(this,"Lihat gambar",Ui.PAPER,Ui.INK,()->selectHistoryBatch(id,false)),new LinearLayout.LayoutParams(0,-2,1));
+            View gap=new View(this); top.addView(gap,new LinearLayout.LayoutParams(Ui.dp(this,8),1)); top.addView(Ui.button(this,"Buka PDF",Ui.PAPER,Ui.INK,()->openBatchPdf(id)),new LinearLayout.LayoutParams(0,-2,1)); card.addView(top,Ui.matchWrap()); Ui.gap(card,8);
+            LinearLayout bottom=Ui.row(this); bottom.addView(Ui.button(this,"Unduh PDF",Ui.PAPER,Ui.BLUE,()->downloadBatchPdf(id)),new LinearLayout.LayoutParams(0,-2,1));
+            View spacer=new View(this); bottom.addView(spacer,new LinearLayout.LayoutParams(Ui.dp(this,8),1)); bottom.addView(Ui.button(this,"Proses AI",Ui.BLUE,Color.WHITE,()->selectHistoryBatch(id,true)),new LinearLayout.LayoutParams(0,-2,1)); card.addView(bottom,Ui.matchWrap());
+            page.addView(card,Ui.matchWrap()); Ui.gap(page,14);
+        }
+        scroll.addView(page); root.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
+    }
+    private void selectHistoryBatch(String id,boolean process) {
+        runBatchTask("Membuka batch…",()->activeStore.id().equals(id)?activeStore:history.open(id),batch->{ store=batch; if(process) beginTransfer(); else showGallery(0); });
+    }
+    private void openBatchPdf(String id) {
+        runBatchTask("Membuka PDF…",()->history.pdf(id),pdf->{
+            showHistory();
+            try { startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(PdfDownloads.viewUri(this,pdf),"application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)); }
+            catch(android.content.ActivityNotFoundException error) { toast("Belum ada pembaca PDF. Gunakan Unduh PDF untuk menyimpan ke Download."); }
+        });
+    }
+    private void downloadBatchPdf(String id) {
+        if(!hasSession()) { showLogin(""); return; }
+        if(Build.VERSION.SDK_INT<=28 && ContextCompat.checkSelfPermission(this,Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED) {
+            pendingPdfDownload=id; storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE); return;
+        }
+        runBatchTask("Menyalin PDF ke Download…",()->{
+            SessionStore batch=history.open(id); return PdfDownloads.save(this,history.pdf(id),BatchHistory.downloadName(batch.snapshot()));
+        },uri->{ showHistory(); toast("PDF tersimpan di Download/MileCamera."); });
+    }
 
     private void showGallery(int index) {
         if(!hasSession()) { showLogin(""); return; }
@@ -389,7 +501,7 @@ public final class MainActivity extends ComponentActivity {
         try { selectedPhoto=store.snapshot().getJSONArray("photos").getJSONObject(galleryIndex); }
         catch(Exception error) { toast("Foto tidak dapat dibaca."); showHome(); return; }
         LinearLayout page=Ui.column(this); page.setPadding(Ui.dp(this,20),Ui.dp(this,12),Ui.dp(this,20),Ui.dp(this,16));
-        LinearLayout header=Ui.row(this); TextView back=Ui.button(this,"‹",Ui.PANEL,Color.WHITE,this::showHome); back.setContentDescription("Kembali ke beranda");
+        LinearLayout header=Ui.row(this); TextView back=Ui.button(this,"‹",Ui.PANEL,Color.WHITE,()->{ if(store!=activeStore) showHistory(); else showHome(); }); back.setContentDescription("Kembali dari galeri");
         header.addView(back,new LinearLayout.LayoutParams(Ui.dp(this,48),Ui.dp(this,48)));
         TextView heading=Ui.text(this,"Periksa foto",19,Color.WHITE,true); heading.setPadding(Ui.dp(this,14),0,0,0); header.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
         header.addView(Ui.text(this,(galleryIndex+1)+" / "+store.count(),13,Ui.ACCENT,true)); page.addView(header,Ui.matchWrap()); Ui.gap(page,12);
@@ -422,9 +534,9 @@ public final class MainActivity extends ComponentActivity {
                 if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED) showCamera();
                 else cameraPermission.launch(Manifest.permission.CAMERA);
             }),Ui.matchWrap());
-        } else controls.addView(Ui.button(this,"Hapus foto ini",Color.TRANSPARENT,Color.rgb(255,165,150),()->new AlertDialog.Builder(this).setTitle("Hapus foto " +(galleryIndex+1)+"?")
+        } else if(store==activeStore) controls.addView(Ui.button(this,"Hapus foto ini",Color.TRANSPARENT,Color.rgb(255,165,150),()->new AlertDialog.Builder(this).setTitle("Hapus foto " +(galleryIndex+1)+"?")
             .setMessage("Foto ini dihapus dari batch. Urutan foto lainnya akan dirapikan.").setPositiveButton("Hapus",(d,w)->{ try { store.remove(galleryIndex); showGallery(galleryIndex); } catch(Exception error) { toast(error.getMessage()); } }).setNegativeButton("Kembali",null).show()),Ui.matchWrap());
-        controls.addView(Ui.button(this,"Lanjut capture",Ui.BLUE,Color.WHITE,this::openCamera),Ui.matchWrap()); root.addView(page,new FrameLayout.LayoutParams(-1,-1));
+        controls.addView(Ui.button(this,store==activeStore?"Lanjut capture":"Kembali ke riwayat",Ui.BLUE,Color.WHITE,()->{ if(store==activeStore) openCamera(); else showHistory(); }),Ui.matchWrap()); root.addView(page,new FrameLayout.LayoutParams(-1,-1));
     }
 
     private static boolean trusted(Uri uri) { return uri!=null && "https".equals(uri.getScheme()) && "mile.posnew.com".equals(uri.getHost()) && (uri.getPort()==-1 || uri.getPort()==443); }
@@ -496,19 +608,11 @@ public final class MainActivity extends ComponentActivity {
     private void beginTransfer() {
         if(!hasSession()) { showLogin(""); return; }
         if (store.count()==0) return;
-        if(qualityCheckBusy) return;
-        qualityCheckBusy=true; final String batchId=store.id();
-        io.execute(() -> {
-            int invalid=-1; String failure="";
-            try { invalid=store.inspectDraftQuality(); } catch(Exception error) { failure=error.getMessage(); }
-            final int bad=invalid; final String message=failure;
-            runOnUiThread(() -> {
-                qualityCheckBusy=false;
-                if(isDestroyed() || !hasSession() || !batchId.equals(store.id())) return;
-                if(!message.isEmpty()) { toast(message); return; }
-                if(bad>=0) { pendingTransfer=false; transferStarted=false; showGallery(bad); toast("Foto "+(bad+1)+" buram. Ambil ulang sebelum proses AI."); return; }
-                pendingTransfer=true; transferStarted=false; showWeb(ORIGIN+"/camera");
-            });
+        final SessionStore batch=store;
+        runBatchTask("Menyiapkan batch untuk AI…",()->{ int invalid=batch.inspectDraftQuality(); history.save(batch); return invalid; },bad->{
+            store=batch;
+            if(bad>=0) { pendingTransfer=false; transferStarted=false; showGallery(bad); toast("Foto "+(bad+1)+" buram. Ambil ulang sebelum proses AI."); return; }
+            pendingTransfer=true; transferStarted=false; showWeb(ORIGIN+"/camera");
         });
     }
     private void injectPhotos() {
@@ -537,6 +641,8 @@ public final class MainActivity extends ComponentActivity {
                 JSONObject state=result instanceof String?new JSONObject((String)result):new JSONObject();
                 if ("done".equals(state.optString("state")) && store.id().equals(state.optString("id"))) {
                     store.markTransferred(); pendingTransfer=false; transferStarted=false; webTitle.setText("Periksa hasil & proses AI");
+                    final SessionStore transferredBatch=store;
+                    io.execute(()->{ try { history.save(transferredBatch); } catch(Exception ignored) { /* The earlier archive and PDF are already durable. */ } });
                     web.loadUrl(ORIGIN+"/review?cameraSession="+Uri.encode(store.id())); return;
                 }
                 if ("error".equals(state.optString("state"))) { transferError(state.optString("message","Foto belum dapat disiapkan.")); return; }
@@ -559,6 +665,7 @@ public final class MainActivity extends ComponentActivity {
         }
         else if(screen.equals("gallery")) showGallery(galleryIndex);
         else if(screen.equals("home")) showHome();
+        else if(screen.equals("history")) showHistory();
     }
     private void applyCameraRotation() {
         if(isDestroyed() || !cameraLayoutPending || !screen.equals("camera") || cameraScreen==null) return;
