@@ -59,4 +59,31 @@ public final class PhotoSafetyTest extends InstrumentationTestCase {
         release.put("applicationId","other.app"); assertNull(AppUpdates.parse(release,8));
         release.put("applicationId","com.posnew.milecamera").put("downloadUrl","https://evil.test/download.apk"); assertNull(AppUpdates.parse(release,8));
     }
+    public void testReadableConfirmationPersistsForOnlyItsPhotoAndSurvivesReassessment() throws Exception {
+        SessionStore store=new SessionStore(context); PhotoQuality.Assessment bad=new PhotoQuality.Assessment(false,0,0);
+        store.addCaptured(jpeg(false),0,false,"uncertain-first",null,bad,null);
+        store.addCaptured(jpeg(false),0,false,"uncertain-second",null,bad,null);
+        String key=store.snapshot().getJSONArray("photos").getJSONObject(0).getString("key");
+        byte[] original=Files.readAllBytes(store.photoFile(key).toPath());
+        store.confirmReadable(key); assertEquals(1,store.firstRetakeRequired());
+        assertTrue(java.util.Arrays.equals(original,Files.readAllBytes(store.photoFile(key).toPath())));
+        SessionStore restored=new SessionStore(context); assertEquals(1,restored.inspectDraftQuality());
+        assertTrue(restored.snapshot().getJSONArray("photos").getJSONObject(0).getBoolean("userConfirmedReadable"));
+        String second=restored.snapshot().getJSONArray("photos").getJSONObject(1).getString("key");
+        restored.confirmReadable(second); assertEquals(-1,new SessionStore(context).inspectDraftQuality());
+        restored.markTransferred();
+        try { restored.confirmReadable(java.util.UUID.randomUUID().toString()); fail("Cannot approve another photo"); } catch(Exception expected) { }
+    }
+    public void testOldDarkFalsePositiveIsReassessedWithNewDetector() throws Exception {
+        Bitmap image=Bitmap.createBitmap(720,1280,Bitmap.Config.ARGB_8888); Canvas canvas=new Canvas(image); canvas.drawColor(Color.rgb(32,32,32));
+        Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG); paint.setColor(Color.rgb(10,10,10)); paint.setTextSize(26);
+        for(int y=180;y<1040;y+=42) canvas.drawText("PERUM TIBAN RIAU BERTUAH BATAM",65,y,paint);
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream(); image.compress(Bitmap.CompressFormat.JPEG,90,bytes); image.recycle();
+        SessionStore store=new SessionStore(context); store.addCaptured(bytes.toByteArray(),0,false,"dark-legacy",null);
+        JSONObject manifest=store.snapshot(); manifest.getJSONArray("photos").getJSONObject(0).put("qualityVersion","focus-1").put("requiresRetake",true);
+        String key=manifest.getJSONArray("photos").getJSONObject(0).getString("key");
+        Files.write(new File(store.photoFile(key).getParentFile(),"session.json").toPath(),manifest.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        SessionStore restored=new SessionStore(context); assertEquals(0,restored.firstRetakeRequired());
+        assertEquals(-1,restored.inspectDraftQuality());
+    }
 }

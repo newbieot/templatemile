@@ -29,15 +29,16 @@ try {
   };
   for (const model of models) {
     responseCancelled = false;
-    assert.equal(worker.aiUpstreamTimeoutMs(model, 'camera'), 30000);
+    const expected=model==='gemini-3.8-flash'?35000:30000;
+    assert.equal(worker.aiUpstreamTimeoutMs(model, 'camera'), expected);
     const response = await worker.default.fetch(new Request('https://mile.posnew.com/api/ai-proxy', {
       method: 'POST',
       headers: { cookie: `__Host-mile_session=${token}`, origin: 'https://mile.posnew.com', 'content-type': 'application/json' },
       body: JSON.stringify({ requestProfile: 'camera', body: { model, messages: [] } })
     }), { MILE_SESSION_SECRET: secret, COSMOS_API_KEY: 'test-only-key' });
-    assert.equal(timerDelay, 30000);
+    assert.equal(timerDelay, expected);
     assert.equal(response.status, 504);
-    assert.equal(response.headers.get('x-mile-upstream-timeout-ms'), '30000');
+    assert.equal(response.headers.get('x-mile-upstream-timeout-ms'), String(expected));
     assert.equal((await response.json()).error.code, 'UPSTREAM_TIMEOUT');
     assert.equal(upstreamSignal.aborted, true);
     assert.equal(responseCancelled, true);
@@ -47,4 +48,4 @@ try {
   globalThis.setTimeout = originalTimeout;
   globalThis.clearTimeout = originalClearTimeout;
 }
-console.log('PASS worker-camera-timeout: all camera models stop at 30 seconds, stalled body cancelled, document budgets preserved');
+console.log('PASS worker-camera-timeout: Gemini 3.8 stops at 35 seconds, DeepSeek 30 seconds, stalled body cancelled, document budgets preserved');

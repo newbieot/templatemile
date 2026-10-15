@@ -14,7 +14,7 @@ public final class BatchHistoryUiTest extends ActivityInstrumentationTestCase2<M
     public BatchHistoryUiTest() { super(MainActivity.class); }
     @Override protected void setUp() throws Exception { super.setUp(); new AndroidSession(getInstrumentation().getTargetContext()).clear(); }
     @Override protected void tearDown() throws Exception { new AndroidSession(getInstrumentation().getTargetContext()).clear(); super.tearDown(); }
-    public void testFinishAutomaticallySavesPdfThenHistoryAiOpensCorrectBatchWithoutLosingNewDraft() throws Exception {
+    public void testFinishSavesPdfAndStartsAiWithoutDialogAndReadableOverridePreservesNextDraft() throws Exception {
         MainActivity activity=getActivity();
         for(int i=0;i<150 && field(activity,"activeStore")==null;i++) Thread.sleep(50);
         assertNotNull(field(activity,"activeStore"));
@@ -26,23 +26,31 @@ public final class BatchHistoryUiTest extends ActivityInstrumentationTestCase2<M
         AndroidSession login=(AndroidSession)field(activity,"session");
         login.storeVerified("__Host-mile_session=android1."+new String(new char[64]).replace('\0','a'),"fixture@test.invalid");
         getInstrumentation().runOnMainSync(()->{
-            try { set(activity,"activeStore",active); set(activity,"store",active); set(activity,"history",history); invoke(activity,"finishBatch"); }
+            try {
+                set(activity,"activeStore",active); set(activity,"store",active); set(activity,"history",history);
+                // Test the native transition without contacting a real AI/account service.
+                invoke(activity,"ensureWeb"); ((android.webkit.WebView)field(activity,"web")).getSettings().setBlockNetworkLoads(true);
+                invoke(activity,"finishBatch");
+            }
             catch(Exception error) { throw new RuntimeException(error); }
         });
-        waitForText("PDF tersimpan otomatis");
+        waitForText("Gambar tidak buram");
+        assertEquals("Selesai must automatically reach the AI photo check", "gallery",field(activity,"screen"));
+        assertEquals(true,field(activity,"continueAiAfterReview"));
         assertEquals(1,history.list().size()); assertTrue(history.pdf(completedId).isFile()); assertEquals(0,active.count());
         assertFalse(completedId.equals(active.id()));
         active.addCaptured(BatchHistoryTest.jpeg(Color.GREEN,720,1280),0,false,"new-draft",null);
         AccessibilityNodeInfo action=null;
-        for(AccessibilityNodeInfo node:getInstrumentation().getUiAutomation().getRootInActiveWindow().findAccessibilityNodeInfosByText("Proses AI"))
+        for(AccessibilityNodeInfo node:getInstrumentation().getUiAutomation().getRootInActiveWindow().findAccessibilityNodeInfosByText("Gambar tidak buram"))
             if(node.isClickable() && node.isEnabled()) { action=node; break; }
-        assertNotNull("The dialog offers a clickable AI action",action);
+        assertNotNull("The photo can be confirmed readable without retaking it",action);
         assertTrue(action.performAction(AccessibilityNodeInfo.ACTION_CLICK));
-        for(int i=0;i<150 && !"gallery".equals(field(activity,"screen"));i++) Thread.sleep(50);
-        assertEquals("gallery",field(activity,"screen"));
+        for(int i=0;i<150 && !"web".equals(field(activity,"screen"));i++) Thread.sleep(50);
+        assertEquals("Confirmation automatically resumes AI", "web",field(activity,"screen"));
+        assertTrue(history.open(completedId).snapshot().getJSONArray("photos").getJSONObject(0).getBoolean("userConfirmedReadable"));
         assertEquals(completedId,((SessionStore)field(activity,"store")).id());
         assertEquals(1,active.count()); assertEquals("new-draft",active.snapshot().getJSONArray("photos").getJSONObject(0).getString("captureId"));
-        getInstrumentation().runOnMainSync(()->{ try { invoke(activity,"showHistory"); } catch(Exception error) { throw new RuntimeException(error); } });
+        getInstrumentation().runOnMainSync(()->{ try { invoke(activity,"showHome"); invoke(activity,"showHistory"); } catch(Exception error) { throw new RuntimeException(error); } });
         waitForText("Lihat gambar");
         assertEquals(1,history.list().size()); assertTrue(history.pdf(completedId).isFile());
     }

@@ -419,8 +419,8 @@ final class CameraScreen extends FrameLayout {
             status.setText("Foto gagal disimpan · ambil ulang");
             android.widget.Toast.makeText(activity,error.getMessage(),android.widget.Toast.LENGTH_LONG).show();
         } else if(quality!=null && !quality.accepted) {
-            status.setText("Foto belum tajam · wajib ambil ulang sebelum AI");
-            android.widget.Toast.makeText(activity,"Foto buram. Buka Galeri untuk mengambil ulang; proses AI terkunci.",android.widget.Toast.LENGTH_LONG).show();
+            status.setText("Foto mungkin kurang jelas · periksa di Galeri");
+            android.widget.Toast.makeText(activity,"Jika teks masih terbaca, pilih Gambar tidak buram di Galeri. Ambil ulang hanya jika tidak terbaca.",android.widget.Toast.LENGTH_LONG).show();
         } else {
             long captureMs=millis(job.captureCallbackNs-job.tapNs);
             long saveMs=millis(savedNs-job.captureCallbackNs);

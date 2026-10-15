@@ -203,7 +203,7 @@
                 totalRows: mRows.length,
                 reviewCount: reviewCount,
                 outsideBatamCount: outOfTown,
-                message: 'Camera Direct · hingga 7 permintaan paralel × 7 gambar · audit maksimal 2 jalur · fallback setelah 30 detik · tanpa R2'
+                message: 'Camera Direct · hingga 7 permintaan paralel × 7 gambar · audit maksimal 2 jalur · Gemini 3.8 35 detik → DeepSeek 4.1 · tanpa R2'
               }),
               credentials: 'same-origin'
             });

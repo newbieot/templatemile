@@ -29,26 +29,35 @@ public class PhotoQualityTest {
         }
         return result;
     }
-    @Test public void readableTextPassesAndDefocusMotionBlankFail() {
+    @Test public void readableTextPassesAndOnlySeverelyUnclearOrBlankFramesFail() {
         byte[] sharp=label();
         assertTrue("Crisp document text",PhotoQuality.assess(sharp,W,H).accepted);
-        assertFalse("Defocused text",PhotoQuality.assess(blur(blur(sharp,4,false),4,true),W,H).accepted);
-        assertFalse("Horizontal camera shake",PhotoQuality.assess(blur(sharp,8,false),W,H).accepted);
-        assertFalse("Vertical camera shake",PhotoQuality.assess(blur(sharp,8,true),W,H).accepted);
+        assertTrue("Slight softness is not an unreadable document",PhotoQuality.assess(blur(blur(sharp,1,false),1,true),W,H).accepted);
+        assertFalse("Completely smeared text",PhotoQuality.assess(blur(blur(sharp,12,false),12,true),W,H).accepted);
         byte[] blank=new byte[W*H]; Arrays.fill(blank,(byte)240);
         assertFalse("Blank label cannot be sent to AI",PhotoQuality.assess(blank,W,H).accepted);
         assertFalse("Invalid frame",PhotoQuality.assess(new byte[1],W,H).accepted);
     }
-    @Test public void normalNoiseDoesNotTurnDefocusedTextIntoSharpText() {
+    @Test public void normalNoiseAndUncertainSoftnessDoNotForceRetake() {
         byte[] sharp=label(), soft=blur(blur(sharp,4,false),4,true); Random random=new Random(14);
         for(int i=0;i<sharp.length;i++) { int noise=random.nextInt(13)-6; sharp[i]=(byte)Math.max(0,Math.min(255,(sharp[i]&255)+noise)); soft[i]=(byte)Math.max(0,Math.min(255,(soft[i]&255)+noise)); }
         assertTrue(PhotoQuality.assess(sharp,W,H).accepted);
-        assertFalse(PhotoQuality.assess(soft,W,H).accepted);
+        assertTrue("Uncertain noisy text must not force a retake",PhotoQuality.assess(soft,W,H).accepted);
     }
     @Test public void readableLowContrastTextPasses() {
         byte[] image=label();
         for(int i=0;i<image.length;i++) image[i]=(byte)(210+((image[i]&255)-35)*30/205);
         assertTrue("Readable light print",PhotoQuality.assess(image,W,H).accepted);
+    }
+    @Test public void darkReadableTextAndUnevenLightingAreNotBlur() {
+        for(int contrast:new int[]{12,20,40}) {
+            byte[] image=label();
+            for(int i=0;i<image.length;i++) image[i]=(byte)(6+((image[i]&255)-35)*contrast/205);
+            assertTrue("Dark but readable, contrast "+contrast,PhotoQuality.assess(image,W,H).accepted);
+        }
+        byte[] image=label();
+        for(int y=0;y<H;y++) for(int x=0;x<W;x++) { int i=y*W+x; image[i]=(byte)(8+((image[i]&255)-35)*(20+50*x/W)/205); }
+        assertTrue("Document with a shadow",PhotoQuality.assess(image,W,H).accepted);
     }
     @Test public void analysisTimingIsSeparateFromFrozenFrameTiming() {
         byte[] image=label(); long now=System.nanoTime();

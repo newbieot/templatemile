@@ -31,6 +31,7 @@
   const GEMINI_MAX_ATTEMPTS = 2;
   const GEMINI_RETRY_DELAY_MS = 500;
   const CAMERA_REQUEST_TIMEOUT_MS = 30 * 1000;
+  const CAMERA_GEMINI_38_TIMEOUT_MS = 35 * 1000;
   const CAMERA_MODEL_MAX_ATTEMPTS = 1;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
@@ -69,7 +70,7 @@
   ]);
   const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
   const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, GEMINI_31_PRO_MODEL, PRIMARY_FALLBACK_MODEL, DEEPSEEK_R2_MODEL]);
+  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_R2_MODEL]);
   const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   const geminiStructuredOutputUnsupported = new Set();
@@ -1497,10 +1498,10 @@ ${clipped}`
     await yieldToBrowser();
 
     const requestTimeoutMs = config?.cameraDirect
-      ? Math.ceil(Math.min(CAMERA_REQUEST_TIMEOUT_MS, (config.cameraModelDeadline || (performance.now() + CAMERA_REQUEST_TIMEOUT_MS)) - performance.now()))
+      ? Math.ceil(Math.min(cameraModelTimeoutMs(config.model), (config.cameraModelDeadline || (performance.now() + cameraModelTimeoutMs(config.model))) - performance.now()))
       : (isGeminiModel(config?.model) ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
     if (requestTimeoutMs <= 0) {
-      const error = new Error(`${shortModelLabel(config?.model)} melewati batas 30 detik. Kelompok ini langsung dialihkan ke model berikutnya.`);
+      const error = new Error(`${shortModelLabel(config?.model)} melewati batas ${cameraModelTimeoutMs(config?.model)/1000} detik. Kelompok ini langsung dialihkan ke model berikutnya.`);
       error.status = 408;
       throw error;
     }
@@ -1585,7 +1586,7 @@ ${clipped}`
       };
       xhr.ontimeout = () => {
         const error = new Error(config?.cameraDirect
-          ? `${shortModelLabel(config?.model)} melewati batas 30 detik. Kelompok ini langsung dialihkan ke model berikutnya.`
+          ? `${shortModelLabel(config?.model)} melewati batas ${cameraModelTimeoutMs(config?.model)/1000} detik. Kelompok ini langsung dialihkan ke model berikutnya.`
           : (isGeminiModel(config?.model)
             ? 'Gemini tidak memberi respons dalam 75 detik. Kelompok ini akan dialihkan tanpa mengubah kelompok lain.'
             : 'Permintaan AI melewati batas 3 menit dan akan dicoba ulang.'));
@@ -1623,6 +1624,10 @@ ${clipped}`
     const status = Number(error?.status || 0);
     return !status || [400, 404, 408, 409, 425, 429].includes(status) ||
       (status >= 500 && status <= 599) || /JSON valid|array rows|teks hasil/i.test(String(error?.message || ''));
+  }
+
+  function cameraModelTimeoutMs(model) {
+    return model === GEMINI_38_MODEL ? CAMERA_GEMINI_38_TIMEOUT_MS : CAMERA_REQUEST_TIMEOUT_MS;
   }
 
   function nextFallbackModel(model, config = {}) {
@@ -1679,7 +1684,7 @@ ${clipped}`
       requestModel = nextModel;
     }
     const requestConfig = config?.cameraDirect
-      ? { ...config, model: requestModel, cameraModelDeadline: performance.now() + CAMERA_REQUEST_TIMEOUT_MS }
+      ? { ...config, model: requestModel, cameraModelDeadline: performance.now() + cameraModelTimeoutMs(requestModel) }
       : (requestModel === configuredModel ? config : { ...config, model: requestModel });
     let requestBody = adaptRequestBodyForModel(body, requestModel, requestConfig);
     const isGeminiFallbackModel = GEMINI_FALLBACK_CHAIN.includes(requestModel);

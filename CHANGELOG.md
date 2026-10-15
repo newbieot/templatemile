@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.52 — Foto gelap tetap terbaca dan Selesai langsung AI
+
+- APK 0.1.9/code 10 menilai ketajaman setelah normalisasi kontras dan menerima foto terbaca yang gelap/sedikit kurang tajam. Penanda lama dinilai ulang; foto yang sangat tidak jelas tetap dapat diperiksa.
+- Tombol Gambar tidak buram mengonfirmasi foto tanpa mengubah JPEG. Konfirmasi persisten dan melanjutkan AI bila proses sedang tertahan pada pemeriksaan foto; Ambil ulang tetap tersedia.
+- Selesai menyimpan PDF otomatis, memberi notifikasi singkat, lalu langsung memulai AI. Dialog pilihan Proses AI dihapus.
+- Kamera web/Android memakai Gemini 3.8 maksimal 35 detik lalu langsung DeepSeek 4.1 Flash, dengan timeout klien/gateway selaras dan retry kompatibilitas berbagi deadline. Model antara tidak dipakai pada fallback kamera.
+
 ## v26.51 — Riwayat batch Android dan PDF otomatis
 
 - APK 0.1.8/code 9 menyimpan setiap batch selesai beserta seluruh gambar dan PDF di HP. Riwayat menampilkan tanggal, jumlah gambar, lihat gambar, buka/unduh PDF, serta Proses AI untuk batch terpilih tanpa mengganggu draft baru.

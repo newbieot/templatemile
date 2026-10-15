@@ -133,7 +133,7 @@ assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 \* 1024 \* 1024/)
 assert.match(source, /onError\(\{ error \}\)[\s\S]*?activeAiLimit = 1/);
 assert.match(source, /config\.cameraDirect && \[429, 520\]\.includes\(timing\.errorStatus\)/);
 assert.match(source, /const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL/);
-assert.match(source, /CAMERA_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, GEMINI_31_PRO_MODEL, PRIMARY_FALLBACK_MODEL, DEEPSEEK_R2_MODEL\]\)/);
+assert.match(source, /CAMERA_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, DEEPSEEK_R2_MODEL\]\)/);
 assert.match(source, /const CAMERA_REQUEST_TIMEOUT_MS = 30 \* 1000/);
 assert.match(source, /const CAMERA_MODEL_MAX_ATTEMPTS = 1/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
@@ -203,9 +203,9 @@ async function runQualityAssertions() {
 }
 
 async function runFallbackAssertions() {
-  const models = ['gemini-3.8-flash', 'gemini-3.1-pro', 'gemini-3.7-flash', 'deepseek-v4.1-flash'];
+  const models = ['gemini-3.8-flash', 'deepseek-v4.1-flash'];
   const requests = [];
-  let responses = ['timeout', 'timeout', 'timeout', 'success', 'success'];
+  let responses = ['timeout', 'success', 'success'];
   let clockMs = 1000;
   sandbox.performance = { now: () => clockMs };
   sandbox.XMLHttpRequest = class {
@@ -217,7 +217,7 @@ async function runFallbackAssertions() {
     send(raw) {
       const request = JSON.parse(raw);
       requests.push({ model: request.body.model, timeout: this.timeout, profile: request.requestProfile });
-      assert.ok(this.timeout > 0 && this.timeout <= 30000);
+      assert.ok(this.timeout > 0 && this.timeout <= (request.body.model === models[0] ? 35000 : 30000));
       const response = responses.shift();
       setTimeout(() => {
         if (response === 'timeout') {
@@ -241,21 +241,23 @@ async function runFallbackAssertions() {
   const payload = await ai.callProxyWithRetry(config, body);
   assert.deepEqual(requests.map(request => request.model), models);
   assert.ok(requests.every(request => request.profile === 'camera'));
-  assert.equal(payload._mileEffectiveModel, models[3]);
+  assert.equal(requests[0].timeout,35000,'Gemini gets exactly 35 seconds before switching directly to DeepSeek');
+  assert.equal(requests[1].timeout,30000,'DeepSeek retains its own request budget');
+  assert.equal(payload._mileEffectiveModel, models[1]);
   assert.deepEqual(Array.from(payload._mileFallbackChain), models);
   await ai.callProxyWithRetry(config, body);
-  assert.equal(requests.at(-1).model, models[3], 'Queued groups skip timed-out models');
+  assert.equal(requests.at(-1).model, models[1], 'Queued groups skip timed-out Gemini and use DeepSeek directly');
 
   responses = ['schema', 'timeout', 'success'];
   const freshConfig = { ...config, cameraModelState: { blocked: new Set(), errors: new Map() } };
   const start = requests.length;
   const compatible = await ai.callProxyWithRetry(freshConfig, body);
   assert.deepEqual(requests.slice(start).map(request => request.model), [models[0], models[0], models[1]]);
-  assert.equal(requests[start + 1].timeout, 8000, 'Compatibility retry shares the model 30-second budget');
+  assert.equal(requests[start + 1].timeout, 13000, 'Compatibility retry shares the model 35-second budget');
   assert.equal(requests[start + 2].timeout, 30000, 'Next model gets a fresh 30-second budget');
   assert.equal(compatible._mileEffectiveModel, models[1]);
 
-  responses = ['timeout', 'timeout', 'timeout', 'timeout'];
+  responses = ['timeout', 'timeout'];
   const failureStart = requests.length;
   await assert.rejects(ai.callProxyWithRetry({ ...freshConfig, cameraModelState: { blocked: new Set(), errors: new Map() } }, body), error => error.status === 408);
   assert.deepEqual(requests.slice(failureStart).map(request => request.model), models, 'Stop after the last fallback times out');

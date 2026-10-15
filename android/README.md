@@ -4,13 +4,13 @@ Aplikasi pendamping Android dengan kamera native CameraX. Login, ekstraksi AI, p
 
 ## Memakai APK
 
-Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.8).
+Unduh APK terbaru: https://mile.posnew.com/downloads/Mile-Camera.apk (versi 0.1.9).
 
-1. Unduh `Mile-Camera-0.1.8.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
+1. Unduh `Mile-Camera-0.1.9.apk` ke HP, buka, dan izinkan pemasangan dari aplikasi pengirim/file manager bila diminta Android. Sertifikat rilis sama dengan 0.1.1 sehingga dapat diperbarui tanpa menghapus aplikasi. APK yang ditandatangani pihak lain memerlukan pemeriksaan sertifikat dahulu.
 2. Buka **Mile Camera** dan login terlebih dahulu. Kamera, galeri, dan halaman aplikasi terkunci sebelum login berhasil. Setelah masuk, pilih **Mulai capture** dan izinkan kamera.
 3. Ketuk bagian teks untuk fokus. Indikator biru berarti perangkat melaporkan fokus berhasil; indikator kuning berarti fokus belum terkunci atau lensa tidak mendukung autofocus pada titik.
-4. Ambil foto dan tekan **Selesai**. Foto dan PDF otomatis disimpan di riwayat tanpa izin/pemilih folder, lalu pop-up menawarkan **Proses AI**, **Unduh PDF**, dan **Lihat batch**. Foto buram wajib diganti melalui **Ambil ulang foto** sebelum AI; foto ulang tetap memakai nomor urut semula dan PDF diperbarui setelahnya.
-5. Foto disimpan ke sesi review yang sama dengan pipeline web, lalu diproses oleh Gemini 3.8 → Gemini 3.1 Pro → Gemini 3.7 → DeepSeek 4.1 Flash, 7 gambar × 7 jalur, maksimal 30 detik per model.
+4. Ambil foto dan tekan **Selesai**. Foto dan PDF otomatis disimpan di riwayat tanpa izin/pemilih folder. Notifikasi singkat **PDF tersimpan otomatis** muncul, lalu AI langsung bekerja tanpa tombol konfirmasi. Foto gelap/kurang tajam yang masih terbaca boleh dipakai. Jika ditandai, pilih **Gambar tidak buram** untuk mengonfirmasi dan melanjutkan AI, atau **Ambil ulang foto** jika memang tidak terbaca.
+5. Foto disimpan ke sesi review yang sama dengan pipeline web, lalu diproses oleh Gemini 3.8 → DeepSeek 4.1 Flash, 7 gambar × 7 jalur. Gemini 3.8 mendapat maksimal 35 detik dan langsung beralih ke DeepSeek bila gagal/timeout; DeepSeek mendapat 30 detik tersendiri. Retry kompatibilitas berbagi sisa waktu model yang sama.
 6. **Riwayat batch · Foto & PDF** menyimpan tanggal/jam dan jumlah gambar setiap batch. Foto/PDF dapat dibuka atau diunduh dan AI dapat dijalankan untuk batch terpilih, tanpa mengganti draft baru. Batch lama disalin ke riwayat sebelum memulai batch baru; tidak ikut masa simpan log server.
 7. Klik **Lokal Batam / Luar kota / CN23** di hasil untuk menampilkan kiriman kelompok tersebut, atau **Semua** untuk mengembalikan seluruh data. Ekspor tetap mencakup seluruh batch.
 8. Versi baru diperiksa di background saat aplikasi aktif. Pesan update muncul di beranda/login dan membuka APK resmi; **Periksa update** juga tersedia di beranda. Fitur ini mulai tersedia pada APK 0.1.7.
@@ -21,7 +21,7 @@ Android 8.0 atau lebih baru. Kamera belakang diprioritaskan; perangkat tanpa kam
 
 - Preview dan frame foto memakai CameraX Preview + ImageAnalysis KEEP_ONLY_LATEST, dengan autofocus bawaan, AF/AE metering pada koordinat ketukan, dan status hasil fokus yang sebenarnya.
 - Shutter membekukan salinan frame yang sudah diterima pada finger down sebelum feedback. Kompresi dan penyimpanan berjalan sesudahnya; tidak meminta sensor mengambil gambar berikutnya. Frame yang sudah dipakai atau lebih tua dari 250 ms sejak diterima tidak difoto ulang. Autofokus kontinu tetap berjalan saat membidik, dan ketuk fokus tetap tersedia.
-- Deteksi blur memakai luminance pada worker foto sesudah frame dibekukan, dengan pengurangan noise serta ketajaman tepi pada dua arah. Tidak menunggu pemeriksaan blur pada event shutter. Draft lama diperiksa sebelum handoff; penanda retake disimpan persisten dan dicek kembali oleh handoff native.
+- Deteksi memakai normalisasi kontras pada worker sesudah frame dibekukan, sehingga gelap tidak disamakan dengan buram. Ambang toleran menerima foto yang masih terbaca; hanya foto sangat tidak jelas yang ditandai. Tidak menunggu pemeriksaan pada event shutter. Penanda lama dinilai ulang sebelum handoff. Konfirmasi Gambar tidak buram berlaku hanya pada foto yang dipilih, tidak mengubah JPEG, disimpan persisten, dan tidak dibatalkan oleh preflight berikutnya.
 - Kilatan putih pada preview, getaran, serta suara shutter Android diberikan setelah frame dibekukan. Suara mengikuti volume/kebijakan audio HP. Status tersimpan muncul setelah JPEG berhasil ditulis. Galeri menampilkan resolusi JPEG penuh.
 - Zoom cubit, kembali ke zoom 1×, dan lampu bantu sesuai kemampuan kamera.
 - Kamera memenuhi area layar, dengan kontrol berupa overlay transparan. Landscape tidak memakai panel samping solid. Preview menjaga framing 16:9 utuh; perbedaan rasio layar bisa meninggalkan margin agar gambar tidak dipotong atau tampak zoom.
@@ -64,6 +64,6 @@ adb shell am instrument -w -e class 'com.posnew.milecamera.CameraCaptureTest#tes
 
 Harness kamera hanya ada dalam build debug, tidak disertakan di APK release. Tes kamera dijalankan pada proses terpisah agar sensor virtual dilepas di antara tes; menjalankan semuanya dalam satu proses dapat membuat preview emulator tidak tersambung kembali. Emulator memverifikasi UI, penyimpanan, dan capture virtual; autofocus optik, kecepatan perangkat, serta suara di HP fisik tetap perlu diuji.
 
-Tes BatchHistory memakai PdfRenderer Android untuk memeriksa jumlah halaman, orientasi, urutan/pixel gambar, PDF 150 halaman, pemulihan PDF terpotong, penyimpanan ulang, retake, unduhan MediaStore, serta kegagalan arsip yang tidak boleh menghapus draft. Tes UI memverifikasi PDF sudah ada sebelum pilihan pop-up diklik, dan Proses AI membuka batch tersebut tanpa menimpa draft baru.
+Tes BatchHistory memakai PdfRenderer Android untuk memeriksa jumlah halaman, orientasi, urutan/pixel gambar, PDF 150 halaman, pemulihan PDF terpotong, penyimpanan ulang, retake, unduhan MediaStore, serta kegagalan arsip yang tidak boleh menghapus draft. Tes UI memverifikasi Selesai sudah menyimpan PDF dan memulai pemeriksaan AI tanpa dialog tambahan; konfirmasi Gambar tidak buram melanjutkan ke WebView untuk batch yang benar tanpa menimpa draft baru. WebView pada fixture diblokir dari jaringan agar tidak mengirim foto uji ke AI sungguhan.
 
-Untuk rilis berikutnya, lihat prosedur metadata update di `docs/mile-camera-0.1.7.md` dan fitur riwayat di `docs/mile-camera-0.1.8.md`. Deploy APK dan `downloads/mile-camera-update.json` bersama-sama agar aplikasi yang sudah terpasang dapat menawarkan versi baru.
+Untuk rilis berikutnya, lihat prosedur metadata update di `docs/mile-camera-0.1.7.md`, riwayat di `docs/mile-camera-0.1.8.md`, dan alur terbaru di `docs/mile-camera-0.1.9.md`. Deploy APK dan `downloads/mile-camera-update.json` bersama-sama agar aplikasi yang sudah terpasang dapat menawarkan versi baru.

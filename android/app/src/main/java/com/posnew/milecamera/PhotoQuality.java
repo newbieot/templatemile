@@ -2,7 +2,7 @@ package com.posnew.milecamera;
 
 /** Lightweight luminance-only focus check. Always run on the photo worker, never on shutter down. */
 final class PhotoQuality {
-    static final String VERSION = "focus-1";
+    static final String VERSION = "focus-2-readable";
     static final class Assessment {
         final boolean accepted;
         final double sharpness;
@@ -15,17 +15,31 @@ final class PhotoQuality {
     static Assessment assess(byte[] luminance, int width, int height) {
         if(width<80 || height<80 || luminance==null || (long)width*height>luminance.length)
             return new Assessment(false,0,0);
-        // Ignore outer framing and suppress sensor noise before measuring edge
-        // width. Several sharp regions are required so a single page border or
-        // a sharp object at the edge cannot approve a completely soft label.
+        // Exposure is not focus. Stretch the useful luminance range so readable
+        // dark/light print is judged by edge width rather than absolute brightness.
         int left=Math.max(3,width/12), top=Math.max(3,height/12);
         int right=width-left, bottom=height-top;
+        int[] histogram=new int[256]; int samples=0;
+        for(int y=top;y<bottom;y++) for(int x=left;x<right;x++) { histogram[luminance[y*width+x]&255]++; samples++; }
+        int tail=Math.max(1,samples/500),low=0,high=255,total=0;
+        while(low<255 && (total+=histogram[low])<tail) low++;
+        total=0; while(high>0 && (total+=histogram[high])<tail) high--;
+        if(high-low<6) {
+            // Only a practically featureless frame is certainly unreadable.
+            // Sparse faint text/noisy low light remains uncertain and may pass.
+            int first=0,last=255;
+            while(first<255 && histogram[first]==0) first++;
+            while(last>0 && histogram[last]==0) last--;
+            return new Assessment(last-first>=4,0,0);
+        }
+        int[] normalize=new int[256];
+        for(int i=0;i<256;i++) normalize[i]=Math.max(0,Math.min(255,(i-low)*255/(high-low)));
         byte[] smooth=new byte[width*height];
         for(int y=top-1;y<=bottom;y++) for(int x=left-1;x<=right;x++) {
             int p=y*width+x;
-            int value=(luminance[p-width-1]&255)+2*(luminance[p-width]&255)+(luminance[p-width+1]&255)
-                +2*(luminance[p-1]&255)+4*(luminance[p]&255)+2*(luminance[p+1]&255)
-                +(luminance[p+width-1]&255)+2*(luminance[p+width]&255)+(luminance[p+width+1]&255);
+            int value=normalize[luminance[p-width-1]&255]+2*normalize[luminance[p-width]&255]+normalize[luminance[p-width+1]&255]
+                +2*normalize[luminance[p-1]&255]+4*normalize[luminance[p]&255]+2*normalize[luminance[p+1]&255]
+                +normalize[luminance[p+width-1]&255]+2*normalize[luminance[p+width]&255]+normalize[luminance[p+width+1]&255];
             smooth[p]=(byte)((value+8)/16);
         }
         int sharp=0; double best=0;
@@ -45,14 +59,14 @@ final class PhotoQuality {
                 if(Math.abs(dy)>=8) { lapY+=(double)sy*sy; gradY+=(double)dy*dy; edgesY++; }
                 min=Math.min(min,c); max=Math.max(max,c);
             }
-            if(n==0 || gradient==0 || max-min<25) continue;
+            if(n==0 || gradient==0 || max-min<18) continue;
             // Check both axes: a horizontal shake can leave horizontal strokes
             // sharp while making the actual characters unreadable.
             double rms=Math.sqrt(lap/n), edge=Math.sqrt(gradient/n);
             double ratio=edgesX>=20 && edgesY>=20?Math.min(Math.sqrt(lapX/gradX),Math.sqrt(lapY/gradY)):0;
             best=Math.max(best,ratio);
-            if(rms>=3 && edge>=3 && ratio>=.38) sharp++;
+            if(rms>=1 && edge>=1 && ratio>=.27) sharp++;
         }
-        return new Assessment(sharp>=2,best,sharp);
+        return new Assessment(sharp>=1,best,sharp);
     }
 }

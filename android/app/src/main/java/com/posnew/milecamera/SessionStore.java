@@ -72,7 +72,7 @@ final class SessionStore {
         JSONArray photos=snapshot().getJSONArray("photos");
         for(int i=0;i<photos.length();i++) {
             JSONObject photo=photos.getJSONObject(i);
-            if(PhotoQuality.VERSION.equals(photo.optString("qualityVersion"))) continue;
+            if(photo.optBoolean("userConfirmedReadable") || PhotoQuality.VERSION.equals(photo.optString("qualityVersion"))) continue;
             Bitmap bitmap=BitmapFactory.decodeFile(photoFile(photo.getString("key")).getPath());
             if(bitmap==null) throw new Exception("Foto "+(i+1)+" tidak dapat dibaca. Ambil ulang foto tersebut.");
             PhotoQuality.Assessment quality;
@@ -93,8 +93,21 @@ final class SessionStore {
         return firstRetakeRequired();
     }
     private static void setQuality(JSONObject photo,PhotoQuality.Assessment quality) throws Exception {
-        photo.put("qualityVersion",PhotoQuality.VERSION).put("requiresRetake",!quality.accepted)
+        photo.put("qualityVersion",PhotoQuality.VERSION).put("requiresRetake",!quality.accepted && !photo.optBoolean("userConfirmedReadable"))
             .put("sharpness",quality.sharpness).put("sharpTiles",quality.sharpTiles);
+    }
+    synchronized void confirmReadable(String key) throws Exception {
+        JSONArray photos=session.getJSONArray("photos");
+        for(int i=0;i<photos.length();i++) {
+            JSONObject photo=photos.getJSONObject(i);
+            if(!key.equals(photo.optString("key"))) continue;
+            if(!photoFile(key).isFile()) throw new Exception("Foto tidak dapat dibaca. Ambil ulang foto tersebut.");
+            JSONObject previous=new JSONObject(photo.toString());
+            photo.put("userConfirmedReadable",true).put("readabilityConfirmedAt",Instant.now().toString()).put("requiresRetake",false);
+            try { persist(); } catch(Exception error) { photos.put(i,previous); throw error; }
+            return;
+        }
+        throw new Exception("Foto tidak ditemukan di batch ini.");
     }
     synchronized boolean transferred() { return session.optBoolean("transferred"); }
     synchronized String id() { return session.optString("id"); }
@@ -377,7 +390,7 @@ final class SessionStore {
     }
 
     synchronized void markTransferred() throws Exception {
-        if(firstRetakeRequired()>=0) throw new Exception("Foto buram wajib diambil ulang sebelum proses AI.");
+        if(firstRetakeRequired()>=0) throw new Exception("Foto belum jelas: ambil ulang atau konfirmasi Gambar tidak buram sebelum proses AI.");
         session.put("transferred", true); persist();
     }
     synchronized void reset() throws Exception {

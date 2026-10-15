@@ -1,4 +1,4 @@
-const APP_VERSION = '20261015-26.51-camera-batch-pdf';
+const APP_VERSION = '20261015-26.52-readable-auto-ai';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -15,7 +15,7 @@ const BETA_IMAGE_TOKEN_TTL_SECONDS = 60 * 60;
 const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:';
 const METRICS_TIMEOUT_MS = 15000;
 const AI_UPSTREAM_TIMEOUTS_MS = Object.freeze({
-  camera: Object.freeze({ gemini: 30000, other: 30000 }),
+  camera: Object.freeze({ gemini: 30000, gemini38: 35000, other: 30000 }),
   document: Object.freeze({ gemini: 60000, other: 180000 })
 });
 const MAX_AI_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -46,6 +46,7 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-Camera-0.1.6.apk', '/downloads/Mile-Camera-0.1.6-source.zip',
   '/downloads/Mile-Camera-0.1.7.apk', '/downloads/Mile-Camera-0.1.7-source.zip', '/downloads/mile-camera-update.json',
   '/downloads/Mile-Camera-0.1.8.apk', '/downloads/Mile-Camera-0.1.8-source.zip',
+  '/downloads/Mile-Camera-0.1.9.apk', '/downloads/Mile-Camera-0.1.9-source.zip',
   '/downloads/Mile-CN23-Helper-0.2.1.zip',
   '/downloads/Mile-CN23-Helper-0.2.2.zip',
   '/downloads/Mile-CN23-Helper-0.2.3.zip',
@@ -1042,6 +1043,7 @@ async function handleCameraBatchDelete(request, env, session, url) {
 
 function aiUpstreamTimeoutMs(model, requestProfile) {
   const profile = requestProfile === 'camera' ? 'camera' : 'document';
+  if (profile === 'camera' && model === 'gemini-3.8-flash') return AI_UPSTREAM_TIMEOUTS_MS.camera.gemini38;
   return AI_UPSTREAM_TIMEOUTS_MS[profile][model.startsWith('gemini-') ? 'gemini' : 'other'];
 }
 
@@ -1237,7 +1239,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
   const response = await env.ASSETS.fetch(assetRequest);
   const headers = new Headers(response.headers);
   Object.entries(securityHeaders()).forEach(([key, value]) => headers.set(key, value));
-  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4|5|6|7|8)\.apk$/.test(path) && response.ok) {
+  if (/^\/downloads\/Mile-Camera-0\.1\.(?:1|3|4|5|6|7|8|9)\.apk$/.test(path) && response.ok) {
     headers.set('content-type', 'application/vnd.android.package-archive');
     headers.set('content-disposition', `attachment; filename="${path.split('/').pop()}"`);
   }
@@ -1269,7 +1271,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/downloads/Mile-Camera.apk' || url.pathname === '/downloads/Mile-Camera-0.1.0.apk') {
-      return redirect('/downloads/Mile-Camera-0.1.8.apk');
+      return redirect('/downloads/Mile-Camera-0.1.9.apk');
     }
     if (url.hostname === 'templatemile.pages.dev') {
       url.hostname = 'mile.posnew.com';

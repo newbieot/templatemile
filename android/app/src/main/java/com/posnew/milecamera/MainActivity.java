@@ -72,6 +72,7 @@ public final class MainActivity extends ComponentActivity {
     private ProgressBar webProgress;
     private String screen="home";
     private boolean pendingTransfer, transferStarted;
+    private boolean continueAiAfterReview;
     private int pollCount;
     private Bitmap galleryBitmap;
     private int galleryIndex;
@@ -311,6 +312,7 @@ public final class MainActivity extends ComponentActivity {
     private void showHome() {
         if(!hasSession()) { showLogin(""); return; }
         store=activeStore;
+        continueAiAfterReview=false;
         pendingTransfer=false; transferStarted=false;
         clearScreen("home"); theme(false);
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false);
@@ -353,7 +355,7 @@ public final class MainActivity extends ComponentActivity {
         if (store.count()>0) {
             LinearLayout draft=Ui.column(this); draft.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18)); draft.setBackground(Ui.background(Color.WHITE,22,this));
             draft.addView(Ui.text(this,store.count()+" foto tersimpan",19,Ui.INK,true)); Ui.gap(draft,6);
-            draft.addView(Ui.text(this,store.retakeCount()>0?store.retakeCount()+" foto buram wajib diambil ulang sebelum proses AI.":store.transferred()?"Sudah dikirim ke review. Salinan foto masih ada di HP.":"Batch terakhir siap dilanjutkan atau diperiksa.",12,Ui.MUTED,false)); Ui.gap(draft,16);
+            draft.addView(Ui.text(this,store.retakeCount()>0?store.retakeCount()+" foto perlu dilihat. Ambil ulang jika tidak terbaca, atau pilih Gambar tidak buram.":store.transferred()?"Sudah dikirim ke review. Salinan foto masih ada di HP.":"Batch terakhir siap dilanjutkan atau diperiksa.",12,Ui.MUTED,false)); Ui.gap(draft,16);
             LinearLayout actions=Ui.row(this); actions.addView(Ui.button(this,"Lihat foto",Ui.PAPER,Ui.INK,()->showGallery(store.count()-1)),new LinearLayout.LayoutParams(0,-2,1));
             View space=new View(this); actions.addView(space,new LinearLayout.LayoutParams(Ui.dp(this,10),1));
             actions.addView(Ui.button(this,"Proses AI →",Ui.INK,Color.WHITE,this::beginTransfer),new LinearLayout.LayoutParams(0,-2,1)); draft.addView(actions,Ui.matchWrap()); page.addView(draft,Ui.matchWrap()); Ui.gap(page,12);
@@ -433,14 +435,8 @@ public final class MainActivity extends ComponentActivity {
             if(batch==activeStore) activeStore.reset();
             return saved;
         },saved->{
-            JSONObject snapshot=saved.snapshot;
-            showHome();
-            String warning=saved.store.retakeCount()>0?"\n\n"+saved.store.retakeCount()+" foto buram wajib diambil ulang sebelum proses AI.":"";
-            new AlertDialog.Builder(this).setTitle("PDF tersimpan otomatis")
-                .setMessage(snapshot.optJSONArray("photos").length()+" gambar · "+BatchHistory.displayDate(snapshot.optString("startedAt"))+"\n\n"+BatchHistory.downloadName(snapshot)+"\n\nFoto dan PDF tersedia di Riwayat batch. Tidak perlu menyimpan ulang."+warning)
-                .setPositiveButton("Proses AI",(d,w)->{ store=saved.store; beginTransfer(); })
-                .setNeutralButton("Unduh PDF",(d,w)->downloadBatchPdf(snapshot.optString("id")))
-                .setNegativeButton("Lihat batch",(d,w)->showHistory()).show();
+            toast("PDF tersimpan otomatis · "+saved.snapshot.optJSONArray("photos").length()+" gambar");
+            store=saved.store; beginTransfer();
         });
     }
     private void showHistory() {
@@ -453,6 +449,7 @@ public final class MainActivity extends ComponentActivity {
         },this::renderHistory);
     }
     private void renderHistory(List<JSONObject> batches) {
+        continueAiAfterReview=false;
         store=activeStore; clearScreen("history"); theme(false);
         ScrollView scroll=new ScrollView(this); LinearLayout page=Ui.column(this);
         page.setPadding(Ui.dp(this,20),Ui.dp(this,20),Ui.dp(this,20),Ui.dp(this,24));
@@ -527,8 +524,13 @@ public final class MainActivity extends ComponentActivity {
         View gap=new View(this); navigation.addView(gap,new LinearLayout.LayoutParams(Ui.dp(this,10),1));
         TextView next=Ui.button(this,"Berikut →",Ui.PANEL,Color.WHITE,()->showGallery(galleryIndex+1)); next.setTextSize(13); next.setEnabled(galleryIndex<store.count()-1); next.setAlpha(next.isEnabled()?1:.35f); navigation.addView(next,new LinearLayout.LayoutParams(0,-2,1)); controls.addView(navigation,Ui.matchWrap()); Ui.gap(controls,10);
         if(selectedPhoto.optBoolean("requiresRetake")) {
-            controls.addView(Ui.text(this,"Foto ini buram. Wajib ambil ulang sebelum proses AI. Ketuk teks untuk fokus dan tahan HP tetap stabil.",14,Color.rgb(255,165,150),true),Ui.matchWrap());
+            controls.addView(Ui.text(this,"Foto mungkin kurang jelas. Ambil ulang hanya jika teks tidak terbaca. Jika masih terbaca meskipun gelap, pilih Gambar tidak buram.",14,Color.rgb(255,165,150),true),Ui.matchWrap());
             Ui.gap(controls,10);
+            final SessionStore reviewedBatch=store; final int reviewedIndex=galleryIndex; final boolean resumeAi=continueAiAfterReview;
+            controls.addView(Ui.button(this,"Gambar tidak buram",Ui.BLUE,Color.WHITE,()->runBatchTask("Menyimpan konfirmasi foto…",()->{
+                reviewedBatch.confirmReadable(selectedPhoto.optString("key")); history.save(reviewedBatch); return reviewedBatch;
+            },batch->{ store=batch; if(resumeAi) beginTransfer(); else showGallery(reviewedIndex); })),Ui.matchWrap());
+            Ui.gap(controls,8);
             controls.addView(Ui.button(this,"Ambil ulang foto "+(galleryIndex+1),Ui.BLUE,Color.WHITE,()->{
                 retakeKey=selectedPhoto.optString("key");
                 if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED) showCamera();
@@ -611,7 +613,8 @@ public final class MainActivity extends ComponentActivity {
         final SessionStore batch=store;
         runBatchTask("Menyiapkan batch untuk AI…",()->{ int invalid=batch.inspectDraftQuality(); history.save(batch); return invalid; },bad->{
             store=batch;
-            if(bad>=0) { pendingTransfer=false; transferStarted=false; showGallery(bad); toast("Foto "+(bad+1)+" buram. Ambil ulang sebelum proses AI."); return; }
+            if(bad>=0) { pendingTransfer=false; transferStarted=false; continueAiAfterReview=true; showGallery(bad); toast("Foto "+(bad+1)+": ambil ulang jika tidak terbaca, atau pilih Gambar tidak buram."); return; }
+            continueAiAfterReview=false;
             pendingTransfer=true; transferStarted=false; showWeb(ORIGIN+"/camera");
         });
     }

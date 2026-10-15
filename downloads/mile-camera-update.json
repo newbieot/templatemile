@@ -1,13 +1,13 @@
 {
   "applicationId": "com.posnew.milecamera",
-  "versionCode": 9,
-  "versionName": "0.1.8",
-  "downloadUrl": "https://mile.posnew.com/downloads/Mile-Camera-0.1.8.apk",
+  "versionCode": 10,
+  "versionName": "0.1.9",
+  "downloadUrl": "https://mile.posnew.com/downloads/Mile-Camera-0.1.9.apk",
   "releaseNotes": [
-    "Riwayat batch di HP berisi tanggal, jumlah gambar, lihat gambar, unduh PDF, dan Proses AI.",
-    "Selesai capture otomatis menyimpan foto dan PDF tanpa dialog lokasi atau izin.",
-    "Batch baru tidak menghapus foto/PDF batch sebelumnya; shutter tetap mengambil frame saat disentuh."
+    "Foto gelap yang masih terbaca diterima. Tombol Gambar tidak buram menghindari foto ulang dan tersimpan per foto.",
+    "Selesai menyimpan PDF, memberi notifikasi singkat, lalu langsung menjalankan AI tanpa dialog tambahan.",
+    "Gemini 3.8 Flash diberi 35 detik lalu langsung beralih ke DeepSeek 4.1 Flash jika gagal."
   ],
-  "sha256": "0c19d734464d00b12aa60e00eadeabb0d4b69353c55798df17f55abe9d80b930",
-  "bytes": 5305929
+  "sha256": "646651dfbdf2329ce1dfcff566d88b5d96b5452a9cd8ded8a04d4e2bb814fa83",
+  "bytes": 5305933
 }
