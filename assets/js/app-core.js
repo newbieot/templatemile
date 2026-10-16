@@ -180,7 +180,7 @@
         // bukan dari input tersembunyi. Ini mencegah kiriman invoice jatuh menjadi ritel
         // apabila field UI ter-reset/kosong sebelum ekspor.
         const corporateTemplatePresets = Object.freeze({
-            PN_BATAM: Object.freeze({ customerId: 'LNMAPN01294A', senderName: 'PENGADILAN NEGERI BATAM', tariffCode: '897924', lockTariff: true, defaultItemType: 'DOKUMEN', senderNameFromReference: true }),
+            PN_BATAM: Object.freeze({ customerId: 'LNMAPN01294A', senderName: 'PENGADILAN NEGERI BATAM', tariffCode: '898845', tariffCodesByService: Object.freeze({ PKH: '898845', PE: '897924' }), lockTariff: true, defaultItemType: 'DOKUMEN', senderNameFromReference: true }),
             MENSA: Object.freeze({ customerId: 'DAGMBS01294A', senderName: 'MENSA BINA SUKSES BATAM', tariffCode: '914556', lockTariff: true, destinationZoneCode: '29100' }),
             TOYOTA: Object.freeze({ customerId: 'FINTOYOTA02294A', senderName: 'PT TOYOTA ASTRA FINANCE' }),
             JACCS_MPM: Object.freeze({ customerId: 'FINMPMJKT04120A', senderName: 'PT JACCS MPM FINANCE INDONESIA', tariffCode: '868523', lockTariff: true, defaultServiceCode: 'PKH' }),
@@ -211,6 +211,19 @@
 
         function getCorporateTemplatePreset(template) {
             return corporateTemplatePresets[template] || null;
+        }
+
+        function resolveCorporateTariffCode(preset, serviceCode) {
+            return preset.tariffCodesByService?.[String(serviceCode).toUpperCase()] || preset.tariffCode || '';
+        }
+
+        function syncCorporateTariffCode() {
+            if (document.getElementById('clientMode')?.value !== 'KORPORAT') return;
+            const preset = getCorporateTemplatePreset(document.getElementById('corporateTemplate')?.value);
+            const tariffInput = document.getElementById('tariffCode');
+            if (preset?.lockTariff && preset.tariffCodesByService && tariffInput) {
+                tariffInput.value = resolveCorporateTariffCode(preset, document.getElementById('serviceCode')?.value);
+            }
         }
 
         function resolveCorporateCustomerId(template, manualValue = '') {
@@ -1743,6 +1756,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
         }
 
         function updateInterface() {
+            syncCorporateTariffCode();
             applyDestinationMode();
             const cn23 = isCn23Mode();
             const mixed = getDestinationMode() === 'mixed';
@@ -2140,9 +2154,9 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     // Semua preset mengunci ID Pelanggan dari konfigurasi, termasuk ASTRA dan BSN Batam.
                     // Field UI tidak pernah menjadi sumber kebenaran customer_code untuk template preset.
                     finalCustomerId = preset.customerId;
-                    if (preset.publishTariff) finalTariffCode = '';
-                    else if (preset.tariffCode && preset.lockTariff) finalTariffCode = preset.tariffCode;
                     if (preset.defaultServiceCode && preset.lockService) serviceCode = preset.defaultServiceCode;
+                    if (preset.publishTariff) finalTariffCode = '';
+                    else if (preset.lockTariff) finalTariffCode = resolveCorporateTariffCode(preset, serviceCode);
                     if (preset.defaultItemType && preset.lockItemType) itemType = preset.defaultItemType;
                     if (preset.destinationZoneCode && !mixedBatamExport) destZoneCodeGlobal = preset.destinationZoneCode;
                     baseSenderName = preset.senderName || '';
@@ -2308,7 +2322,7 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     alert('FATAL: Nama Pelanggan hasil ekspor tidak sesuai template. File dibatalkan.');
                     return;
                 }
-                if (preset?.lockTariff && finalExportRows.some(row => row.connote_sub_service_code !== preset.tariffCode)) {
+                if (preset?.lockTariff && finalExportRows.some(row => row.connote_sub_service_code !== resolveCorporateTariffCode(preset, row.service_code))) {
                     alert('FATAL: Kode Tarif hasil ekspor tidak sesuai template. File dibatalkan.');
                     return;
                 }

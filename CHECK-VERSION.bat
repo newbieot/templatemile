@@ -3,15 +3,15 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v26.31...
+echo Memeriksa mile.posnew.com Secure Gateway v26.54...
 echo.
 
-findstr /c:"20260930-26.31-camera-gemini-7x7" "_worker.js" >nul && echo [OK] Gateway Camera Gemini 7x7 v26.31 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20261016-26.54-pn-batam-subservice" "_worker.js" >nul && echo [OK] Gateway PN Batam subservice v26.54 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 7 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 7 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const AUDIT_AI_CONCURRENCY = 2" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Audit memakai maksimal 2 request paralel || (echo [GAGAL] Concurrency audit tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Gemini 3.8 Flash menjadi default kamera || (echo [GAGAL] Default Gemini tidak ditemukan & set "FAIL=1")
-findstr /c:"CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, GEMINI_31_PRO_MODEL, PRIMARY_FALLBACK_MODEL, DEEPSEEK_R2_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kamera Gemini 3.8 ke 3.1 Pro ke 3.7 ke DeepSeek aktif || (echo [GAGAL] Rantai fallback kamera tidak sesuai & set "FAIL=1")
+findstr /c:"CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_R2_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kamera Gemini 3.8 langsung ke DeepSeek aktif || (echo [GAGAL] Rantai fallback kamera tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")

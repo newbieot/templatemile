@@ -1,5 +1,11 @@
 # Changelog
 
+## v26.54 — Kode subservice PN Batam mengikuti layanan
+
+- Pelanggan LNMAPN01294A memakai kode subservice 898845 untuk PKH dan 897924 untuk PE.
+- Kode tarif terkunci mengikuti layanan otomatis maupun pilihan manual di app, beta, dan review kamera. Ekspor Excel menetapkan ulang kode dari layanan yang dipilih, termasuk untuk batch lama.
+- URL aset dan versi gateway diperbarui agar perubahan langsung dimuat setelah deploy.
+
 ## v26.53 — Helper 0.2.11: batas nama/alamat penerima CN23
 
 - Nama penerima otomatis dibatasi 30 karakter dan alamat penerima 80 karakter ketika diisi ke Mile, atau lebih pendek bila maxlength kolom lebih kecil. Spasi berlebih dirapikan dan pasangan Unicode tidak dipisahkan.
