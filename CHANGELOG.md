@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.53 — Helper 0.2.11: batas nama/alamat penerima CN23
+
+- Nama penerima otomatis dibatasi 30 karakter dan alamat penerima 80 karakter ketika diisi ke Mile, atau lebih pendek bila maxlength kolom lebih kecil. Spasi berlebih dirapikan dan pasangan Unicode tidak dipisahkan.
+- Berlaku untuk ritel, korporat, dan antrean lama. Data sumber lengkap dipertahankan untuk pencocokan tujuan; pengirim dan kolom lain tidak dipotong.
+- Uji mencakup batas teks, maxlength yang lebih pendek, penerima panjang pada data kedua, dan kelanjutan otomatis sampai data ketiga dengan API Chrome 88/109. Tidak membuat transaksi produksi.
+- ZIP dan panduan diperbarui ke 0.2.11. APK tetap 0.1.9.
+
 ## v26.52 — Foto gelap tetap terbaca dan Selesai langsung AI
 
 - APK 0.1.9/code 10 menilai ketajaman setelah normalisasi kontras dan menerima foto terbaca yang gelap/sedikit kurang tajam. Penanda lama dinilai ulang; foto yang sangat tidak jelas tetap dapat diperiksa.

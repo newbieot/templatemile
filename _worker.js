@@ -1,4 +1,4 @@
-const APP_VERSION = '20261015-26.52-readable-auto-ai';
+const APP_VERSION = '20261016-26.53-cn23-recipient-length';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -57,6 +57,7 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-CN23-Helper-0.2.8.zip',
   '/downloads/Mile-CN23-Helper-0.2.9.zip',
   '/downloads/Mile-CN23-Helper-0.2.10.zip',
+  '/downloads/Mile-CN23-Helper-0.2.11.zip',
   '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 

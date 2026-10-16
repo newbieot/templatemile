@@ -1,14 +1,14 @@
-MILE CN23 HELPER 0.2.10
+MILE CN23 HELPER 0.2.11
 
 KOMPATIBILITAS BROWSER
 Chrome 88 ke atas, termasuk Chrome 109.0.5414.120 pada Windows 7 32-bit.
 Paket yang sama dapat dipakai pada Chrome 32-bit dan 64-bit.
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.10 ke folder
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.11 ke folder
    ekstensi lama dan timpa file lama, termasuk manifest.json.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.10.
+   Versi harus tertulis 0.2.11.
 3. Buka form CN23 kosong dan muat ulang tab Mile:
    https://expos.mile.app/new-transaction-custom
 4. Antrean dari 0.2.5 sampai 0.2.8 tetap tersimpan. Bila berhenti karena selisih kode pos,
@@ -47,6 +47,13 @@ PEMAKAIAN HARIAN
    Reset menghentikan proses dan menghapus seluruh data antrean tersimpan.
    File yang sama dapat di-upload lagi; semua barisnya menjadi antrean baru.
 
+BATAS TEKS PENERIMA CN23
+Nama penerima maksimal 30 karakter dan alamat penerima maksimal 80 karakter.
+Teks panjang otomatis dipotong saat pengisian, termasuk antrean lama.
+Jika maxlength kolom Mile lebih pendek, batas kolom tersebut dipakai.
+Spasi/baris berlebih dirapikan; karakter Unicode tidak dipotong di tengah.
+Data sumber lengkap tetap dipakai untuk pencocokan tujuan.
+
 GANGGUAN
 - Jika pengisian gagal, penyebab tampil pada panel. Perbaiki penyebabnya
   dan gunakan Start untuk mencoba ulang pengisian yang belum dikirim.
@@ -64,7 +71,7 @@ Kode zona mengikuti pilihan Mile.
 Kode pos dan kode zona yang dikunci Mile selalu dipakai setelah wilayah cocok,
 meskipun berbeda dari Excel. Aturan ini berlaku untuk seluruh tujuan.
 
-PENGUJIAN 0.2.10
+PENGUJIAN 0.2.11
 Satu Start diuji untuk tiga kiriman: Cash, Invoice, lalu CREDIT. Tidak ada
 tab cetak dalam pengujian. Nama penerima, referensi, metode pembayaran,
 dan pengirim korporat diperiksa saat masing-masing tombol Selesai ditekan.
@@ -72,7 +79,7 @@ Uji mencakup reload penuh, navigasi dalam dokumen yang sama, pesan siap
 yang terlewat, dan data kedua ketika form baru sudah terload. Form berikutnya
 ditunggu sampai semua kolom termasuk ref_no siap; salinan tersembunyi dari
 form lama diabaikan. Panel setelah navigasi, Reset, upload ulang, dan
-pembersihan cache lama diuji. Rilis 0.2.10 diuji memakai simulasi DOM/service worker untuk
+pembersihan cache lama diuji. Rilis 0.2.11 diuji memakai simulasi DOM/service worker untuk
 API Chrome 88/109 dan form uji lokal, termasuk berat 0,2/1,5/2 kg.
 Pengujian tidak membuat transaksi Mile produksi. Windows 7 tidak diuji langsung.
 Perbedaan beberapa kode pos dan kode zona diuji untuk ritel dan korporat.

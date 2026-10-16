@@ -10,6 +10,40 @@ test('retail automatically chooses Cash and submits once after durable intent',a
     await until(()=>f.submits===1);assert.equal(f.messages.filter(m=>m.type==='SUBMIT_INTENT').length,1);
   }finally{f.close();}
 });
+test('long CN23 recipient name/address are truncated automatically for retail and corporate',async()=>{
+  for(const corporate of [false,true]) {
+    const f=fixture({corporate,legacyChrome:88});
+    const row={recipient_name:'BPK/IBU KEPALA SEKOLAH NEGERI '.repeat(5),recipient_address:'JL. PENDIDIKAN RT 01 RW 02 PENGALIHAN KERITANG INHIL RIAU '.repeat(6)};
+    const original={...row};
+    try {
+      f.start(row);await until(()=>f.submits===1);
+      assert.equal(f.d.querySelector('#namapenerima').value,row.recipient_name.trim().slice(0,30).trim());
+      assert.equal(f.d.querySelector('#alamatPenerima').value,row.recipient_address.trim().slice(0,80).trim());
+      assert.equal(f.d.querySelector('[placeholder="KODE POS"]').value,'29274');
+      assert.equal(f.d.querySelector('#phonePenerima').value,'0');
+      assert.equal(f.d.querySelector('#namapengirim').value,corporate?'PELANGGAN RESMI':'PENGIRIM');
+      assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
+      assert.deepEqual(row,original);
+    } finally { f.close(); }
+  }
+});
+
+test('CN23 entry respects shorter name/address maxlength from Mile without changing sender fields',async()=>{
+  const f=fixture();
+  try {
+    f.d.querySelector('#namapenerima').maxLength=20;
+    f.d.querySelector('#alamatPenerima').maxLength=60;
+    const sender='PENGIRIM '.repeat(10).trim(),address='ALAMAT PENGIRIM '.repeat(10).trim();
+    f.start({recipient_name:'N'.repeat(80),recipient_address:'A'.repeat(180),sender_name:sender,sender_address:address});
+    await until(()=>f.submits===1);
+    assert.equal(f.d.querySelector('#namapenerima').value,'N'.repeat(20));
+    assert.equal(f.d.querySelector('#alamatPenerima').value,'A'.repeat(60));
+    assert.equal(f.d.querySelector('#namapengirim').value,sender);
+    assert.equal(f.d.querySelector('#alamatPengirim').value,address);
+    assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
+  } finally { f.close(); }
+});
+
 test('nonempty user draft stops before payment',async()=>{
   const f=fixture({filled:true});try{f.start();await until(()=>f.messages.some(m=>m.type==='FORM_ERROR'));assert.equal(f.submits,0);assert.equal(f.messages.some(m=>m.type==='FILLED'),false);assert.equal(f.d.querySelector('#namapenerima').value,'EXISTING DRAFT');}finally{f.close();}
 });

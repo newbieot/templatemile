@@ -205,7 +205,13 @@
       await step(send('PROGRESS', { phase:'filling', customerResolved:{sender_name:one('#namapengirim').value.trim(),sender_phone:one('#phonePengirim').value.trim(),sender_address:one('#alamatPengirim').value.trim()} }));
       status(`Mengisi ${row.queue_id} · ${row.recipient_name}`);
     }
-    for (const [id, key] of Object.entries({ namapengirim:'sender_name', phonePengirim:'sender_phone', alamatPengirim:'sender_address', namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) { if (row.customer_mode !== 'KORPORAT' || key.startsWith('recipient_')) byId(id, row[key]); }
+    for (const [id, key] of Object.entries({ namapengirim:'sender_name', phonePengirim:'sender_phone', alamatPengirim:'sender_address', namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) {
+      if (row.customer_mode !== 'KORPORAT' || key.startsWith('recipient_')) {
+        const field=one('#'+id);
+        const value=Q.recipientLimits[key]?Q.recipientText(row[key],key,field.maxLength):row[key];
+        fill(field,value);
+      }
+    }
     await step(destination(row));
     await step(autocomplete(one('#service'), row.service_code, text => text === Q.norm(row.service_code) || text.startsWith(Q.norm(row.service_code) + ' ')));
     await step(select(one('#COD'), ['NON-COD'])); await step(select(one('#Jenis_Barang'), ['Dokumen']));

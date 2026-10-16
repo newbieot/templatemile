@@ -4,6 +4,16 @@
   const defaults = Object.freeze({ workflow:'CN23 DOKUMEN LUAR KOTA',queue_status:'SIAP',cod:'NON-COD',item_type:'DOKUMEN',nature_of_goods:'Documents',shipment_category:'Ecommerce/Biasa',npwp:'000000000000000',hs_code:'49011000',item_name:'DOKUMEN',quantity:1,item_value_idr:20000,weight_kg:0.2,length_cm:0,width_cm:0,height_cm:0,koli_count:1,country_of_origin:'ID',packaging_code:'EN',packaging_name:'Envelope',imei_1:'0',imei_2:'0',insurance:'N' });
   const required = ['queue_id','recipient_name','recipient_address','recipient_postcode','recipient_city','recipient_province','sender_name','sender_address','customer_mode','payment_method','service_code'];
   const norm = value => String(value ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+  // Conservative CN23 entry limits, not a claim about Mile's undocumented API limits.
+  const recipientLimits = Object.freeze({recipient_name:30,recipient_address:80});
+  function recipientText(value,key,fieldMaxLength) {
+    const maximum=recipientLimits[key];
+    if (!maximum) throw new Error('Kolom penerima tidak dikenali: '+key);
+    const limit=Number.isInteger(fieldMaxLength)&&fieldMaxLength>0?Math.min(maximum,fieldMaxLength):maximum;
+    const text=String(value??'').replace(/\s+/g,' ').trim();
+    // HTML maxlength counts UTF-16 units. Avoid leaving half of a surrogate pair.
+    return text.length>limit?text.slice(0,limit).replace(/[\uD800-\uDBFF]$/,'').trim():text;
+  }
   function validateRows(input) {
     if (!Array.isArray(input) || !input.length || input.length > 2000) throw new Error('Antrean harus berisi 1–2.000 kiriman.');
     const ids = new Set();
@@ -12,7 +22,7 @@
       const row = {...defaults,...original};
       Object.keys(row).forEach(key => {
         if (typeof row[key] === 'string') row[key] = row[key].trim();
-        if (typeof row[key] === 'string' && row[key].length > 3000) fail(`Kolom ${key} terlalu panjang.`);
+        if (typeof row[key] === 'string' && row[key].length > 3000 && !recipientLimits[key]) fail(`Kolom ${key} terlalu panjang.`);
       });
       required.forEach(key => { if (!String(row[key] ?? '').trim()) fail(`Kolom ${key} belum diisi.`); });
       const cityScope = norm(row.recipient_region_scope) === 'CITY POSTCODE';
@@ -57,8 +67,8 @@
     if (!state.active.submittedAt) state.active=null;
     return true;
   }
-  const VERSION='0.2.10';
-  const api={VERSION,FORM_URL,defaults,required,norm,validateRows,recoverInterrupted};
+  const VERSION='0.2.11';
+  const api={VERSION,FORM_URL,defaults,required,norm,recipientLimits,recipientText,validateRows,recoverInterrupted};
   root.MileCN23=api;
   if (typeof module !== 'undefined') module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
