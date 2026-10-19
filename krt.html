@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Excel Tarif KRT · Mile App</title>
+  <meta name="description" content="Isi data tarif KRT dan No IO untuk membuat Excel impor tarif pelanggan.">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#172554">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/css/app.css?v=20261009-camera-update-1">
+  <link rel="stylesheet" href="/assets/css/app-auth-v16.css?v=20260908-16.23">
+  <link rel="stylesheet" href="/assets/css/krt.css?v=20261019-krt-1">
+</head>
+<body class="krt-page">
+  <a class="skip-link" href="#workspace">Lewati ke form tarif KRT</a>
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="/app">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.4 12 3l8 4.4v9.2L12 21l-8-4.4V7.4Z"/><path d="m4.5 7.6 7.5 4.2 7.5-4.2M12 12v8.2"/></svg></span>
+        <span><strong>mile.posnew.com</strong><small>Excel Tarif KRT</small></span>
+      </a>
+      <div class="header-actions">
+        <a class="all-tools-link" href="/app">Persiapan kiriman</a>
+        <div class="session-user" id="sessionUser" aria-label="Akun aktif">
+          <span class="session-copy"><strong id="sessionEmail">Pengguna terverifikasi</strong><small>Firebase Auth</small></span>
+          <button id="sessionLogout" type="button">Keluar</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main id="workspace" class="app-main krt-main">
+    <section class="krt-intro" aria-labelledby="pageTitle">
+      <span class="eyebrow">Tarif pelanggan</span>
+      <h1 id="pageTitle">Excel khusus KRT</h1>
+      <p>Isi data pelanggan dan tarif, lalu unduh Excel untuk impor tarif CBA. No IO wajib diisi untuk layanan KRT.</p>
+    </section>
+    <dl class="krt-service" aria-label="Konfigurasi layanan KRT">
+      <div><dt>Service ID</dt><dd id="krtServiceId"></dd></div>
+      <div><dt>Kode layanan pelanggan</dt><dd id="krtCustomerServiceCode"></dd></div>
+      <div><dt>Tarif subservice code</dt><dd id="krtSubserviceCode"></dd></div>
+      <div><dt>Tarif formula ID</dt><dd id="krtFormulaId"></dd></div>
+    </dl>
+    <form id="krtForm" novalidate>
+      <section class="panel-card setup-card" aria-labelledby="customerHeading">
+        <div class="panel-heading">
+          <div><span class="section-index">01</span><h2 id="customerHeading">Pelanggan & masa berlaku</h2></div>
+          <p>Data berikut berlaku untuk seluruh baris tarif di file ini.</p>
+        </div>
+        <div class="form-grid krt-common-fields">
+          <div class="form-group">
+            <label for="krtCustomerCode">Kode pelanggan</label>
+            <input id="krtCustomerCode" name="customer_type_code" type="text" autocomplete="off" required>
+          </div>
+          <div class="form-group">
+            <label for="krtInternalOrder">No IO <span>Wajib untuk KRT</span></label>
+            <input id="krtInternalOrder" name="internal_order" type="text" autocomplete="off" required aria-describedby="krtIoHint">
+            <span class="field-hint" id="krtIoHint">Masukkan nomor Internal Order untuk pelanggan ini.</span>
+          </div>
+          <div class="form-group">
+            <label for="krtExpiryStart">Berlaku mulai</label>
+            <input id="krtExpiryStart" name="expiry_start" type="date" required>
+          </div>
+          <div class="form-group">
+            <label for="krtExpiryEnd">Berlaku sampai</label>
+            <input id="krtExpiryEnd" name="expiry_end" type="date" required>
+          </div>
+          <div class="form-group">
+            <label for="krtDisabled">Status tarif</label>
+            <div class="select-shell"><select id="krtDisabled" name="disableTariff"><option value="0">Aktif</option><option value="1">Nonaktif</option></select></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel-card" aria-labelledby="ratesHeading">
+        <div class="panel-heading">
+          <div><span class="section-index">02</span><h2 id="ratesHeading">Rincian tarif</h2></div>
+          <p>Tambahkan baris untuk setiap pasangan kode asal dan tujuan.</p>
+        </div>
+        <div id="krtRows" class="krt-rows"></div>
+        <button id="krtAddRow" class="krt-button krt-button-secondary" type="button">+ Tambah baris tarif</button>
+      </section>
+      <div class="krt-export">
+        <p id="krtStatus" class="krt-status" role="status" aria-live="polite"></p>
+        <button id="krtExport" class="krt-button krt-button-primary" type="submit">Unduh Excel KRT</button>
+      </div>
+    </form>
+    <template id="krtRowTemplate">
+      <fieldset class="krt-rate-row">
+        <legend>Tarif <span data-row-number></span></legend>
+        <div class="form-grid krt-rate-fields">
+          <div class="form-group"><label>Kode asal<input name="tariff_from_code" type="text" autocomplete="off" required></label></div>
+          <div class="form-group"><label>Kode tujuan<input name="tariff_to_code" type="text" autocomplete="off" required></label></div>
+          <div class="form-group"><label>SLA hari<input name="tariff_sla_day" type="number" min="0" step="1" required></label></div>
+          <div class="form-group"><label>SLA jam<input name="tariff_sla_hours" type="number" min="0" step="1" required></label></div>
+          <div class="form-group"><label>Tarif dasar (Rp)<input name="base_tariff" type="number" min="0" step="0.01" required></label></div>
+          <div class="form-group"><label>Deskripsi tarif<input name="tariff_sub_service_description" type="text" autocomplete="off" required></label></div>
+        </div>
+        <button class="krt-button krt-remove" data-remove-row type="button">Hapus baris</button>
+      </fieldset>
+    </template>
+  </main>
+  <script src="/assets/js/session-v16.js?v=20260908-16.23" defer></script>
+  <script src="/assets/js/vendor-loader.js?v=20260909-beta-r2.1" defer></script>
+  <script src="/assets/js/krt.js?v=20261019-krt-1" defer></script>
+</body>
+</html>

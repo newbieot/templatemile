@@ -1,4 +1,4 @@
-const APP_VERSION = '20261016-26.54-pn-batam-subservice';
+const APP_VERSION = '20261019-26.55-krt-tariff';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -1262,7 +1262,7 @@ async function assetResponse(request, env, path, cacheControl = 'no-store, max-a
 }
 
 function isProtectedAsset(pathname) {
-  if (pathname === '/app' || pathname === '/app.html' || pathname === '/beta' || pathname === '/beta.html' || pathname === '/camera' || pathname === '/camera.html' || pathname === '/review' || pathname === '/review.html') return true;
+  if (pathname === '/app' || pathname === '/app.html' || pathname === '/beta' || pathname === '/beta.html' || pathname === '/camera' || pathname === '/camera.html' || pathname === '/review' || pathname === '/review.html' || pathname === '/krt' || pathname === '/krt.html') return true;
   if (!pathname.startsWith('/assets/')) return false;
   return !PUBLIC_ASSETS.has(pathname);
 }
@@ -1355,6 +1355,10 @@ export default {
     if (url.pathname === '/review' || url.pathname === '/review.html') {
       if (!session) return redirect('/');
       return assetResponse(request, env, '/review');
+    }
+    if (url.pathname === '/krt' || url.pathname === '/krt.html') {
+      if (!session) return redirect('/');
+      return assetResponse(request, env, '/krt');
     }
 
     if (isProtectedAsset(url.pathname)) {

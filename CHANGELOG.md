@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.55 — Output Excel tarif KRT dengan No IO
+
+- Halaman `/krt`, tersedia dari app/beta/review, membuat Excel tarif CBA dengan sheet `TariffCbaCustomer` dan 14 kolom sesuai template.
+- Pengguna mengisi pelanggan, No IO wajib, masa berlaku, status, dan rincian tarif per rute. Data contoh tidak dijadikan nilai awal.
+- Konfigurasi KRT memakai Service ID 470, kode layanan pelanggan 915903, subservice 916479, dan formula 1644. Kode layanan pelanggan ditampilkan di form karena tidak memiliki kolom pada template CBA.
+- Validasi seluruh baris mencegah unduhan parsial; kode dan No IO mempertahankan nol di depan. Halaman KRT dan asetnya memerlukan login.
+
 ## v26.54 — Kode subservice PN Batam mengikuti layanan
 
 - Pelanggan LNMAPN01294A memakai kode subservice 898845 untuk PKH dan 897924 untuk PE.

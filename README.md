@@ -2,6 +2,14 @@
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
+## Excel tarif KRT
+
+Tautan **Excel KRT** di app, beta, dan review membuka halaman [Excel khusus KRT](https://mile.posnew.com/krt) setelah login. Pengguna mengisi kode pelanggan, No IO, tanggal mulai/akhir, status, serta satu atau beberapa baris kode asal/tujuan, SLA hari/jam, tarif dasar, dan deskripsi. Tidak ada data pelanggan, tarif, tanggal, atau No IO contoh yang diisi otomatis.
+
+Konfigurasi KRT: Service ID **470**, kode layanan pelanggan **915903**, tarif subservice code **916479**, dan tarif formula ID **1644**. No IO wajib untuk output KRT. Kode layanan pelanggan ditampilkan sebagai informasi konfigurasi; template impor CBA tidak menyediakan kolom untuk kode tersebut.
+
+Unduhan `template_import_customer_tariff_cba_KRT.xlsx` memakai sheet `TariffCbaCustomer` dengan urutan 14 kolom dari template, termasuk `internal_order`. Tarif dasar dikemas sebagai JSON `tariff_formula_data`, tanggal memakai `YYYY-MM-DD`, dan kode/No IO disimpan sebagai teks agar nol di depan tetap utuh. Semua baris divalidasi sebelum file diunduh. Ekspor kiriman biasa tetap melalui halaman persiapan kiriman.
+
 ## Mobile camera station di `/camera`
 
 Aplikasi pendamping Android tersedia di [Unduh Mile Camera APK](https://mile.posnew.com/downloads/Mile-Camera.apk). Versi 0.1.1 memakai kamera CameraX native 720p maksimal 120 KB/foto, login wajib sebelum kamera, sesi persisten sampai logout, preview dengan kontrol overlay, zoom awal 1×, dan feedback shutter. Source serta petunjuk build ada di `android/README.md`. Sesi Android tersimpan di R2 prefix `auth/android-sessions/` tanpa expiry; lifecycle satu hari pada bucket hanya berlaku untuk `beta/`.
