@@ -284,6 +284,10 @@ async function runFallbackAssertions() {
     'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.6-flash'
   ]);
 
+  for (const address of ['BELAKANG PADANG KOTA BATAM 29491', 'BELAKANGPADANG BATAM', '29492']) {
+    assert.equal(ai.classifyOutsideBatam(address, false).outside, true, address);
+  }
+  assert.equal(ai.classifyOutsideBatam('SEMBULANG GALANG BATAM 29481', true).outside, false);
   console.log('PASS ai-pdf-v16-19: ekstraksi, kompatibilitas model, dan fallback Gemini 3.8 → 3.7 → 3.6');
 }
 

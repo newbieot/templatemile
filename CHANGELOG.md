@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.55 — Padanan kode pos zona dan layanan kepulauan Batam
+
+- Ekspor Excel mencocokkan kode pos asal dan tujuan secara persis ke 12.201 pasangan pada lampiran Mapping Padanan Kode Pos Zona.xlsx. Tambahan 29438 → 29400 dikonfirmasi operator. Kode zona alfanumerik seperti 28558B1 dipertahankan sebagai teks.
+- Kode yang belum ada dalam referensi menahan seluruh unduhan agar tidak menghasilkan pasangan zona tebakan atau ekspor parsial. Zona Barang Pindah otomatis mengikuti kode pos, termasuk saat pengaturan lama masih menyimpan zona berbeda.
+- Belakang Padang memakai antrean CN23 meskipun kota administratifnya Batam dan zonanya 29400. Galang tetap memakai Excel lokal Batam dengan zona referensi 29664. Berlaku pada app, beta, review, dan perhitungan ulang Log Kamera.
+- URL aset, versi matcher, dan gateway diperbarui. Sumber, hash SHA-256, builder, serta konfirmasi tambahan disimpan agar mapping dapat dibangun ulang dan diperiksa.
+
 ## v26.54 — Kode subservice PN Batam mengikuti layanan
 
 - Pelanggan LNMAPN01294A memakai kode subservice 898845 untuk PKH dan 897924 untuk PE.

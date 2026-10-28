@@ -54,7 +54,18 @@
             const lookupKey = `${sourceKey}\n${queryZip || printedZip}`;
             const matcherVersion = window.MilePostalNational.matcherVersion;
             if (row._nationalPostcodeMatch?.lookupKey !== lookupKey || row._nationalPostcodeMatch?.matcherVersion !== matcherVersion) {
-                row._nationalPostcodeMatch = { ...window.MilePostalNational.match(`${address} ${query}`, queryZip || printedZip), lookupKey, matcherVersion };
+                let match = window.MilePostalNational.match(`${address} ${query}`, queryZip || printedZip);
+                // The new reference lists Belakang Padang 29491–29496, absent
+                // from the older geographic database. Retain a printed code
+                // inside that district, without overriding another clear area.
+                const postalHint = queryZip || printedZip || address.match(/\b2949[1-6]\b/)?.[0];
+                if (window.MilePostalZones?.isBelakangPadang({ postcode: postalHint }) && match.selected?.city === 'BATAM'
+                    && (!match.selected.district || window.MilePostalZones.isBelakangPadang(match.selected))) {
+                    const selected = { id: `zone-postal-${postalHint}`, postcode: postalHint, village: '', district: 'BELAKANG PADANG',
+                        city: 'BATAM', province: 'KEPULAUAN RIAU', label: `BELAKANG PADANG — BATAM, KEPULAUAN RIAU (${postalHint})` };
+                    match = { status: 'matched', postcode: postalHint, selected, candidates: [selected], regionScope: 'DISTRICT_POSTCODE', automatic: true };
+                }
+                row._nationalPostcodeMatch = { ...match, lookupKey, matcherVersion };
             }
             if (confirmed?.sourceKey === sourceKey && confirmed.selected) {
                 const automatic = row._nationalPostcodeMatch;
@@ -396,6 +407,14 @@
                 if (isCn23Mode() && context?.field === 'address') refreshNationalRowReview(context.row, context.tr);
             });
             document.getElementById('destinationMode')?.addEventListener('change', handleDestinationModeChange);
+            const pindahZip = document.getElementById('destZipPindah');
+            const pindahZone = document.getElementById('destZonePindah');
+            if (pindahZone) pindahZone.readOnly = true;
+            pindahZip?.addEventListener('input', () => {
+                if (!pindahZone) return;
+                try { pindahZone.value = window.MilePostalZones.resolve(pindahZip.value); }
+                catch { pindahZone.value = ''; }
+            });
             document.getElementById('resultTable')?.addEventListener('change', event => {
                 const target = event.target;
                 if (target.matches?.('.national-postcode-query')) {
@@ -1485,6 +1504,7 @@
 
         function isOutsideBatamPending(row) {
             if (isCn23Mode()) return false;
+            if (window.MilePostalZones?.isBelakangPadang({ postcode: row._printedPostcode || row.zip }, row.address)) return true;
             return Boolean(ensureOutsideBatamState(row).pending);
         }
 
@@ -1497,6 +1517,7 @@
         }
 
         function isClearlyBatamAddress(address) {
+            if (window.MilePostalZones?.isBelakangPadang({}, address)) return false;
             const upper = String(address || '').toUpperCase();
             const printedZipCodes = upper.match(/\b\d{5}\b/g) || [];
             if (printedZipCodes.some(code => !/^294\d{2}$/.test(code))) return false;
@@ -1677,7 +1698,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             if (match.status !== 'matched' || !region) return 'pending';
             const city = String(region.city || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
             if (!city) return 'pending';
-            return /^(?:KOTA )?BATAM$/.test(city) ? 'batam' : 'cn23';
+            if (!window.MilePostalZones) return 'pending';
+            return window.MilePostalZones.isLocalBatam(region) ? 'batam' : 'cn23';
         }
 
         function renderNationalPostcodeReview(row) {
@@ -2120,6 +2142,11 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 return prepareCn23Queue(rows.map(tr => findManagedRow(tr.dataset.fileId, tr.dataset.rowId)?.row).filter(Boolean), destinationModeAtExport);
             }
 
+            if (!window.MilePostalZones?.resolve) {
+                alert('Referensi kode pos zona belum tersedia. Muat ulang halaman sebelum ekspor.');
+                return;
+            }
+
             const mode = document.getElementById('clientMode').value;
             const template = document.getElementById('corporateTemplate').value;
             const useInsurance = document.getElementById('useInsurance').checked;
@@ -2136,7 +2163,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
             
             const paymentType = (mode === 'KORPORAT' || mode === 'PINDAH') ? "INVOICE" : "CASH"; 
             
-            let destZoneCodeGlobal = "29400";
             let destZipCodeGlobal = "";
 
             if (mode === 'KORPORAT') {
@@ -2158,7 +2184,6 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     if (preset.publishTariff) finalTariffCode = '';
                     else if (preset.lockTariff) finalTariffCode = resolveCorporateTariffCode(preset, serviceCode);
                     if (preset.defaultItemType && preset.lockItemType) itemType = preset.defaultItemType;
-                    if (preset.destinationZoneCode && !mixedBatamExport) destZoneCodeGlobal = preset.destinationZoneCode;
                     baseSenderName = preset.senderName || '';
                 } else {
                     baseSenderName = cleanArtifacts(document.getElementById('senderName').value);
@@ -2183,10 +2208,8 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 baseSenderAddress = cleanArtifacts(document.getElementById('senderAddress').value);
                 
                 destZipCodeGlobal = document.getElementById('destZipPindah').value.trim();
-                destZoneCodeGlobal = document.getElementById('destZonePindah').value.trim();
-
-                if (!destZipCodeGlobal || !destZoneCodeGlobal) {
-                    alert("Kodepos Tujuan dan Kode Zona Tujuan WAJIB diisi untuk Barang Pindah!");
+                if (!destZipCodeGlobal) {
+                    alert("Kodepos Tujuan WAJIB diisi untuk Barang Pindah!");
                     return;
                 }
             }
@@ -2217,6 +2240,19 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                 // Override khusus Barang Pindah
                 if (mode === 'PINDAH') {
                     dZip = destZipCodeGlobal;
+                }
+
+                // Both ends use an exact lookup. Zone codes are identifiers,
+                // including suffixes such as B1, never postcode prefixes.
+                const originZip = '29411';
+                let originZone, destinationZone;
+                try {
+                    originZone = window.MilePostalZones.resolve(originZip);
+                    destinationZone = window.MilePostalZones.resolve(dZip);
+                } catch (error) {
+                    alert(`Baris ${index + 1}: ${error.message}`);
+                    validationFailed = true;
+                    return;
                 }
 
                 const weightInput = tr.querySelector('.val-cw');
@@ -2274,13 +2310,13 @@ Baris ini tidak akan ikut diekspor.`)) return false;
                     "origin_data_customer_name": senderNameFinal,
                     "origin_data_customer_phone": senderPhoneFinal, 
                     "origin_data_customer_address": senderAddrFinal,
-                    "origin_data_customer_zip_code": "29411", 
-                    "origin_data_zone_code": "29400",
+                    "origin_data_customer_zip_code": originZip,
+                    "origin_data_zone_code": originZone,
                     "destination_data_customer_name": dName,
                     "destination_data_customer_phone": dPhone,
                     "destination_data_customer_address": dAddress,
                     "destination_data_customer_zip_code": dZip, 
-                    "destination_data_zone_code": destZoneCodeGlobal,        
+                    "destination_data_zone_code": destinationZone,
                     "service_code": serviceCode,
                     "connote_sub_service_code": finalTariffCode, 
                     "koli_data_koli_description": dNoSurat ? dNoSurat : itemType, 

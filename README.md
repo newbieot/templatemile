@@ -46,6 +46,15 @@ APK [Mile Camera 0.1.9](downloads/Mile-Camera-0.1.9.apk) menyimpan riwayat foto/
 
 Pemeriksaan lokal: `npm install --prefix tests` lalu `npm test --prefix tests`. Build APK: ikuti `android/README.md`. Keystore/password tidak termasuk repository atau source ZIP.
 
+Ekspor Excel memakai padanan kode pos–zona dari lampiran operator, untuk `origin_data_zone_code` maupun `destination_data_zone_code`. Asal 29411 dipasangkan ke 29400. Galang 29481–29488 tetap lokal Batam dengan zona 29664; Belakang Padang memakai CN23 walaupun zona referensinya 29400. Kode zona alfanumerik dipertahankan. Kode pos yang belum terdaftar menghentikan ekspor sebelum file pertama diunduh. Tambahan di luar lampiran dicatat dalam `scripts/postcode-zone-overrides.json`; saat ini 29438 → 29400 sudah dikonfirmasi operator.
+
+Bangun ulang padanan zona dan jalankan regresinya:
+
+```powershell
+python scripts/build-postcode-zones.py "C:/Users/Ikhsan Radiansyah/Documents/Mapping Padanan Kode Pos Zona.xlsx" assets/js/postcode-zones.js
+node tests/postcode-zones.test.js
+```
+
 Bangun ulang data nasional dari sumber lampiran bila diperlukan:
 
 ```powershell

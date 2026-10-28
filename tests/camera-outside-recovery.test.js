@@ -25,6 +25,7 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 20));
       get('clientMode').value = 'RITEL';
       get('destinationMode').value = 'batam';
       for (const [id, value] of Object.entries({ senderName: 'PENGIRIM UJI', senderPhone: '08123456789', senderAddress: 'KOTA BATAM' })) get(id).value = value;
+      w.eval(read('assets/js/postcode-zones.js'));
       w.eval(read('assets/js/postcode-national.js'));
       w.eval(read('assets/js/app-core.js'));
       w.eval(read('assets/js/ui.js'));

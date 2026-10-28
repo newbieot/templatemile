@@ -1,4 +1,4 @@
-const APP_VERSION = '20261016-26.54-pn-batam-subservice';
+const APP_VERSION = '20261028-26.55-postcode-zones';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';

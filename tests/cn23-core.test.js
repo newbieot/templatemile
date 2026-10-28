@@ -40,6 +40,7 @@ const document = {
   createElement: () => ({ innerHTML: '', dataset: {}, classList: { toggle() {} } })
 };
 const sandbox = { window, document, console, Date, Intl, setTimeout, HTMLInputElement: class {}, alert: message => { throw new Error(message); } };
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/js/postcode-zones.js'), 'utf8'), sandbox);
 vm.runInNewContext(source, sandbox, { filename: 'app-core.js' });
 const core = window.__mileCore;
 

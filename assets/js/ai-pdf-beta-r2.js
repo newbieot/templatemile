@@ -2138,6 +2138,10 @@ ${clipped}`
     const value = normalizeAddressPunctuation(address).toUpperCase();
     const printedZip = extractPrintedZip(value);
 
+    if (/\bBELAKANG[\s.-]*PADANG\b/.test(value) || /^2949[1-6]$/.test(printedZip)) {
+      return { outside: true, reason: 'Belakang Padang menggunakan transaksi CN, di luar layanan lokal Batam.' };
+    }
+
     // Bukti lokal yang kuat selalu mengalahkan salah deteksi AI.
     if (/^294\d{2}$/.test(printedZip) || BATAM_AREA_PATTERN.test(value)) {
       return { outside: false, reason: '' };

@@ -2,7 +2,7 @@
   'use strict';
   const DATA_URL = '/assets/data/postcodes-indonesia.json?v=20261001-cn23-4';
   const MAX_CANDIDATES = 100;
-  const MATCHER_VERSION = '20261009-address-context-6';
+  const MATCHER_VERSION = '20261028-postcode-zones-7';
   // Gazetteer entries require a complete place name and a verified parent
   // chain. The postcode always comes from the existing national database.
   // https://mediacenter.batam.go.id/2023/04/12/jefridin-ajak-masyarakat-terus-dukung-pembangunan-batam/

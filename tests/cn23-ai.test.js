@@ -143,6 +143,7 @@ const normalized = (address, options = {}) => ai.normalizeRows([{
       status: 200, headers: { 'Content-Type': 'application/json' }
     });
   };
+  vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/postcode-zones.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(root, 'assets/js/postcode-national.js'), 'utf8'), sandbox, {
     filename: 'postcode-national.js'
   });

@@ -12,7 +12,7 @@ const xlsx = require('../assets/vendor/sheetjs/xlsx.full.min.js');
       w.fetch = async () => ({ ok: true, json: async () => data });
       w.alert = message => { throw new Error(message); };
       w.HTMLElement.prototype.scrollIntoView = () => {};
-      for (const source of ['postcode-national', 'app-core', 'ui', 'events-v16']) w.eval(fs.readFileSync(`assets/js/${source}.js`, 'utf8'));
+      for (const source of ['postcode-zones', 'postcode-national', 'app-core', 'ui', 'events-v16']) w.eval(fs.readFileSync(`assets/js/${source}.js`, 'utf8'));
       await new Promise(resolve => w.setTimeout(resolve, 10));
       d.getElementById('clientMode').value = 'RITEL'; w.handleModeChange();
       for (const [id, value] of Object.entries({ destinationMode: 'mixed', senderName: 'PENGIRIM', senderAddress: 'BATAM', serviceCode: 'PKH' })) d.getElementById(id).value = value;

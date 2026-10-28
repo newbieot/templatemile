@@ -436,6 +436,10 @@ async function runAsyncAssertions() {
   assert.deepEqual(requestedReasoningEfforts.slice(-2), ['medium', undefined]);
   assert.deepEqual(requestedResponseFormats.slice(-2), ['json_schema', 'json_schema']);
 
+  for (const address of ['BELAKANG PADANG KOTA BATAM 29491', 'BELAKANGPADANG BATAM', '29492']) {
+    assert.equal(ai.classifyOutsideBatam(address, false).outside, true, address);
+  }
+  assert.equal(ai.classifyOutsideBatam('SEMBULANG GALANG BATAM 29481', true).outside, false);
   console.log('PASS ai-pdf-beta-r2: profil Gemini 15 × 3, reasoning medium, schema kompatibel, dan fallback Gemini 3.8 → 3.7 → 3.6');
 }
 

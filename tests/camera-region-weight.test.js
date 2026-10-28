@@ -25,7 +25,7 @@ const data = JSON.parse(fs.readFileSync('assets/data/postcodes-indonesia.json', 
     if (options?.method === 'POST') { batch = JSON.parse(options.body); saves++; return { json: async () => ({ ok: true }) }; }
     return { json: async () => ({ ok: true, batch: structuredClone(batch), batches: [] }) };
   };
-  for (const file of ['postcode-national', 'app-core', 'camera-sync']) w.eval(fs.readFileSync(`assets/js/${file}.js`, 'utf8'));
+  for (const file of ['postcode-zones', 'postcode-national', 'app-core', 'camera-sync']) w.eval(fs.readFileSync(`assets/js/${file}.js`, 'utf8'));
   await new Promise(resolve => w.setTimeout(resolve, 20));
   const core = w.__mileCore;
   try {

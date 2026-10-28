@@ -128,7 +128,7 @@
       else {
         const sourceKey = `${String(row?.address || '')}\n${String(row?._nationalPostcodeQuery || '')}`;
         const selected = row?._confirmedNationalPostcode?.sourceKey === sourceKey ? row._confirmedNationalPostcode.selected : row?._nationalPostcodeMatch?.selected;
-        const local = nationalMode ? /^(?:KOTA\s+)?BATAM$/i.test(String(selected?.city || '').trim()) : !outsideBatam;
+        const local = nationalMode ? Boolean(window.MilePostalZones?.isLocalBatam(selected)) : !outsideBatam;
         if (local) summary.localBatamCount++; else summary.cn23Count++;
       }
       if (needsReview) summary.reviewCount++;
