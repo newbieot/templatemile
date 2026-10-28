@@ -1,17 +1,17 @@
-MILE CN23 HELPER 0.2.12
+MILE CN23 HELPER 0.2.13
 
 KOMPATIBILITAS BROWSER
 Chrome 88 ke atas, termasuk Chrome 109.0.5414.120 pada Windows 7 32-bit.
 Paket yang sama dapat dipakai pada Chrome 32-bit dan 64-bit.
 
 MEMPERBARUI VERSI LAMA
-1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.12 ke folder
+1. Saat tidak ada transaksi yang sedang diproses, ekstrak ZIP 0.2.13 ke folder
    ekstensi lama dan timpa file lama, termasuk manifest.json.
 2. Buka chrome://extensions, klik Reload/Muat ulang pada Mile CN23 Helper.
-   Versi harus tertulis 0.2.12.
+   Versi harus tertulis 0.2.13.
 3. Buka form CN23 kosong dan muat ulang tab Mile:
    https://expos.mile.app/new-transaction-custom
-4. Antrean dari 0.2.5 sampai 0.2.11 tetap tersimpan. Bila berhenti karena selisih kode pos,
+4. Antrean dari 0.2.5 sampai 0.2.12 tetap tersimpan. Bila berhenti karena selisih kode pos,
    tekan Start untuk melanjutkan; baris selesai tidak diulang. Tidak perlu Reset.
    Cache 0.2.4 dan versi sebelumnya otomatis dibersihkan. Jika antrean kosong,
    upload Excel yang ingin diproses, lalu klik Start sekali.
@@ -32,6 +32,10 @@ PEMAKAIAN HARIAN
 3. Upload Antrean_CN23...xlsx, sheet CN23_ANTREAN, lalu klik Start sekali.
 4. Korporat: Kode Pelanggan diisi dan Enter ditekan otomatis. Ekstensi
    menunggu nama, telepon, dan alamat pengirim dari Mile selesai dimuat.
+   Saat upload Excel dan Start, pilih Ikuti Excel atau Ikuti Mile untuk pengirim
+   korporat. Ikuti Excel menghapus data bawaan dan mengganti ketiga kolom dari
+   Excel; Ikuti Mile mempertahankan hasil lookup. Batal tidak memulai proses.
+   Pilihan terlihat pada panel; ritel selalu mengikuti Excel.
 5. Pengisian, hitung PDRI, Cash untuk ritel atau Invoice/CREDIT sesuai Excel
    korporat, dan tombol Selesai diproses otomatis.
 6. Saat Mile masuk ke daftar transaksi, tab utama langsung membuka form CN23.
@@ -78,7 +82,10 @@ Kode zona mengikuti pilihan Mile.
 Kode pos dan kode zona yang dikunci Mile selalu dipakai setelah wilayah cocok,
 meskipun berbeda dari Excel. Aturan ini berlaku untuk seluruh tujuan.
 
-PENGUJIAN 0.2.12
+PENGUJIAN 0.2.13
+Pilihan Excel/Mile, pembatalan upload/Start, ketiga kolom pengirim, pemulihan
+autofill terlambat, dan sumber Excel yang tetap utuh diuji.
+
 Validasi, upload panel, antrean worker, dan form korporat Belakang Padang/Kasu
 diuji. Galang dan Batam lokal lain tetap ditolak.
 
@@ -89,7 +96,7 @@ Uji mencakup reload penuh, navigasi dalam dokumen yang sama, pesan siap
 yang terlewat, dan data kedua ketika form baru sudah terload. Form berikutnya
 ditunggu sampai semua kolom termasuk ref_no siap; salinan tersembunyi dari
 form lama diabaikan. Panel setelah navigasi, Reset, upload ulang, dan
-pembersihan cache lama diuji. Rilis 0.2.12 diuji memakai simulasi DOM/service worker untuk
+pembersihan cache lama diuji. Rilis 0.2.13 diuji memakai simulasi DOM/service worker untuk
 API Chrome 88/109 dan form uji lokal, termasuk berat 0,2/1,5/2 kg.
 Pengujian tidak membuat transaksi Mile produksi. Windows 7 tidak diuji langsung.
 Perbedaan beberapa kode pos dan kode zona diuji untuk ritel dan korporat.

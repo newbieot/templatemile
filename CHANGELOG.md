@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.60 — Helper 0.2.13: pilih sumber pengirim
+
+- Upload Excel dan Start menanyakan apakah pengirim korporat mengikuti Excel atau data pelanggan Mile. Tombol Batal mempertahankan antrean dan tidak memulai kiriman; pilihan aktif ditampilkan di panel dan berlaku untuk seluruh proses sampai diubah saat Start berikutnya.
+- Pilihan Excel menghapus dan mengganti nama, nomor telepon, dan alamat pengirim setelah lookup pelanggan. Ketiga nilai diperiksa kembali sebelum hitung PDRI dan submit. Pilihan Mile mempertahankan hasil lookup; ritel tetap memakai Excel.
+- Hasil lookup disimpan terpisah dan tidak lagi menimpa data pengirim asli pada antrean yang diimpor, sehingga retry dan pergantian sumber tetap memakai sumber Excel.
+- Paket, unduhan publik, dan panduan diperbarui ke 0.2.13. Regresi mencakup pertanyaan upload/Start, kedua sumber, pembatalan, autofill terlambat, ketiga kolom, dan kelanjutan antarbaris.
+
 ## v26.59 — Helper 0.2.12: Belakang Padang masuk CN23
 
 - Memperbaiki validasi ekstensi yang sebelumnya menolak seluruh kota Batam. Tujuan dengan kecamatan Belakang Padang atau kode pos kepulauannya diperbolehkan ke CN23, sesuai kebijakan aplikasi web. Kota dan kode pos asli dari Excel dipertahankan.

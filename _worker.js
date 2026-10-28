@@ -1,4 +1,4 @@
-const APP_VERSION = '20261028-26.59-cn23-belakang-padang';
+const APP_VERSION = '20261028-26.60-cn23-sender-source';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -62,6 +62,7 @@ const PUBLIC_ASSETS = new Set([
   '/downloads/Mile-CN23-Helper-0.2.10.zip',
   '/downloads/Mile-CN23-Helper-0.2.11.zip',
   '/downloads/Mile-CN23-Helper-0.2.12.zip',
+  '/downloads/Mile-CN23-Helper-0.2.13.zip',
   '/downloads/Mile-CN23-Helper-0.1.0.zip'
 ]);
 

@@ -13,7 +13,7 @@ async function until(fn,description) {
   throw new Error('Batch timeout: '+description);
 }
 
-for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{spa:true,dropReady:true,missList:true},{spa:false,dropReady:false,serviceCode:'PE'},{spa:false,dropReady:false,serviceCode:'PE',legacyChrome:109},{spa:false,dropReady:false,serviceCode:'PE',legacyChrome:88}])test(`NO PRINT TAB: one Start completes three ${scenario.serviceCode||'PKH'} shipments ${scenario.legacyChrome?'with callback-only Chrome '+scenario.legacyChrome+' APIs ':''}${scenario.missList?'with form two already loaded and the list event missing ':''}with ${scenario.spa?'same-document Mile navigation and lost readiness messages':'full navigations'}`,async()=>{
+for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{spa:true,dropReady:true,missList:true},{spa:false,dropReady:false,serviceCode:'PE'},{spa:false,dropReady:false,serviceCode:'PE',legacyChrome:109},{spa:false,dropReady:false,serviceCode:'PE',legacyChrome:88,senderSource:'mile'}])test(`NO PRINT TAB: one Start completes three ${scenario.serviceCode||'PKH'} shipments ${scenario.legacyChrome?'with callback-only Chrome '+scenario.legacyChrome+' APIs ':''}${scenario.missList?'with form two already loaded and the list event missing ':''}with ${scenario.spa?'same-document Mile navigation and lost readiness messages':'full navigations'} and ${scenario.senderSource||'excel'} sender`,async()=>{
   let stored={},listener,onUpdated,mainPage,documentNumber=0,submissionNumber=0,failure;
   const pages=[],events=[],forms=[],paymentOpens=[],dropped=new Set(),pending=new Set(),tabs=new Map([[7,{id:7,url:Q.FORM_URL}]]);
   const rows=[
@@ -55,7 +55,10 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
         assert.equal(document.querySelector('.select-payment input').value,index===0?'Cash':index===1?'Invoice':'CREDIT');
         assert.equal(document.querySelector('[placeholder="KODE POS"]').value,index===1?'29276':'29274','Mile postcode is retained even when Excel differs');
         assert.equal(document.querySelector('[placeholder="KODE ZONA"]').value,'29274','Mile zone is retained even when Excel differs');
-        if(index>0)assert.equal(document.querySelector('#namapengirim').value,'PELANGGAN RESMI');
+        const useMile=index>0&&scenario.senderSource==='mile';
+        assert.equal(document.querySelector('#namapengirim').value,useMile?'PELANGGAN RESMI':expected.sender_name);
+        assert.equal(document.querySelector('#phonePengirim').value,useMile?'08111111111':expected.sender_phone);
+        assert.equal(document.querySelector('#alamatPengirim').value,useMile?'ALAMAT PELANGGAN BATAM':expected.sender_address);
         events.push({type:'actual-submit',index,document:number});
         paymentOpens.push(mainPage.paymentOpens);
         const list=()=>{
@@ -93,8 +96,8 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
   loadWorker(context);
   try {
     openForm();
-    assert.equal((await send({type:'IMPORT',rows,batchId:'three-labels',fileName:'three.xlsx'})).ok,true);
-    assert.equal((await send({type:'RUN',tabId:7})).ok,true);
+    assert.equal((await send({type:'IMPORT',rows,batchId:'three-labels',fileName:'three.xlsx',senderSource:scenario.senderSource||'excel'})).ok,true);
+    assert.equal((await send({type:'RUN',tabId:7,senderSource:scenario.senderSource||'excel'})).ok,true);
     await until(()=>failure||stored.mileCn23Queue?.completedAt||stored.mileCn23Queue?.error,'all three shipments');
     if(failure)throw failure;
     const state=stored.mileCn23Queue;
@@ -102,6 +105,7 @@ for(const scenario of [{spa:false,dropReady:false},{spa:true,dropReady:true},{sp
     assert.equal(submissionNumber,3);assert.equal(state.running,false);assert.equal(state.active,null);
     assert.equal(state.rows[1].data.recipient_name,rows[1].recipient_name,'Full source name remains in the queue');
     assert.equal(state.rows[1].data.recipient_address,rows[1].recipient_address,'Full source address remains available for routing');
+    for(const saved of state.rows)for(const key of ['sender_name','sender_phone','sender_address'])assert.equal(saved.data[key],base[key],'Lookup must not overwrite the imported Excel sender');
     assert.ok(state.rows.every(row=>row.confirmation.via==='MILE_TRANSACTION_LIST'||row.confirmation.via==='NEW_CN23_FORM'));
     assert.equal(tabs.size,1,'No receipt tab exists, yet all three rows complete');
     assert.equal(events.filter(event=>event.type==='CN23_FILL').length,3);

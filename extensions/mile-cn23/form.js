@@ -84,6 +84,15 @@
   }
   const byId = (id, value) => fill(one('#' + id), value);
   const byPlaceholder = (placeholder, value) => fill(one(`input[placeholder="${placeholder}"]`), value);
+  const senderFields = {namapengirim:'sender_name',phonePengirim:'sender_phone',alamatPengirim:'sender_address'};
+  function applyExcelSender() {
+    if (!current?.excelSender) return;
+    for (const [id,key] of Object.entries(senderFields)) {
+      const field=one('#'+id),value=current.excelSender[key];
+      if (field.value !== value) { fill(field,'');fill(field,value); }
+      if (field.value !== value) throw new Error('Data pengirim Excel belum terisi: '+id);
+    }
+  }
   function exactButton(text, root = document) {
     return all('button', root).filter(visible).find(el => Q.norm(el.textContent) === Q.norm(text) && !el.disabled);
   }
@@ -168,6 +177,7 @@
   async function submit(button) {
     if (!current || current.submitting || current.submitted || current.cancelled) return;
     if (button.disabled || !visible(button)) throw new Error('Tombol Selesai belum siap.');
+    applyExcelSender();
     current.submitting = true;
     await send('SUBMIT_INTENT'); // Durable status must precede the irreversible click.
     current.submitted = true; current.permitClick = true;
@@ -205,12 +215,13 @@
       await step(send('PROGRESS', { phase:'filling', customerResolved:{sender_name:one('#namapengirim').value.trim(),sender_phone:one('#phonePengirim').value.trim(),sender_address:one('#alamatPengirim').value.trim()} }));
       status(`Mengisi ${row.queue_id} · ${row.recipient_name}`);
     }
-    for (const [id, key] of Object.entries({ namapengirim:'sender_name', phonePengirim:'sender_phone', alamatPengirim:'sender_address', namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) {
-      if (row.customer_mode !== 'KORPORAT' || key.startsWith('recipient_')) {
-        const field=one('#'+id);
-        const value=Q.recipientLimits[key]?Q.recipientText(row[key],key,field.maxLength):row[key];
-        fill(field,value);
-      }
+    if (row.customer_mode !== 'KORPORAT' || options.senderSource !== 'mile') {
+      current.excelSender=Object.fromEntries(Object.values(senderFields).map(key=>[key,String(row[key]??'')]));
+      applyExcelSender();
+    }
+    for (const [id, key] of Object.entries({ namapenerima:'recipient_name', phonePenerima:'recipient_phone', alamatPenerima:'recipient_address' })) {
+      const field=one('#'+id);
+      fill(field,Q.recipientLimits[key]?Q.recipientText(row[key],key,field.maxLength):row[key]);
     }
     await step(destination(row));
     await step(autocomplete(one('#service'), row.service_code, text => text === Q.norm(row.service_code) || text.startsWith(Q.norm(row.service_code) + ' ')));
@@ -232,6 +243,7 @@
       if (!/INSURANCE|ASURANSI/i.test(pdriContainer.textContent)) throw new Error('Asuransi belum terkunci.');
     } else if (/INSURANCE|ASURANSI/i.test(all('.el-tag', pdriContainer).map(el => el.textContent).join(' '))) throw new Error('Asuransi sudah terpilih pada form tanpa asuransi. Buka form baru.');
     await step(wait(() => Number(one('#koli_weight').value) === Number(row.weight_kg) && Number(one('#harga_barang').value) === 20000, 'berat/nilai barang dari detail item'));
+    applyExcelSender();
     const calculate = exactButton('Proses Hitung PDRI'); if (!calculate) throw new Error('Proses Hitung PDRI belum aktif.'); calculate.click();
     await step(wait(() => exactButton('Ubah Data') && exactButton('Pembayaran'), 'hasil hitung PDRI', 45000));
     exactButton('Pembayaran').click();

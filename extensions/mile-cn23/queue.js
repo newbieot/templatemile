@@ -73,7 +73,7 @@
     if (!state.active.submittedAt) state.active=null;
     return true;
   }
-  const VERSION='0.2.12';
+  const VERSION='0.2.13';
   const api={VERSION,FORM_URL,defaults,required,norm,recipientLimits,recipientText,validateRows,recoverInterrupted};
   root.MileCN23=api;
   if (typeof module !== 'undefined') module.exports=api;

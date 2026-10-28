@@ -21,7 +21,7 @@ test('long CN23 recipient name/address are truncated automatically for retail an
       assert.equal(f.d.querySelector('#alamatPenerima').value,row.recipient_address.trim().slice(0,80).trim());
       assert.equal(f.d.querySelector('[placeholder="KODE POS"]').value,'29274');
       assert.equal(f.d.querySelector('#phonePenerima').value,'0');
-      assert.equal(f.d.querySelector('#namapengirim').value,corporate?'PELANGGAN RESMI':'PENGIRIM');
+      assert.equal(f.d.querySelector('#namapengirim').value,'PENGIRIM');
       assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
       assert.deepEqual(row,original);
     } finally { f.close(); }
@@ -110,13 +110,34 @@ test('matching Mile regions sharing another postcode continue without an Excel p
     assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
   } finally {f.close();}
 });
-test('corporate presses Enter, waits for sender lookup, preserves canonical sender and selects CREDIT',async()=>{
-  const f=fixture({corporate:true});try{f.start();await until(()=>f.submits===1);
+test('corporate Mile choice preserves lookup sender and selects CREDIT',async()=>{
+  const f=fixture({corporate:true,senderSource:'mile'});try{f.start();await until(()=>f.submits===1);
     assert.equal(f.enters,1);assert.equal(f.d.querySelector('#namapengirim').value,'PELANGGAN RESMI');
     assert.equal(f.d.querySelector('#phonePengirim').value,'08111111111');assert.equal(f.d.querySelector('#alamatPengirim').value,'ALAMAT PELANGGAN BATAM');
     assert.equal(f.d.querySelector('#namapenerima').value,'PENERIMA');assert.equal(f.d.querySelector('.el-dialog .el-select input').value,'CREDIT');
     assert.equal(f.messages.find(m=>m.customerResolved)?.customerResolved.sender_name,'PELANGGAN RESMI');
     assert.equal([...f.d.querySelectorAll('button')].some(el=>el.textContent==='Pelanggan benar, lanjutkan'),false);
+  }finally{f.close();}
+});
+test('corporate Excel choice clears all three lookup values, emits input/change and restores a late autofill before submit',async()=>{
+  const f=fixture({corporate:true,senderSource:'excel',legacyChrome:88});
+  const values={namapengirim:'PENGIRIM EXCEL',phonePengirim:'089876543210',alamatPengirim:'ALAMAT KHUSUS EXCEL'};
+  const events={};
+  try {
+    for(const id of Object.keys(values)) {
+      events[id]={input:[],change:[]};
+      for(const type of ['input','change'])f.d.querySelector('#'+id).addEventListener(type,event=>events[id][type].push(event.target.value));
+    }
+    f.start({sender_name:values.namapengirim,sender_phone:values.phonePengirim,sender_address:values.alamatPengirim});
+    await until(()=>f.d.querySelector('#namapengirim').value===values.namapengirim);
+    for(const id of Object.keys(values))f.d.querySelector('#'+id).value='AUTOFILL TERLAMBAT';
+    await until(()=>f.submits===1);
+    for(const [id,value] of Object.entries(values)) {
+      assert.equal(f.d.querySelector('#'+id).value,value);
+      for(const type of ['input','change'])assert.deepEqual(events[id][type].slice(-2),['',value]);
+    }
+    assert.equal(f.enters,1);
+    assert.equal(f.messages.some(message=>message.type==='FORM_ERROR'),false);
   }finally{f.close();}
 });
 

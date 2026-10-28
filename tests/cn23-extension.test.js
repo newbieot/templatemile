@@ -69,6 +69,27 @@ test('list redirect completes row one and loads form for row two WITHOUT any pri
   assert.equal(h.state.active.id,'ROW-2');assert.equal(h.state.rows[1].status,'filling');
   assert.equal(h.events.filter(e=>e.type==='CN23_FILL').length,2);
 });
+test('sender source is persisted, can change on Start and never overwrites imported Excel fields',async()=>{
+  for(const source of ['excel','mile']) {
+    const h=harness();
+    const row={...sample(),customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT',sender_phone:'0899999999'};
+    assert.equal((await h.send({type:'IMPORT',rows:[row],senderSource:source})).ok,true);
+    assert.equal(h.state.options.senderSource,source);
+    assert.equal((await h.send({type:'RUN',senderSource:source})).ok,true);
+    const token=h.state.active.token;
+    await h.send({type:'PROGRESS',token,phase:'customer_loading'});
+    const resolved={sender_name:'NAMA MILE',sender_phone:'0811111111',sender_address:'ALAMAT MILE'};
+    assert.equal((await h.send({type:'PROGRESS',token,phase:'filling',customerResolved:resolved})).ok,true);
+    for(const key of Object.keys(resolved))assert.equal(h.state.rows[0].data[key],row[key]);
+    assert.deepEqual(h.state.rows[0].customerResolved,resolved);
+    assert.equal(h.state.options.senderSource,source);
+  }
+  const h=harness();
+  await h.send({type:'IMPORT',rows:[sample()],senderSource:'mile'});
+  await h.send({type:'RUN',senderSource:'excel'});assert.equal(h.state.options.senderSource,'excel');
+  const invalid=harness();
+  assert.equal((await invalid.send({type:'IMPORT',rows:[sample()],senderSource:'invalid'})).ok,false);
+});
 test('form two ALREADY LOADED completes prior cursor and fills second row even if list event was missed',async()=>{
   const h=harness();await begin(h);await submit(h);
   h.mount('form-2');await h.send({type:'FORM_READY',...h.ready});

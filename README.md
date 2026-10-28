@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v26.59
+# mile.posnew.com Secure Gateway v26.60
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -32,15 +32,17 @@ Pencocokan memakai nama wilayah utuh lintas tingkat administrasi. Kata “Batu�
 
 Pilihan **Tujuan kiriman** pada app/review/beta dan Camera web memisahkan alur Batam, CN23 Dokumen Luar Kota, serta Campuran Batam + Luar Kota. Mode nasional mempertahankan baris luar Batam dan mencocokkan wilayah dengan database lampiran 81.248 baris dari akhir alamat. Web dan halaman review dalam APK menentukan tujuan otomatis tanpa pemilih wilayah atau status “Tujuan perlu diperiksa”. Kota/kabupaten memakai kode routing kota; Jakarta memakai kode dari wilayah Jakarta tanpa suffix kota umum. Jika kota/provinsi tidak terbaca dan wilayah belum dapat dicocokkan dengan jelas, web memakai default Batam 29411. Kecamatan/kelurahan yang jelas diprioritaskan dibanding kode pos yang bertentangan; kode pos tercetak yang sesuai tetap dipakai. Log lama menghitung ulang tujuan dan koreksi wajib saat dimuat. Satu tombol Unduh Excel pada CN23 maupun Campuran menyiapkan semua kelompok tujuan: kedua kelompok berisi kiriman menghasilkan dua Excel terpisah (unggah Batam dan antrean CN23); satu kelompok menghasilkan satu Excel. Kelompok kosong tidak diunduh, dan seluruh data divalidasi sebelum unduhan pertama. Sesi kamera dan hasil sinkronisasi menyimpan mode tujuan.
 
-Ekstensi [Mile CN23 Helper 0.2.12](downloads/Mile-CN23-Helper-0.2.12.zip) menampilkan Upload Excel, Start/Jeda, dan Reset pada tab Mile yang sudah terbuka. Setelah Selesai dan Mile masuk ke daftar transaksi, tab utama membuka form CN23, menunggu seluruh kolom siap dan kosong, lalu langsung mengisi data kedua dan seterusnya. Tab cetak tidak dibaca atau ditunggu. Kode pos dan kode zona yang dikunci Mile dipakai meskipun berbeda dari Excel, setelah wilayah tujuan cocok. Kode pelanggan/Enter, pengirim otomatis, serta pembayaran Cash/Invoice/CREDIT berjalan otomatis. Panel dipulihkan setelah navigasi dan kolom referensi yang terlambat dimuat tetap ditunggu. Antrean 0.2.5 dipertahankan; Start mencoba ulang baris yang gagal tanpa mengulang baris selesai. Reset mengosongkan seluruh antrean agar file baru bisa di-upload. Sheet `CN23_ANTREAN` tetap terpisah dari Excel lokal. Belakang Padang diterima meskipun kota tujuannya Batam; Galang dan Batam lokal lainnya tetap ditolak dari CN23. Panduan `CARA-INSTALL.txt` tersedia dalam ZIP. Satu Start untuk tiga kiriman diuji tanpa tab cetak, termasuk data kedua dengan kode pos Mile berbeda dari Excel. Uji memakai simulasi DOM/service worker; submit produksi dari ekstensi Chrome terpasang belum dilakukan.
+Ekstensi [Mile CN23 Helper 0.2.13](downloads/Mile-CN23-Helper-0.2.13.zip) menampilkan Upload Excel, Start/Jeda, dan Reset pada tab Mile yang sudah terbuka. Setelah Selesai dan Mile masuk ke daftar transaksi, tab utama membuka form CN23, menunggu seluruh kolom siap dan kosong, lalu langsung mengisi data kedua dan seterusnya. Tab cetak tidak dibaca atau ditunggu. Kode pos dan kode zona yang dikunci Mile dipakai meskipun berbeda dari Excel, setelah wilayah tujuan cocok. Kode pelanggan/Enter, pilihan sumber pengirim Excel atau Mile saat upload/Start, serta pembayaran Cash/Invoice/CREDIT berjalan otomatis. Panel dipulihkan setelah navigasi dan kolom referensi yang terlambat dimuat tetap ditunggu. Antrean 0.2.5 dipertahankan; Start mencoba ulang baris yang gagal tanpa mengulang baris selesai. Reset mengosongkan seluruh antrean agar file baru bisa di-upload. Sheet `CN23_ANTREAN` tetap terpisah dari Excel lokal. Belakang Padang diterima meskipun kota tujuannya Batam; Galang dan Batam lokal lainnya tetap ditolak dari CN23. Panduan `CARA-INSTALL.txt` tersedia dalam ZIP. Satu Start untuk tiga kiriman diuji tanpa tab cetak, termasuk data kedua dengan kode pos Mile berbeda dari Excel. Uji memakai simulasi DOM/service worker; submit produksi dari ekstensi Chrome terpasang belum dilakukan.
 
-Nama penerima CN23 otomatis dibatasi 30 karakter dan alamat penerima 80 karakter saat pengisian, atau lebih pendek jika kolom Mile menetapkan batas lebih kecil. Aturan berlaku untuk ritel/korporat dan antrean lama; data sumber lengkap tetap tersedia untuk pencocokan tujuan. [Catatan pembaruan](docs/cn23-helper-0.2.12.md).
+Untuk korporat, Upload Excel dan Start menanyakan **Ikuti Excel** atau **Ikuti Mile** untuk nama, nomor telepon, dan alamat pengirim. Excel mengganti data bawaan setelah lookup; Mile mempertahankannya. Batal tidak memulai proses. Pilihan terlihat di panel, ritel tetap memakai Excel, dan lookup tidak menimpa sumber Excel dalam antrean baru.
 
-Helper 0.2.12 mendukung Chrome 88 ke atas, termasuk Chrome 109 pada Windows 7 32-bit. Paket yang sama dipakai pada Chrome 32-bit/64-bit. Komunikasi dan storage memakai callback, dengan fallback ID aman untuk Chrome tanpa `randomUUID`. Kemajuan antrean 0.2.5–0.2.11 tetap tersimpan. [Catatan kompatibilitas](docs/cn23-helper-0.2.9.md).
+Nama penerima CN23 otomatis dibatasi 30 karakter dan alamat penerima 80 karakter saat pengisian, atau lebih pendek jika kolom Mile menetapkan batas lebih kecil. Aturan berlaku untuk ritel/korporat dan antrean lama; data sumber lengkap tetap tersedia untuk pencocokan tujuan. [Catatan pembaruan](docs/cn23-helper-0.2.13.md).
+
+Helper 0.2.13 mendukung Chrome 88 ke atas, termasuk Chrome 109 pada Windows 7 32-bit. Paket yang sama dipakai pada Chrome 32-bit/64-bit. Komunikasi dan storage memakai callback, dengan fallback ID aman untuk Chrome tanpa `randomUUID`. Kemajuan antrean 0.2.5–0.2.12 tetap tersimpan. [Catatan kompatibilitas](docs/cn23-helper-0.2.9.md).
 
 Pesan hijau selesai otomatis hilang setelah 5 detik dan dapat ditutup dengan ×. Reload tidak mengulang pesan lama; status selesai tetap tersimpan di panel. PE diuji dari satu Start untuk tiga kiriman (Cash ritel, Invoice dan CREDIT korporat) dengan reload penuh ke form berikutnya. Pengujian PE memakai simulasi DOM/service worker; transaksi PE nyata belum diuji.
 
-Tombol **Unduhan & Panduan** tersedia pada halaman login, app, beta, camera, dan review. Halaman publik [/unduhan](https://mile.posnew.com/unduhan) menyediakan APK 0.1.9, ZIP ekstensi 0.2.12, langkah instalasi, alur capture/ekspor, antrean CN23, pembaruan, dan batch campuran. Halaman petunjuk selalu mengambil versi terbaru dari server tanpa cache HTML.
+Tombol **Unduhan & Panduan** tersedia pada halaman login, app, beta, camera, dan review. Halaman publik [/unduhan](https://mile.posnew.com/unduhan) menyediakan APK 0.1.9, ZIP ekstensi 0.2.13, langkah instalasi, alur capture/ekspor, antrean CN23, pembaruan, dan batch campuran. Halaman petunjuk selalu mengambil versi terbaru dari server tanpa cache HTML.
 
 APK [Mile Camera 0.1.9](downloads/Mile-Camera-0.1.9.apk) menyimpan riwayat foto/PDF. Selesai otomatis menyimpan PDF, menampilkan notifikasi singkat, lalu langsung menjalankan AI. Foto gelap/kurang tajam yang masih terbaca diterima; tombol Gambar tidak buram mengonfirmasi foto tanpa retake dan tetap berlaku setelah dibuka ulang. Penanda lama dinilai ulang. Shutter membekukan frame saat disentuh, dan pemeriksaan/PDF tetap berjalan di worker. [Panduan APK](docs/mile-camera-0.1.9.md).
 
@@ -63,7 +65,7 @@ python scripts/build-postcode-data.py "C:/Users/Ikhsan Radiansyah/Documents/Data
 
 Pengujian fitur: `node tests/postcode-national.test.js`, `node tests/cn23-core.test.js`, dan `node tests/cn23-ai.test.js`.
 
-Kolom **Kg** berada di sebelah nomor urut, sebelum Nama, dan dapat diubah per kiriman termasuk di atas 1 kg. Berat tersimpan dalam Log Kamera, diekspor, dan diteruskan oleh Helper 0.2.12 ke Mile. Alamat kota/kabupaten memakai kode routing kota (contoh Bandung 40111, Maros 90511, Batam 29411); kelurahan/kecamatan tetap memakai kode rinci dan Jakarta Raya dikecualikan dari default kota. [Panduan rilis](docs/cn23-helper-0.2.12.md).
+Kolom **Kg** berada di sebelah nomor urut, sebelum Nama, dan dapat diubah per kiriman termasuk di atas 1 kg. Berat tersimpan dalam Log Kamera, diekspor, dan diteruskan oleh Helper 0.2.13 ke Mile. Alamat kota/kabupaten memakai kode routing kota (contoh Bandung 40111, Maros 90511, Batam 29411); kelurahan/kecamatan tetap memakai kode rinci dan Jakarta Raya dikecualikan dari default kota. [Panduan rilis](docs/cn23-helper-0.2.13.md).
 
 ## Eksperimen PC lawas di `/beta`
 
@@ -213,7 +215,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20261028-26.59-cn23-belakang-padang",
+  "version": "20261028-26.60-cn23-sender-source",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,

@@ -3,6 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {JSDOM}=require('jsdom');
 const Q=require('../extensions/mile-cn23/queue.js');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function until(fn){const started=Date.now();while(Date.now()-started<3000){if(fn())return;await sleep(10);}throw new Error('UI fixture timeout');}
 test('upload waits for delayed callback initialization instead of dropping the selected file',async()=>{
   const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'}),w=dom.window;
   try{
@@ -36,8 +37,8 @@ test('icon toggles upload/start inside the existing tab, imports real workbook a
     w.MileCN23=Q;w.eval(fs.readFileSync('extensions/mile-cn23/vendor/xlsx.full.min.js','utf8'));
     w.chrome={runtime:{onMessage:{addListener:fn=>listener=fn},sendMessage:async m=>{
       messages.push(m);
-      if(m.type==='IMPORT')state={fileName:m.fileName,rows:Q.validateRows(m.rows)};
-      if(m.type==='RUN')state.running=true;
+      if(m.type==='IMPORT')state={fileName:m.fileName,rows:Q.validateRows(m.rows),options:{senderSource:m.senderSource}};
+      if(m.type==='RUN'){state.running=true;state.options.senderSource=m.senderSource;}
       if(m.type==='RESET')state={rows:[]};
       return{ok:true,data:state};
     }}};
@@ -50,15 +51,35 @@ test('icon toggles upload/start inside the existing tab, imports real workbook a
     const book=w.XLSX.utils.book_new();w.XLSX.utils.book_append_sheet(book,w.XLSX.utils.json_to_sheet([row]),'CN23_ANTREAN');
     const buffer=w.XLSX.write(book,{type:'array',bookType:'xlsx'});
     Object.defineProperty(root.getElementById('file'),'files',{configurable:true,value:[{name:'antrean.xlsx',size:buffer.byteLength,arrayBuffer:async()=>buffer}]});
-    root.getElementById('file').dispatchEvent(new w.Event('change'));await sleep(120);
-    assert.equal(state.rows.length,1);assert.equal(state.rows[0].data.recipient_city,'BATAM');assert.equal(state.rows[0].data.recipient_district,'BELAKANG PADANG');assert.equal(root.getElementById('start').disabled,false);root.getElementById('start').click();await sleep(20);
+    root.getElementById('file').dispatchEvent(new w.Event('change'));await until(()=>root.getElementById('sender-choice'));
+    assert.equal(messages.some(m=>m.type==='IMPORT'),false,'Upload waits for an explicit source choice');
+    root.getElementById('sender-excel').click();await until(()=>state.rows.length===1);
+    assert.equal(state.rows[0].data.recipient_city,'BATAM');assert.equal(state.rows[0].data.recipient_district,'BELAKANG PADANG');
+    assert.equal(state.options.senderSource,'excel');assert.match(root.getElementById('senderSource').textContent,/data Excel/);
+    await until(()=>!root.getElementById('start').disabled);root.getElementById('start').click();await until(()=>root.getElementById('sender-choice'));
+    assert.equal(messages.some(m=>m.type==='RUN'),false,'Start waits for the source choice too');
+    root.getElementById('sender-excel').click();await until(()=>messages.some(m=>m.type==='RUN'));
     assert.equal(messages.find(m=>m.type==='RUN').tabId,7);assert.equal(messages.some(m=>m.type==='OPEN_MILE'),false);
     listener({type:'CN23_BATCH_DONE',total:1},null,()=>{});assert.match(w.document.getElementById('mile-cn23-complete').textContent,/Selesai: seluruh 1 kiriman/);
     root.getElementById('reset').click();await sleep(30);
     assert.equal(messages.some(m=>m.type==='RESET'),true);assert.equal(root.getElementById('fileName').textContent,'');assert.equal(state.rows.length,0);
     Object.defineProperty(root.getElementById('file'),'files',{configurable:true,value:[{name:'data-baru.xlsx',size:buffer.byteLength,arrayBuffer:async()=>buffer}]});
-    root.getElementById('file').dispatchEvent(new w.Event('change'));await sleep(100);
+    root.getElementById('file').dispatchEvent(new w.Event('change'));await until(()=>root.getElementById('sender-choice'));
+    root.getElementById('sender-cancel').click();await sleep(20);
+    assert.equal(state.rows.length,0,'Cancel upload must not import or replace the queue');
+    root.getElementById('file').dispatchEvent(new w.Event('change'));await until(()=>root.getElementById('sender-choice'));
+    root.getElementById('sender-mile').click();await until(()=>state.fileName==='data-baru.xlsx');
     assert.equal(state.fileName,'data-baru.xlsx');assert.equal(root.getElementById('fileName').textContent,'data-baru.xlsx');
+    assert.equal(state.options.senderSource,'mile');assert.match(root.getElementById('senderSource').textContent,/data pelanggan Mile/);
+    await until(()=>!root.getElementById('start').disabled);root.getElementById('start').click();await until(()=>root.getElementById('sender-choice'));
+    root.getElementById('sender-cancel').click();await sleep(20);
+    assert.equal(messages.filter(m=>m.type==='RUN').length,1,'Cancel Start must not start a shipment');
+    root.getElementById('start').click();await until(()=>root.getElementById('sender-choice'));
+    root.getElementById('sender-mile').click();await until(()=>messages.filter(m=>m.type==='RUN').length===2);
+    assert.equal(messages.filter(m=>m.type==='RUN')[1].senderSource,'mile');
+    await until(()=>!root.getElementById('start').disabled);root.getElementById('start').click();await until(()=>messages.some(m=>m.type==='PAUSE'));
+    assert.equal(root.getElementById('sender-choice'),null,'Pause never asks for a new source');
+    await until(()=>!root.getElementById('start').disabled);
     listener({type:'CN23_PANEL_TOGGLE',tabId:7},null,()=>{});assert.equal(w.document.getElementById('mile-cn23-menu'),null);
   }finally{w.close();}
 });

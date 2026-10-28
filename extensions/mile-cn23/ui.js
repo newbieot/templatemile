@@ -28,18 +28,42 @@
     noticeTimer=setTimeout(hideNotice,remaining);
   }
   function show(tabId, toggle = false) {
-    if (menu) { if (toggle) {clearInterval(menu.timer);menu.host.remove();menu=null;void request('PANEL_VISIBILITY',{open:false}).catch(()=>{});} return; }
+    if (menu) { if (toggle) {menu.cancelChoice?.();clearInterval(menu.timer);menu.host.remove();menu=null;void request('PANEL_VISIBILITY',{open:false}).catch(()=>{});} return; }
     const host = document.createElement('aside');host.id='mile-cn23-menu';
     host.style.cssText='position:fixed;right:16px;bottom:16px;width:360px;max-width:calc(100vw - 32px);z-index:2147483647';
     const root = host.attachShadow({mode:'closed'});
     root.innerHTML=`<style>:host{font:14px Arial;color:#112b46}.box{background:white;border:1px solid #cbd5e1;border-radius:14px;padding:18px;box-shadow:0 8px 36px #0005}h3{margin:0 0 12px;font-size:18px}.actions{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:9px;padding:12px 16px;cursor:pointer;background:#e2e8f0;color:#112b46;font:bold 14px Arial}#start{background:#2563eb;color:white}button:disabled{opacity:.5;cursor:default}p{margin:12px 0 0;line-height:1.45;overflow-wrap:anywhere}small{display:block;margin-top:6px;color:#64748b}#error{color:#b91c1c}input{display:none}</style><div class="box"><h3>Mile CN23 · ${MileCN23.VERSION}</h3><div class="actions"><button id="upload">Upload Excel</button><button id="start" disabled>Start</button><button id="reset" disabled>Reset</button></div><input id="file" type="file" accept=".xlsx"><p id="status" role="status">Pilih Excel Antrean CN23.</p><small id="fileName"></small><p id="error" role="alert"></p></div>`;
     document.body.append(host);
+    root.querySelector('.box').style.cssText='max-height:80vh;overflow-y:auto';
     const get=id=>root.getElementById(id);
     let state={rows:[]},busy=false,localError='';
+    const sourceLabel=document.createElement('small');sourceLabel.id='senderSource';get('fileName').after(sourceLabel);
+    async function chooseSender(rows,stage) {
+      if(!rows.some(row=>(row.data||row).customer_mode==='KORPORAT'))return 'excel';
+      const choice=document.createElement('section');choice.id='sender-choice';choice.setAttribute('role','dialog');choice.setAttribute('aria-labelledby','sender-title');
+      choice.style.cssText='margin-top:14px;border-top:1px solid #cbd5e1;padding-top:12px';
+      const title=document.createElement('p');title.id='sender-title';title.textContent=`${stage}: ikuti data pengirim di Excel?`;
+      const detail=document.createElement('p');detail.textContent='Pilihan berlaku untuk nama, nomor telepon, dan alamat pengirim korporat. Data pengirim ritel selalu mengikuti Excel.';
+      const actions=document.createElement('div');actions.className='actions';actions.style.marginTop='12px';
+      choice.append(title,detail,actions);root.querySelector('.box').append(choice);
+      return new Promise(resolve=>{
+        const finish=value=>{choice.remove();if(menu?.host===host)menu.cancelChoice=null;resolve(value);};
+        for(const [id,label,value] of [['sender-excel','Ikuti Excel','excel'],['sender-mile','Ikuti Mile','mile'],['sender-cancel','Batal',null]]) {
+          const button=document.createElement('button');button.id=id;button.type='button';button.textContent=label;
+          button.addEventListener('click',()=>finish(value),{once:true});actions.append(button);
+        }
+        choice.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();finish(null);}});
+        menu.cancelChoice=()=>finish(null);
+        get(state.options?.senderSource==='mile'?'sender-mile':'sender-excel').focus();
+      });
+    }
     async function task(fn){if(busy)return;busy=true;localError='';get('error').textContent='';render();try{await fn();}catch(error){localError=error.message;get('error').textContent=localError;render();}finally{busy=false;render();}}
     function render(){
       const doneCount=state.rows.filter(row=>row.status==='done').length;
       get('fileName').textContent=state.fileName||'';
+      sourceLabel.textContent=state.rows.length ? (state.rows.some(row=>row.data?.customer_mode==='KORPORAT')
+        ? `Pengirim korporat: ${state.options?.senderSource==='mile'?'data pelanggan Mile':'data Excel'} · Ritel: data Excel`
+        : 'Pengirim: data Excel') : '';
       const active=state.rows.find(row=>row.id===state.active?.id);
       const phase=state.active?.submittedAt?'Menunggu Mile membuka daftar transaksi':state.active?.phase==='customer_loading'?'Memuat pelanggan':state.active?'Mengisi':state.waitingNewForm?'Menunggu form berikutnya':state.running?'Melanjutkan':'Siap';
       get('status').textContent=state.completedAt&&doneCount===state.rows.length
@@ -59,17 +83,21 @@
     get('upload').addEventListener('click',()=>get('file').click());
     get('file').addEventListener('change',()=>task(async()=>{
       const file=get('file').files[0];if(!file)return;
+      get('file').value='';
       if(!/\.xlsx$/i.test(file.name)||file.size>10*1024*1024)throw new Error('Gunakan Excel Antrean CN23 .xlsx, maksimal 10 MB.');
       const buffer=await file.arrayBuffer();const workbook=XLSX.read(buffer,{type:'array',cellFormula:true});
       if(workbook.SheetNames.length!==1||workbook.SheetNames[0]!=='CN23_ANTREAN')throw new Error('Pilih Antrean CN23, bukan Excel lokal Batam.');
       const sheet=workbook.Sheets.CN23_ANTREAN;
       if(Object.values(sheet).some(cell=>cell?.f))throw new Error('Gunakan hasil ekspor tanpa formula.');
       const rows=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:true});MileCN23.validateRows(rows);
+      const senderSource=await chooseSender(rows,'Upload Excel');if(senderSource===null)return;
       const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',buffer))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
-      state=await request('IMPORT',{rows,batchId:digest,fileName:file.name});render();
+      state=await request('IMPORT',{rows,batchId:digest,fileName:file.name,senderSource});render();
     }));
     get('start').addEventListener('click',()=>task(async()=>{
-      state=await request(state.running?'PAUSE':'RUN',{tabId});render();
+      if(state.running){state=await request('PAUSE',{tabId});render();return;}
+      const senderSource=await chooseSender(state.rows.filter(row=>row.status!=='done'),'Start');if(senderSource===null)return;
+      state=await request('RUN',{tabId,senderSource});render();
     }));
     get('reset').addEventListener('click',()=>task(async()=>{
       state=await request('RESET');get('file').value='';localError='';render();

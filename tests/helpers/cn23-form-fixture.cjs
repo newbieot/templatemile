@@ -4,7 +4,7 @@ const {JSDOM}=require('jsdom');
 const assert=require('node:assert/strict');
 const Q=require('../../extensions/mile-cn23/queue.js');
 const {callbackOnly}=require('./cn23-chrome-compat.cjs');
-function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,serviceOptions=['PKH','PEK - Produk lain','PE - Pos Express'],corporate=false,payment='CREDIT',autoSubmit=true,maxCost=0,lateReference=false,transitionPayment=false,runtimeSend=null,onSubmit=null,legacyChrome=0}={}) {
+function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,serviceOptions=['PKH','PEK - Produk lain','PE - Pos Express'],corporate=false,payment='CREDIT',autoSubmit=true,maxCost=0,senderSource='excel',lateReference=false,transitionPayment=false,runtimeSend=null,onSubmit=null,legacyChrome=0}={}) {
   const dom=new JSDOM('<body></body>',{url:Q.FORM_URL,runScripts:'outside-only'});const w=dom.window,d=w.document;
   const webcrypto=require('node:crypto').webcrypto;
   Object.defineProperty(w,'crypto',{value:legacyChrome===88?{getRandomValues:array=>webcrypto.getRandomValues(array)}:webcrypto});
@@ -70,7 +70,7 @@ function fixture({filled=false,postal='29274',zone='29274',regionOptions=null,se
   w.eval(fs.readFileSync('extensions/mile-cn23/compat.js','utf8'));
   w.MileCN23=Q;w.eval(fs.readFileSync('extensions/mile-cn23/form.js','utf8'));
   const row={...Q.defaults,queue_id:'TEST-1',sender_name:'PENGIRIM',sender_phone:'0',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_phone:'0',recipient_address:'PENGALIHAN KERITANG',recipient_postcode:'29274',recipient_city:'INDRAGIRI HILIR',recipient_district:'KERITANG',recipient_village:'PENGALIHAN',service_code:'PKH',customer_mode:corporate?'KORPORAT':'RITEL',customer_code:'ACME',payment_method:corporate?payment:'CASH',ref_no:'TEST-1',description:'Dokumen',shipping_instruction:'Tolong diantar dengan baik'};
-  return{w,d,messages,remount:mount,receive(message){let answer;listener(message,null,value=>answer=value);return answer;},get enters(){return enters;},get paymentOpens(){return paymentOpens;},start(patch={},token='TOKEN'){listener({type:'CN23_FILL',token,row:{...row,...patch},options:{autoSubmit,maxCost}},null,()=>{});},pause(){listener({type:'CN23_PAUSE',token:'TOKEN'},null,()=>{});},get submits(){return submits;},close(){w.close();}};
+  return{w,d,messages,remount:mount,receive(message){let answer;listener(message,null,value=>answer=value);return answer;},get enters(){return enters;},get paymentOpens(){return paymentOpens;},start(patch={},token='TOKEN'){listener({type:'CN23_FILL',token,row:{...row,...patch},options:{autoSubmit,maxCost,senderSource}},null,()=>{});},pause(){listener({type:'CN23_PAUSE',token:'TOKEN'},null,()=>{});},get submits(){return submits;},close(){w.close();}};
 }
 
 module.exports={fixture};

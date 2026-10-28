@@ -3,7 +3,12 @@ importScripts('compat.js','queue.js');
 const Q=MileCN23, C=MileCN23Compat, KEY='mileCn23Queue';
 let chain=Promise.resolve();
 const serial=fn=>{const p=chain.then(fn);chain=p.catch(()=>{});return p;};
-const blank=()=>({version:5,helperVersion:Q.VERSION,rows:[],running:false,active:null,error:'',options:{autoAdvance:true,autoSubmit:true,maxCost:0}});
+const blank=()=>({version:5,helperVersion:Q.VERSION,rows:[],running:false,active:null,error:'',options:{autoAdvance:true,autoSubmit:true,maxCost:0,senderSource:'excel'}});
+function senderSource(value,fallback='excel') {
+  const source=value??fallback;
+  if(!['excel','mile'].includes(source))throw new Error('Pilih sumber data pengirim: Excel atau Mile.');
+  return source;
+}
 async function save(s){await C.call(chrome.storage.local,'set',{[KEY]:s});return s;}
 async function read(){
   const old=(await C.call(chrome.storage.local,'get',KEY))[KEY];
@@ -92,7 +97,8 @@ async function command(m,sender){
   }
   if(m.type==='IMPORT'){
     if(s.active||s.running||s.rows.some(r=>!['ready','done'].includes(r.status))||(s.rows.some(r=>r.status==='done')&&s.rows.some(r=>r.status!=='done')))throw new Error('Klik Reset untuk mengganti antrean lama.');
-    return save({...blank(),panelOpen:true,tabId:sender.tab.id,batchId:String(m.batchId),fileName:String(m.fileName),rows:Q.validateRows(m.rows)});
+    const next=blank();next.options.senderSource=senderSource(m.senderSource);
+    return save({...next,panelOpen:true,tabId:sender.tab.id,batchId:String(m.batchId),fileName:String(m.fileName),rows:Q.validateRows(m.rows)});
   }
   if(m.type==='RESET'){
     const next={...blank(),tabId:s.tabId||sender.tab.id,resetPanel:Boolean(s.active),panelOpen:true};
@@ -101,7 +107,7 @@ async function command(m,sender){
     if(s.active)await C.call(chrome.tabs,'update',next.tabId,{url:Q.FORM_URL,active:true});return next;
   }
   if(m.type==='RUN'){
-    s.tabId=sender.tab.id;s.options={autoAdvance:true,autoSubmit:true,maxCost:0};
+    s.tabId=sender.tab.id;s.options={autoAdvance:true,autoSubmit:true,maxCost:0,senderSource:senderSource(m.senderSource,s.options?.senderSource||'excel')};
     if(s.active?.submittedAt){s.running=true;s.error='';await save(s);return inspectNavigation(s,(await C.call(chrome.tabs,'get',s.tabId)).url);}
     if(s.active)throw new Error('Masih ada kiriman aktif.');
     s.rows.filter(r=>r.status==='error').forEach(r=>{r.status='ready';r.error='';});
@@ -120,7 +126,10 @@ async function command(m,sender){
     if(m.customerResolved){
       const row=s.rows.find(r=>r.id===s.active.id);
       if(row.data.customer_mode!=='KORPORAT'||s.active.phase!=='customer_loading')throw new Error('Pelanggan belum dimuat.');
-      for(const key of ['sender_name','sender_phone','sender_address']){const value=String(m.customerResolved[key]||'').trim();if(!value||value.length>1000)throw new Error('Data pengirim pelanggan belum lengkap.');row.data[key]=value;}
+      const resolved={};
+      for(const key of ['sender_name','sender_phone','sender_address']){const value=String(m.customerResolved[key]||'').trim();if(!value||value.length>1000)throw new Error('Data pengirim pelanggan belum lengkap.');resolved[key]=value;}
+      // Keep the imported Excel source intact for retry and a later source choice.
+      row.customerResolved=resolved;
     }
     s.active.phase=String(m.phase);if(sender.documentId)s.active.documentId=sender.documentId;return save(s);
   }

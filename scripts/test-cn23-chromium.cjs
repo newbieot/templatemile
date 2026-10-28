@@ -77,6 +77,12 @@ async function main(){
   const fileObject=await cdp.send('DOM.resolveNode',{backendNodeId:file.backendNodeId});
   await cdp.send('Runtime.callFunctionOn',{objectId:fileObject.object.objectId,functionDeclaration:'function(){this.dispatchEvent(new Event("input",{bubbles:true}));this.dispatchEvent(new Event("change",{bubbles:true}))}'});
   const getState=()=>worker.evaluate(()=>new Promise(resolve=>chrome.storage.local.get('mileCn23Queue',value=>resolve(value.mileCn23Queue))));
+  async function chooseExcelSender(){
+    const button=await wait(()=>element('sender-excel'),'sender source question');
+    const object=await cdp.send('DOM.resolveNode',{backendNodeId:button.backendNodeId});
+    await cdp.send('Runtime.callFunctionOn',{objectId:object.object.objectId,functionDeclaration:'function(){this.click()}'});
+  }
+  await chooseExcelSender();
   await wait(async()=>{const s=await getState();return s?.fileName===path.basename(workbookPath)&&s.rows.length===3;},'Excel imported');
   const start=await wait(async()=>{
     const button=await element('start');
@@ -84,6 +90,7 @@ async function main(){
   },'Start enabled after workbook import');
   const object=await cdp.send('DOM.resolveNode',{backendNodeId:start.backendNodeId});
   await cdp.send('Runtime.callFunctionOn',{objectId:object.object.objectId,functionDeclaration:'function(){this.click()}'});
+  await chooseExcelSender();
   const state=await wait(async()=>{const s=await getState();if(s?.error)throw new Error(s.error);return s?.completedAt?s:null;},'three real extension transactions');
   assert.equal(state.rows.length,3);assert.ok(state.rows.every(row=>row.status==='done'));
   assert.equal(state.active,null);assert.equal(state.running,false);
@@ -93,7 +100,7 @@ async function main(){
     assert.equal(s.recipient,rows[i].recipient_name.slice(0,30).trim());assert.equal(s.ref,rows[i].ref_no);
     assert.equal(s.address,rows[i].recipient_address.slice(0,80).trim());
     assert.equal(s.service,'PE - Pos Express');assert.equal(s.payment,['Cash','Invoice','CREDIT'][i]);
-    assert.equal(s.sender,i===0?'PENGIRIM EXCEL':'PELANGGAN RESMI');assert.equal(s.enters,i===0?0:1);
+    assert.equal(s.sender,rows[i].sender_name);assert.equal(s.enters,i===0?0:1);
     assert.equal(s.postcode,i===1?'29276':'29274');
     assert.equal(s.weight,rows[i].weight_kg);
   });
