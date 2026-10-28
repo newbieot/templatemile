@@ -5,7 +5,7 @@ const source = await fs.readFile(new URL('../_worker.js', import.meta.url), 'utf
 const worker = await import(`data:text/javascript;base64,${Buffer.from(`${source}\nexport { createSessionToken, aiUpstreamTimeoutMs };`).toString('base64')}`);
 const secret = 'camera-timeout-test-secret-1234567890';
 const token = await worker.createSessionToken({ v: 1, email: 'ikhsan@posnew.com', uid: 'timeout-test', exp: Math.floor(Date.now() / 1000) + 600 }, secret);
-const models = ['gemini-3.8-flash', 'claude-opus-4.8', 'claude-haiku-5.5', 'claude-sonnet-5'];
+const models = ['gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-opus-4.8', 'claude-haiku-5.5', 'claude-sonnet-5'];
 assert.equal(worker.aiUpstreamTimeoutMs(models[0], 'document'), 120000);
 assert.equal(worker.aiUpstreamTimeoutMs(models[3], 'document'), 150000);
 

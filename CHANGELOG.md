@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.57 — DeepSeek V4.1 Flash sebagai fallback otomatis
+
+- DeepSeek V4.1 Flash tersedia di pilihan model app, Beta, review kamera, serta allowlist browser/gateway.
+- Fallback otomatis kamera dan PDF ditetapkan Gemini 3.8 Flash → DeepSeek V4.1 Flash. Claude tetap dapat dipilih manual. Jika DeepSeek juga gagal, proses mempertahankan hasil/foto untuk dicoba ulang.
+- DeepSeek mendapat batas server 150 detik dan browser 165 detik, termasuk toleransi transport. Default Gemini dan aturan zona kode pos tetap berlaku.
+- Regresi mencakup pengiriman gambar, mode JSON DeepSeek, fallback/timeout dua model, serta kesamaan katalog halaman dan gateway. Versi aset diperbarui agar pilihan DeepSeek langsung dimuat setelah reload.
+
 ## v26.56 — Model OCR aktif, batas waktu lebih panjang, dan zona 294xx
 
 - App, Beta, review kamera, dan gateway memakai katalog yang sama: Gemini 3.8 Flash, Claude Haiku 5.5, Claude Sonnet 5, dan Claude Opus 4.8. Default Gemini 3.8, fallback Haiku 5.5 lalu Sonnet 5. Gemini lama dan model yang dukungan gambar pada rutenya belum dapat dipastikan dikeluarkan.

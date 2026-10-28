@@ -3,28 +3,28 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v26.54...
+echo Memeriksa mile.posnew.com Secure Gateway v26.57...
 echo.
 
-findstr /c:"20261028-26.56-ocr-models" "_worker.js" >nul && echo [OK] Gateway OCR v26.56 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20261028-26.57-deepseek-restored" "_worker.js" >nul && echo [OK] Gateway OCR v26.57 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 7 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 7 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const AUDIT_AI_CONCURRENCY = 2" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Audit memakai maksimal 2 request paralel || (echo [GAGAL] Concurrency audit tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Gemini 3.8 Flash menjadi default kamera || (echo [GAGAL] Default Gemini tidak ditemukan & set "FAIL=1")
-findstr /c:"CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_R2_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kamera Gemini 3.8 langsung ke DeepSeek aktif || (echo [GAGAL] Rantai fallback kamera tidak sesuai & set "FAIL=1")
+findstr /c:"CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kamera Gemini 3.8 langsung ke DeepSeek aktif || (echo [GAGAL] Rantai fallback kamera tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v16.42" "app.html" >nul && echo [OK] Workspace v16.42 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"v26.57" "app.html" >nul && echo [OK] Workspace v26.57 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Gemini 3.8 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.8 browser tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "_worker.js" >nul && echo [OK] Gemini 3.8 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.8 gateway tidak ditemukan & set "FAIL=1")
-findstr /c:"qwen-3.7-flash" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Qwen 3.7 Flash diizinkan browser || (echo [GAGAL] Qwen 3.7 Flash browser tidak ditemukan & set "FAIL=1")
-findstr /c:"qwen-3.7-flash" "_worker.js" >nul && echo [OK] Qwen 3.7 Flash diizinkan gateway || (echo [GAGAL] Qwen 3.7 Flash gateway tidak ditemukan & set "FAIL=1")
-findstr /c:"GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback Gemini 3.8 ke 3.7 ke 3.6 aktif || (echo [GAGAL] Rantai fallback Gemini tidak ditemukan & set "FAIL=1")
+findstr /c:"deepseek-v4.1-flash" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] DeepSeek V4.1 Flash diizinkan browser || (echo [GAGAL] DeepSeek V4.1 Flash browser tidak ditemukan & set "FAIL=1")
+findstr /c:"deepseek-v4.1-flash" "_worker.js" >nul && echo [OK] DeepSeek V4.1 Flash diizinkan gateway || (echo [GAGAL] DeepSeek V4.1 Flash gateway tidak ditemukan & set "FAIL=1")
+findstr /c:"OCR_FALLBACK_CHAIN = CAMERA_FALLBACK_CHAIN" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback PDF Gemini ke DeepSeek aktif || (echo [GAGAL] Rantai fallback Gemini tidak ditemukan & set "FAIL=1")
 findstr /c:"delete adapted.temperature" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Payload Gemini bebas parameter sampling lama || (echo [GAGAL] Kompatibilitas payload Gemini tidak ditemukan & set "FAIL=1")
 findstr /c:"const GEMINI_REASONING_EFFORT = 'medium'" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Reasoning effort Gemini medium || (echo [GAGAL] Reasoning effort Gemini medium tidak ditemukan & set "FAIL=1")
 findstr /c:"type: 'json_schema'" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] JSON schema Gemini aktif || (echo [GAGAL] JSON schema Gemini tidak ditemukan & set "FAIL=1")
 findstr /c:"onStructuredFallback" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kompatibilitas schema aktif || (echo [GAGAL] Fallback schema tidak ditemukan & set "FAIL=1")
-findstr /c:"Gemini 3.6 Flash" "app.html" >nul && echo [OK] Gemini 3.6 tetap tersedia sebagai fallback || (echo [GAGAL] Fallback Gemini 3.6 tidak ditemukan & set "FAIL=1")
+findstr /c:"Claude Sonnet 5" "app.html" >nul && echo [OK] Gemini 3.6 tetap tersedia sebagai fallback || (echo [GAGAL] Fallback Claude Sonnet 5 tidak ditemukan & set "FAIL=1")
 
 findstr /c:"value=\"15\" selected" "app.html" >nul && echo [OK] Default Gemini 15 halaman || (echo [GAGAL] Default Gemini 15 halaman tidak ditemukan & set "FAIL=1")
 findstr /c:"value=\"3\" selected" "app.html" >nul && echo [OK] Default Gemini 3 jalur || (echo [GAGAL] Default Gemini 3 jalur tidak ditemukan & set "FAIL=1")

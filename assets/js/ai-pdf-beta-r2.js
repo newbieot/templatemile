@@ -26,7 +26,7 @@
   const SMART_CONFIDENCE_THRESHOLD = 0.82;
   const CAMERA_AUDIT_CONFIDENCE_THRESHOLD = 0.65;
   const MAX_RETRIES = 3;
-  // Gateway budgets are 120s Gemini / 150s Claude. Allow 15s for transport.
+  // Gateway budgets are 120s Gemini / 150s other models. Allow 15s for transport.
   const REQUEST_TIMEOUT_MS = 165 * 1000;
   const GEMINI_REQUEST_TIMEOUT_MS = 135 * 1000;
   const GEMINI_MAX_ATTEMPTS = 2;
@@ -48,9 +48,10 @@
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
-    'gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
+    'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
+  const DEEPSEEK_MODEL = 'deepseek-v4.1-flash';
   const DEFAULT_MODEL = GEMINI_38_MODEL;
   const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL;
   const CAMERA_BATCH_SIZE = 7;
@@ -59,10 +60,9 @@
   // New captures are JPEG <= 120 KB. Older large captures are resized only
   // when needed so a seven-image batch still fits the gateway's JSON limit.
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
-  const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5.5';
-  const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5';
-  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
-  const OCR_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
+  const PRIMARY_FALLBACK_MODEL = DEEPSEEK_MODEL;
+  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_MODEL]);
+  const OCR_FALLBACK_CHAIN = CAMERA_FALLBACK_CHAIN;
   const activeControllers = new Set();
   const geminiStructuredOutputUnsupported = new Set();
   const geminiReasoningEffortUnsupported = new Set();
@@ -366,7 +366,7 @@
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
       fast: isGeminiModel($('aiModel')?.value)
         ? 'Mode Gemini akurat: 15 halaman × 3 jalur dengan reasoning medium.'
-        : 'Mode OCR Claude: maksimal 15 halaman × 5 jalur.',
+        : 'Mode OCR: maksimal 15 halaman × 5 jalur.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -386,7 +386,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Gambar 1150 px disiapkan maksimal 2 bersamaan dan dikirim langsung. Profil Gemini memakai maksimal 15 halaman × 3 jalur; Claude maksimal 15 halaman × 5 jalur.',
+      normal: 'Gambar 1150 px disiapkan maksimal 2 bersamaan dan dikirim langsung. Profil Gemini memakai maksimal 15 halaman × 3 jalur; DeepSeek dan Claude maksimal 15 halaman × 5 jalur.',
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -520,8 +520,9 @@
 
   function shortModelLabel(model) {
     if (model === GEMINI_38_MODEL) return 'Gemini 3.8';
-    if (model === PRIMARY_FALLBACK_MODEL) return 'Claude Haiku 5.5';
-    if (model === SECONDARY_FALLBACK_MODEL) return 'Claude Sonnet 5';
+    if (model === DEEPSEEK_MODEL) return 'DeepSeek V4.1 Flash';
+    if (model === 'claude-haiku-5.5') return 'Claude Haiku 5.5';
+    if (model === 'claude-sonnet-5') return 'Claude Sonnet 5';
     if (model === 'claude-opus-4.8') return 'Claude Opus 4.8';
     return String(model || 'AI');
   }

@@ -1,4 +1,4 @@
-/* mile.posnew.com AI PDF runtime — Gemini 3.8 → 3.7 → 3.6 fallback */
+/* mile.posnew.com AI PDF runtime — current OCR model catalog */
 (() => {
   'use strict';
 
@@ -33,13 +33,12 @@
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
-    'gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
+    'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
   ]);
   const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
-  const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5.5';
-  const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5';
-  const GEMINI_FALLBACK_CHAIN = Object.freeze([DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
+  const PRIMARY_FALLBACK_MODEL = 'deepseek-v4.1-flash';
+  const GEMINI_FALLBACK_CHAIN = Object.freeze([DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
   let runtimeFallbackModel = '';

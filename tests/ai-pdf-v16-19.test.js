@@ -68,14 +68,12 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
-assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5\.5'/);
-assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5'/);
-assert.match(aiRuntimeSource, /Object\.freeze\(\[DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
+assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'deepseek-v4\.1-flash'/);
+assert.match(aiRuntimeSource, /Object\.freeze\(\[DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL\]\)/);
 assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
 assert.match(appHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default OCR<\/option>/);
-assert.match(appHtmlSource, /<option value="claude-haiku-5\.5">Claude Haiku 5\.5 · Fallback pertama<\/option>/);
-assert.match(appHtmlSource, /<option value="claude-sonnet-5">Claude Sonnet 5 · Fallback kedua<\/option>/);
-assert.doesNotMatch(appHtmlSource, /value="(?:deepseek|qwen|glm|gemini-3\.[1567])/);
+assert.match(appHtmlSource, /<option value="deepseek-v4\.1-flash">DeepSeek V4\.1 Flash · Fallback otomatis<\/option>/);
+assert.doesNotMatch(appHtmlSource, /value="(?:qwen|glm|gemini-3\.[1567])/);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
@@ -228,14 +226,14 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 404 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'claude-haiku-5.5' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-haiku-5.5' }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'deepseek-v4.1-flash' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'claude-sonnet-5' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 
 async function runFallbackAssertions() {
   const responses = [
     { status: 404, body: { error: { message: 'Gemini 3.8 unavailable' } } },
-    { status: 503, body: { error: { message: 'Gemini 3.7 unavailable' } } },
     { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } },
     { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
   ];
@@ -275,21 +273,21 @@ async function runFallbackAssertions() {
   const firstPayload = await ai.callProxyWithRetry(config, body, 'kelompok pertama', {
     onFallback() { fallbackEvents++; }
   });
-  assert.equal(firstPayload._mileEffectiveModel, 'claude-sonnet-5');
-  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5']);
-  assert.equal(fallbackEvents, 2);
+  assert.equal(firstPayload._mileEffectiveModel, 'deepseek-v4.1-flash');
+  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'deepseek-v4.1-flash']);
+  assert.equal(fallbackEvents, 1);
 
   const secondPayload = await ai.callProxyWithRetry(config, body, 'kelompok kedua');
-  assert.equal(secondPayload._mileEffectiveModel, 'claude-sonnet-5');
+  assert.equal(secondPayload._mileEffectiveModel, 'deepseek-v4.1-flash');
   assert.deepEqual(requestedModels, [
-    'gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-sonnet-5'
+    'gemini-3.8-flash', 'deepseek-v4.1-flash', 'deepseek-v4.1-flash'
   ]);
 
   for (const address of ['BELAKANG PADANG KOTA BATAM 29491', 'BELAKANGPADANG BATAM', '29492']) {
     assert.equal(ai.classifyOutsideBatam(address, false).outside, true, address);
   }
   assert.equal(ai.classifyOutsideBatam('SEMBULANG GALANG BATAM 29481', true).outside, false);
-  console.log('PASS ai-pdf-v16-19: extraction, Claude parameter compatibility, Gemini → Haiku → Sonnet fallback');
+  console.log('PASS ai-pdf-v16-19: extraction, Claude manual compatibility, Gemini → DeepSeek V4.1 Flash fallback');
 }
 
 runFallbackAssertions().catch(error => {

@@ -14,7 +14,7 @@ Di Galeri, foto yang ditandai memiliki tombol **Gambar tidak buram**. Gunakan bi
 
 ## Model OCR web terbaru
 
-Review web yang dibuka APK mengikuti konfigurasi server terbaru. Mulai v26.56, default adalah **Gemini 3.8 Flash**, dengan fallback **Claude Haiku 5.5 → Claude Sonnet 5**. Gateway memberi Gemini 120 detik dan Claude 150 detik, termasuk membaca respons lengkap; browser menambahkan toleransi transport 15 detik. Retry kompatibilitas kamera berbagi sisa anggaran model yang sama. Kelompok yang sudah berhasil dipertahankan, dan antrean melewati model yang gagal. [Katalog OCR dan verifikasi](ocr-models-20261028.md).
+Review web yang dibuka APK mengikuti konfigurasi server terbaru. Mulai v26.57, default adalah **Gemini 3.8 Flash**, dengan fallback **DeepSeek V4.1 Flash**. Gateway memberi Gemini 120 detik dan DeepSeek 150 detik, termasuk membaca respons lengkap; browser menambahkan toleransi transport 15 detik. Retry kompatibilitas kamera berbagi sisa anggaran model yang sama. Kelompok yang sudah berhasil dipertahankan, dan antrean melewati model yang gagal. [Katalog OCR dan verifikasi](ocr-models-20261028.md).
 
 ## Build dan verifikasi
 

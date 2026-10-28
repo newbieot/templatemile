@@ -2,9 +2,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { JSDOM } = require('jsdom');
 
-const catalog = ['gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'];
+const catalog = ['gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'];
 const removed = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro',
-  'deepseek-v4.1-flash', 'deepseek-v4-pro', 'qwen-3.7-plus', 'qwen-3.8-flash', 'glm-5.3', 'claude-sonnet-4.5'];
+  'deepseek-v4-pro', 'qwen-3.7-plus', 'qwen-3.8-flash', 'glm-5.3', 'claude-sonnet-4.5'];
 const imageUrl = 'data:image/jpeg;base64,/9j/2Q==';
 
 require('node:test')('OCR catalog, compatible requests and image-only probe', { timeout: 15000 }, async () => {
@@ -54,6 +54,9 @@ require('node:test')('OCR catalog, compatible requests and image-only probe', { 
         assert.equal(body.messages[1].content.find(part => part.type === 'image_url').image_url.url, imageUrl);
         if (model.startsWith('claude-')) {
           for (const key of ['response_format', 'reasoning_effort', 'temperature', 'top_p']) assert.equal(key in body, false, `${model}: ${key}`);
+        } else if (model === 'deepseek-v4.1-flash') {
+          assert.equal(body.response_format.type, 'json_object');
+          assert.equal('reasoning_effort' in body, false);
         } else assert.equal(body.response_format.type, 'json_schema');
       }
       for (const model of removed) {

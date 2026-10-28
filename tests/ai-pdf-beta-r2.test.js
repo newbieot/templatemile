@@ -100,9 +100,9 @@ assert.match(aiRuntimeSource, /const GEMINI_MAX_ATTEMPTS = 2/);
 assert.match(aiRuntimeSource, /const GEMINI_RETRY_DELAY_MS = 500/);
 assert.match(aiRuntimeSource, /while \(inFlight\.size >= activeAiLimit\)/);
 assert.match(aiRuntimeSource, /activeAiLimit = workerCount/);
-assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5\.5'/);
-assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5'/);
-assert.match(aiRuntimeSource, /Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
+assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = DEEPSEEK_MODEL/);
+assert.match(aiRuntimeSource, /const OCR_FALLBACK_CHAIN = CAMERA_FALLBACK_CHAIN/);
+assert.match(aiRuntimeSource, /Object\.freeze\(\[GEMINI_38_MODEL, DEEPSEEK_MODEL\]\)/);
 assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
 assert.doesNotMatch(aiRuntimeSource, /DEEPSEEK_R2_MODEL/);
 assert.match(aiRuntimeSource, /return publicUrl \? payload\.url : \(payload\.ref \|\| payload\.url\)/);
@@ -115,11 +115,10 @@ assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/)
 assert.match(aiRuntimeSource, /const runAudit = createTaskPool\(auditWorkerCount\)/);
 assert.match(aiRuntimeSource, /Promise\.all\(audits\.map\(audit => runAudit/);
 assert.match(betaHtmlSource, /Turbo langsung · Gemini 15 halaman × 3 jalur · Default/);
-assert.match(betaHtmlSource, /Secure Gateway · Beta v26\.56/);
+assert.match(betaHtmlSource, /Secure Gateway · Beta v26\.57/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default OCR<\/option>/);
-assert.match(betaHtmlSource, /<option value="claude-haiku-5\.5">Claude Haiku 5\.5 · Fallback pertama<\/option>/);
-assert.match(betaHtmlSource, /<option value="claude-sonnet-5">Claude Sonnet 5 · Fallback kedua<\/option>/);
-assert.doesNotMatch(betaHtmlSource, /value="(?:deepseek|qwen|glm|gemini-3\.[1567])/);
+assert.match(betaHtmlSource, /<option value="deepseek-v4\.1-flash">DeepSeek V4\.1 Flash · Fallback otomatis<\/option>/);
+assert.doesNotMatch(betaHtmlSource, /value="(?:qwen|glm|gemini-3\.[1567])/);
 assert.match(betaHtmlSource, /<option value="15" selected>15 halaman · preset Turbo<\/option>/);
 assert.match(betaHtmlSource, /<option value="3" selected>3 jalur · preset Gemini<\/option>/);
 assert.match(aiRuntimeSource, /createBetaProbeBlob/);
@@ -132,7 +131,8 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503, details: { error: { source: 'r2-bridge' } } }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'claude-haiku-5.5' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-haiku-5.5' }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'deepseek-v4.1-flash' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'claude-sonnet-5' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 sandbox.navigator.onLine = true;
@@ -333,8 +333,6 @@ async function runAsyncAssertions() {
   const responses = [
     { status: 404, body: { error: { message: 'No active credentials for provider: antigravity' } } },
     { status: 404, body: { error: { message: 'No active credentials for provider: antigravity' } } },
-    { status: 503, body: { error: { message: 'Gemini 3.7 temporarily unavailable' } } },
-    { status: 503, body: { error: { message: 'Gemini 3.7 temporarily unavailable' } } },
     { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } },
     { status: 200, body: { choices: [{ message: { content: '{"rows":[]}' } }] } }
   ];
@@ -378,16 +376,15 @@ async function runAsyncAssertions() {
   const firstPayload = await ai.callProxyWithRetry(config, body, 'kelompok pertama', {
     onFallback() { fallbackEvents++; }
   });
-  assert.equal(firstPayload._mileEffectiveModel, 'claude-sonnet-5');
-  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5']);
-  assert.equal(fallbackEvents, 2);
+  assert.equal(firstPayload._mileEffectiveModel, 'deepseek-v4.1-flash');
+  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'deepseek-v4.1-flash']);
+  assert.equal(fallbackEvents, 1);
 
   const secondPayload = await ai.callProxyWithRetry(config, body, 'kelompok kedua');
   assert.equal(secondPayload._mileEffectiveModel, 'gemini-3.8-flash');
   assert.deepEqual(requestedModels, [
     'gemini-3.8-flash', 'gemini-3.8-flash',
-    'claude-haiku-5.5', 'claude-haiku-5.5',
-    'claude-sonnet-5', 'gemini-3.8-flash'
+    'deepseek-v4.1-flash', 'gemini-3.8-flash'
   ]);
 
   responses.push(
@@ -439,7 +436,7 @@ async function runAsyncAssertions() {
     assert.equal(ai.classifyOutsideBatam(address, false).outside, true, address);
   }
   assert.equal(ai.classifyOutsideBatam('SEMBULANG GALANG BATAM 29481', true).outside, false);
-  console.log('PASS ai-pdf-beta-r2: Gemini 15 × 3, schema/reasoning compatibility, current Claude OCR fallback');
+  console.log('PASS ai-pdf-beta-r2: Gemini 15 × 3, schema/reasoning compatibility, DeepSeek V4.1 Flash fallback');
 }
 
 runAsyncAssertions().catch(error => {
