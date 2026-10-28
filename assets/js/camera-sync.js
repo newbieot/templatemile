@@ -336,7 +336,9 @@
   function formatModel(model) {
     const labels = {
       'gemini-3.8-flash': 'Gemini 3.8 Flash',
-      'gemini-3.7-flash': 'Gemini 3.7 Flash',
+      'claude-haiku-5.5': 'Claude Haiku 5.5',
+      'claude-sonnet-5': 'Claude Sonnet 5',
+      'claude-opus-4.8': 'Claude Opus 4.8',
       'glm-5.3-flashx': 'GLM 5.3 FlashX',
       'glm-5.3': 'GLM 5.3',
       'glm-5.3-flash': 'GLM 5.3 Flash'

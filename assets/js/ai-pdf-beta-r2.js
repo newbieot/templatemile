@@ -1,4 +1,4 @@
-/* mile.posnew.com beta AI PDF runtime — DeepSeek R2 URL default pipeline */
+/* mile.posnew.com AI PDF/camera runtime — current OCR-capable CosmosHub models */
 (() => {
   'use strict';
 
@@ -26,12 +26,13 @@
   const SMART_CONFIDENCE_THRESHOLD = 0.82;
   const CAMERA_AUDIT_CONFIDENCE_THRESHOLD = 0.65;
   const MAX_RETRIES = 3;
-  const REQUEST_TIMEOUT_MS = 3 * 60 * 1000;
-  const GEMINI_REQUEST_TIMEOUT_MS = 75 * 1000;
+  // Gateway budgets are 120s Gemini / 150s Claude. Allow 15s for transport.
+  const REQUEST_TIMEOUT_MS = 165 * 1000;
+  const GEMINI_REQUEST_TIMEOUT_MS = 135 * 1000;
   const GEMINI_MAX_ATTEMPTS = 2;
   const GEMINI_RETRY_DELAY_MS = 500;
-  const CAMERA_REQUEST_TIMEOUT_MS = 30 * 1000;
-  const CAMERA_GEMINI_38_TIMEOUT_MS = 35 * 1000;
+  const CAMERA_REQUEST_TIMEOUT_MS = 165 * 1000;
+  const CAMERA_GEMINI_38_TIMEOUT_MS = 135 * 1000;
   const CAMERA_MODEL_MAX_ATTEMPTS = 1;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
@@ -44,20 +45,13 @@
   const GEMINI_MAX_AI_CONCURRENCY = 3;
   const GEMINI_REASONING_EFFORT = 'medium';
   const AUDIT_AI_CONCURRENCY = 2;
-  const BETA_PROBE_CODE = 'MILE38';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
-    'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
-    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
-    'deepseek-v4.1-flash','deepseek-v4-pro',
-    'qwen-3.8-flash','qwen-3.7-plus','qwen-3.7-flash',
-    'glm-5.3','glm-5.3-flashx','glm-5.3-flash'
+    'gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
-  const GEMINI_31_PRO_MODEL = 'gemini-3.1-pro';
-  const DEEPSEEK_R2_MODEL = 'deepseek-v4.1-flash';
-  const DEFAULT_MODEL = DEEPSEEK_R2_MODEL;
+  const DEFAULT_MODEL = GEMINI_38_MODEL;
   const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL;
   const CAMERA_BATCH_SIZE = 7;
   const CAMERA_AI_CONCURRENCY = 7;
@@ -65,13 +59,10 @@
   // New captures are JPEG <= 120 KB. Older large captures are resized only
   // when needed so a seven-image batch still fits the gateway's JSON limit.
   const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 * 1024 * 1024;
-  const CAMERA_MODELS = new Set([
-    GEMINI_38_MODEL, GEMINI_31_PRO_MODEL, 'gemini-3.7-flash', DEEPSEEK_R2_MODEL
-  ]);
-  const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
-  const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
-  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_R2_MODEL]);
-  const GEMINI_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
+  const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5.5';
+  const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5';
+  const CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
+  const OCR_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   const geminiStructuredOutputUnsupported = new Set();
   const geminiReasoningEffortUnsupported = new Set();
@@ -157,6 +148,11 @@
       if (!geminiStructuredOutputUnsupported.has(model)) {
         adapted.response_format = rowsResponseFormat(Boolean(config.cameraDirect));
       }
+    } else if (String(model).startsWith('claude-')) {
+      // Anthropic routes use the JSON prompt rather than OpenAI JSON mode;
+      // recent Claude models also reject temperature/top_p controls.
+      delete adapted.temperature;
+      delete adapted.top_p;
     } else {
       adapted.response_format = { type: 'json_object' };
       adapted.temperature ??= 0;
@@ -214,7 +210,7 @@
     const cameraDirect = isCameraDirectMode();
     const protocol = 'openai';
     const selectedModel = String($('aiModel')?.value || (cameraDirect ? CAMERA_DEFAULT_MODEL : pageDefaultModel())).trim();
-    const model = cameraDirect && !CAMERA_MODELS.has(selectedModel) ? CAMERA_DEFAULT_MODEL : selectedModel;
+    const model = COSMOS_MODELS.has(selectedModel) ? selectedModel : (cameraDirect ? CAMERA_DEFAULT_MODEL : pageDefaultModel());
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
     const defaultPreset = speedPresetForModel(DEFAULT_SPEED_PRESET, model);
@@ -325,8 +321,7 @@
       if ($('aiConcurrency')) $('aiConcurrency').value = String(CAMERA_AI_CONCURRENCY);
       return;
     }
-    // Setiap halaman dapat menentukan default PDF sendiri. Halaman utama memakai
-    // Gemini langsung tanpa R2, sedangkan halaman eksperimen tetap memakai DeepSeek.
+    // Removed model choices from old sessions return to the current page default.
     if ($('aiModel')) $('aiModel').value = pageDefaultModel();
     try {
       // Hapus konfigurasi lama agar mode Auto/Hemat data tidak terbawa sebagai default.
@@ -367,12 +362,11 @@
       hint.textContent = `Mode Kamera: ${CAMERA_BATCH_SIZE} gambar per permintaan, hingga ${CAMERA_AI_CONCURRENCY} permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah atau data utama tidak terbaca.`;
       return;
     }
-    const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
     const descriptions = {
       medium: '5 halaman × 2 jalur, audit kedua untuk semua kelompok. Paling aman untuk scan sulit.',
-      fast: usesDeepSeekR2Url
-        ? 'Mode Turbo R2: dua gambar ringan disiapkan bersamaan, diunggah ke R2, lalu DeepSeek menjalankan 5 jalur berisi maksimal 15 halaman melalui URL sementara.'
-        : 'Mode Gemini akurat: 15 halaman × 3 jalur dengan reasoning medium.',
+      fast: isGeminiModel($('aiModel')?.value)
+        ? 'Mode Gemini akurat: 15 halaman × 3 jalur dengan reasoning medium.'
+        : 'Mode OCR Claude: maksimal 15 halaman × 5 jalur.',
       custom: 'Nilai halaman dan paralel diatur manual. Audit kedua dijalankan secara adaptif.'
     };
     hint.textContent = descriptions[presetName] || descriptions.custom;
@@ -389,13 +383,10 @@
     const profile = resolveNetworkProfile(mode);
     const signals = connectionSignals();
     const connectionNote = signals.online ? '' : ' Status LAN belum dapat dipastikan; aplikasi tetap akan mencoba server.';
-    const usesDeepSeekR2Url = $('aiModel')?.value === DEEPSEEK_R2_MODEL;
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: usesDeepSeekR2Url
-        ? 'Mode Turbo R2 aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu DeepSeek menerima URL R2 sementara dalam kelompok 15 halaman × 5 jalur.'
-        : 'Mode Gemini aktif: gambar 1150 px disiapkan maksimal 2 bersamaan, lalu dikirim dalam kelompok 15 halaman × 3 jalur dengan reasoning medium.',
+      normal: 'Gambar 1150 px disiapkan maksimal 2 bersamaan dan dikirim langsung. Profil Gemini memakai maksimal 15 halaman × 3 jalur; Claude maksimal 15 halaman × 5 jalur.',
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -529,9 +520,9 @@
 
   function shortModelLabel(model) {
     if (model === GEMINI_38_MODEL) return 'Gemini 3.8';
-    if (model === PRIMARY_FALLBACK_MODEL) return 'Gemini 3.7';
-    if (model === SECONDARY_FALLBACK_MODEL) return 'Gemini 3.6';
-    if (model === DEEPSEEK_R2_MODEL) return 'DeepSeek V4.1';
+    if (model === PRIMARY_FALLBACK_MODEL) return 'Claude Haiku 5.5';
+    if (model === SECONDARY_FALLBACK_MODEL) return 'Claude Sonnet 5';
+    if (model === 'claude-opus-4.8') return 'Claude Opus 4.8';
     return String(model || 'AI');
   }
 
@@ -839,7 +830,19 @@
     });
   }
 
-  async function createBetaProbeBlob() {
+  function createOcrProbe() {
+    const bytes = crypto.getRandomValues(new Uint8Array(6));
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const code = Array.from(bytes, value => alphabet[value % alphabet.length]).join('');
+    return { code, prompt: 'Baca kode enam karakter pada gambar. Balas HANYA JSON valid dengan satu properti code berisi kode yang terbaca. Jangan menebak jika gambar tidak dapat dibaca.' };
+  }
+
+  function verifyOcrProbe(text, expected) {
+    try { return String(findBalancedJson(text).code || '').trim().toUpperCase() === expected; }
+    catch { return false; }
+  }
+
+  async function createBetaProbeBlob(code) {
     const canvas = document.createElement('canvas');
     canvas.width = 640;
     canvas.height = 220;
@@ -851,7 +854,7 @@
     context.font = 'bold 76px sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(BETA_PROBE_CODE, canvas.width / 2, canvas.height / 2);
+    context.fillText(code, canvas.width / 2, canvas.height / 2);
     try {
       return await canvasToJpegBlob(canvas, 0.84);
     } finally {
@@ -1631,9 +1634,8 @@ ${clipped}`
   }
 
   function nextFallbackModel(model, config = {}) {
-    const chain = config.cameraDirect ? CAMERA_FALLBACK_CHAIN : GEMINI_FALLBACK_CHAIN;
+    const chain = config.cameraDirect ? CAMERA_FALLBACK_CHAIN : OCR_FALLBACK_CHAIN;
     const index = chain.indexOf(String(model || '').trim());
-    if (config.cameraDirect && index < 0 && isGeminiModel(model)) return DEEPSEEK_R2_MODEL;
     return index >= 0 ? (chain[index + 1] || '') : '';
   }
 
@@ -1687,10 +1689,10 @@ ${clipped}`
       ? { ...config, model: requestModel, cameraModelDeadline: performance.now() + cameraModelTimeoutMs(requestModel) }
       : (requestModel === configuredModel ? config : { ...config, model: requestModel });
     let requestBody = adaptRequestBodyForModel(body, requestModel, requestConfig);
-    const isGeminiFallbackModel = GEMINI_FALLBACK_CHAIN.includes(requestModel);
+    const isFallbackModel = OCR_FALLBACK_CHAIN.includes(requestModel);
     const maxAttempts = config?.cameraDirect
       ? CAMERA_MODEL_MAX_ATTEMPTS
-      : (isGeminiFallbackModel ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES);
+      : (isFallbackModel ? GEMINI_MAX_ATTEMPTS : MAX_RETRIES);
     let lastError;
     let structuredCompatibilityRetried = false;
     let reasoningCompatibilityRetried = false;
@@ -1772,20 +1774,20 @@ ${clipped}`
         const status = Number(error?.status || 0);
         const malformed = /JSON valid|array rows|teks hasil/i.test(String(error.message || ''));
         const bridgeFailure = isR2BridgeFailure(error);
-        const geminiRetryable = isGeminiFallbackModel &&
+        const modelRetryable = isFallbackModel &&
           status !== 408 &&
           (bridgeFailure
             ? (isRetryable(error) && !/worker exceeded resource limits|error\s*1102/i.test(String(error?.message || '')))
             : (!status || [404, 409, 425, 429].includes(status) || (status >= 500 && status <= 599) || malformed));
-        const canRetry = isGeminiFallbackModel
-          ? geminiRetryable
+        const canRetry = isFallbackModel
+          ? modelRetryable
           : (isRetryable(error) || malformed);
         if (!canRetry) {
           if (isAutoFallbackEligible(requestConfig, error)) break;
           throw error;
         }
         if (attempt >= maxAttempts) break;
-        let delay = isGeminiFallbackModel
+        let delay = isFallbackModel
           ? GEMINI_RETRY_DELAY_MS
           : (status === 429
             ? ([8000, 18000][attempt - 1] || 18000)
@@ -2457,11 +2459,8 @@ ${clipped}`
         throw new Error('Konfigurasi Secure Gateway belum lengkap. Periksa tiga secret Cloudflare lalu deploy ulang.');
       }
       const config = getConfig();
-      const publicR2Experiment = !config.cameraDirect && config.model === DEEPSEEK_R2_MODEL;
-      const testViaR2 = !config.cameraDirect && (publicR2Experiment || config.networkProfile.key === 'unstable');
-      const transportLabel = publicR2Experiment
-        ? 'R2 URL eksperimental'
-        : (testViaR2 ? 'R2 pemulihan' : (config.cameraDirect ? 'Kamera Direct tanpa R2' : 'Turbo langsung'));
+      const testViaR2 = !config.cameraDirect && config.networkProfile.key === 'unstable';
+      const transportLabel = testViaR2 ? 'R2 pemulihan' : (config.cameraDirect ? 'Kamera Direct tanpa R2' : 'Turbo langsung');
       if (testViaR2 && !lastBetaImagesConfigured) {
         throw new Error('Penyimpanan gambar R2 Beta belum dikonfigurasi untuk mode Hemat data.');
       }
@@ -2469,23 +2468,28 @@ ${clipped}`
       button.disabled = true;
       button.textContent = testViaR2 ? 'Menguji jalur R2…' : 'Menguji jalur Turbo…';
       setFeedback(`Menguji jalur ${transportLabel} dan ${config.model} dengan satu gambar sungguhan…`);
-      const probeBlob = await createBetaProbeBlob();
+      const probe = createOcrProbe();
+      const probeBlob = await createBetaProbeBlob(probe.code);
       let probeReference;
       if (testViaR2) {
         probeJobId = createBetaJobId();
-        probeReference = await uploadBetaImageWithRetry(probeJobId, 0, 'probe', probeBlob, publicR2Experiment);
+        probeReference = await uploadBetaImageWithRetry(probeJobId, 0, 'probe', probeBlob);
       } else {
         probeReference = await blobToDataUrl(probeBlob);
       }
       const body = buildApiBody(
         config,
-        `Baca kode besar pada gambar. Balas HANYA JSON valid {"code":"${BETA_PROBE_CODE}"}.`,
+        probe.prompt,
         [{ page: 1, label: 'UJI GAMBAR BETA', url: probeReference }],
         300
       );
+      // The answer exists only in the image. A text-only model cannot pass by
+      // copying the expected code from the prompt or a rows response schema.
+      delete body.response_format;
+      delete body.reasoning_effort;
       const payload = await callCosmos(config, body);
       const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
-      if (!text.toUpperCase().includes(BETA_PROBE_CODE)) {
+      if (!verifyOcrProbe(text, probe.code)) {
         throw new Error(`AI merespons tetapi belum berhasil membaca gambar melalui jalur ${transportLabel}.`);
       }
       const usage = getUsage(payload, 'openai');
@@ -2557,9 +2561,6 @@ ${clipped}`
         await prepareDestinationData(config);
       }
       if (config.cameraDirect) config.cameraModelState = { blocked: new Set(), errors: new Map() };
-      if (!config.cameraDirect && config.model === DEEPSEEK_R2_MODEL && !lastBetaImagesConfigured) {
-        throw new Error('Eksperimen DeepSeek memerlukan penyimpanan R2 Beta yang aktif.');
-      }
       saveNonSecretConfig();
     } catch (error) {
       const elapsed = Math.max(0, (performance.now() - startedAt) / 1000);
@@ -2612,12 +2613,9 @@ ${clipped}`
         accuracyMode: config.accuracyMode === 'auto' ? 'balanced' : config.accuracyMode
       };
 
-      const publicR2Experiment = !config.cameraDirect && config.model === DEEPSEEK_R2_MODEL;
-      betaRemoteImagesAvailable = !config.cameraDirect && (publicR2Experiment || config.networkProfile.key === 'unstable') && lastBetaImagesConfigured;
+      betaRemoteImagesAvailable = !config.cameraDirect && config.networkProfile.key === 'unstable' && lastBetaImagesConfigured;
       setProgress(4, 'Menyiapkan halaman pertama', betaRemoteImagesAvailable
-        ? (publicR2Experiment
-          ? 'Eksperimen DeepSeek siap · gambar dikirim sebagai tautan R2 sementara.'
-          : 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.')
+        ? 'Mode pemulihan R2 siap · pemrosesan hemat data dimulai.'
         : (config.cameraDirect
           ? `Mode Kamera Direct siap · ${CAMERA_BATCH_SIZE} gambar per permintaan × hingga ${CAMERA_AI_CONCURRENCY} jalur paralel tanpa R2. Audit hanya bila keyakinan rendah atau data utama tidak terbaca.`
           : 'Mode Turbo langsung siap · gambar tidak menunggu unggah R2.'));
@@ -2867,16 +2865,11 @@ ${clipped}`
                 setTransferProgress(0, `Mengirim gambar halaman ${pageNumber}/${pdf.numPages}`);
                 const uploadStartedAt = performance.now();
                 try {
-                  url = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'first', blob, publicR2Experiment);
+                  url = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'first', blob);
                   remote = true;
                   betaPerf.remotePages++;
                 } catch (uploadError) {
                   betaPerf.r2Failures++;
-                  if (publicR2Experiment) {
-                    const strictR2Error = new Error(`Gagal mengunggah halaman ${pageNumber} ke R2. DeepSeek memerlukan URL R2 dan tidak akan mengirim gambar langsung dari komputer.`);
-                    strictR2Error.status = Number(uploadError?.status || 503);
-                    throw strictR2Error;
-                  }
                   if (!betaRemoteFallbackAnnounced) {
                     betaRemoteFallbackAnnounced = true;
                     showToast('Sebagian gambar tidak dapat disimpan sementara. Hanya halaman tersebut yang memakai jalur cadangan.', 'info');
@@ -2947,7 +2940,7 @@ ${clipped}`
             makeTransportHooks(chunk, chunkIndex, 'Ekstraksi pertama', 0.28, 0.53, 0.62)
           );
         } catch (error) {
-          if (publicR2Experiment || !isR2BridgeFailure(error) || !pageSources.every(source => source?.blob instanceof Blob)) throw error;
+          if (!isR2BridgeFailure(error) || !pageSources.every(source => source?.blob instanceof Blob)) throw error;
           markProgressActivity(`Jembatan R2 halaman ${chunk.start}–${chunk.end} dialihkan ke jalur langsung`);
           setTransferProgress(0, `Jembatan R2 terkendala · menyiapkan jalur langsung halaman ${chunk.start}–${chunk.end}`, { waiting: true });
           const directSources = [];
@@ -3044,14 +3037,9 @@ ${clipped}`
               auditUrl = directAuditUrl;
               if (betaRemoteImagesAvailable) {
                 try {
-                  auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl), publicR2Experiment);
+                  auditUrl = await uploadBetaImageWithRetry(betaJobId, pageNumber, 'audit', dataUrlToBlob(auditUrl));
                 } catch (uploadError) {
                   betaPerf.r2Failures++;
-                  if (publicR2Experiment) {
-                    const strictR2Error = new Error(`Gagal mengunggah audit halaman ${pageNumber} ke R2. DeepSeek memerlukan URL R2 dan tidak akan mengirim gambar langsung dari komputer.`);
-                    strictR2Error.status = Number(uploadError?.status || 503);
-                    throw strictR2Error;
-                  }
                 }
               }
             }
@@ -3088,7 +3076,7 @@ ${clipped}`
             makeTransportHooks(chunk, chunkIndex, 'Audit selektif', 0.68, 0.85, 0.93)
           );
         } catch (error) {
-          if (publicR2Experiment || !isR2BridgeFailure(error) || !verificationImages.every(source => source.directUrl)) throw error;
+          if (!isR2BridgeFailure(error) || !verificationImages.every(source => source.directUrl)) throw error;
           const directVerificationImages = verificationImages.map(source => ({
             page: source.page,
             label: source.label,
@@ -3151,12 +3139,10 @@ ${clipped}`
           : `Profil ${config.networkProfile.label} membatasi menjadi ${config.pagesPerRequest} halaman × maksimal ${workerCount} jalur.`)
         : (config.cameraDirect
           ? `Foto diproses dalam kelompok ${CAMERA_BATCH_SIZE}, hingga ${CAMERA_AI_CONCURRENCY} permintaan paralel. Audit hanya untuk hasil dengan keyakinan rendah.`
-          : GEMINI_FALLBACK_CHAIN.includes(config.model)
+          : isGeminiModel(config.model)
           ? `Gemini berjalan dengan ${activeAiLimit} jalur Turbo langsung.`
           : `Model pilihan berjalan dengan maksimal ${workerCount} jalur.`);
-      const imageTransport = publicR2Experiment
-        ? 'tautan gambar R2 sementara ke DeepSeek'
-        : (betaRemoteImagesAvailable ? 'R2 pemulihan' : `gambar base64 langsung ke ${shortModelLabel(config.model)}`);
+      const imageTransport = betaRemoteImagesAvailable ? 'R2 pemulihan' : `gambar base64 langsung ke ${shortModelLabel(config.model)}`;
       const preparationExplanation = config.cameraDirect
         ? 'Foto hasil capture dibaca langsung tanpa render PDF.'
         : 'Maksimal dua halaman dirender bersamaan agar PC tetap responsif.';
@@ -3235,7 +3221,7 @@ ${clipped}`
         const recovered = await recoverCameraPages(mergedRows, Array.from({ length: pageCount }, (_, i) => i + 1), async (page, round) => {
           if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
           setTransferProgress(0, `Membaca ulang foto ${page} secara terpisah · percobaan ${round}/2`);
-          const recoveryConfig = { ...config, model: round === 1 ? config.model : GEMINI_31_PRO_MODEL };
+          const recoveryConfig = { ...config, model: round === 1 ? config.model : PRIMARY_FALLBACK_MODEL };
           const url = await blobToDataUrl(cameraImages[page - 1].blob);
           const body = buildApiBody(recoveryConfig, buildPrompt(page, page, recoveryConfig), [{ page, label: `HALAMAN ${page} — FOTO TUNGGAL`, url }], extractionTokenLimit(1));
           const payload = await callProxyWithRetry(recoveryConfig, body, `pemulihan foto ${page}`);
@@ -3417,7 +3403,7 @@ ${clipped}`
     processCameraImages,
     testConnection,
     cancel: cancelProcess,
-    _test: { getDestinationMode, isNationalDestinationMode, prepareDestinationData, ensureBatamCity, normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, recoverCameraPages, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, pageDefaultModel, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
+    _test: { createOcrProbe, verifyOcrProbe, getDestinationMode, isNationalDestinationMode, prepareDestinationData, ensureBatamCity, normalizeEndpoint, findBalancedJson, parseRows, normalizeRows, buildApiBody, buildJsonRepairBody, buildPrompt, buildVerificationPrompt, extractionTokenLimit, verificationTokenLimit, callViaProxy, callProxyWithRetry, isAutoFallbackEligible, stripRecipientPrefix, stripRecipientMachineCodes, isRecipientMachineCode, stripSubjectLabel, stripOfficialReferenceLabel, compactOfficialReference, isStructuredOfficialReference, normalizeOfficialReference, extractReferenceFromLines, stripCommonArtifacts, splitMixedNameAddress, shouldVerifyChunk, verificationPages, mergeVerifiedRows, recoverCameraPages, normalizeBniReference, isIgnoredBniStandaloneCode, removeIgnoredBniCodesFromAddress, parseBniStructure, extractPrintedZip, classifyOutsideBatam, formatPreciseDuration, formatStopwatch, formatBytes, resolveNetworkProfile, createTaskPool, reviewRowCount, outsideBatamRowCount, getUsage, getConfig, pageDefaultModel, isCameraDirectMode, normalizeCameraImages, prepareCameraBlobsForBatch }
   };
 
   document.addEventListener('DOMContentLoaded', bind);

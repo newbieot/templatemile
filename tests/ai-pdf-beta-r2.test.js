@@ -73,7 +73,7 @@ const ai = sandbox.MileAI._test;
 sandbox.document.body = { dataset: { pdfDefaultModel: 'gemini-3.8-flash' } };
 assert.equal(ai.pageDefaultModel(), 'gemini-3.8-flash');
 sandbox.document.body = { dataset: { pdfDefaultModel: 'model-tidak-valid' } };
-assert.equal(ai.pageDefaultModel(), 'deepseek-v4.1-flash');
+assert.equal(ai.pageDefaultModel(), 'gemini-3.8-flash');
 delete sandbox.document.body;
 
 sandbox.navigator.onLine = false;
@@ -85,7 +85,7 @@ assert.match(aiRuntimeSource, /Math\.min\(15, Number\(\$\('aiPagesPerRequest'\)/
 assert.match(aiRuntimeSource, /Math\.min\(BETA_MAX_AI_CONCURRENCY, Number\(\$\('aiConcurrency'\)/);
 assert.match(aiRuntimeSource, /normal: \{\s*key: 'normal', label: 'Turbo langsung', maxPagesPerRequest: 15, maxConcurrency: BETA_MAX_AI_CONCURRENCY/);
 assert.match(aiRuntimeSource, /const STORAGE_KEY = 'mile-ai-config-beta-r2-v10'/);
-assert.match(aiRuntimeSource, /const DEFAULT_MODEL = DEEPSEEK_R2_MODEL/);
+assert.match(aiRuntimeSource, /const DEFAULT_MODEL = GEMINI_38_MODEL/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_MAX_SIDE = 1150/);
 assert.match(aiRuntimeSource, /const FIRST_PASS_JPEG_QUALITY = 0\.72/);
 assert.match(aiRuntimeSource, /const BETA_PREPARE_CONCURRENCY = 2/);
@@ -95,37 +95,36 @@ assert.match(aiRuntimeSource, /const GEMINI_MAX_PAGES_PER_REQUEST = 15/);
 assert.match(aiRuntimeSource, /const GEMINI_MAX_AI_CONCURRENCY = 3/);
 assert.match(aiRuntimeSource, /const GEMINI_REASONING_EFFORT = 'medium'/);
 assert.match(aiRuntimeSource, /const AUDIT_AI_CONCURRENCY = 2/);
-assert.match(aiRuntimeSource, /const GEMINI_REQUEST_TIMEOUT_MS = 75 \* 1000/);
+assert.match(aiRuntimeSource, /const GEMINI_REQUEST_TIMEOUT_MS = 135 \* 1000/);
 assert.match(aiRuntimeSource, /const GEMINI_MAX_ATTEMPTS = 2/);
 assert.match(aiRuntimeSource, /const GEMINI_RETRY_DELAY_MS = 500/);
 assert.match(aiRuntimeSource, /while \(inFlight\.size >= activeAiLimit\)/);
 assert.match(aiRuntimeSource, /activeAiLimit = workerCount/);
-assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'gemini-3\.7-flash'/);
-assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'gemini-3\.6-flash'/);
+assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5\.5'/);
+assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5'/);
 assert.match(aiRuntimeSource, /Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
 assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
-assert.match(aiRuntimeSource, /const DEEPSEEK_R2_MODEL = 'deepseek-v4\.1-flash'/);
+assert.doesNotMatch(aiRuntimeSource, /DEEPSEEK_R2_MODEL/);
 assert.match(aiRuntimeSource, /return publicUrl \? payload\.url : \(payload\.ref \|\| payload\.url\)/);
-assert.match(aiRuntimeSource, /if \(publicR2Experiment\) \{\s*const strictR2Error = new Error/);
-assert.equal((aiRuntimeSource.match(/if \(publicR2Experiment \|\| !isR2BridgeFailure\(error\)/g) || []).length, 2);
+assert.doesNotMatch(aiRuntimeSource, /publicR2Experiment/);
+assert.equal((aiRuntimeSource.match(/if \(!isR2BridgeFailure\(error\)/g) || []).length, 2);
 assert.doesNotMatch(aiRuntimeSource, /runtimeFallbackModel/);
 assert.equal((aiRuntimeSource.match(/betaRemoteImagesAvailable = false/g) || []).length, 1);
-assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = !config\.cameraDirect && \(publicR2Experiment \|\| config\.networkProfile\.key === 'unstable'\) && lastBetaImagesConfigured/);
+assert.match(aiRuntimeSource, /betaRemoteImagesAvailable = !config\.cameraDirect && config\.networkProfile\.key === 'unstable' && lastBetaImagesConfigured/);
 assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/);
 assert.match(aiRuntimeSource, /const runAudit = createTaskPool\(auditWorkerCount\)/);
 assert.match(aiRuntimeSource, /Promise\.all\(audits\.map\(audit => runAudit/);
-assert.match(betaHtmlSource, /Turbo langsung · 15 halaman × 5 jalur · Default/);
-assert.match(betaHtmlSource, /Secure Gateway · Beta v16\.42/);
-assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash">Gemini 3\.8 Flash · Pilihan manual<\/option>/);
-assert.match(betaHtmlSource, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash · Fallback pertama<\/option>/);
-assert.match(betaHtmlSource, /<option value="gemini-3\.6-flash">Gemini 3\.6 Flash · Fallback kedua<\/option>/);
-assert.match(betaHtmlSource, /<option value="deepseek-v4\.1-flash" selected>DeepSeek V4\.1 Flash · Default Beta · R2 URL<\/option>/);
-assert.match(betaHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Eksperimen Hemat<\/option>/);
+assert.match(betaHtmlSource, /Turbo langsung · Gemini 15 halaman × 3 jalur · Default/);
+assert.match(betaHtmlSource, /Secure Gateway · Beta v26\.56/);
+assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default OCR<\/option>/);
+assert.match(betaHtmlSource, /<option value="claude-haiku-5\.5">Claude Haiku 5\.5 · Fallback pertama<\/option>/);
+assert.match(betaHtmlSource, /<option value="claude-sonnet-5">Claude Sonnet 5 · Fallback kedua<\/option>/);
+assert.doesNotMatch(betaHtmlSource, /value="(?:deepseek|qwen|glm|gemini-3\.[1567])/);
 assert.match(betaHtmlSource, /<option value="15" selected>15 halaman · preset Turbo<\/option>/);
-assert.match(betaHtmlSource, /<option value="5" selected>5 jalur · preset Turbo<\/option>/);
+assert.match(betaHtmlSource, /<option value="3" selected>3 jalur · preset Gemini<\/option>/);
 assert.match(aiRuntimeSource, /createBetaProbeBlob/);
 assert.match(workerSource, /const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:'/);
-assert.match(workerSource, /'deepseek-v4\.1-flash'/);
+assert.match(workerSource, /'claude-haiku-5\.5'/);
 assert.match(workerSource, /async function hydrateBetaImageReferences/);
 assert.match(workerSource, /item\.imageUrl\.url = `data:\$\{contentType\};base64,/);
 assert.match(workerSource, /'x-mile-transport': 'cloudflare-r2-bridge'/);
@@ -133,8 +132,8 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503, details: { error: { source: 'r2-bridge' } } }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.6-flash' }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-haiku-5.5' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-sonnet-5' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 sandbox.navigator.onLine = true;
 
@@ -297,16 +296,16 @@ const fallbackBody = ai.buildApiBody(
 assert.equal(fallbackBody.messages[1].content[2].image_url.url, fallbackDataUrl);
 assert.ok(JSON.stringify(fallbackBody).length - JSON.stringify(remoteImageBody).length > 3000);
 
-const gemini37Body = ai.buildApiBody(
-  { model: 'gemini-3.7-flash' },
+const claudeBody = ai.buildApiBody(
+  { model: 'claude-haiku-5.5' },
   'uji',
   [],
   1200
 );
-assert.equal(gemini37Body.response_format.type, 'json_schema');
-assert.equal(gemini37Body.temperature, undefined);
-assert.equal(gemini37Body.top_p, undefined);
-assert.equal(gemini37Body.reasoning_effort, 'medium');
+assert.equal(claudeBody.response_format, undefined);
+assert.equal(claudeBody.temperature, undefined);
+assert.equal(claudeBody.top_p, undefined);
+assert.equal(claudeBody.reasoning_effort, undefined);
 
 const gemini38RepairBody = ai.buildJsonRepairBody(
   { model: 'gemini-3.8-flash' },
@@ -379,16 +378,16 @@ async function runAsyncAssertions() {
   const firstPayload = await ai.callProxyWithRetry(config, body, 'kelompok pertama', {
     onFallback() { fallbackEvents++; }
   });
-  assert.equal(firstPayload._mileEffectiveModel, 'gemini-3.6-flash');
-  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash']);
+  assert.equal(firstPayload._mileEffectiveModel, 'claude-sonnet-5');
+  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5']);
   assert.equal(fallbackEvents, 2);
 
   const secondPayload = await ai.callProxyWithRetry(config, body, 'kelompok kedua');
   assert.equal(secondPayload._mileEffectiveModel, 'gemini-3.8-flash');
   assert.deepEqual(requestedModels, [
     'gemini-3.8-flash', 'gemini-3.8-flash',
-    'gemini-3.7-flash', 'gemini-3.7-flash',
-    'gemini-3.6-flash', 'gemini-3.8-flash'
+    'claude-haiku-5.5', 'claude-haiku-5.5',
+    'claude-sonnet-5', 'gemini-3.8-flash'
   ]);
 
   responses.push(
@@ -411,14 +410,14 @@ async function runAsyncAssertions() {
   const unrelatedBadRequestStart = requestedModels.length;
   await assert.rejects(
     ai.callProxyWithRetry(
-      { model: 'gemini-3.7-flash', protocol: 'openai' },
-      ai.buildApiBody({ model: 'gemini-3.7-flash', protocol: 'openai' }, 'uji 400 lain', [], 1200),
+      { model: 'claude-haiku-5.5', protocol: 'openai' },
+      ai.buildApiBody({ model: 'claude-haiku-5.5', protocol: 'openai' }, 'uji 400 lain', [], 1200),
       'bad request non-schema'
     ),
     error => error?.status === 400 && /invalid image payload/i.test(error.message)
   );
   assert.equal(requestedModels.length - unrelatedBadRequestStart, 1);
-  assert.equal(requestedResponseFormats.at(-1), 'json_schema');
+  assert.equal(requestedResponseFormats.at(-1), undefined);
 
   responses.push(
     { status: 400, body: { error: { message: 'reasoning_effort medium is not supported by this route' } } },
@@ -426,21 +425,21 @@ async function runAsyncAssertions() {
   );
   let reasoningFallbackEvents = 0;
   const reasoningPayload = await ai.callProxyWithRetry(
-    { model: 'gemini-3.7-flash', protocol: 'openai' },
-    ai.buildApiBody({ model: 'gemini-3.7-flash', protocol: 'openai' }, 'uji fallback reasoning', [], 1200),
+    { model: 'gemini-3.8-flash', protocol: 'openai' },
+    ai.buildApiBody({ model: 'gemini-3.8-flash', protocol: 'openai' }, 'uji fallback reasoning', [], 1200),
     'kompatibilitas reasoning',
     { onReasoningFallback() { reasoningFallbackEvents++; } }
   );
-  assert.equal(reasoningPayload._mileEffectiveModel, 'gemini-3.7-flash');
+  assert.equal(reasoningPayload._mileEffectiveModel, 'gemini-3.8-flash');
   assert.equal(reasoningFallbackEvents, 1);
   assert.deepEqual(requestedReasoningEfforts.slice(-2), ['medium', undefined]);
-  assert.deepEqual(requestedResponseFormats.slice(-2), ['json_schema', 'json_schema']);
+  assert.deepEqual(requestedResponseFormats.slice(-2), [undefined, undefined]);
 
   for (const address of ['BELAKANG PADANG KOTA BATAM 29491', 'BELAKANGPADANG BATAM', '29492']) {
     assert.equal(ai.classifyOutsideBatam(address, false).outside, true, address);
   }
   assert.equal(ai.classifyOutsideBatam('SEMBULANG GALANG BATAM 29481', true).outside, false);
-  console.log('PASS ai-pdf-beta-r2: profil Gemini 15 × 3, reasoning medium, schema kompatibel, dan fallback Gemini 3.8 → 3.7 → 3.6');
+  console.log('PASS ai-pdf-beta-r2: Gemini 15 × 3, schema/reasoning compatibility, current Claude OCR fallback');
 }
 
 runAsyncAssertions().catch(error => {

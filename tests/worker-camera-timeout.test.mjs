@@ -5,9 +5,9 @@ const source = await fs.readFile(new URL('../_worker.js', import.meta.url), 'utf
 const worker = await import(`data:text/javascript;base64,${Buffer.from(`${source}\nexport { createSessionToken, aiUpstreamTimeoutMs };`).toString('base64')}`);
 const secret = 'camera-timeout-test-secret-1234567890';
 const token = await worker.createSessionToken({ v: 1, email: 'ikhsan@posnew.com', uid: 'timeout-test', exp: Math.floor(Date.now() / 1000) + 600 }, secret);
-const models = ['gemini-3.8-flash', 'gemini-3.1-pro', 'gemini-3.7-flash', 'deepseek-v4.1-flash'];
-assert.equal(worker.aiUpstreamTimeoutMs(models[0], 'document'), 60000);
-assert.equal(worker.aiUpstreamTimeoutMs(models[3], 'document'), 180000);
+const models = ['gemini-3.8-flash', 'claude-opus-4.8', 'claude-haiku-5.5', 'claude-sonnet-5'];
+assert.equal(worker.aiUpstreamTimeoutMs(models[0], 'document'), 120000);
+assert.equal(worker.aiUpstreamTimeoutMs(models[3], 'document'), 150000);
 
 const originalFetch = globalThis.fetch;
 const originalTimeout = globalThis.setTimeout;
@@ -29,7 +29,7 @@ try {
   };
   for (const model of models) {
     responseCancelled = false;
-    const expected=model==='gemini-3.8-flash'?35000:30000;
+    const expected=model==='gemini-3.8-flash'?120000:150000;
     assert.equal(worker.aiUpstreamTimeoutMs(model, 'camera'), expected);
     const response = await worker.default.fetch(new Request('https://mile.posnew.com/api/ai-proxy', {
       method: 'POST',
@@ -48,4 +48,4 @@ try {
   globalThis.setTimeout = originalTimeout;
   globalThis.clearTimeout = originalClearTimeout;
 }
-console.log('PASS worker-camera-timeout: Gemini 3.8 stops at 35 seconds, DeepSeek 30 seconds, stalled body cancelled, document budgets preserved');
+console.log('PASS gateway deadlines: Gemini 120s, Claude 150s, full response-body cancellation, camera/document profiles');

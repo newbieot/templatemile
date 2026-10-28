@@ -61,7 +61,8 @@ const xlsx = require('../assets/vendor/sheetjs/xlsx.full.min.js');
         await w.downloadFinalExcel();
         assert.equal(downloads.at(-1)[0].connote_sub_service_code, '914556', 'Other locked tariffs retain their existing behavior');
         for (const script of ['postcode-zones', 'app-core']) {
-          assert.match(d.querySelector(`script[src*="/${script}.js?"]`).src, /v=20261028-postcode-zones-1$/);
+          const version = script === 'postcode-zones' ? '20261028-ocr-models-1' : '20261028-postcode-zones-1';
+          assert.ok(d.querySelector(`script[src*="/${script}.js?"]`).src.endsWith(`v=${version}`));
         }
       } finally { w.close(); }
     }

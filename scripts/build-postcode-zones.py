@@ -62,6 +62,9 @@ ZONE_GROUPS
     const value = String(postcode ?? '').trim();
     if (!/^\\d{5}$/.test(value)) throw new Error(`Kode pos ${value || '(kosong)'} harus terdiri dari 5 digit.`);
     if (!Object.prototype.hasOwnProperty.call(zones, value)) {
+      // Operator policy: unknown 294xx codes route through Batam 29400.
+      // Exact reference entries (including Galang 29664) always win.
+      if (/^294\\d{2}$/.test(value)) return '29400';
       throw new Error(`Kode pos ${value} belum ada dalam referensi kode pos zona. Lengkapi referensi sebelum ekspor.`);
     }
     return zones[value];

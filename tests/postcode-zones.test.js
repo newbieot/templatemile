@@ -6,14 +6,18 @@ const zones = require('../assets/js/postcode-zones.js');
 const data = JSON.parse(fs.readFileSync('assets/data/postcodes-indonesia.json', 'utf8'));
 
 assert.equal(zones.source.sourceRecordCount, 12201);
-assert.equal(Object.keys(zones.zones).length, 12202);
+assert.equal(Object.keys(zones.zones).length, 12203);
 for (const [postcode, expected] of [
-  ['29411', '29400'], ['29414', '29400'], ['29438', '29400'], ['29491', '29400'],
+  ['29411', '29400'], ['29414', '29400'], ['29437', '29400'], ['29438', '29400'], ['29491', '29400'],
   ['29481', '29664'], ['29488', '29664'], ['29111', '29100'], ['10220', '10000'],
   ['40111', '40000'], ['28511', '28558B1'], ['99695', '99692B1']
 ]) assert.equal(zones.resolve(postcode), expected, postcode);
-for (const postcode of ['', '2941', '29411B1', '29411.0', '00000', '29437', '29465']) {
+for (const postcode of ['', '2941', '29411B1', '29411.0', '00000', '29599']) {
   assert.throws(() => zones.resolve(postcode), /5 digit|belum ada dalam referensi/, postcode);
+}
+for (let suffix = 0; suffix < 100; suffix++) {
+  const postcode = `294${String(suffix).padStart(2, '0')}`;
+  assert.equal(zones.resolve(postcode), zones.zones[postcode] || '29400', postcode);
 }
 for (const row of data.rows) {
   if (data.dictionaries.cities[row[3]] !== 'BATAM') continue;
@@ -108,8 +112,12 @@ assert.equal(zones.isLocalBatam({ city: 'DELI SERDANG', district: 'GALANG' }), f
       core.uploadedFilesManager[0].rows.push({ name: 'BELUM DIPADANKAN', address: 'KEL. TANJUNG PIAYU KEC. SUNGAI BEDUK BATAM 29437', phone: '0', cw: '0.20' });
       core.updateInterface();
       await w.downloadFinalExcel();
-      assert.equal(downloads.length, 0, 'A missing mapping blocks all files before any partial download');
-      assert.match(alerts.pop(), /29437.*belum ada dalam referensi/);
+      assert.equal(downloads.length, 2, 'Missing 294xx mappings use the explicitly authorized Batam zone');
+      const fallbackRow = downloads.find(item => item.filename.startsWith('Upload_')).rows.at(-1);
+      assert.equal(fallbackRow.destination_data_customer_zip_code, '29437');
+      assert.equal(fallbackRow.destination_data_zone_code, '29400');
+      assert.deepEqual(alerts, []);
+      downloads.length = 0;
       core.uploadedFilesManager[0].rows.splice(-1);
 
       d.getElementById('destinationMode').value = 'batam';
@@ -138,6 +146,11 @@ assert.equal(zones.isLocalBatam({ city: 'DELI SERDANG', district: 'GALANG' }), f
       assert.equal(downloads[0].rows[0].destination_data_customer_zip_code, '28511');
       assert.equal(downloads[0].rows[0].destination_data_zone_code, '28558B1', 'Exact alphanumeric zone survives actual XLSX serialization and stale inputs');
       assert.equal(downloads[0].sheet.L2.t, 's');
+      downloads.length = 0;
+      d.getElementById('destZipPindah').value = '29599';
+      await w.downloadFinalExcel();
+      assert.equal(downloads.length, 0, 'An unknown postcode outside 294xx still blocks export');
+      assert.match(alerts.pop(), /29599.*belum ada dalam referensi/);
     } finally { w.close(); }
   }
   console.log('PASS postcode zones: exact reference pairs, alpha zones, origin/destination XLSX, Galang local, Belakang Padang CN, stale logs, missing mappings, and PINDAH on app/beta/review');

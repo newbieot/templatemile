@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.56 — Model OCR aktif, batas waktu lebih panjang, dan zona 294xx
+
+- App, Beta, review kamera, dan gateway memakai katalog yang sama: Gemini 3.8 Flash, Claude Haiku 5.5, Claude Sonnet 5, dan Claude Opus 4.8. Default Gemini 3.8, fallback Haiku 5.5 lalu Sonnet 5. Gemini lama dan model yang dukungan gambar pada rutenya belum dapat dipastikan dikeluarkan.
+- Batas server menjadi 120 detik untuk Gemini dan 150 detik untuk Claude, termasuk pembacaan respons lengkap. Browser memberi toleransi transport 15 detik. Retry kompatibilitas kamera tetap berbagi satu anggaran per model, dan pemulihan foto memakai model aktif.
+- Request Claude mempertahankan gambar dan melepas parameter JSON mode/sampling khusus provider lain. Tes layanan membaca kode acak yang hanya ada pada gambar, lalu memeriksa jawaban JSON secara persis.
+- Tambahan 29437 → 29400 dicatat sesuai konfirmasi operator. Kode 294xx yang belum memiliki padanan memakai zona 29400; padanan eksplisit seperti Galang 29664 tetap didahulukan. Kode di luar 294xx yang belum terdaftar tetap menahan ekspor.
+- URL aset dan gateway diperbarui. Regresi mencakup katalog di tiga halaman, penolakan model lama sebelum ke provider, fallback tiga model, batas waktu/abort, tes OCR gambar, dan seluruh 100 kode 294xx.
+
 ## v26.55 — Padanan kode pos zona dan layanan kepulauan Batam
 
 - Ekspor Excel mencocokkan kode pos asal dan tujuan secara persis ke 12.201 pasangan pada lampiran Mapping Padanan Kode Pos Zona.xlsx. Tambahan 29438 → 29400 dikonfirmasi operator. Kode zona alfanumerik seperti 28558B1 dipertahankan sebagai teks.

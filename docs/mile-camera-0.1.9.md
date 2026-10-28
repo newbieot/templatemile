@@ -12,12 +12,12 @@ Di Galeri, foto yang ditandai memiliki tombol **Gambar tidak buram**. Gunakan bi
 
 **Selesai** menyimpan foto dan PDF di riwayat, memunculkan notifikasi singkat **PDF tersimpan otomatis**, lalu langsung menyiapkan dan menjalankan AI. Tidak ada dialog yang meminta pengguna menekan Proses AI lagi. Jika ada foto yang sangat tidak jelas, pengguna dapat mengambil ulang atau mengonfirmasi bahwa gambar masih terbaca. Shutter tetap membekukan frame saat disentuh; pemeriksaan foto dan PDF berjalan pada worker.
 
-## Gemini 3.8 → DeepSeek 4.1
+## Model OCR web terbaru
 
-Untuk gambar kamera di Android dan web, Gemini 3.8 Flash diberi waktu maksimal **35 detik** pada browser dan gateway, termasuk membaca respons lengkap. Jika timeout, error, atau hasil tidak valid, kelompok itu langsung memakai **DeepSeek 4.1 Flash**; Gemini 3.1 Pro dan 3.7 tidak lagi berada di jalur fallback otomatis kamera. DeepSeek tetap mendapat anggaran 30 detiknya sendiri. Retry kompatibilitas schema/reasoning berbagi sisa 35 detik Gemini, sehingga tidak memperpanjang batas. Kelompok yang sudah berhasil tidak diulang; kelompok antrean melewati model yang telah gagal. Pemrosesan PDF dokumen biasa mempertahankan kebijakannya.
+Review web yang dibuka APK mengikuti konfigurasi server terbaru. Mulai v26.56, default adalah **Gemini 3.8 Flash**, dengan fallback **Claude Haiku 5.5 → Claude Sonnet 5**. Gateway memberi Gemini 120 detik dan Claude 150 detik, termasuk membaca respons lengkap; browser menambahkan toleransi transport 15 detik. Retry kompatibilitas kamera berbagi sisa anggaran model yang sama. Kelompok yang sudah berhasil dipertahankan, dan antrean melewati model yang gagal. [Katalog OCR dan verifikasi](ocr-models-20261028.md).
 
 ## Build dan verifikasi
 
-[Source Android](https://mile.posnew.com/downloads/Mile-Camera-0.1.9-source.zip) menyertakan tes foto gelap/kontras rendah/bayangan, blur berat, konfirmasi persisten, migrasi penanda lama, dan alur Selesai/PDF/AI tanpa dialog. Tes browser/gateway memajukan waktu secara terkendali untuk memastikan perpindahan langsung pada batas 35 detik, retry tidak memperpanjang waktu, dan pembatalan respons server macet tetap berjalan.
+[Source Android](https://mile.posnew.com/downloads/Mile-Camera-0.1.9-source.zip) menyertakan tes foto gelap/kontras rendah/bayangan, blur berat, konfirmasi persisten, migrasi penanda lama, dan alur Selesai/PDF/AI tanpa dialog. Tes browser/gateway di repository memajukan waktu secara terkendali untuk memeriksa batas terbaru, anggaran retry bersama, dan pembatalan respons server yang macet.
 
 Android minimum 8.0. Sertifikat SHA-256: `eb9585f3fe6f601da93b23e5ba9e24b7a4958d23b5edce0e90908424af89e491`. Metadata update serta hash APK dipublikasikan bersama build di `/api/android/update`.

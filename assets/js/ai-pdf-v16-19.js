@@ -25,21 +25,20 @@
   const MAX_JSON_REPAIR_CHARS = 48000;
   const SMART_CONFIDENCE_THRESHOLD = 0.82;
   const MAX_RETRIES = 3;
-  const REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
+  const REQUEST_TIMEOUT_MS = 165 * 1000;
+  const GEMINI_REQUEST_TIMEOUT_MS = 135 * 1000;
   const UPLOAD_STALL_TIMEOUT_MS = 45 * 1000;
   const HEALTH_TIMEOUT_MS = 15 * 1000;
   const STORAGE_KEY = 'mile-ai-config-v16-19';
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
-    'claude-opus-5','claude-sonnet-4.5','claude-haiku-4.5',
-    'gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.1-pro',
-    'qwen-3.7-plus','qwen-3.7-flash'
+    'gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
   ]);
   const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
-  const PRIMARY_FALLBACK_MODEL = 'gemini-3.7-flash';
-  const SECONDARY_FALLBACK_MODEL = 'gemini-3.6-flash';
+  const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5.5';
+  const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5';
   const GEMINI_FALLBACK_CHAIN = Object.freeze([DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL]);
   const activeControllers = new Set();
   let cancelled = false;
@@ -73,7 +72,8 @@
 
   function getConfig() {
     const protocol = 'openai';
-    const model = String($('aiModel')?.value || DEFAULT_MODEL).trim();
+    const selectedModel = String($('aiModel')?.value || DEFAULT_MODEL).trim();
+    const model = COSMOS_MODELS.has(selectedModel) ? selectedModel : DEFAULT_MODEL;
     const accuracyMode = IMAGE_PROFILES[$('aiAccuracyMode')?.value] ? $('aiAccuracyMode').value : DEFAULT_ACCURACY_MODE;
     const speedPreset = SPEED_PRESETS[$('aiSpeedPreset')?.value] ? $('aiSpeedPreset').value : DEFAULT_SPEED_PRESET;
     const requestedPagesPerRequest = Math.max(1, Math.min(20, Number($('aiPagesPerRequest')?.value || SPEED_PRESETS[DEFAULT_SPEED_PRESET].pagesPerRequest)));
@@ -875,8 +875,10 @@ Aturan:
         { role: 'user', content }
       ]
     };
-    // Gemini 3.8 menolak/mengabaikan parameter sampling lama. Model lain pada
-    // gateway CosmosHub tetap memakai parameter yang sudah teruji sebelumnya.
+    if (String(config.model).startsWith('claude-')) {
+      delete body.response_format;
+      return body;
+    }
     if (config.model !== GEMINI_38_MODEL) {
       body.temperature = 0;
       body.top_p = 0.1;
@@ -904,6 +906,10 @@ ${clipped}`
         }
       ]
     };
+    if (String(config.model).startsWith('claude-')) {
+      delete body.response_format;
+      return body;
+    }
     if (config.model !== GEMINI_38_MODEL) {
       body.temperature = 0;
       body.top_p = 0.1;
@@ -992,7 +998,7 @@ ${clipped}`
 
       xhr.open('POST', '/api/ai-proxy', true);
       xhr.withCredentials = true;
-      xhr.timeout = REQUEST_TIMEOUT_MS;
+      xhr.timeout = config.model === GEMINI_38_MODEL ? GEMINI_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
       xhr.setRequestHeader('content-type', 'application/json');
       xhr.setRequestHeader('accept', 'application/json');
 
@@ -1085,7 +1091,13 @@ ${clipped}`
       ? runtimeFallbackModel
       : bodyModel;
     const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
-    const requestBody = body?.model === requestModel ? body : { ...body, model: requestModel };
+    const requestBody = { ...body, model: requestModel };
+    if (requestModel.startsWith('claude-')) {
+      delete requestBody.response_format;
+      delete requestBody.reasoning_effort;
+      delete requestBody.temperature;
+      delete requestBody.top_p;
+    }
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');

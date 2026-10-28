@@ -6,7 +6,7 @@ set "FAIL=0"
 echo Memeriksa mile.posnew.com Secure Gateway v26.54...
 echo.
 
-findstr /c:"20261028-26.55-postcode-zones" "_worker.js" >nul && echo [OK] Gateway kode pos zona v26.55 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20261028-26.56-ocr-models" "_worker.js" >nul && echo [OK] Gateway OCR v26.56 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 7 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 7 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const AUDIT_AI_CONCURRENCY = 2" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Audit memakai maksimal 2 request paralel || (echo [GAGAL] Concurrency audit tidak sesuai & set "FAIL=1")

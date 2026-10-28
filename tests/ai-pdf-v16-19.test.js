@@ -68,14 +68,14 @@ sandbox.navigator.onLine = false;
 assert.equal(ai.resolveNetworkProfile('normal').key, 'normal');
 assert.doesNotMatch(aiRuntimeSource, /while \(navigator\.onLine === false\)/);
 assert.match(aiRuntimeSource, /const DEFAULT_MODEL = 'gemini-3\.8-flash'/);
-assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'gemini-3\.7-flash'/);
-assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'gemini-3\.6-flash'/);
+assert.match(aiRuntimeSource, /const PRIMARY_FALLBACK_MODEL = 'claude-haiku-5\.5'/);
+assert.match(aiRuntimeSource, /const SECONDARY_FALLBACK_MODEL = 'claude-sonnet-5'/);
 assert.match(aiRuntimeSource, /Object\.freeze\(\[DEFAULT_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
 assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
-assert.match(appHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default<\/option>/);
-assert.match(appHtmlSource, /<option value="gemini-3\.7-flash">Gemini 3\.7 Flash · Fallback pertama<\/option>/);
-assert.match(appHtmlSource, /<option value="gemini-3\.6-flash">Gemini 3\.6 Flash · Fallback kedua<\/option>/);
-assert.match(appHtmlSource, /<option value="qwen-3\.7-flash">Qwen 3\.7 Flash · Eksperimen Hemat<\/option>/);
+assert.match(appHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default OCR<\/option>/);
+assert.match(appHtmlSource, /<option value="claude-haiku-5\.5">Claude Haiku 5\.5 · Fallback pertama<\/option>/);
+assert.match(appHtmlSource, /<option value="claude-sonnet-5">Claude Sonnet 5 · Fallback kedua<\/option>/);
+assert.doesNotMatch(appHtmlSource, /value="(?:deepseek|qwen|glm|gemini-3\.[1567])/);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');
@@ -207,14 +207,15 @@ assert.equal(gemini38Body.response_format.type, 'json_object');
 assert.equal('temperature' in gemini38Body, false);
 assert.equal('top_p' in gemini38Body, false);
 
-const gemini37Body = ai.buildApiBody(
-  { model: 'gemini-3.7-flash' },
+const claudeBody = ai.buildApiBody(
+  { model: 'claude-haiku-5.5' },
   'uji',
   [],
   1200
 );
-assert.equal(gemini37Body.temperature, 0);
-assert.equal(gemini37Body.top_p, 0.1);
+assert.equal(claudeBody.temperature, undefined);
+assert.equal(claudeBody.top_p, undefined);
+assert.equal(claudeBody.response_format, undefined);
 
 const gemini38RepairBody = ai.buildJsonRepairBody(
   { model: 'gemini-3.8-flash' },
@@ -227,8 +228,8 @@ assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 404 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash' }, { status: 401 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash' }, { status: 503 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.6-flash' }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-haiku-5.5' }, { status: 503 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-sonnet-5' }, { status: 503 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'qwen-3.7-flash' }, { status: 503 }), false);
 
 async function runFallbackAssertions() {
@@ -274,21 +275,21 @@ async function runFallbackAssertions() {
   const firstPayload = await ai.callProxyWithRetry(config, body, 'kelompok pertama', {
     onFallback() { fallbackEvents++; }
   });
-  assert.equal(firstPayload._mileEffectiveModel, 'gemini-3.6-flash');
-  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash']);
+  assert.equal(firstPayload._mileEffectiveModel, 'claude-sonnet-5');
+  assert.deepEqual(Array.from(firstPayload._mileFallbackChain), ['gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5']);
   assert.equal(fallbackEvents, 2);
 
   const secondPayload = await ai.callProxyWithRetry(config, body, 'kelompok kedua');
-  assert.equal(secondPayload._mileEffectiveModel, 'gemini-3.6-flash');
+  assert.equal(secondPayload._mileEffectiveModel, 'claude-sonnet-5');
   assert.deepEqual(requestedModels, [
-    'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.6-flash'
+    'gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-sonnet-5'
   ]);
 
   for (const address of ['BELAKANG PADANG KOTA BATAM 29491', 'BELAKANGPADANG BATAM', '29492']) {
     assert.equal(ai.classifyOutsideBatam(address, false).outside, true, address);
   }
   assert.equal(ai.classifyOutsideBatam('SEMBULANG GALANG BATAM 29481', true).outside, false);
-  console.log('PASS ai-pdf-v16-19: ekstraksi, kompatibilitas model, dan fallback Gemini 3.8 → 3.7 → 3.6');
+  console.log('PASS ai-pdf-v16-19: extraction, Claude parameter compatibility, Gemini → Haiku → Sonnet fallback');
 }
 
 runFallbackAssertions().catch(error => {

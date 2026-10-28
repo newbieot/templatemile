@@ -1,4 +1,4 @@
-# mile.posnew.com Secure Gateway v16.42
+# mile.posnew.com Secure Gateway v26.56
 
 Versi ini mempertahankan seluruh fungsi aplikasi persiapan data untuk Mile App pada v15, lalu menambahkan autentikasi Firebase yang diproses **di Cloudflare Pages Function (`_worker.js`)**, bukan melalui Firebase SDK di browser.
 
@@ -12,9 +12,9 @@ Menekan **Open Camera** sekaligus membuka preview fullscreen dan membuat sesi ca
 
 Browser tetap menjalankan auto crop ringan. Jika confidence deteksi rendah, crop beralih ke area panduan tetap dan foto tetap dimasukkan ke batch. Resolusi, blur, dan brightness hanya disimpan sebagai metadata internal, tidak lagi memblokir capture; operator menentukan kelayakan dari preview dan dapat menghapus foto bila perlu.
 
-Saat **Finish Capturing** ditekan di web, blob JPEG hasil crop disimpan langsung ke IndexedDB dan dibuka di `/review` tanpa dibuat atau dibaca ulang sebagai PDF. JPEG kemudian dikirim sebagai gambar base64 melalui Secure Gateway tanpa R2. Foto dikelompokkan menjadi tujuh gambar per permintaan dengan hingga tujuh permintaan paralel; urutan hasil tetap digabung berdasarkan nomor halaman. JPEG asli dipakai selama ukuran kelompok aman; penyesuaian ukuran adaptif hanya dilakukan bila diperlukan agar payload tetap di bawah batas gateway. Model default kamera adalah `gemini-3.8-flash`, lalu langsung `deepseek-v4.1-flash` jika gagal atau melewati 35 detik. Sesi kamera lama juga memakai alur baru saat diproses ulang. Kamera tidak melewati Gemini 3.1 Pro/3.7 dalam fallback otomatis.
+Saat **Finish Capturing** ditekan di web, blob JPEG hasil crop disimpan langsung ke IndexedDB dan dibuka di `/review` tanpa dibuat atau dibaca ulang sebagai PDF. JPEG kemudian dikirim sebagai gambar base64 melalui Secure Gateway tanpa R2. Foto dikelompokkan menjadi tujuh gambar per permintaan dengan hingga tujuh permintaan paralel; urutan hasil tetap digabung berdasarkan nomor halaman. JPEG asli dipakai selama ukuran kelompok aman; penyesuaian ukuran adaptif hanya dilakukan bila diperlukan agar payload tetap di bawah batas gateway. Model default kamera adalah `gemini-3.8-flash`, dengan fallback `claude-haiku-5.5` lalu `claude-sonnet-5`. Sesi kamera lama juga memakai katalog aktif saat diproses ulang.
 
-Gateway dan browser memberi Gemini 3.8 waktu maksimal 35 detik, termasuk pembacaan respons lengkap, lalu langsung beralih ke DeepSeek 4.1 Flash dengan batas 30 detik tersendiri. Retry kompatibilitas schema/reasoning berbagi sisa waktu Gemini yang sama. HTTP 5xx termasuk 520, timeout, serta jawaban kosong atau tidak valid memicu fallback; setiap model dicoba sekali per kelompok, tanpa request perbaikan JSON tambahan. Model yang gagal dilewati pada kelompok berikutnya dalam batch yang sama. HTTP 429 atau 520 menurunkan sisa proses menjadi satu jalur. Kebijakan PDF dokumen biasa tidak berubah.
+Gateway memberi Gemini 3.8 waktu maksimal 120 detik dan Claude 150 detik per permintaan, termasuk pembacaan respons lengkap. Browser memberi toleransi transport 15 detik. Retry kompatibilitas schema/reasoning kamera berbagi sisa anggaran model yang sama. HTTP 5xx termasuk 520, timeout, serta jawaban kosong atau tidak valid memicu fallback; setiap model dicoba sekali per kelompok, tanpa request perbaikan JSON tambahan. Model yang gagal dilewati pada kelompok berikutnya dalam batch yang sama. HTTP 429 atau 520 menurunkan sisa proses menjadi satu jalur. PDF memakai katalog OCR yang sama dan retry terbatasi per kelompok.
 
 Audit otomatis kamera hanya mengirim ulang foto yang tidak menghasilkan data, nama/alamat yang hilang atau bertanda **PERLU DICEK**, atau skor keyakinan AI untuk keterbacaan nama/alamat di bawah **0,65**. Skor ini merupakan penilaian model atas bacaannya, bukan jaminan ketepatan. Keraguan ringan, confidence rendah, nama perusahaan panjang, serta HP/referensi opsional yang kosong tidak mewajibkan koreksi operator bila teks masih terbaca. Koreksi wajib hanya untuk penanda tidak terbaca, nama/alamat wajib yang kosong atau nama tidak terbaca, dan berat tidak valid. Kelompok audit berjalan maksimal dua jalur; setiap foto yang terpilih diaudit sekali.
 
@@ -46,7 +46,7 @@ APK [Mile Camera 0.1.9](downloads/Mile-Camera-0.1.9.apk) menyimpan riwayat foto/
 
 Pemeriksaan lokal: `npm install --prefix tests` lalu `npm test --prefix tests`. Build APK: ikuti `android/README.md`. Keystore/password tidak termasuk repository atau source ZIP.
 
-Ekspor Excel memakai padanan kode pos–zona dari lampiran operator, untuk `origin_data_zone_code` maupun `destination_data_zone_code`. Asal 29411 dipasangkan ke 29400. Galang 29481–29488 tetap lokal Batam dengan zona 29664; Belakang Padang memakai CN23 walaupun zona referensinya 29400. Kode zona alfanumerik dipertahankan. Kode pos yang belum terdaftar menghentikan ekspor sebelum file pertama diunduh. Tambahan di luar lampiran dicatat dalam `scripts/postcode-zone-overrides.json`; saat ini 29438 → 29400 sudah dikonfirmasi operator.
+Ekspor Excel memakai padanan kode pos–zona dari lampiran operator, untuk `origin_data_zone_code` maupun `destination_data_zone_code`. Asal 29411 dipasangkan ke 29400. Galang 29481–29488 tetap lokal Batam dengan zona 29664; Belakang Padang memakai CN23 walaupun zona referensinya 29400. Kode zona alfanumerik dipertahankan. Kode 294xx yang belum memiliki padanan memakai zona 29400 sesuai instruksi operator; padanan eksplisit seperti Galang 29664 tetap didahulukan. Kode di luar 294xx yang belum terdaftar menghentikan ekspor sebelum file pertama diunduh. Tambahan di luar lampiran dicatat dalam `scripts/postcode-zone-overrides.json`; 29437 dan 29438 → 29400 telah dikonfirmasi operator.
 
 Bangun ulang padanan zona dan jalankan regresinya:
 
@@ -67,9 +67,9 @@ Kolom **Kg** berada di sebelah nomor urut, sebelum Nama, dan dapat diubah per ki
 
 ## Eksperimen PC lawas di `/beta`
 
-Halaman `/beta` memakai `deepseek-v4.1-flash` sebagai model default. PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan agar perangkat tetap responsif. Setiap gambar diunggah ke R2 `mile-beta-ai-images`, lalu URL sementara dikirim ke DeepSeek dalam kelompok 15 halaman × 5 jalur. Mode DeepSeek tidak kembali ke base64 bila unggahan R2 gagal. Preset Turbo melewati audit kedua untuk mengutamakan target waktu; preset Sedang tetap tersedia bila dokumen sulit membutuhkan audit penuh.
+Halaman `/beta` memakai `gemini-3.8-flash` sebagai default OCR, dengan fallback Claude Haiku 5.5 lalu Sonnet 5. Pilihan manual tambahan adalah Claude Opus 4.8. PDF dirender sebagai JPEG 1150 px dengan kualitas 72% dan maksimal dua pekerjaan render bersamaan. Gemini memakai profil 15 halaman × 3 jalur; Claude dapat memakai hingga 5 jalur. Preset Turbo melewati audit kedua, sedangkan Sedang tersedia untuk dokumen sulit.
 
-Pilihan `deepseek-v4.1-flash` pada Beta adalah default eksperimental. Gambar halaman ringan diunggah ke R2 dan URL bertanda tangan yang berlaku satu jam dikirim langsung ke model. R2 mengurangi payload permintaan, tetapi tidak merender PDF; render gambar tetap dilakukan maksimal dua halaman bersamaan di browser. Gemini 3.8 tetap dapat dipilih manual dan memakai fallback Gemini 3.7 lalu Gemini 3.6 bila provider terganggu.
+Katalog model, parameter, batas waktu, dan cara Tes layanan AI dijelaskan dalam [catatan OCR v26.56](docs/ocr-models-20261028.md). Tes layanan menggambar kode acak yang hanya ada di gambar dan memeriksa jawaban JSON secara persis. Mode normal mengirim gambar langsung, sedangkan Hemat data memakai R2 pemulihan bila tersedia.
 
 Binding Cloudflare Pages yang diperlukan:
 
@@ -213,7 +213,7 @@ Hasil yang benar:
 {
   "ok": true,
   "service": "mile-posnew-secure-gateway",
-  "version": "20260926-16.41-camera-fullscreen",
+  "version": "20261028-26.56-ocr-models",
   "cosmosConfigured": true,
   "firebaseConfigured": true,
   "sessionConfigured": true,

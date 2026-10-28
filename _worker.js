@@ -1,4 +1,4 @@
-const APP_VERSION = '20261028-26.55-postcode-zones';
+const APP_VERSION = '20261028-26.56-ocr-models';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -15,8 +15,8 @@ const BETA_IMAGE_TOKEN_TTL_SECONDS = 60 * 60;
 const BETA_IMAGE_REFERENCE_PREFIX = 'mile-r2:';
 const METRICS_TIMEOUT_MS = 15000;
 const AI_UPSTREAM_TIMEOUTS_MS = Object.freeze({
-  camera: Object.freeze({ gemini: 30000, gemini38: 35000, other: 30000 }),
-  document: Object.freeze({ gemini: 60000, other: 180000 })
+  camera: Object.freeze({ gemini: 120000, other: 150000 }),
+  document: Object.freeze({ gemini: 120000, other: 150000 })
 });
 const MAX_AI_RESPONSE_BYTES = 2 * 1024 * 1024;
 const VERSIONED_ASSET_CACHE = 'private, max-age=31536000, immutable';
@@ -28,11 +28,7 @@ const ANDROID_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
 const MAX_ANDROID_SESSION_BYTES = 4 * 1024;
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
-  'claude-opus-5', 'claude-sonnet-4.5', 'claude-haiku-4.5',
-  'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro',
-  'deepseek-v4.1-flash', 'deepseek-v4-pro',
-  'qwen-3.8-flash', 'qwen-3.7-plus', 'qwen-3.7-flash',
-  'glm-5.3', 'glm-5.3-flashx', 'glm-5.3-flash'
+  'gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
 ]);
 const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',
@@ -1044,7 +1040,6 @@ async function handleCameraBatchDelete(request, env, session, url) {
 
 function aiUpstreamTimeoutMs(model, requestProfile) {
   const profile = requestProfile === 'camera' ? 'camera' : 'document';
-  if (profile === 'camera' && model === 'gemini-3.8-flash') return AI_UPSTREAM_TIMEOUTS_MS.camera.gemini38;
   return AI_UPSTREAM_TIMEOUTS_MS[profile][model.startsWith('gemini-') ? 'gemini' : 'other'];
 }
 

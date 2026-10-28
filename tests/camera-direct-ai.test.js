@@ -82,10 +82,10 @@ assert.equal(normalizedCameraImages[0].blob, directJpeg);
 assert.equal(normalizedCameraImages[0].name, '001.jpg');
 
 for (const model of [
-  'deepseek-v4.1-flash',
+  'claude-haiku-5.5',
   'gemini-3.8-flash',
-  'gemini-3.1-pro',
-  'gemini-3.7-flash'
+  'claude-opus-4.8',
+  'claude-sonnet-5'
 ]) {
   element('aiModel').value = model;
   const config = ai.getConfig();
@@ -99,12 +99,12 @@ for (const model of [
 
 element('aiModel').value = 'model-tidak-diizinkan';
 assert.equal(ai.getConfig().model, 'gemini-3.8-flash');
-assert.equal(ai.isAutoFallbackEligible({ model: 'deepseek-v4.1-flash', cameraDirect: true }, { status: 503 }), false);
-assert.equal(ai.isAutoFallbackEligible({ model: 'deepseek-v4.1-flash', cameraDirect: true }, { status: 400 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-sonnet-5', cameraDirect: true }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-sonnet-5', cameraDirect: true }, { status: 400 }), false);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 503 }), true);
 assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.8-flash', cameraDirect: true }, { status: 400 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.1-pro', cameraDirect: true }, { status: 503 }), true);
-assert.equal(ai.isAutoFallbackEligible({ model: 'gemini-3.7-flash', cameraDirect: true }, { status: 408 }), true);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-opus-4.8', cameraDirect: true }, { status: 503 }), false);
+assert.equal(ai.isAutoFallbackEligible({ model: 'claude-haiku-5.5', cameraDirect: true }, { status: 408 }), true);
 
 const sources = Array.from({ length: 49 }, (_, index) => ({
   page: index + 1,
@@ -112,12 +112,12 @@ const sources = Array.from({ length: 49 }, (_, index) => ({
   url: `data:image/jpeg;base64,${Buffer.from(String(index + 1)).toString('base64')}`
 }));
 const groups = Array.from({ length: 7 }, (_, index) => sources.slice(index * 7, index * 7 + 7));
-const bodies = groups.map((group, index) => ai.buildApiBody({ model: 'deepseek-v4.1-flash' }, `uji kelompok ${index + 1}`, group, 3500));
+const bodies = groups.map((group, index) => ai.buildApiBody({ model: 'claude-haiku-5.5' }, `uji kelompok ${index + 1}`, group, 3500));
 assert.equal(bodies.length, 7);
 assert.equal(bodies.reduce((total, body) => total + body.messages[1].content.filter(part => part.type === 'image_url').length, 0), 49);
 bodies.forEach((body, index) => {
   const content = body.messages[1].content;
-  assert.equal(body.response_format.type, 'json_object');
+  assert.equal(body.response_format, undefined);
   assert.equal('reasoning_effort' in body, false);
   assert.equal(content.filter(part => part.type === 'image_url').length, groups[index].length);
   assert.equal(content.filter(part => part.type === 'text').length, groups[index].length + 1);
@@ -133,8 +133,8 @@ assert.match(source, /const CAMERA_DIRECT_BATCH_RAW_BYTES = 20 \* 1024 \* 1024/)
 assert.match(source, /onError\(\{ error \}\)[\s\S]*?activeAiLimit = 1/);
 assert.match(source, /config\.cameraDirect && \[429, 520\]\.includes\(timing\.errorStatus\)/);
 assert.match(source, /const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL/);
-assert.match(source, /CAMERA_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, DEEPSEEK_R2_MODEL\]\)/);
-assert.match(source, /const CAMERA_REQUEST_TIMEOUT_MS = 30 \* 1000/);
+assert.match(source, /CAMERA_FALLBACK_CHAIN = Object\.freeze\(\[GEMINI_38_MODEL, PRIMARY_FALLBACK_MODEL, SECONDARY_FALLBACK_MODEL\]\)/);
+assert.match(source, /const CAMERA_REQUEST_TIMEOUT_MS = 165 \* 1000/);
 assert.match(source, /const CAMERA_MODEL_MAX_ATTEMPTS = 1/);
 assert.match(source, /input=\$\{directCameraInput \? 'jpeg' : 'pdf'\}/);
 assert.match(source, /cameraChunkBlobs = directCameraInput \? await prepareCameraBlobsForBatch/);
@@ -203,7 +203,7 @@ async function runQualityAssertions() {
 }
 
 async function runFallbackAssertions() {
-  const models = ['gemini-3.8-flash', 'deepseek-v4.1-flash'];
+  const models = ['gemini-3.8-flash', 'claude-haiku-5.5', 'claude-sonnet-5'];
   const requests = [];
   let responses = ['timeout', 'success', 'success'];
   let clockMs = 1000;
@@ -217,7 +217,7 @@ async function runFallbackAssertions() {
     send(raw) {
       const request = JSON.parse(raw);
       requests.push({ model: request.body.model, timeout: this.timeout, profile: request.requestProfile });
-      assert.ok(this.timeout > 0 && this.timeout <= (request.body.model === models[0] ? 35000 : 30000));
+      assert.ok(this.timeout > 0 && this.timeout <= (request.body.model === models[0] ? 135000 : 165000));
       const response = responses.shift();
       setTimeout(() => {
         if (response === 'timeout') {
@@ -239,25 +239,25 @@ async function runFallbackAssertions() {
   const config = { model: models[0], cameraDirect: true, protocol: 'openai', cameraModelState: { blocked: new Set(), errors: new Map() } };
   const body = ai.buildApiBody(config, 'uji timeout kamera', sources.slice(0, 7), 3500);
   const payload = await ai.callProxyWithRetry(config, body);
-  assert.deepEqual(requests.map(request => request.model), models);
+  assert.deepEqual(requests.map(request => request.model), models.slice(0, 2));
   assert.ok(requests.every(request => request.profile === 'camera'));
-  assert.equal(requests[0].timeout,35000,'Gemini gets exactly 35 seconds before switching directly to DeepSeek');
-  assert.equal(requests[1].timeout,30000,'DeepSeek retains its own request budget');
+  assert.equal(requests[0].timeout,135000,'Gemini gets 120s server time plus 15s transport tolerance');
+  assert.equal(requests[1].timeout,165000,'Claude gets its own 150s server time plus transport tolerance');
   assert.equal(payload._mileEffectiveModel, models[1]);
-  assert.deepEqual(Array.from(payload._mileFallbackChain), models);
+  assert.deepEqual(Array.from(payload._mileFallbackChain), models.slice(0, 2));
   await ai.callProxyWithRetry(config, body);
-  assert.equal(requests.at(-1).model, models[1], 'Queued groups skip timed-out Gemini and use DeepSeek directly');
+  assert.equal(requests.at(-1).model, models[1], 'Queued groups skip timed-out Gemini and use Claude directly');
 
   responses = ['schema', 'timeout', 'success'];
   const freshConfig = { ...config, cameraModelState: { blocked: new Set(), errors: new Map() } };
   const start = requests.length;
   const compatible = await ai.callProxyWithRetry(freshConfig, body);
   assert.deepEqual(requests.slice(start).map(request => request.model), [models[0], models[0], models[1]]);
-  assert.equal(requests[start + 1].timeout, 13000, 'Compatibility retry shares the model 35-second budget');
-  assert.equal(requests[start + 2].timeout, 30000, 'Next model gets a fresh 30-second budget');
+  assert.equal(requests[start + 1].timeout, 113000, 'Compatibility retry shares the model 135-second budget');
+  assert.equal(requests[start + 2].timeout, 165000, 'Next model gets a fresh 165-second browser budget');
   assert.equal(compatible._mileEffectiveModel, models[1]);
 
-  responses = ['timeout', 'timeout'];
+  responses = ['timeout', 'timeout', 'timeout'];
   const failureStart = requests.length;
   await assert.rejects(ai.callProxyWithRetry({ ...freshConfig, cameraModelState: { blocked: new Set(), errors: new Map() } }, body), error => error.status === 408);
   assert.deepEqual(requests.slice(failureStart).map(request => request.model), models, 'Stop after the last fallback times out');

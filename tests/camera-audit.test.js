@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const values = {
-  aiModel: 'deepseek-v4.1-flash',
+  aiModel: 'claude-haiku-5.5',
   aiAccuracyMode: 'auto',
   aiSpeedPreset: 'fast',
   aiPagesPerRequest: '3',
