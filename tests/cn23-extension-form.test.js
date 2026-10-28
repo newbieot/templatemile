@@ -27,6 +27,24 @@ test('long CN23 recipient name/address are truncated automatically for retail an
     } finally { f.close(); }
   }
 });
+test('corporate Belakang Padang district and Kasu village match Batam options and use Mile locked codes',async()=>{
+  for(const village of ['', 'KASU']) {
+    const f=fixture({corporate:true,postal:'29416',zone:'29400',regionOptions:[
+      'KOTA BATAM, SEKUPANG, TANJUNG RIAU (29426)',
+      'KOTA BATAM, BELAKANG PADANG, KASU (29416)'
+    ]});
+    try {
+      f.start({recipient_city:'BATAM',recipient_province:'KEPULAUAN RIAU',recipient_district:'BELAKANG PADANG',
+        recipient_village:village,recipient_region_scope:village?'VILLAGE':'DISTRICT POSTCODE',
+        recipient_postcode:village?'29413':'29416',destination_code:'',recipient_address:'BELAKANG PADANG BATAM'});
+      await until(()=>f.submits===1);
+      assert.match(f.d.querySelector('#addressDetail').value,/BELAKANG PADANG, KASU/);
+      assert.equal(f.d.querySelector('[placeholder="KODE POS"]').value,'29416');
+      assert.equal(f.d.querySelector('[placeholder="KODE ZONA"]').value,'29400');
+      assert.equal(f.messages.some(m=>m.type==='FORM_ERROR'),false);
+    } finally {f.close();}
+  }
+});
 
 test('CN23 entry respects shorter name/address maxlength from Mile without changing sender fields',async()=>{
   const f=fixture();

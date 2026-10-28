@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.59 — Helper 0.2.12: Belakang Padang masuk CN23
+
+- Memperbaiki validasi ekstensi yang sebelumnya menolak seluruh kota Batam. Tujuan dengan kecamatan Belakang Padang atau kode pos kepulauannya diperbolehkan ke CN23, sesuai kebijakan aplikasi web. Kota dan kode pos asli dari Excel dipertahankan.
+- Galang dan tujuan Batam lokal lainnya tetap memakai Excel lokal. Nama jalan/kompleks Belakang Padang tanpa kecamatan atau kode pos yang sesuai tidak melewati validasi.
+- Paket ZIP, allowlist unduhan publik, dan panduan diperbarui ke 0.2.12. Excel yang sebelumnya ditolak dapat langsung di-upload setelah Reload ekstensi dan tab Mile.
+- Regresi memeriksa validasi, upload panel, antrean worker, serta pengisian form korporat Belakang Padang/Kasu menggunakan kode pos/zona terkunci dari Mile.
+
 ## v26.58 — Pilihan manual model vision
 
 - Menambah 26 model yang mendukung input gambar berdasarkan dokumentasi resmi: Claude tambahan, GPT, GLM Flash/FlashX/5V, Kimi, Qwen 3.8, MiniMax M3/M3.1, MiMo V2.6 Pro, dan Step 5 Preview. Katalog app, Beta, review, dan gateway berisi 31 model; audit sumber serta 14 alias yang tidak ditambahkan tersedia di `docs/vision-model-audit-20261028.md`.

@@ -46,12 +46,12 @@ test('icon toggles upload/start inside the existing tab, imports real workbook a
     assert.equal(w.document.querySelectorAll('#mile-cn23-menu').length,1);assert.equal(root.querySelectorAll('button').length,3);
     assert.equal(root.querySelector('h3').textContent,`Mile CN23 · ${Q.VERSION}`);assert.equal(root.getElementById('results'),null);
     assert.equal(root.getElementById('upload').textContent,'Upload Excel');assert.equal(root.getElementById('start').disabled,true);
-    const row={...Q.defaults,queue_id:'TEST',customer_mode:'RITEL',payment_method:'CASH',service_code:'PKH',sender_name:'PENGIRIM',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_address:'KATEMAN INHIL RIAU',recipient_postcode:'29255',recipient_district:'KATEMAN',recipient_city:'INDRAGIRI HILIR',recipient_province:'RIAU',recipient_village:'',recipient_region_scope:'DISTRICT_POSTCODE'};
+    const row={...Q.defaults,queue_id:'TEST',customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT',service_code:'PKH',sender_name:'PENGIRIM',sender_address:'BATAM',recipient_name:'PENERIMA',recipient_address:'BELAKANG PADANG BATAM',recipient_postcode:'29416',recipient_district:'BELAKANG PADANG',recipient_city:'BATAM',recipient_province:'KEPULAUAN RIAU',recipient_village:'',recipient_region_scope:'DISTRICT POSTCODE'};
     const book=w.XLSX.utils.book_new();w.XLSX.utils.book_append_sheet(book,w.XLSX.utils.json_to_sheet([row]),'CN23_ANTREAN');
     const buffer=w.XLSX.write(book,{type:'array',bookType:'xlsx'});
     Object.defineProperty(root.getElementById('file'),'files',{configurable:true,value:[{name:'antrean.xlsx',size:buffer.byteLength,arrayBuffer:async()=>buffer}]});
     root.getElementById('file').dispatchEvent(new w.Event('change'));await sleep(120);
-    assert.equal(state.rows.length,1);assert.equal(root.getElementById('start').disabled,false);root.getElementById('start').click();await sleep(20);
+    assert.equal(state.rows.length,1);assert.equal(state.rows[0].data.recipient_city,'BATAM');assert.equal(state.rows[0].data.recipient_district,'BELAKANG PADANG');assert.equal(root.getElementById('start').disabled,false);root.getElementById('start').click();await sleep(20);
     assert.equal(messages.find(m=>m.type==='RUN').tabId,7);assert.equal(messages.some(m=>m.type==='OPEN_MILE'),false);
     listener({type:'CN23_BATCH_DONE',total:1},null,()=>{});assert.match(w.document.getElementById('mile-cn23-complete').textContent,/Selesai: seluruh 1 kiriman/);
     root.getElementById('reset').click();await sleep(30);

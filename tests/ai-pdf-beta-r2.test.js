@@ -115,7 +115,7 @@ assert.match(aiRuntimeSource, /const audits = pendingAudits\.filter\(Boolean\)/)
 assert.match(aiRuntimeSource, /const runAudit = createTaskPool\(auditWorkerCount\)/);
 assert.match(aiRuntimeSource, /Promise\.all\(audits\.map\(audit => runAudit/);
 assert.match(betaHtmlSource, /Turbo langsung · Gemini 15 halaman × 3 jalur · Default/);
-assert.match(betaHtmlSource, /Secure Gateway · Beta v26\.58/);
+assert.match(betaHtmlSource, /Secure Gateway · Beta v26\.59/);
 assert.match(betaHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default OCR<\/option>/);
 assert.match(betaHtmlSource, /<option value="deepseek-v4\.1-flash">DeepSeek V4\.1 Flash · Fallback otomatis<\/option>/);
 assert.doesNotMatch(betaHtmlSource, /value="gemini-3\.[1567]/);

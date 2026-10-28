@@ -29,6 +29,36 @@ test('validates outside-document workbook, payments and district-postcode scope'
   assert.equal(Q.validateRows([{...sample(),recipient_village:'',recipient_district:'',recipient_city:'BANDUNG',recipient_province:'JAWA BARAT',recipient_postcode:'40111',recipient_region_scope:'CITY_POSTCODE'}])[0].status,'ready');
   assert.throws(()=>Q.validateRows([{...sample(),recipient_village:'',recipient_district:'',recipient_city:'JAKARTA PUSAT',recipient_region_scope:'CITY_POSTCODE'}]),/Jakarta/);
 });
+test('Belakang Padang is accepted as CN23 while Galang and other Batam destinations stay local',()=>{
+  for (const city of ['BATAM','KOTA BATAM']) for (const district of ['BELAKANG PADANG','Belakang-Padang','BELAKANGPADANG']) {
+    const original={...sample(),recipient_city:city,recipient_province:'KEPULAUAN RIAU',recipient_district:district,
+      recipient_village:'',recipient_region_scope:'DISTRICT POSTCODE',recipient_postcode:'29416',destination_code:''};
+    assert.equal(Q.validateRows([original])[0].status,'ready');
+    assert.equal(original.recipient_postcode,'29416','Do not rewrite the destination to bypass the city guard');
+  }
+  assert.equal(Q.validateRows([{...sample(),recipient_city:'BATAM',recipient_district:'BELAKANG PADANG',recipient_village:'KASU',recipient_postcode:'29413'}])[0].status,'ready');
+  for (const postcode of ['29491','29492','29493','29494','29495','29496']) {
+    assert.equal(Q.validateRows([{...sample(),recipient_city:'BATAM',recipient_district:'',recipient_village:'',
+      recipient_region_scope:'CITY POSTCODE',recipient_postcode:postcode}])[0].status,'ready');
+  }
+  for (const patch of [
+    {recipient_district:'GALANG',recipient_postcode:'29481',destination_code:'29664'},
+    {recipient_district:'BATU AJI',recipient_postcode:'29438'},
+    {recipient_district:'SEKUPANG',recipient_postcode:'29426',recipient_address:'JALAN BELAKANG PADANG'},
+    {recipient_district:'',recipient_village:'',recipient_region_scope:'CITY POSTCODE',recipient_postcode:'29411'}
+  ]) assert.throws(()=>Q.validateRows([{...sample(),recipient_city:'BATAM',...patch}]),/Tujuan Batam harus masuk Excel lokal/);
+});
+test('corporate Belakang Padang import reaches the worker queue without losing original destination fields',async()=>{
+  const h=harness();
+  const row={...sample(),customer_mode:'KORPORAT',customer_code:'ACME',payment_method:'CREDIT',
+    recipient_city:'BATAM',recipient_province:'KEPULAUAN RIAU',recipient_district:'BELAKANG PADANG',
+    recipient_village:'',recipient_region_scope:'DISTRICT POSTCODE',recipient_postcode:'29416',destination_code:''};
+  await begin(h,[row]);
+  assert.equal(h.state.rows[0].status,'filling');
+  assert.equal(h.state.rows[0].data.recipient_city,'BATAM');
+  assert.equal(h.state.rows[0].data.recipient_district,'BELAKANG PADANG');
+  assert.equal(h.events.filter(event=>event.type==='CN23_FILL').length,1);
+});
 test('list redirect completes row one and loads form for row two WITHOUT any print tab',async()=>{
   const h=harness();await begin(h);const token=await submit(h);
   assert.equal(h.state.rows[0].status,'awaiting_navigation');

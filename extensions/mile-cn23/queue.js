@@ -4,6 +4,12 @@
   const defaults = Object.freeze({ workflow:'CN23 DOKUMEN LUAR KOTA',queue_status:'SIAP',cod:'NON-COD',item_type:'DOKUMEN',nature_of_goods:'Documents',shipment_category:'Ecommerce/Biasa',npwp:'000000000000000',hs_code:'49011000',item_name:'DOKUMEN',quantity:1,item_value_idr:20000,weight_kg:0.2,length_cm:0,width_cm:0,height_cm:0,koli_count:1,country_of_origin:'ID',packaging_code:'EN',packaging_name:'Envelope',imei_1:'0',imei_2:'0',insurance:'N' });
   const required = ['queue_id','recipient_name','recipient_address','recipient_postcode','recipient_city','recipient_province','sender_name','sender_address','customer_mode','payment_method','service_code'];
   const norm = value => String(value ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+  function isBelakangPadang(row) {
+    // Match the web routing policy using destination fields, not sender data or
+    // an address substring that could be the name of a street/complex in Batam.
+    return norm(row.recipient_district).replace(/\s/g,'') === 'BELAKANGPADANG' ||
+      /^2949[1-6]$/.test(String(row.recipient_postcode || '').trim());
+  }
   // Conservative CN23 entry limits, not a claim about Mile's undocumented API limits.
   const recipientLimits = Object.freeze({recipient_name:30,recipient_address:80});
   function recipientText(value,key,fieldMaxLength) {
@@ -32,7 +38,7 @@
       if (/PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row.recipient_village || ''))) fail('Kelurahan belum terbaca.');
       if (required.some(key => /PERLU[\s._-]*(?:DI[\s._-]*)?CEK/i.test(String(row[key])))) fail('Selesaikan pemeriksaan data sebelum impor.');
       if (norm(row.workflow) !== norm(defaults.workflow) || norm(row.queue_status) !== 'SIAP') fail('Gunakan Excel Antrean CN23 yang berstatus SIAP.');
-      if (/^(?:KOTA )?BATAM$/.test(norm(row.recipient_city))) fail('Tujuan Batam harus masuk Excel lokal tersendiri.');
+      if (/^(?:KOTA )?BATAM$/.test(norm(row.recipient_city)) && !isBelakangPadang(row)) fail('Tujuan Batam harus masuk Excel lokal tersendiri.');
       if (!/^\d{5}$/.test(String(row.recipient_postcode))) fail('Kode pos tujuan harus 5 digit.');
       if (!['RITEL','KORPORAT'].includes(row.customer_mode)) fail('Pelanggan harus RITEL atau KORPORAT.');
       if (row.customer_mode === 'KORPORAT' && !String(row.customer_code || '').trim()) fail('Kode Pelanggan korporat wajib diisi.');
@@ -67,7 +73,7 @@
     if (!state.active.submittedAt) state.active=null;
     return true;
   }
-  const VERSION='0.2.11';
+  const VERSION='0.2.12';
   const api={VERSION,FORM_URL,defaults,required,norm,recipientLimits,recipientText,validateRows,recoverInterrupted};
   root.MileCN23=api;
   if (typeof module !== 'undefined') module.exports=api;
