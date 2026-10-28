@@ -2,9 +2,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { JSDOM } = require('jsdom');
 
-const catalog = ['gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'];
+const catalog = ["gemini-3.8-flash", "deepseek-v4.1-flash", "claude-haiku-5.5", "claude-sonnet-5", "claude-opus-4.8", "claude-fable-5.1", "claude-opus-5", "claude-opus-5.5", "claude-sonnet-5.5", "gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "glm-5.3-flashx", "glm-5.3-flash", "glm-5v-turbo", "kimi-k3.1-pro", "kimi-k3", "kimi-k2.7-code", "kimi-k2.6", "kimi-k2.5", "qwen-3.8-max-0902", "qwen-3.8-max", "qwen-3.8-flash", "minimax-m3.1-flash", "minimax-m3", "mimo-v2.6-pro", "step-5-preview"];
 const removed = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro',
-  'deepseek-v4-pro', 'qwen-3.7-plus', 'qwen-3.8-flash', 'glm-5.3', 'claude-sonnet-4.5'];
+  'deepseek-v4-pro', 'qwen-3.7-plus', 'glm-5.3', 'claude-sonnet-4.5', 'deepseek-v3.2', 'deepseek-v3.2-free', 'deepseek-v4-flash', 'deepseek-v4-flash-0731', 'deepseek-v4-pro-0813', 'glm-5.2', 'hy3', 'hy3-free', 'hy4-preview', 'hy4-preview-free', 'minimax-m2.7', 'qwen-3.7-max'];
 const imageUrl = 'data:image/jpeg;base64,/9j/2Q==';
 
 require('node:test')('OCR catalog, compatible requests and image-only probe', { timeout: 15000 }, async () => {
@@ -52,12 +52,19 @@ require('node:test')('OCR catalog, compatible requests and image-only probe', { 
         assert.equal(ai.getConfig().model, model, `${page}: ${model}`);
         const body = ai.buildApiBody({ model, cameraDirect: true }, 'Baca gambar', [{ page: 1, label: 'FOTO', url: imageUrl }], 1200);
         assert.equal(body.messages[1].content.find(part => part.type === 'image_url').image_url.url, imageUrl);
-        if (model.startsWith('claude-')) {
-          for (const key of ['response_format', 'reasoning_effort', 'temperature', 'top_p']) assert.equal(key in body, false, `${model}: ${key}`);
+        if (model.startsWith('gpt-')) {
+          assert.equal(body.response_format.type, 'json_object');
+          assert.equal(body.reasoning_effort, 'low');
+          assert.ok(body.max_completion_tokens >= 4096);
+          for (const key of ['max_tokens', 'temperature', 'top_p']) assert.equal(key in body, false, `${model}: ${key}`);
         } else if (model === 'deepseek-v4.1-flash') {
           assert.equal(body.response_format.type, 'json_object');
           assert.equal('reasoning_effort' in body, false);
-        } else assert.equal(body.response_format.type, 'json_schema');
+        } else if (model.startsWith('gemini-')) {
+          assert.equal(body.response_format.type, 'json_schema');
+        } else {
+          for (const key of ['response_format', 'reasoning_effort', 'temperature', 'top_p']) assert.equal(key in body, false, `${model}: ${key}`);
+        }
       }
       for (const model of removed) {
         d.getElementById('aiModel').value = model;
@@ -95,7 +102,13 @@ require('node:test')('OCR catalog, compatible requests and image-only probe', { 
       reply = 'correct';
       await w.MileAI.testConnection();
       assert.match(d.getElementById('aiConfigFeedback').textContent, /Gambar berhasil dibaca/);
+      d.getElementById('aiModel').value = 'gpt-6.1-sol';
+      await w.MileAI.testConnection();
+      assert.match(d.getElementById('aiConfigFeedback').textContent, /Gambar berhasil dibaca/);
+      assert.equal(request.max_completion_tokens, 4096);
+      assert.equal(request.reasoning_effort, 'low');
+      assert.equal('max_tokens' in request, false);
     } finally { w.close(); }
   }
-  console.log('PASS OCR catalog: page/gateway parity, removed-model rejection, preserved images, compatible Claude requests, stale settings and genuine image-only probe protocol');
+  console.log('PASS OCR catalog: 31 models, page/gateway parity, rejected aliases, preserved images, compatible vision requests and image-only probe');
 });

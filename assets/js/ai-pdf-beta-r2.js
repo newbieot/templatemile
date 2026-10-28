@@ -48,7 +48,14 @@
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
-    'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
+    'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5',
+    'claude-opus-4.8', 'claude-fable-5.1', 'claude-opus-5', 'claude-opus-5.5',
+    'claude-sonnet-5.5', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-sol',
+    'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+    'glm-5.3-flashx', 'glm-5.3-flash', 'glm-5v-turbo', 'kimi-k3.1-pro',
+    'kimi-k3', 'kimi-k2.7-code', 'kimi-k2.6', 'kimi-k2.5',
+    'qwen-3.8-max-0902', 'qwen-3.8-max', 'qwen-3.8-flash', 'minimax-m3.1-flash',
+    'minimax-m3', 'mimo-v2.6-pro', 'step-5-preview'
   ]);
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
   const DEEPSEEK_MODEL = 'deepseek-v4.1-flash';
@@ -148,15 +155,23 @@
       if (!geminiStructuredOutputUnsupported.has(model)) {
         adapted.response_format = rowsResponseFormat(Boolean(config.cameraDirect));
       }
-    } else if (String(model).startsWith('claude-')) {
-      // Anthropic routes use the JSON prompt rather than OpenAI JSON mode;
-      // recent Claude models also reject temperature/top_p controls.
+    } else if (String(model).startsWith('gpt-')) {
+      // Reasoning and visible JSON share the completion budget on GPT routes.
+      adapted.max_completion_tokens ??= Math.max(4096, (Number(adapted.max_tokens) || 0) + 2048);
+      delete adapted.max_tokens;
       delete adapted.temperature;
       delete adapted.top_p;
-    } else {
+      adapted.reasoning_effort = 'low';
+      adapted.response_format = { type: 'json_object' };
+    } else if (model === DEEPSEEK_MODEL) {
       adapted.response_format = { type: 'json_object' };
       adapted.temperature ??= 0;
       adapted.top_p ??= 0.1;
+    } else {
+      // Other vision routes use the JSON prompt without provider-specific
+      // sampling or structured-output parameters.
+      delete adapted.temperature;
+      delete adapted.top_p;
     }
     return adapted;
   }
@@ -386,7 +401,7 @@
     const descriptions = {
       auto: `Profil aktif: ${profile.label}, maksimal ${profile.maxPagesPerRequest} halaman × ${profile.maxConcurrency} jalur. Pilih mode ini hanya bila ingin sistem membatasi proses berdasarkan kualitas koneksi.`,
       unstable: 'Hemat data aktif: maksimal 4 halaman × 1 jalur, gambar diperkecil, dan retry otomatis diprioritaskan.',
-      normal: 'Gambar 1150 px disiapkan maksimal 2 bersamaan dan dikirim langsung. Profil Gemini memakai maksimal 15 halaman × 3 jalur; DeepSeek dan Claude maksimal 15 halaman × 5 jalur.',
+      normal: 'Gambar 1150 px disiapkan maksimal 2 bersamaan dan dikirim langsung. Profil Gemini memakai maksimal 15 halaman × 3 jalur; model lain maksimal 15 halaman × 5 jalur.',
     };
     hint.textContent = `${descriptions[mode] || descriptions.auto}${connectionNote}`;
   }
@@ -2487,7 +2502,7 @@ ${clipped}`
       // The answer exists only in the image. A text-only model cannot pass by
       // copying the expected code from the prompt or a rows response schema.
       delete body.response_format;
-      delete body.reasoning_effort;
+      if (!String(config.model).startsWith('gpt-')) delete body.reasoning_effort;
       const payload = await callCosmos(config, body);
       const text = extractTextFromResponse(payload, 'openai').trim().slice(0, 120);
       if (!verifyOcrProbe(text, probe.code)) {

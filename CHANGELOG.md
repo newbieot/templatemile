@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.58 — Pilihan manual model vision
+
+- Menambah 26 model yang mendukung input gambar berdasarkan dokumentasi resmi: Claude tambahan, GPT, GLM Flash/FlashX/5V, Kimi, Qwen 3.8, MiniMax M3/M3.1, MiMo V2.6 Pro, dan Step 5 Preview. Katalog app, Beta, review, dan gateway berisi 31 model; audit sumber serta 14 alias yang tidak ditambahkan tersedia di `docs/vision-model-audit-20261028.md`.
+- GPT memakai parameter completion/reasoning yang sesuai. Model manual lain memakai prompt JSON tanpa parameter sampling/structured output khusus provider; gambar tetap diteruskan.
+- Fallback otomatis PDF/kamera tetap Gemini 3.8 Flash → DeepSeek V4.1 Flash dengan batas waktu 120/150 detik pada server. Katalog tambahan hanya melalui pilihan manual.
+- Versi aset diperbarui dan regresi memeriksa seluruh katalog, parameter, tes gambar, serta fallback dua model. Dukungan rute aktual dapat diperiksa menggunakan Tes layanan AI; uji lokal memakai respons provider simulasi.
+
 ## v26.57 — DeepSeek V4.1 Flash sebagai fallback otomatis
 
 - DeepSeek V4.1 Flash tersedia di pilihan model app, Beta, review kamera, serta allowlist browser/gateway.

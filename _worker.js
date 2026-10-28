@@ -1,4 +1,4 @@
-const APP_VERSION = '20261028-26.57-deepseek-restored';
+const APP_VERSION = '20261028-26.58-vision-catalog';
 const COSMOS_ENDPOINT = 'https://api.cosmoshub.tech/v1/chat/completions';
 const FIREBASE_LOGIN_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
 const FIREBASE_RESET_ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode';
@@ -28,7 +28,14 @@ const ANDROID_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
 const MAX_ANDROID_SESSION_BYTES = 4 * 1024;
 const DEFAULT_ALLOWED_EMAILS = ['ikhsan@posnew.com'];
 const ALLOWED_MODELS = new Set([
-  'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
+  'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5',
+  'claude-opus-4.8', 'claude-fable-5.1', 'claude-opus-5', 'claude-opus-5.5',
+  'claude-sonnet-5.5', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-sol',
+  'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+  'glm-5.3-flashx', 'glm-5.3-flash', 'glm-5v-turbo', 'kimi-k3.1-pro',
+  'kimi-k3', 'kimi-k2.7-code', 'kimi-k2.6', 'kimi-k2.5',
+  'qwen-3.8-max-0902', 'qwen-3.8-max', 'qwen-3.8-flash', 'minimax-m3.1-flash',
+  'minimax-m3', 'mimo-v2.6-pro', 'step-5-preview'
 ]);
 const PUBLIC_ASSETS = new Set([
   '/favicon.svg', '/favicon-32x32.png', '/apple-touch-icon.png',

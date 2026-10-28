@@ -246,7 +246,7 @@
               <div class="ai-security-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
                 <p>Cloudflare Pages Function menambahkan kredensial CosmosHub di server. Browser hanya mengirim isi permintaan AI dan tidak pernah menerima API key.</p>
-                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v26.57</span>
+                <span class="ai-server-build" aria-label="Versi aplikasi">Secure Gateway · v26.58</span>
               </div>
               <div class="form-grid form-grid--two ai-config-grid">
                 <div class="form-group">
@@ -259,12 +259,52 @@
                       <option value="deepseek-v4.1-flash">DeepSeek V4.1 Flash · Fallback otomatis</option>
                     </optgroup>
                     <optgroup label="Claude Vision">
-                      <option value="claude-haiku-5.5">Claude Haiku 5.5 · Pilihan manual</option>
-                      <option value="claude-sonnet-5">Claude Sonnet 5 · Pilihan manual</option>
-                      <option value="claude-opus-4.8">Claude Opus 4.8 · Pilihan manual</option>
+                      <option value="claude-haiku-5.5">Claude Haiku 5.5</option>
+                      <option value="claude-sonnet-5">Claude Sonnet 5</option>
+                      <option value="claude-opus-4.8">Claude Opus 4.8</option>
+                      <option value="claude-fable-5.1">Claude Fable 5.1</option>
+                      <option value="claude-opus-5">Claude Opus 5</option>
+                      <option value="claude-opus-5.5">Claude Opus 5.5</option>
+                      <option value="claude-sonnet-5.5">Claude Sonnet 5.5</option>
+                    </optgroup>
+                    <optgroup label="OpenAI Vision">
+                      <option value="gpt-6.1-sol">GPT 6.1 Sol</option>
+                      <option value="gpt-6-astra">GPT 6 Astra</option>
+                      <option value="gpt-6-sol">GPT 6 Sol</option>
+                      <option value="gpt-6-luna">GPT 6 Luna</option>
+                      <option value="gpt-5.6-sol">GPT 5.6 Sol</option>
+                      <option value="gpt-5.6-terra">GPT 5.6 Terra</option>
+                      <option value="gpt-5.6-luna">GPT 5.6 Luna</option>
+                    </optgroup>
+                    <optgroup label="GLM Vision">
+                      <option value="glm-5.3-flashx">GLM 5.3 FlashX</option>
+                      <option value="glm-5.3-flash">GLM 5.3 Flash</option>
+                      <option value="glm-5v-turbo">GLM 5V Turbo · Legacy</option>
+                    </optgroup>
+                    <optgroup label="Kimi Vision">
+                      <option value="kimi-k3.1-pro">Kimi K3.1 Pro</option>
+                      <option value="kimi-k3">Kimi K3</option>
+                      <option value="kimi-k2.7-code">Kimi K2.7 Code</option>
+                      <option value="kimi-k2.6">Kimi K2.6</option>
+                      <option value="kimi-k2.5">Kimi K2.5</option>
+                    </optgroup>
+                    <optgroup label="Qwen Vision">
+                      <option value="qwen-3.8-max-0902">Qwen 3.8 Max 0902</option>
+                      <option value="qwen-3.8-max">Qwen 3.8 Max</option>
+                      <option value="qwen-3.8-flash">Qwen 3.8 Flash</option>
+                    </optgroup>
+                    <optgroup label="MiniMax Vision">
+                      <option value="minimax-m3.1-flash">MiniMax M3.1 Flash</option>
+                      <option value="minimax-m3">MiniMax M3</option>
+                    </optgroup>
+                    <optgroup label="MiMo Vision">
+                      <option value="mimo-v2.6-pro">MiMo V2.6 Pro</option>
+                    </optgroup>
+                    <optgroup label="Step Vision">
+                      <option value="step-5-preview">Step 5 Preview</option>
                     </optgroup>
                   </select></div>
-                  <span class="field-hint">Default OCR: Gemini 3.8 Flash melalui jalur langsung tanpa R2; fallback otomatis DeepSeek V4.1 Flash. Batas server Gemini 120 detik dan DeepSeek/Claude 150 detik per permintaan.</span>
+                  <span class="field-hint">Default OCR: Gemini 3.8 Flash melalui jalur langsung tanpa R2; fallback otomatis DeepSeek V4.1 Flash. Batas server Gemini 120 detik dan model lain 150 detik per permintaan.</span>
                 </div>
                 <div class="form-group full-width">
                   <label for="aiAccuracyMode">Mode ekstraksi</label>
@@ -554,7 +594,7 @@
   <script src="/assets/js/postcode-zones.js?v=20261028-ocr-models-1" defer></script>
   <script src="/assets/js/postcode-national.js?v=20261028-postcode-zones-7" defer></script>
   <script src="/assets/js/app-core.js?v=20261028-postcode-zones-1" defer></script>
-  <script src="/assets/js/ai-pdf-beta-r2.js?v=20261028-deepseek-restore-1" defer></script>
+  <script src="/assets/js/ai-pdf-beta-r2.js?v=20261028-vision-catalog-1" defer></script>
   <script src="/assets/js/camera-store.js?v=20261006-camera-draft-expiry" defer></script>
   <script src="/assets/js/camera-sync.js?v=20261028-deepseek-restore-1" defer></script>
   <script src="/assets/js/ui.js?v=20261009-camera-update-1" defer></script>

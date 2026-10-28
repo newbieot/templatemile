@@ -3,17 +3,17 @@ setlocal
 cd /d "%~dp0"
 set "FAIL=0"
 
-echo Memeriksa mile.posnew.com Secure Gateway v26.57...
+echo Memeriksa mile.posnew.com Secure Gateway v26.58...
 echo.
 
-findstr /c:"20261028-26.57-deepseek-restored" "_worker.js" >nul && echo [OK] Gateway OCR v26.57 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
+findstr /c:"20261028-26.58-vision-catalog" "_worker.js" >nul && echo [OK] Gateway OCR v26.58 aktif || (echo [GAGAL] Worker bukan versi terbaru & set "FAIL=1")
 findstr /c:"const CAMERA_BATCH_SIZE = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera mengirim 7 gambar per permintaan || (echo [GAGAL] Ukuran request kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_AI_CONCURRENCY = 7" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Kamera memakai maksimal 7 request paralel || (echo [GAGAL] Concurrency kamera tidak sesuai & set "FAIL=1")
 findstr /c:"const AUDIT_AI_CONCURRENCY = 2" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Audit memakai maksimal 2 request paralel || (echo [GAGAL] Concurrency audit tidak sesuai & set "FAIL=1")
 findstr /c:"const CAMERA_DEFAULT_MODEL = GEMINI_38_MODEL" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Gemini 3.8 Flash menjadi default kamera || (echo [GAGAL] Default Gemini tidak ditemukan & set "FAIL=1")
 findstr /c:"CAMERA_FALLBACK_CHAIN = Object.freeze([GEMINI_38_MODEL, DEEPSEEK_MODEL])" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Fallback kamera Gemini 3.8 langsung ke DeepSeek aktif || (echo [GAGAL] Rantai fallback kamera tidak sesuai & set "FAIL=1")
 findstr /c:"v16.42 Secure Gateway" "index.html" >nul && echo [OK] Login v16.42 || (echo [GAGAL] Versi login tidak sesuai & set "FAIL=1")
-findstr /c:"v26.57" "app.html" >nul && echo [OK] Workspace v26.57 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
+findstr /c:"v26.58" "app.html" >nul && echo [OK] Workspace v26.58 || (echo [GAGAL] Versi workspace tidak sesuai & set "FAIL=1")
 findstr /r /c:"Gemini 3.8 Flash .* Default" "app.html" >nul && echo [OK] Gemini 3.8 Flash menjadi default || (echo [GAGAL] Default Gemini 3.8 Flash tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "assets\js\ai-pdf-beta-r2.js" >nul && echo [OK] Gemini 3.8 diizinkan browser || (echo [GAGAL] Allowlist Gemini 3.8 browser tidak ditemukan & set "FAIL=1")
 findstr /c:"gemini-3.8-flash" "_worker.js" >nul && echo [OK] Gemini 3.8 diizinkan gateway || (echo [GAGAL] Allowlist Gemini 3.8 gateway tidak ditemukan & set "FAIL=1")

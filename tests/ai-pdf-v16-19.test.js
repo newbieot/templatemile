@@ -73,7 +73,7 @@ assert.match(aiRuntimeSource, /Object\.freeze\(\[DEFAULT_MODEL, PRIMARY_FALLBACK
 assert.doesNotMatch(aiRuntimeSource, /AUTO_FALLBACK_MODEL = 'qwen/);
 assert.match(appHtmlSource, /<option value="gemini-3\.8-flash" selected>Gemini 3\.8 Flash · Default OCR<\/option>/);
 assert.match(appHtmlSource, /<option value="deepseek-v4\.1-flash">DeepSeek V4\.1 Flash · Fallback otomatis<\/option>/);
-assert.doesNotMatch(appHtmlSource, /value="(?:qwen|glm|gemini-3\.[1567])/);
+assert.doesNotMatch(appHtmlSource, /value="gemini-3\.[1567]/);
 sandbox.navigator.onLine = true;
 
 assert.equal(core.cleanRecipientName('FAHRUDIN 0028C20250400784'), 'FAHRUDIN');

@@ -33,7 +33,14 @@
   const COSMOS_BASE_URL = 'https://api.cosmoshub.tech/v1';
   const COSMOS_ENDPOINT = `${COSMOS_BASE_URL}/chat/completions`;
   const COSMOS_MODELS = new Set([
-    'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5', 'claude-opus-4.8'
+    'gemini-3.8-flash', 'deepseek-v4.1-flash', 'claude-haiku-5.5', 'claude-sonnet-5',
+    'claude-opus-4.8', 'claude-fable-5.1', 'claude-opus-5', 'claude-opus-5.5',
+    'claude-sonnet-5.5', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-sol',
+    'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+    'glm-5.3-flashx', 'glm-5.3-flash', 'glm-5v-turbo', 'kimi-k3.1-pro',
+    'kimi-k3', 'kimi-k2.7-code', 'kimi-k2.6', 'kimi-k2.5',
+    'qwen-3.8-max-0902', 'qwen-3.8-max', 'qwen-3.8-flash', 'minimax-m3.1-flash',
+    'minimax-m3', 'mimo-v2.6-pro', 'step-5-preview'
   ]);
   const DEFAULT_MODEL = 'gemini-3.8-flash';
   const GEMINI_38_MODEL = 'gemini-3.8-flash';
@@ -847,6 +854,28 @@ Aturan:
     return Math.max(1800, Math.min(5200, 1400 + Math.max(1, Number(pageCount) || 1) * 280));
   }
 
+  function adaptVisionBody(body, model) {
+    const adapted = { ...body, model };
+    delete adapted.reasoning_effort;
+    delete adapted.temperature;
+    delete adapted.top_p;
+    if (String(model).startsWith('gpt-')) {
+      adapted.max_completion_tokens ??= Math.max(4096, (Number(adapted.max_tokens) || 0) + 2048);
+      delete adapted.max_tokens;
+      adapted.reasoning_effort = 'low';
+      adapted.response_format = { type: 'json_object' };
+    } else if (model === GEMINI_38_MODEL || model === PRIMARY_FALLBACK_MODEL) {
+      adapted.response_format = { type: 'json_object' };
+      if (model === PRIMARY_FALLBACK_MODEL) {
+        adapted.temperature = 0;
+        adapted.top_p = 0.1;
+      }
+    } else {
+      delete adapted.response_format;
+    }
+    return adapted;
+  }
+
   function buildApiBody(config, prompt, sources, maxTokens = 5000) {
     const content = [{ type: 'text', text: prompt }];
     sources.forEach((source, index) => {
@@ -874,15 +903,7 @@ Aturan:
         { role: 'user', content }
       ]
     };
-    if (String(config.model).startsWith('claude-')) {
-      delete body.response_format;
-      return body;
-    }
-    if (config.model !== GEMINI_38_MODEL) {
-      body.temperature = 0;
-      body.top_p = 0.1;
-    }
-    return body;
+    return adaptVisionBody(body, config.model);
   }
 
   function buildJsonRepairBody(config, rawText, maxTokens = 2600) {
@@ -905,15 +926,7 @@ ${clipped}`
         }
       ]
     };
-    if (String(config.model).startsWith('claude-')) {
-      delete body.response_format;
-      return body;
-    }
-    if (config.model !== GEMINI_38_MODEL) {
-      body.temperature = 0;
-      body.top_p = 0.1;
-    }
-    return body;
+    return adaptVisionBody(body, config.model);
   }
 
   function conciseResponseError(text, status, transport) {
@@ -1090,13 +1103,7 @@ ${clipped}`
       ? runtimeFallbackModel
       : bodyModel;
     const requestConfig = requestModel === configuredModel ? config : { ...config, model: requestModel };
-    const requestBody = { ...body, model: requestModel };
-    if (requestModel.startsWith('claude-')) {
-      delete requestBody.response_format;
-      delete requestBody.reasoning_effort;
-      delete requestBody.temperature;
-      delete requestBody.top_p;
-    }
+    const requestBody = adaptVisionBody(body, requestModel);
     let lastError;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       if (cancelled) throw new DOMException('Proses dibatalkan pengguna.', 'AbortError');
